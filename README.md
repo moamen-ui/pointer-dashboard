@@ -1,59 +1,73 @@
-# AdminWeb
+# Pointer Dashboard
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.4.
+The admin dashboard for [Pointer](https://github.com/moamen-ui/poitner-api) — an element-level
+feedback tool. A standalone **Angular 22** SPA (Overview/stats, Roles, Users, Projects, signup
+approvals) built with Angular Material + Transloco, talking to the **Pointer API** over HTTP.
 
-## Development server
+> The backend lives in a **separate repo**: [`poitner-api`](https://github.com/moamen-ui/poitner-api).
+> This repo is frontend-only; it needs a running API to talk to.
 
-To start a local development server, run:
+| Environment | Dashboard | API |
+|---|---|---|
+| Production | https://app.pointer.moamen.work | https://api.pointer.moamen.work |
+| Local dev | http://localhost:4200 | http://localhost:8090 |
 
-```bash
-ng serve
-```
+## Prerequisites
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- **Node ≥ 22.22 + npm** — Angular CLI 22 requires it (`node --version`).
+- A running **Pointer API** (see the API repo: `just up` → API on `:8090`).
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Develop
 
 ```bash
-ng generate --help
+npm install
+npm start            # → http://localhost:4200 (proxies to apiBase, default http://localhost:8090)
 ```
 
-## Building
+Sign in with an admin account (the API seeds `admin@pointer.local` / `ChangeMe123!` by default).
+Only roles whose `GrantsAdmin` is true can enter.
 
-To build the project run:
+## Configuration
+
+The API base URL comes from Angular environment files:
+
+| File | Used by | `apiBase` |
+|---|---|---|
+| `src/environments/environment.ts` | dev (`npm start`) | `http://localhost:8090` |
+| `src/environments/environment.prod.ts` | prod build | `https://api.pointer.moamen.work` |
+
+`angular.json`'s `production` configuration swaps `environment.ts` → `environment.prod.ts` via
+`fileReplacements`, so **`npm run build` automatically uses the production API host** — no
+hand-editing. CORS is already open server-side. To target a different API, edit `apiBase` in the
+matching file.
+
+## Build
 
 ```bash
-ng build
+npm run build        # production build (default configuration) → dist/admin-web/browser/
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+The output is a static bundle deployable to any static host. In production it's served by Caddy at
+`app.pointer.moamen.work` with a SPA fallback to `index.html` (see the API repo's `DEPLOY.md`).
 
-## Running unit tests
+## Generated API layer (Orval)
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+The Angular services + models under `src/app/core/api/generated/` are **auto-generated from the
+API's Swagger spec via Orval** — **never edit them by hand**. After the backend changes endpoints
+or DTOs, regenerate (with the API running on `:8090`):
 
 ```bash
-ng test
+npm run generate-services
 ```
 
-## Running end-to-end tests
+Full workflow + conventions: [`docs/skills/orval-codegen/SKILL.md`](docs/skills/orval-codegen/SKILL.md).
 
-For end-to-end (e2e) testing, run:
+## Conventions
 
-```bash
-ng e2e
-```
+- All API responses are wrapped in `Result<T>`; the `apiInterceptor` unwraps `.data` and prepends
+  `apiBase` to `/api/*` URLs. Generated types are the **inner** type (e.g. `UserResponse`).
+- Frontend imports use the `@api/*` alias — never relative paths into `generated/`.
+- **Language + theme:** header toggles for AR/EN (Arabic flips to RTL) and light/dark; each user's
+  choice is saved server-side (`PATCH /api/me/preferences`) and restored on next login.
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+See [`CLAUDE.md`](CLAUDE.md) for the agent-facing version of these conventions.
