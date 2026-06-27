@@ -48,7 +48,29 @@ npm run build        # production build (default configuration) → dist/admin-w
 ```
 
 The output is a static bundle deployable to any static host. In production it's served by Caddy at
-`app.pointer.moamen.work` with a SPA fallback to `index.html` (see the API repo's `DEPLOY.md`).
+`app.pointer.moamen.work` with a SPA fallback to `index.html`.
+
+## Deploy
+
+Production serves this build as static files via Caddy on the VM (alongside the API). Full setup is
+in the API repo's [`DEPLOY.md`](https://github.com/moamen-ui/poitner-api/blob/main/DEPLOY.md).
+
+**Shipping a local change** (the VM has this repo checked out as a git clone):
+
+```bash
+# from this repo:
+git push origin main
+
+# on the VM:
+cd ~/pointer-dashboard
+git pull --ff-only
+docker run --rm -v "$PWD":/app -v /app/node_modules -w /app node:22 \
+  bash -lc "npm ci && npx ng build --configuration production"
+rm -rf ~/pointer-api/dashboard-dist && cp -r dist/admin-web/browser ~/pointer-api/dashboard-dist
+docker compose -f ~/pointer-api/docker-compose.prod.yml restart caddy
+```
+
+The `production` build bakes in `apiBase=https://api.pointer.moamen.work` via `fileReplacements`.
 
 ## Generated API layer (Orval)
 
