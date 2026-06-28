@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useStatusCatalog } from '@/lib/status-catalog';
 
 interface StatDef {
   key: string; // i18n key
@@ -43,6 +44,7 @@ const TONE: Record<StatDef['tone'], { box: string; value: string }> = {
 export function OverviewPage() {
   const { t } = useTranslation();
   const { data: stats, isFetching, refetch } = useGetApiAdminStats();
+  const catalog = useStatusCatalog();
 
   const totals = stats?.totals;
   const projects = stats?.projects ?? [];
@@ -108,10 +110,11 @@ export function OverviewPage() {
                 <TableHead>{t('overview.name')}</TableHead>
                 <TableHead>{t('overview.comments')}</TableHead>
                 <TableHead>{t('overview.private')}</TableHead>
-                <TableHead>{t('overview.open')}</TableHead>
-                <TableHead>{t('overview.pending')}</TableHead>
-                <TableHead>{t('overview.completed')}</TableHead>
-                <TableHead>{t('overview.archived')}</TableHead>
+                {catalog.items.map((s) => (
+                  <TableHead key={s.value} style={{ color: s.color ?? undefined }}>
+                    {s.label}
+                  </TableHead>
+                ))}
                 <TableHead>{t('overview.status')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -133,10 +136,19 @@ export function OverviewPage() {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="font-medium text-blue-600 dark:text-blue-300">{row.open}</TableCell>
-                  <TableCell className="font-medium text-amber-600 dark:text-amber-300">{row.pending}</TableCell>
-                  <TableCell className="font-medium text-green-600 dark:text-green-300">{row.completed}</TableCell>
-                  <TableCell className="font-medium text-slate-600 dark:text-slate-300">{row.archived}</TableCell>
+                  {/* Render per-status counts using catalog order */}
+                  {catalog.items.map((s) => {
+                    const count = getProjectStatusCount(row, s.value);
+                    return (
+                      <TableCell
+                        key={s.value}
+                        className="font-medium"
+                        style={{ color: count > 0 ? (s.color ?? undefined) : undefined }}
+                      >
+                        {count}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell>
                     <span className={cn('chip', row.isActive ? 'chip-active' : 'chip-disabled')}>
                       {t(row.isActive ? 'common.active' : 'common.disabled')}
@@ -146,7 +158,7 @@ export function OverviewPage() {
               ))}
               {projects.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={5 + catalog.items.length} className="py-10 text-center text-muted-foreground">
                     {t('overview.noPending')}
                   </TableCell>
                 </TableRow>
@@ -157,4 +169,15 @@ export function OverviewPage() {
       </div>
     </div>
   );
+}
+
+/** Map a catalog status value to the matching field on a ProjectStats row. */
+function getProjectStatusCount(row: ProjectStats, value: number | undefined): number {
+  switch (value) {
+    case 1: return row.open ?? 0;
+    case 2: return row.pending ?? 0;
+    case 3: return row.completed ?? 0;
+    case 4: return row.archived ?? 0;
+    default: return 0;
+  }
 }
