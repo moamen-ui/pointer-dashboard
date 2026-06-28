@@ -17,6 +17,7 @@ import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { StatusCatalogService } from '../../core/status/status-catalog.service';
 import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
@@ -67,30 +68,20 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
             </div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-blue-bg text-stat-blue"><mat-icon>radio_button_unchecked</mat-icon></div>
-            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-blue">{{ s.totals?.open }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.open' | transloco }}</div></div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-amber-bg text-stat-amber"><mat-icon>schedule</mat-icon></div>
-            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-amber">{{ s.totals?.pending }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.pending' | transloco }}</div></div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-green-bg text-stat-green"><mat-icon>check_circle</mat-icon></div>
-            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-green">{{ s.totals?.completed }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.completed' | transloco }}</div></div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>archive</mat-icon></div>
-            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-slate">{{ s.totals?.archived }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.archived' | transloco }}</div></div>
-          </mat-card-content>
-        </mat-card>
+        <!-- Status summary cards driven by catalog -->
+        @for (st of statusCatalog.ordered(); track st.value) {
+          <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+            <mat-card-content class="flex items-center gap-3.5 p-4">
+              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" [style.background-color]="st.color + '22'" [style.color]="st.color">
+                <mat-icon>radio_button_unchecked</mat-icon>
+              </div>
+              <div class="flex flex-col">
+                <div class="text-[1.7rem] font-bold leading-[1.1]" [style.color]="st.color">{{ statusTotal(s, st.value) }}</div>
+                <div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ st.label }}</div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        }
       </div>
 
       <mat-card class="mb-8 rounded-[14px] bg-panel text-ink" appearance="outlined">
@@ -183,22 +174,13 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
               }
             </td>
           </ng-container>
-          <ng-container matColumnDef="open">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.open' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="font-medium text-stat-blue">{{ row.open }}</td>
-          </ng-container>
-          <ng-container matColumnDef="pending">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.pending' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="font-medium text-stat-amber">{{ row.pending }}</td>
-          </ng-container>
-          <ng-container matColumnDef="completed">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.completed' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="font-medium text-stat-green">{{ row.completed }}</td>
-          </ng-container>
-          <ng-container matColumnDef="archived">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.archived' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="font-medium text-stat-slate">{{ row.archived }}</td>
-          </ng-container>
+          <!-- Status columns driven by catalog -->
+          @for (st of statusCatalog.ordered(); track st.value) {
+            <ng-container [matColumnDef]="'status_' + st.value">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header [style.color]="st.color">{{ st.label }}</th>
+              <td mat-cell *matCellDef="let row" [style.color]="st.color" class="font-medium">{{ statusCellValue(row, st.value) }}</td>
+            </ng-container>
+          }
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.status' | transloco }}</th>
             <td mat-cell *matCellDef="let row">
@@ -223,6 +205,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
 export class OverviewComponent {
   private usersService = inject(UsersService);
   private snack = inject(MatSnackBar);
+  statusCatalog = inject(StatusCatalogService);
 
   statsResource = getApiAdminStatsResource();
   pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
@@ -238,7 +221,12 @@ export class OverviewComponent {
 
   approveSelection: Record<number, number> = {};
   tableDataSource = new MatTableDataSource<ProjectStats>([]);
-  displayedColumns = ['key', 'name', 'comments', 'privateComments', 'open', 'pending', 'completed', 'archived', 'status'];
+
+  /** Dynamic columns: key, name, comments, privateComments, status_1..N, status */
+  get displayedColumns(): string[] {
+    const statusCols = this.statusCatalog.ordered().map((s) => `status_${s.value}`);
+    return ['key', 'name', 'comments', 'privateComments', ...statusCols, 'status'];
+  }
 
   readonly sort = viewChild(MatSort);
 
@@ -249,11 +237,32 @@ export class OverviewComponent {
         this.tableDataSource.data = stats.projects;
       }
     });
-    // Wire the sort header to the data source once it's in the view.
     effect(() => {
       const sort = this.sort();
       if (sort) this.tableDataSource.sort = sort;
     });
+  }
+
+  /** Map status value → count field on ProjectStats. */
+  statusCellValue(row: ProjectStats, statusValue: number | undefined): number {
+    switch (statusValue) {
+      case 1: return row.open ?? 0;
+      case 2: return row.pending ?? 0;
+      case 3: return row.completed ?? 0;
+      case 4: return row.archived ?? 0;
+      default: return 0;
+    }
+  }
+
+  /** Map status value → total from StatsResponse totals. */
+  statusTotal(stats: NonNullable<ReturnType<typeof this.stats>>, statusValue: number | undefined): number {
+    switch (statusValue) {
+      case 1: return stats.totals?.open ?? 0;
+      case 2: return stats.totals?.pending ?? 0;
+      case 3: return stats.totals?.completed ?? 0;
+      case 4: return stats.totals?.archived ?? 0;
+      default: return 0;
+    }
   }
 
   activeRoles(): RoleResponse[] { return this.roles().filter(r => r.isActive); }
