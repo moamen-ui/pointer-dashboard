@@ -11,16 +11,16 @@ import { extractMessage } from '@/lib/error';
 export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login, logout, isAuthenticated, isAdmin } = useAuth();
+  const { login, isAuthenticated, isAdmin } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Already an admin? bounce to overview.
-  if (isAuthenticated && isAdmin) {
-    navigate('/overview', { replace: true });
+  // Already authenticated? Bounce to the appropriate landing page.
+  if (isAuthenticated) {
+    navigate(isAdmin ? '/overview' : '/profile', { replace: true });
   }
 
   async function onSubmit(e: FormEvent) {
@@ -30,12 +30,12 @@ export function LoginPage() {
     setError(null);
     try {
       const user = await login(email, password);
-      if (!user?.isAdmin) {
-        setError(t('login.notAdmin'));
-        logout();
-        return;
+      // Role-based redirect: admin → overview, non-admin → profile.
+      if (user?.isAdmin) {
+        navigate('/overview', { replace: true });
+      } else {
+        navigate('/profile', { replace: true });
       }
-      navigate('/overview', { replace: true });
     } catch (err) {
       setError(extractMessage(err) || t('login.failed'));
     } finally {

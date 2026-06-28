@@ -18,7 +18,8 @@
     "overview": "Overview",
     "roles": "Roles",
     "users": "Users",
-    "projects": "Projects"
+    "projects": "Projects",
+    "myProfile": "My Profile"
   },
   "header": {
     "brand": "Pointer Admin",

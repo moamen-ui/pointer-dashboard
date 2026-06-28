@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 
-const NAV = [
+const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
@@ -26,7 +26,7 @@ const NAV = [
 export function Shell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
 
   function signOut() {
@@ -65,21 +65,37 @@ export function Shell() {
       <div className="flex flex-1 overflow-hidden bg-app">
         <aside className="w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2">
           <nav className="flex flex-col gap-0.5 px-2.5">
-            {NAV.map(({ to, key, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
-                    isActive && 'bg-brand-tint font-semibold text-brand',
-                  )
-                }
-              >
-                <Icon className="h-5 w-5" />
-                <span>{t(key)}</span>
-              </NavLink>
-            ))}
+            {/* Admin-only nav items */}
+            {isAdmin &&
+              ADMIN_NAV.map(({ to, key, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+                      isActive && 'bg-brand-tint font-semibold text-brand',
+                    )
+                  }
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{t(key)}</span>
+                </NavLink>
+              ))}
+
+            {/* My Profile – visible to all authenticated users */}
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+                  isActive && 'bg-brand-tint font-semibold text-brand',
+                )
+              }
+            >
+              <CircleUserRound className="h-5 w-5" />
+              <span>{t('nav.myProfile')}</span>
+            </NavLink>
           </nav>
         </aside>
 
