@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import { useQueryClient } from '@tanstack/vue-query';
 import {
   useGetApiAdminUsers,
@@ -44,11 +45,11 @@ import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
-import { RouterLink } from 'vue-router';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
 const { t } = useI18n();
+const router = useRouter();
 
 const filter = ref<FilterStatus>('Approved');
 const busy = ref(false);
@@ -342,15 +343,15 @@ function formatDate(value: unknown): string {
                   </Button>
                 </template>
                 <!-- View profile link — always shown for approved users -->
-                <RouterLink
+                <Button
                   v-if="filter === 'Approved'"
-                  :to="`/users/${user.id}/profile`"
+                  variant="outline"
+                  size="sm"
+                  @click="router.push(`/users/${user.id}/profile`)"
                 >
-                  <Button variant="outline" size="sm">
-                    <UserRound class="h-4 w-4" />
-                    {{ t('profile.viewProfile') }}
-                  </Button>
-                </RouterLink>
+                  <UserRound class="h-4 w-4" />
+                  {{ t('profile.viewProfile') }}
+                </Button>
               </div>
             </TableCell>
           </TableRow>

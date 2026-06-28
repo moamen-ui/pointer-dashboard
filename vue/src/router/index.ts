@@ -25,6 +25,7 @@ export const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         // Role-aware index: no redirect chain — resolved in the guard below.
+        // NOTE: requiresAuth is inherited from the shell parent via vue-router meta-merge; do NOT add requiresAdmin here — that would break non-admin access.
         { path: '', name: 'index', component: { template: '<div/>' } },
         // Admin-only children.
         { path: 'overview', name: 'overview', component: OverviewPage, meta: { requiresAdmin: true } },

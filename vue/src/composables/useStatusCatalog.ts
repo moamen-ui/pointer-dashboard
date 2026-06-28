@@ -14,12 +14,12 @@ export const STATUS_FALLBACK: StatusItem[] = [
 ];
 
 export function useStatusCatalog() {
-  const { data, isError } = useGetApiStatuses();
+  const { data } = useGetApiStatuses();
 
   // Use server data when it returns items; fall back otherwise.
   const items = computed<StatusItem[]>(() => {
     const raw = data.value;
-    if (!raw || raw.length === 0 || isError.value) return STATUS_FALLBACK;
+    if (!raw || raw.length === 0) return STATUS_FALLBACK;
     return [...raw].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   });
 

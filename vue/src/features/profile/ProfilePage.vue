@@ -154,7 +154,7 @@ function statusBuckets(row: ProfileProject | ProfileEnvironment): StatusBucket[]
 
         <!-- Status split: one card per non-zero bucket -->
         <Card
-          v-for="bucket in statusBuckets(totals ?? {})"
+          v-for="bucket in (totals ? statusBuckets(totals) : [])"
           :key="bucket.value"
         >
           <CardContent class="flex items-center gap-3 p-4">
