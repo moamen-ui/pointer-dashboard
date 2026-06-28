@@ -1,6 +1,7 @@
 import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -27,6 +28,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
   imports: [
     ReactiveFormsModule,
     DatePipe,
+    RouterLink,
     MatTableModule,
     MatButtonModule,
     MatButtonToggleModule,
@@ -115,11 +117,17 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
             <th mat-header-cell *matHeaderCellDef>{{ 'users.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let user">
               @if (filter() === 'Approved') {
-                <button mat-stroked-button [color]="user.isActive ? 'warn' : 'primary'"
-                  (click)="toggleActive(user)" [disabled]="loading()">
-                  <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                  {{ user.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
-                </button>
+                <div class="flex items-center gap-2">
+                  <button mat-stroked-button [color]="user.isActive ? 'warn' : 'primary'"
+                    (click)="toggleActive(user)" [disabled]="loading()">
+                    <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    {{ user.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+                  </button>
+                  <a mat-stroked-button [routerLink]="['/users', user.id, 'profile']">
+                    <mat-icon>person</mat-icon>
+                    {{ 'profile.viewProfile' | transloco }}
+                  </a>
+                </div>
               } @else {
                 <div class="flex items-center gap-2">
                   <button mat-flat-button color="primary" [matMenuTriggerFor]="approveMenu"
