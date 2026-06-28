@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useQuery } from '@tanstack/vue-query';
+import { useQueryClient } from '@tanstack/vue-query';
 import {
-  getApiAdminUsers,
-  getApiAdminRoles,
-  postApiAdminUsers,
-  patchApiAdminUsersId,
-  postApiAdminUsersIdApprove,
-  postApiAdminUsersIdReject,
+  useGetApiAdminUsers,
+  useGetApiAdminRoles,
+  usePostApiAdminUsers,
+  usePatchApiAdminUsersId,
+  usePostApiAdminUsersIdApprove,
+  usePostApiAdminUsersIdReject,
+  getGetApiAdminUsersQueryKey,
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
@@ -51,26 +52,25 @@ const { t } = useI18n();
 const filter = ref<FilterStatus>('Approved');
 const busy = ref(false);
 
-// Main users query — re-fetches whenever the filter changes (reactive key).
-const usersQuery = useQuery<UserResponse[]>({
-  queryKey: ['admin', 'users', filter],
-  queryFn: ({ signal }) =>
-    getApiAdminUsers({ status: filter.value.toLowerCase() || undefined }, signal),
-});
+const queryClient = useQueryClient();
+
+// Main users query — driven by a reactive param so it re-fetches (and re-keys)
+// whenever the filter changes.
+const usersParams = computed(() => ({ status: filter.value.toLowerCase() || undefined }));
+const usersQuery = useGetApiAdminUsers(usersParams);
 // Separate query for the Pending badge count.
-const pendingQuery = useQuery<UserResponse[]>({
-  queryKey: ['admin', 'users', 'pending-count'],
-  queryFn: ({ signal }) => getApiAdminUsers({ status: 'pending' }, signal),
-});
-const rolesQuery = useQuery<RoleResponse[]>({
-  queryKey: ['admin', 'roles'],
-  queryFn: ({ signal }) => getApiAdminRoles(signal),
-});
+const pendingQuery = useGetApiAdminUsers({ status: 'pending' });
+const rolesQuery = useGetApiAdminRoles();
 
 const users = computed<UserResponse[]>(() => usersQuery.data.value ?? []);
 const roles = computed<RoleResponse[]>(() => rolesQuery.data.value ?? []);
 const pendingCount = computed(() => pendingQuery.data.value?.length ?? 0);
 const loading = computed(() => usersQuery.isLoading.value || busy.value);
+
+const createUser = usePostApiAdminUsers();
+const updateUser = usePatchApiAdminUsersId();
+const approveUser = usePostApiAdminUsersIdApprove();
+const rejectUser = usePostApiAdminUsersIdReject();
 
 const FILTERS: FilterStatus[] = ['Approved', 'Pending', 'Rejected'];
 
@@ -93,9 +93,10 @@ function fail(e: unknown) {
   busy.value = false;
   toast(extractMessage(e));
 }
+// The base ["api","admin","users"] key prefix-matches every users query
+// (filtered list + pending-count), so one invalidation refreshes both.
 function reloadUsers() {
-  void usersQuery.refetch();
-  void pendingQuery.refetch();
+  void queryClient.invalidateQueries({ queryKey: getGetApiAdminUsersQueryKey() });
 }
 
 // ── Add user ──────────────────────────────────────────────────────────
@@ -123,7 +124,7 @@ async function addUser() {
   if (addInvalid.value) return;
   busy.value = true;
   try {
-    await postApiAdminUsers({ ...addForm });
+    await createUser.mutateAsync({ data: { ...addForm } });
     addOpen.value = false;
     busy.value = false;
     reloadUsers();
@@ -133,15 +134,21 @@ async function addUser() {
 }
 
 // ── Change role (approved view) ───────────────────────────────────────
+function reloadCurrentList() {
+  void queryClient.invalidateQueries({
+    queryKey: getGetApiAdminUsersQueryKey(usersParams.value),
+  });
+}
+
 async function changeRole(user: UserResponse, roleId: number) {
   busy.value = true;
   try {
-    await patchApiAdminUsersId(user.id!, { roleId });
+    await updateUser.mutateAsync({ id: user.id!, data: { roleId } });
     busy.value = false;
-    void usersQuery.refetch();
+    reloadCurrentList();
   } catch (e) {
     fail(e);
-    void usersQuery.refetch();
+    reloadCurrentList();
   }
 }
 
@@ -162,9 +169,9 @@ async function toggleActive(user: UserResponse) {
 async function patchActive(user: UserResponse, isActive: boolean) {
   busy.value = true;
   try {
-    await patchApiAdminUsersId(user.id!, { isActive });
+    await updateUser.mutateAsync({ id: user.id!, data: { isActive } });
     busy.value = false;
-    void usersQuery.refetch();
+    reloadCurrentList();
   } catch (e) {
     fail(e);
   }
@@ -183,7 +190,7 @@ async function approve(user: UserResponse) {
   const roleId = approveSelection[user.id!] ?? user.roleId;
   busy.value = true;
   try {
-    await postApiAdminUsersIdApprove(user.id!, { roleId });
+    await approveUser.mutateAsync({ id: user.id!, data: { roleId } });
     approveOpenFor.value = null;
     busy.value = false;
     reloadUsers();
@@ -202,7 +209,7 @@ async function reject(user: UserResponse) {
   if (!ok) return;
   busy.value = true;
   try {
-    await postApiAdminUsersIdReject(user.id!);
+    await rejectUser.mutateAsync({ id: user.id! });
     busy.value = false;
     reloadUsers();
   } catch (e) {

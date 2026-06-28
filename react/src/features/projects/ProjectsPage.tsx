@@ -2,11 +2,12 @@
 // list (key, name, status) + add project + enable/disable (disable confirmed).
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  getApiAdminProjects,
-  postApiAdminProjects,
-  patchApiAdminProjectsId,
+  useGetApiAdminProjects,
+  usePostApiAdminProjects,
+  usePatchApiAdminProjectsId,
+  getGetApiAdminProjectsQueryKey,
   type ProjectResponse,
 } from '@moamen-ui/pointer-react';
 import { Plus, Ban, CheckCircle2 } from 'lucide-react';
@@ -34,19 +35,15 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 
-const PROJECTS_KEY = ['admin', 'projects'];
-
 export function ProjectsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: projects = [] } = useQuery<ProjectResponse[]>({
-    queryKey: PROJECTS_KEY,
-    queryFn: ({ signal }) => getApiAdminProjects(signal),
-  });
+  const { data: projects = [] } = useGetApiAdminProjects();
 
-  const reload = () => qc.invalidateQueries({ queryKey: PROJECTS_KEY });
+  const reload = () =>
+    qc.invalidateQueries({ queryKey: getGetApiAdminProjectsQueryKey() });
   const onError = (e: unknown) => toast(extractMessage(e), 'error');
 
   // ---- Add project ----
@@ -54,15 +51,16 @@ export function ProjectsPage() {
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
 
-  const addMut = useMutation({
-    mutationFn: (body: { key: string; name: string }) => postApiAdminProjects(body),
-    onSuccess: () => {
-      setAddOpen(false);
-      setKey('');
-      setName('');
-      reload();
+  const addMut = usePostApiAdminProjects({
+    mutation: {
+      onSuccess: () => {
+        setAddOpen(false);
+        setKey('');
+        setName('');
+        reload();
+      },
+      onError,
     },
-    onError,
   });
 
   function openAdd() {
@@ -72,22 +70,22 @@ export function ProjectsPage() {
   }
   function addProject() {
     if (!key.trim() || !name.trim()) return;
-    addMut.mutate({ key: key.trim(), name: name.trim() });
+    addMut.mutate({ data: { key: key.trim(), name: name.trim() } });
   }
 
   // ---- Enable / disable ----
-  const patchMut = useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      patchApiAdminProjectsId(id, { isActive }),
-    onSuccess: () => reload(),
-    onError,
+  const patchMut = usePatchApiAdminProjectsId({
+    mutation: {
+      onSuccess: () => reload(),
+      onError,
+    },
   });
 
   const [confirmProject, setConfirmProject] = useState<ProjectResponse | null>(null);
 
   function toggleActive(project: ProjectResponse) {
     if (!project.isActive) {
-      patchMut.mutate({ id: project.id!, isActive: true });
+      patchMut.mutate({ id: project.id!, data: { isActive: true } });
       return;
     }
     setConfirmProject(project);
@@ -95,7 +93,7 @@ export function ProjectsPage() {
   function confirmDisable() {
     const p = confirmProject;
     setConfirmProject(null);
-    if (p) patchMut.mutate({ id: p.id!, isActive: false });
+    if (p) patchMut.mutate({ id: p.id!, data: { isActive: false } });
   }
 
   return (

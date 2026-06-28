@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useQuery } from '@tanstack/vue-query';
+import { useQueryClient } from '@tanstack/vue-query';
 import {
-  getApiAdminProjects,
-  postApiAdminProjects,
-  patchApiAdminProjectsId,
+  useGetApiAdminProjects,
+  usePostApiAdminProjects,
+  usePatchApiAdminProjectsId,
+  getGetApiAdminProjectsQueryKey,
   type ProjectResponse,
 } from '@moamen-ui/pointer-vue';
 import { Plus, Ban, CheckCircle2 } from 'lucide-vue-next';
@@ -35,20 +36,22 @@ import { toast } from '@/composables/useToast';
 
 const { t } = useI18n();
 
-const { data, refetch, isLoading } = useQuery<ProjectResponse[]>({
-  queryKey: ['admin', 'projects'],
-  queryFn: ({ signal }) => getApiAdminProjects(signal),
-});
+const queryClient = useQueryClient();
+
+const { data, isLoading } = useGetApiAdminProjects();
 const projects = computed<ProjectResponse[]>(() => data.value ?? []);
 const busy = ref(false);
 const loading = computed(() => isLoading.value || busy.value);
+
+const createProject = usePostApiAdminProjects();
+const updateProject = usePatchApiAdminProjectsId();
 
 function fail(e: unknown) {
   busy.value = false;
   toast(extractMessage(e));
 }
 function reload() {
-  void refetch();
+  void queryClient.invalidateQueries({ queryKey: getGetApiAdminProjectsQueryKey() });
 }
 
 // ── Add project ───────────────────────────────────────────────────────
@@ -66,7 +69,7 @@ async function addProject() {
   if (addInvalid.value) return;
   busy.value = true;
   try {
-    await postApiAdminProjects({ ...addForm });
+    await createProject.mutateAsync({ data: { ...addForm } });
     busy.value = false;
     addOpen.value = false;
     reload();
@@ -92,7 +95,7 @@ async function toggleActive(project: ProjectResponse) {
 async function patchActive(project: ProjectResponse, isActive: boolean) {
   busy.value = true;
   try {
-    await patchApiAdminProjectsId(project.id!, { isActive });
+    await updateProject.mutateAsync({ id: project.id!, data: { isActive } });
     busy.value = false;
     reload();
   } catch (e) {

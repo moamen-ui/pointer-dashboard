@@ -1,10 +1,10 @@
 // Auth state + login/logout. Vue port of react/src/lib/auth.tsx.
 //
-// NOTE on the client shape: in @moamen-ui/pointer-vue the GET endpoints are
-// generated as *mutations* and POST /api/auth/login is generated as a *query*
-// hook (usePostApiAuthLogin). Rather than fight those shapes, we call the plain
-// async functions the package also exports (postApiAuthLogin) directly and keep
-// auth state in this module-level reactive singleton (shared across the app).
+// The package exposes a usePostApiAuthLogin() mutation hook, but it can only be
+// instantiated inside a component's setup() (it relies on Vue Query's injected
+// QueryClient + lifecycle). Auth here is a module-level reactive singleton shared
+// across the whole app and `login` is plain async, so we call the package's plain
+// postApiAuthLogin function directly rather than bind a hook to one component.
 import { computed, ref } from 'vue';
 import { postApiAuthLogin, type MeResponse } from '@moamen-ui/pointer-vue';
 import { setAuthHeader } from '@/lib/api';

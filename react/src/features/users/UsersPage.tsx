@@ -4,14 +4,15 @@
 // change role inline for approved users.
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  getApiAdminUsers,
-  getApiAdminRoles,
-  postApiAdminUsers,
-  patchApiAdminUsersId,
-  postApiAdminUsersIdApprove,
-  postApiAdminUsersIdReject,
+  useGetApiAdminUsers,
+  useGetApiAdminRoles,
+  usePostApiAdminUsers,
+  usePatchApiAdminUsersId,
+  usePostApiAdminUsersIdApprove,
+  usePostApiAdminUsersIdReject,
+  getGetApiAdminUsersQueryKey,
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
@@ -56,30 +57,22 @@ export function UsersPage() {
 
   const [filter, setFilter] = useState<FilterStatus>('Approved');
 
-  const usersKey = useMemo(() => ['admin', 'users', filter], [filter]);
-
-  const { data: users = [], isFetching } = useQuery<UserResponse[]>({
-    queryKey: usersKey,
-    queryFn: ({ signal }) =>
-      getApiAdminUsers({ status: filter.toLowerCase() }, signal),
+  const { data: users = [], isFetching } = useGetApiAdminUsers({
+    status: filter.toLowerCase(),
   });
 
   // Separate count for the Pending badge regardless of the active filter.
-  const { data: pending = [] } = useQuery<UserResponse[]>({
-    queryKey: ['admin', 'users', 'pending-count'],
-    queryFn: ({ signal }) => getApiAdminUsers({ status: 'pending' }, signal),
-  });
+  const { data: pending = [] } = useGetApiAdminUsers({ status: 'pending' });
 
-  const { data: roles = [] } = useQuery<RoleResponse[]>({
-    queryKey: ['admin', 'roles'],
-    queryFn: ({ signal }) => getApiAdminRoles(signal),
-  });
+  const { data: roles = [] } = useGetApiAdminRoles();
 
   const activeRoles = useMemo(() => roles.filter((r) => r.isActive), [roles]);
   const pendingCount = pending.length;
 
+  // Invalidate every users list (any status filter) by matching the shared
+  // prefix the generated key helper produces without params.
   function reload() {
-    qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+    qc.invalidateQueries({ queryKey: getGetApiAdminUsersQueryKey() });
   }
   const onError = (e: unknown) => toast(extractMessage(e), 'error');
 
@@ -98,18 +91,14 @@ export function UsersPage() {
   const [password, setPassword] = useState('');
   const [roleId, setRoleId] = useState<number>(0);
 
-  const addMut = useMutation({
-    mutationFn: (body: {
-      email: string;
-      displayName: string;
-      password: string;
-      roleId: number;
-    }) => postApiAdminUsers(body),
-    onSuccess: () => {
-      setAddOpen(false);
-      reload();
+  const addMut = usePostApiAdminUsers({
+    mutation: {
+      onSuccess: () => {
+        setAddOpen(false);
+        reload();
+      },
+      onError,
     },
-    onError,
   });
 
   function openAdd() {
@@ -124,37 +113,34 @@ export function UsersPage() {
   function addUser() {
     if (addInvalid) return;
     addMut.mutate({
-      email: email.trim(),
-      displayName: displayName.trim(),
-      password,
-      roleId,
+      data: {
+        email: email.trim(),
+        displayName: displayName.trim(),
+        password,
+        roleId,
+      },
     });
   }
 
   // ---- Change role / enable-disable (patch) ----
-  const patchMut = useMutation({
-    mutationFn: ({
-      id,
-      body,
-    }: {
-      id: number;
-      body: { roleId?: number; isActive?: boolean };
-    }) => patchApiAdminUsersId(id, body),
-    onSuccess: () => reload(),
-    onError: (e: unknown) => {
-      onError(e);
-      reload();
+  const patchMut = usePatchApiAdminUsersId({
+    mutation: {
+      onSuccess: () => reload(),
+      onError: (e: unknown) => {
+        onError(e);
+        reload();
+      },
     },
   });
 
   function changeRole(user: UserResponse, newRoleId: number) {
-    patchMut.mutate({ id: user.id!, body: { roleId: newRoleId } });
+    patchMut.mutate({ id: user.id!, data: { roleId: newRoleId } });
   }
 
   const [confirmUser, setConfirmUser] = useState<UserResponse | null>(null);
   function toggleActive(user: UserResponse) {
     if (!user.isActive) {
-      patchMut.mutate({ id: user.id!, body: { isActive: true } });
+      patchMut.mutate({ id: user.id!, data: { isActive: true } });
       return;
     }
     setConfirmUser(user);
@@ -162,21 +148,21 @@ export function UsersPage() {
   function confirmDisable() {
     const u = confirmUser;
     setConfirmUser(null);
-    if (u) patchMut.mutate({ id: u.id!, body: { isActive: false } });
+    if (u) patchMut.mutate({ id: u.id!, data: { isActive: false } });
   }
 
   // ---- Approve ----
   const [approveUserState, setApproveUserState] = useState<UserResponse | null>(null);
   const [approveRoleId, setApproveRoleId] = useState<number>(0);
 
-  const approveMut = useMutation({
-    mutationFn: ({ id, roleId: rid }: { id: number; roleId: number }) =>
-      postApiAdminUsersIdApprove(id, { roleId: rid }),
-    onSuccess: () => {
-      setApproveUserState(null);
-      reload();
+  const approveMut = usePostApiAdminUsersIdApprove({
+    mutation: {
+      onSuccess: () => {
+        setApproveUserState(null);
+        reload();
+      },
+      onError,
     },
-    onError,
   });
 
   function openApprove(user: UserResponse) {
@@ -185,21 +171,22 @@ export function UsersPage() {
   }
   function approve() {
     if (!approveUserState || approveRoleId < 1) return;
-    approveMut.mutate({ id: approveUserState.id!, roleId: approveRoleId });
+    approveMut.mutate({ id: approveUserState.id!, data: { roleId: approveRoleId } });
   }
 
   // ---- Reject ----
   const [rejectUser, setRejectUser] = useState<UserResponse | null>(null);
-  const rejectMut = useMutation({
-    mutationFn: (id: number) => postApiAdminUsersIdReject(id),
-    onSuccess: () => {
-      setRejectUser(null);
-      reload();
+  const rejectMut = usePostApiAdminUsersIdReject({
+    mutation: {
+      onSuccess: () => {
+        setRejectUser(null);
+        reload();
+      },
+      onError,
     },
-    onError,
   });
   function confirmReject() {
-    if (rejectUser) rejectMut.mutate(rejectUser.id!);
+    if (rejectUser) rejectMut.mutate({ id: rejectUser.id! });
   }
 
   const isApproved = filter === 'Approved';

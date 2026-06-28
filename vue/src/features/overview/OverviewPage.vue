@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useQuery } from '@tanstack/vue-query';
 import {
-  getApiAdminStats,
-  type StatsResponse,
+  useGetApiAdminStats,
   type ProjectStats,
 } from '@moamen-ui/pointer-vue';
 import {
@@ -33,13 +31,9 @@ import { cn } from '@/lib/utils';
 
 const { t } = useI18n();
 
-// The client generates GET endpoints as mutations; we wrap the plain async
-// function in useQuery to get caching + loading/refetch ergonomics. The package's
-// customInstance already unwraps Result<T>, so this resolves to StatsResponse.
-const { data: stats, isFetching, refetch } = useQuery<StatsResponse>({
-  queryKey: ['admin', 'stats'],
-  queryFn: ({ signal }) => getApiAdminStats(signal),
-});
+// Generated TanStack query hook (GET → useQuery). The package's customInstance
+// already unwraps Result<T>, so data resolves to StatsResponse.
+const { data: stats, isFetching, refetch } = useGetApiAdminStats();
 
 const totals = computed(() => stats.value?.totals);
 const projects = computed<ProjectStats[]>(() => stats.value?.projects ?? []);

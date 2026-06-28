@@ -1,10 +1,8 @@
 // Auth state + login/logout. React port of angular AuthService.
 //
-// NOTE on the client shape: in @moamen-ui/pointer-react the GET endpoints are
-// generated as *mutations* and POST /api/auth/login is generated as a *query*
-// hook (usePostApiAuthLogin). Rather than fight those shapes, we call the plain
-// async functions the package also exports (postApiAuthLogin) directly and keep
-// auth state in this context.
+// Login uses the generated usePostApiAuthLogin mutation hook (mutateAsync) so
+// the one-off call goes through the same idiomatic client layer as the rest of
+// the app; auth state itself is kept here in this context.
 import {
   createContext,
   useCallback,
@@ -13,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { postApiAuthLogin, type MeResponse } from '@moamen-ui/pointer-react';
+import { usePostApiAuthLogin, type MeResponse } from '@moamen-ui/pointer-react';
 import { setAuthHeader } from './api';
 import {
   getItem,
@@ -47,16 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(() => readUser());
   const [token, setToken] = useState<string | null>(() => getItem(TOKEN_KEY));
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await postApiAuthLogin({ email, password });
-    const t = res.token ?? '';
-    setItem(TOKEN_KEY, t);
-    setItem(USER_KEY, JSON.stringify(res.user ?? null));
-    setAuthHeader(t);
-    setToken(t);
-    setUser(res.user ?? null);
-    return res.user as MeResponse;
-  }, []);
+  const { mutateAsync: loginAsync } = usePostApiAuthLogin();
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await loginAsync({ data: { email, password } });
+      const t = res.token ?? '';
+      setItem(TOKEN_KEY, t);
+      setItem(USER_KEY, JSON.stringify(res.user ?? null));
+      setAuthHeader(t);
+      setToken(t);
+      setUser(res.user ?? null);
+      return res.user as MeResponse;
+    },
+    [loginAsync],
+  );
 
   const logout = useCallback(() => {
     removeItem(TOKEN_KEY);

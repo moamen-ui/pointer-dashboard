@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useQuery } from '@tanstack/vue-query';
+import { useQueryClient } from '@tanstack/vue-query';
 import {
-  getApiAdminRoles,
-  postApiAdminRoles,
-  patchApiAdminRolesId,
-  deleteApiAdminRolesId,
+  useGetApiAdminRoles,
+  usePostApiAdminRoles,
+  usePatchApiAdminRolesId,
+  useDeleteApiAdminRolesId,
+  getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
 import { Plus, Pencil, Ban, CheckCircle2, Trash2 } from 'lucide-vue-next';
@@ -45,14 +46,17 @@ import { toast } from '@/composables/useToast';
 
 const { t } = useI18n();
 
-const { data, refetch } = useQuery<RoleResponse[]>({
-  queryKey: ['admin', 'roles'],
-  queryFn: ({ signal }) => getApiAdminRoles(signal),
-});
+const queryClient = useQueryClient();
+
+const { data } = useGetApiAdminRoles();
 const roles = computed<RoleResponse[]>(() => data.value ?? []);
 
+const createRole = usePostApiAdminRoles();
+const updateRole = usePatchApiAdminRolesId();
+const removeRole = useDeleteApiAdminRolesId();
+
 function reload() {
-  void refetch();
+  void queryClient.invalidateQueries({ queryKey: getGetApiAdminRolesQueryKey() });
 }
 function fail(e: unknown) {
   toast(extractMessage(e));
@@ -73,7 +77,7 @@ async function addRole() {
   const name = newName.value.trim();
   if (!name) return;
   try {
-    await postApiAdminRoles({ name, grantsAdmin: newGrantsAdmin.value });
+    await createRole.mutateAsync({ data: { name, grantsAdmin: newGrantsAdmin.value } });
     addOpen.value = false;
     reload();
   } catch (e) {
@@ -84,7 +88,7 @@ async function addRole() {
 // ── Grants admin toggle ───────────────────────────────────────────────
 async function toggleGrantsAdmin(role: RoleResponse, grantsAdmin: boolean) {
   try {
-    await patchApiAdminRolesId(role.id!, { grantsAdmin });
+    await updateRole.mutateAsync({ id: role.id!, data: { grantsAdmin } });
     reload();
   } catch (e) {
     fail(e);
@@ -110,7 +114,7 @@ async function saveRename() {
     return;
   }
   try {
-    await patchApiAdminRolesId(role.id!, { name });
+    await updateRole.mutateAsync({ id: role.id!, data: { name } });
     renameOpen.value = false;
     reload();
   } catch (e) {
@@ -134,7 +138,7 @@ async function toggleActive(role: RoleResponse) {
 
 async function patchActive(role: RoleResponse, isActive: boolean) {
   try {
-    await patchApiAdminRolesId(role.id!, { isActive });
+    await updateRole.mutateAsync({ id: role.id!, data: { isActive } });
     reload();
   } catch (e) {
     fail(e);
@@ -168,7 +172,7 @@ async function deleteRole() {
     ? { reassignToRoleId: reassignTargetId.value }
     : undefined;
   try {
-    const res = await deleteApiAdminRolesId(role.id!, params);
+    const res = await removeRole.mutateAsync({ id: role.id!, params });
     deleteOpen.value = false;
     const moved = res?.reassignedUsers ?? 0;
     toast(t('roles.deleted') + (moved ? ` (${moved})` : ''));

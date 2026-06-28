@@ -1,8 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import {
-  getApiAdminStats,
-  type StatsResponse,
+  useGetApiAdminStats,
   type ProjectStats,
 } from '@moamen-ui/pointer-react';
 import {
@@ -28,16 +26,6 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-// The client generates GET endpoints as mutations; we wrap the plain async
-// function in useQuery to get caching + loading/refetch ergonomics. The package's
-// customInstance already unwraps Result<T>, so this resolves to StatsResponse.
-function useAdminStats() {
-  return useQuery<StatsResponse>({
-    queryKey: ['admin', 'stats'],
-    queryFn: ({ signal }) => getApiAdminStats(signal),
-  });
-}
-
 interface StatDef {
   key: string; // i18n key
   value: number | undefined;
@@ -54,7 +42,7 @@ const TONE: Record<StatDef['tone'], { box: string; value: string }> = {
 
 export function OverviewPage() {
   const { t } = useTranslation();
-  const { data: stats, isFetching, refetch } = useAdminStats();
+  const { data: stats, isFetching, refetch } = useGetApiAdminStats();
 
   const totals = stats?.totals;
   const projects = stats?.projects ?? [];

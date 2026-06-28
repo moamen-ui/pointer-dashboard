@@ -2,17 +2,15 @@
 // list (name, grants-admin, status) + create/rename/enable-disable + delete
 // with delegation (reassign users to another active, non-system role).
 //
-// The client generates GET endpoints as mutations; following the overview page
-// we wrap the plain async functions in TanStack Query (useQuery for the list,
-// invalidate/refetch after each mutation).
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  getApiAdminRoles,
-  postApiAdminRoles,
-  patchApiAdminRolesId,
-  deleteApiAdminRolesId,
+  useGetApiAdminRoles,
+  usePostApiAdminRoles,
+  usePatchApiAdminRolesId,
+  useDeleteApiAdminRolesId,
+  getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
 import { Plus, Pencil, Ban, CheckCircle2, Trash2 } from 'lucide-react';
@@ -47,19 +45,15 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 
-const ROLES_KEY = ['admin', 'roles'];
-
 export function RolesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: roles = [] } = useQuery<RoleResponse[]>({
-    queryKey: ROLES_KEY,
-    queryFn: ({ signal }) => getApiAdminRoles(signal),
-  });
+  const { data: roles = [] } = useGetApiAdminRoles();
 
-  const reload = () => qc.invalidateQueries({ queryKey: ROLES_KEY });
+  const reload = () =>
+    qc.invalidateQueries({ queryKey: getGetApiAdminRolesQueryKey() });
   const onError = (e: unknown) => toast(extractMessage(e), 'error');
 
   // ---- Add role ----
@@ -67,16 +61,16 @@ export function RolesPage() {
   const [newName, setNewName] = useState('');
   const [newGrantsAdmin, setNewGrantsAdmin] = useState(false);
 
-  const addMut = useMutation({
-    mutationFn: (body: { name: string; grantsAdmin: boolean }) =>
-      postApiAdminRoles(body),
-    onSuccess: () => {
-      setAddOpen(false);
-      setNewName('');
-      setNewGrantsAdmin(false);
-      reload();
+  const addMut = usePostApiAdminRoles({
+    mutation: {
+      onSuccess: () => {
+        setAddOpen(false);
+        setNewName('');
+        setNewGrantsAdmin(false);
+        reload();
+      },
+      onError,
     },
-    onError,
   });
 
   function openAdd() {
@@ -87,24 +81,19 @@ export function RolesPage() {
   function addRole() {
     const name = newName.trim();
     if (!name) return;
-    addMut.mutate({ name, grantsAdmin: newGrantsAdmin });
+    addMut.mutate({ data: { name, grantsAdmin: newGrantsAdmin } });
   }
 
   // ---- Patch (grantsAdmin / rename / active) ----
-  const patchMut = useMutation({
-    mutationFn: ({
-      id,
-      body,
-    }: {
-      id: number;
-      body: { name?: string; grantsAdmin?: boolean; isActive?: boolean };
-    }) => patchApiAdminRolesId(id, body),
-    onSuccess: () => reload(),
-    onError,
+  const patchMut = usePatchApiAdminRolesId({
+    mutation: {
+      onSuccess: () => reload(),
+      onError,
+    },
   });
 
   function toggleGrantsAdmin(role: RoleResponse, grantsAdmin: boolean) {
-    patchMut.mutate({ id: role.id!, body: { grantsAdmin } });
+    patchMut.mutate({ id: role.id!, data: { grantsAdmin } });
   }
 
   // ---- Rename ----
@@ -125,7 +114,7 @@ export function RolesPage() {
       return;
     }
     patchMut.mutate(
-      { id: role.id!, body: { name } },
+      { id: role.id!, data: { name } },
       { onSuccess: () => { setRenameOpen(false); reload(); } },
     );
   }
@@ -135,7 +124,7 @@ export function RolesPage() {
 
   function toggleActive(role: RoleResponse) {
     if (!role.isActive) {
-      patchMut.mutate({ id: role.id!, body: { isActive: true } });
+      patchMut.mutate({ id: role.id!, data: { isActive: true } });
       return;
     }
     setConfirmRole(role);
@@ -143,7 +132,7 @@ export function RolesPage() {
   function confirmDisable() {
     const role = confirmRole;
     setConfirmRole(null);
-    if (role) patchMut.mutate({ id: role.id!, body: { isActive: false } });
+    if (role) patchMut.mutate({ id: role.id!, data: { isActive: false } });
   }
 
   // ---- Delete + delegate ----
@@ -160,21 +149,16 @@ export function RolesPage() {
     [roles, deletingRole],
   );
 
-  const deleteMut = useMutation({
-    mutationFn: ({ id, reassignToRoleId }: { id: number; reassignToRoleId: number | null }) =>
-      // reassignToRoleId is only sent when a target was picked; the API returns
-      // a 409 (surfaced via the toast) if it's required and missing.
-      deleteApiAdminRolesId(
-        id,
-        reassignToRoleId ? { reassignToRoleId } : undefined,
-      ),
-    onSuccess: (res) => {
-      setDeleteOpen(false);
-      const moved = res?.reassignedUsers ?? 0;
-      toast(t('roles.deleted') + (moved ? ` (${moved})` : ''));
-      reload();
+  const deleteMut = useDeleteApiAdminRolesId({
+    mutation: {
+      onSuccess: (res) => {
+        setDeleteOpen(false);
+        const moved = res?.reassignedUsers ?? 0;
+        toast(t('roles.deleted') + (moved ? ` (${moved})` : ''));
+        reload();
+      },
+      onError,
     },
-    onError,
   });
 
   function openDelete(role: RoleResponse) {
@@ -184,7 +168,12 @@ export function RolesPage() {
   }
   function deleteRole() {
     if (!deletingRole) return;
-    deleteMut.mutate({ id: deletingRole.id!, reassignToRoleId: reassignTargetId });
+    // reassignToRoleId is only sent when a target was picked; the API returns
+    // a 409 (surfaced via the toast) if it's required and missing.
+    deleteMut.mutate({
+      id: deletingRole.id!,
+      params: reassignTargetId ? { reassignToRoleId: reassignTargetId } : undefined,
+    });
   }
 
   return (
