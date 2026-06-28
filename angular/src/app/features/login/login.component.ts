@@ -6,7 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
 
@@ -33,6 +33,7 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   private snack = inject(MatSnackBar);
+  private transloco = inject(TranslocoService);
   loading = signal(false);
 
   constructor() {
@@ -56,7 +57,7 @@ export class LoginComponent {
       },
       error: (e: unknown) => {
         this.loading.set(false);
-        this.snack.open(extractMessage(e) || 'Login failed', 'OK', { duration: 4000 });
+        this.snack.open(extractMessage(e) || this.transloco.translate('login.failed'), 'OK', { duration: 4000 });
       },
     });
   }

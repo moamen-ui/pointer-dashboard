@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { TranslocoModule } from '@jsverse/transloco';
 import { getApiMeProfileResource, getApiAdminUsersIdProfileResource } from '@moamen-ui/pointer-angular';
+import { HttpResourceRef } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
 import type { ProfileProject, ProfileEnvironment, UserProfileResponse } from '@moamen-ui/pointer-angular';
@@ -115,14 +116,14 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
                     </span>
                     <!-- Expand/collapse -->
                     <button mat-icon-button (click)="toggleProject(proj.projectId!)"
-                      [attr.aria-label]="expandedProjects.has(proj.projectId!) ? 'Collapse' : 'Expand'">
-                      <mat-icon>{{ expandedProjects.has(proj.projectId!) ? 'expand_less' : 'expand_more' }}</mat-icon>
+                      [attr.aria-label]="expandedProjects().has(proj.projectId!) ? 'Collapse' : 'Expand'">
+                      <mat-icon>{{ expandedProjects().has(proj.projectId!) ? 'expand_less' : 'expand_more' }}</mat-icon>
                     </button>
                   </div>
                 </div>
 
                 <!-- Expanded environment breakdown -->
-                @if (expandedProjects.has(proj.projectId!)) {
+                @if (expandedProjects().has(proj.projectId!)) {
                   <div class="mt-3 border-t border-app-border pt-3">
                     <div class="mb-1.5 text-[0.78rem] uppercase tracking-[0.04em] text-muted">{{ 'profile.environment' | transloco }}</div>
                     @if ((proj.environments ?? []).length === 0) {
@@ -153,7 +154,7 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
           }
         </div>
       }
-    } @else if (!loading()) {
+    } @else if (hasError()) {
       <div class="p-12 text-center">
         <p class="text-muted">{{ 'profile.error' | transloco }}</p>
       </div>
@@ -165,42 +166,39 @@ export class ProfileComponent {
   private auth = inject(AuthService);
   statusCatalog = inject(StatusCatalogService);
 
-  /** The integer id from route param, if present and non-zero. */
-  private readonly routeId = computed<number | null>(() => {
-    const raw = this.route.snapshot.paramMap.get('id');
-    if (!raw) return null;
-    const n = parseInt(raw, 10);
-    return isNaN(n) ? null : n;
-  });
+  /** The active resource — either the admin endpoint or the /me endpoint, never both. */
+  private readonly activeResource: HttpResourceRef<UserProfileResponse | undefined>;
 
-  /** True when we should use the admin endpoint (has an id param AND is admin). */
-  private readonly useAdminEndpoint = computed(
-    () => this.routeId() !== null && this.auth.isAdmin()
-  );
+  /** Set of expanded project ids — signal so OnPush/zoneless change detection picks up mutations. */
+  expandedProjects = signal(new Set<number>());
 
-  /** Signal<number> required by the admin resource — only consulted when useAdminEndpoint is true. */
-  private readonly idSignal = computed<number>(() => this.routeId() ?? 0);
+  profile: () => UserProfileResponse | undefined;
+  loading: () => boolean;
+  hasError: () => boolean;
 
-  private readonly meResource = getApiMeProfileResource();
-  private readonly adminResource = getApiAdminUsersIdProfileResource(this.idSignal);
+  constructor() {
+    const rawId = this.route.snapshot.paramMap.get('id');
+    const numericId = rawId !== null ? parseInt(rawId, 10) : NaN;
 
-  profile = computed<UserProfileResponse | undefined>(() =>
-    this.useAdminEndpoint() ? this.adminResource.value() : this.meResource.value()
-  );
+    if (!isNaN(numericId) && this.auth.isAdmin()) {
+      // Admin viewing another user's profile — use admin endpoint only.
+      this.activeResource = getApiAdminUsersIdProfileResource(signal(numericId));
+    } else {
+      // Own profile (or non-admin) — use /me endpoint only.
+      this.activeResource = getApiMeProfileResource();
+    }
 
-  loading = computed(
-    () => this.useAdminEndpoint() ? this.adminResource.isLoading() : this.meResource.isLoading()
-  );
-
-  /** Set of expanded project ids (toggle on click). */
-  expandedProjects = new Set<number>();
+    this.profile = () => this.activeResource.value();
+    this.loading = () => this.activeResource.isLoading();
+    this.hasError = computed(() => this.activeResource.error() != null);
+  }
 
   toggleProject(projectId: number): void {
-    if (this.expandedProjects.has(projectId)) {
-      this.expandedProjects.delete(projectId);
-    } else {
-      this.expandedProjects.add(projectId);
-    }
+    this.expandedProjects.update(s => {
+      const n = new Set(s);
+      n.has(projectId) ? n.delete(projectId) : n.add(projectId);
+      return n;
+    });
   }
 
   /** Map status value → count on a ProfileTotals-shaped object. */
