@@ -11,12 +11,13 @@ import {
   Moon,
   LogOut,
   CircleUserRound,
+  UserRound,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
 import { usePreferences } from '@/composables/usePreferences';
 
-const NAV = [
+const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
@@ -25,7 +26,7 @@ const NAV = [
 
 const { t } = useI18n();
 const router = useRouter();
-const { user, logout } = useAuth();
+const { user, isAdmin, logout } = useAuth();
 const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
 
 function signOut() {
@@ -69,15 +70,27 @@ function signOut() {
     <div class="flex flex-1 overflow-hidden bg-app">
       <aside class="w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2">
         <nav class="flex flex-col gap-0.5 px-2.5">
+          <!-- Admin-only nav items -->
+          <template v-if="isAdmin">
+            <RouterLink
+              v-for="item in ADMIN_NAV"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              active-class="bg-brand-tint font-semibold !text-brand"
+            >
+              <component :is="item.icon" class="h-5 w-5" />
+              <span>{{ t(item.key) }}</span>
+            </RouterLink>
+          </template>
+          <!-- Always visible: My profile -->
           <RouterLink
-            v-for="item in NAV"
-            :key="item.to"
-            :to="item.to"
+            to="/profile"
             class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             active-class="bg-brand-tint font-semibold !text-brand"
           >
-            <component :is="item.icon" class="h-5 w-5" />
-            <span>{{ t(item.key) }}</span>
+            <UserRound class="h-5 w-5" />
+            <span>{{ t('nav.myProfile') }}</span>
           </RouterLink>
         </nav>
       </aside>

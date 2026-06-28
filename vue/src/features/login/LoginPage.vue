@@ -11,16 +11,16 @@ import { extractMessage } from '@/lib/error';
 
 const { t } = useI18n();
 const router = useRouter();
-const { login, logout, isAuthenticated, isAdmin } = useAuth();
+const { login, isAuthenticated, isAdmin } = useAuth();
 
 const email = ref('');
 const password = ref('');
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Already an admin? bounce to overview.
-if (isAuthenticated.value && isAdmin.value) {
-  void router.replace('/overview');
+// Already authenticated? go straight to the role-appropriate page.
+if (isAuthenticated.value) {
+  void router.replace(isAdmin.value ? '/overview' : '/profile');
 }
 
 async function onSubmit() {
@@ -29,12 +29,7 @@ async function onSubmit() {
   error.value = null;
   try {
     const user = await login(email.value, password.value);
-    if (!user?.isAdmin) {
-      error.value = t('login.notAdmin');
-      logout();
-      return;
-    }
-    await router.replace('/overview');
+    await router.replace(user?.isAdmin ? '/overview' : '/profile');
   } catch (err) {
     error.value = extractMessage(err) || t('login.failed');
   } finally {
