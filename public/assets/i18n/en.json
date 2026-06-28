@@ -11,7 +11,8 @@
     "enable": "Enable",
     "yes": "Yes",
     "no": "No",
-    "confirmDisable": "Disable {{ name }}?"
+    "confirmDisable": "Disable {{ name }}?",
+    "confirm": "Confirm"
   },
   "nav": {
     "overview": "Overview",

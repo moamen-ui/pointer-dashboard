@@ -13,6 +13,7 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import type { RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
@@ -76,21 +77,22 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
               @if (!role.isSystem) {
-                <button mat-stroked-button (click)="renameRole(role)" style="margin-inline-end:8px">
-                  <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
-                </button>
-                <button
-                  mat-stroked-button
-                  [color]="role.isActive ? 'warn' : 'primary'"
-                  (click)="toggleActive(role)"
-                  style="margin-inline-end:8px"
-                >
-                  <mat-icon>{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                  {{ role.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
-                </button>
-                <button mat-stroked-button color="warn" (click)="openDelete(role)">
-                  <mat-icon>delete</mat-icon> {{ 'roles.delete' | transloco }}
-                </button>
+                <div class="row-actions">
+                  <button mat-stroked-button (click)="renameRole(role)">
+                    <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
+                  </button>
+                  <button
+                    mat-stroked-button
+                    [color]="role.isActive ? 'warn' : 'primary'"
+                    (click)="toggleActive(role)"
+                  >
+                    <mat-icon>{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    {{ role.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+                  </button>
+                  <button mat-stroked-button color="warn" (click)="openDelete(role)">
+                    <mat-icon>delete</mat-icon> {{ 'roles.delete' | transloco }}
+                  </button>
+                </div>
               }
             </td>
           </ng-container>
@@ -153,6 +155,25 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
         </button>
       </mat-dialog-actions>
     </ng-template>
+
+    <!-- Rename role dialog -->
+    <ng-template #renameDialog>
+      <h2 mat-dialog-title>{{ 'common.rename' | transloco }}</h2>
+      <mat-dialog-content>
+        <div class="dialog-form">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'roles.name' | transloco }}</mat-label>
+            <input matInput [(ngModel)]="editName" (keydown.enter)="saveRename()" />
+          </mat-form-field>
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary" [disabled]="!editName.trim()" (click)="saveRename()">
+          {{ 'common.save' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
   `,
   styles: [`
     .roles-page { padding: 24px; }
@@ -162,6 +183,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     .system-chip { margin-inline-start: 8px; font-size: 10px; }
     .dialog-form { display: flex; flex-direction: column; gap: 16px; min-width: 320px; padding-top: 8px; }
     .muted { color: #64748b; font-size: 13px; margin: 0; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   `],
 })
 export class RolesComponent {
@@ -172,6 +194,7 @@ export class RolesComponent {
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly deleteDialog = viewChild.required<TemplateRef<unknown>>('deleteDialog');
+  readonly renameDialog = viewChild.required<TemplateRef<unknown>>('renameDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
   rolesResource = getApiAdminRolesResource();
@@ -181,6 +204,10 @@ export class RolesComponent {
 
   newName = '';
   newGrantsAdmin = false;
+
+  // Rename state.
+  editingRole = signal<RoleResponse | null>(null);
+  editName = '';
 
   // Delete + delegate state. deletingRole is a signal so targetRoles recomputes.
   deletingRole = signal<RoleResponse | null>(null);
@@ -218,17 +245,48 @@ export class RolesComponent {
   }
 
   renameRole(role: RoleResponse) {
-    const name = window.prompt('New name for role:', role.name ?? '');
-    if (!name || !name.trim() || name.trim() === role.name) return;
-    this.rolesService.patchApiAdminRolesId(role.id!, { name: name.trim() }).subscribe({
-      next: () => this.rolesResource.reload(),
+    this.editingRole.set(role);
+    this.editName = role.name ?? '';
+    this.dialogRef = this.dialog.open(this.renameDialog(), { width: '440px' });
+  }
+
+  saveRename() {
+    const role = this.editingRole();
+    const name = this.editName.trim();
+    if (!role || !name || name === role.name) {
+      this.dialogRef?.close();
+      return;
+    }
+    this.rolesService.patchApiAdminRolesId(role.id!, { name }).subscribe({
+      next: () => {
+        this.dialogRef?.close();
+        this.rolesResource.reload();
+      },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }
 
   toggleActive(role: RoleResponse) {
-    if (role.isActive && !confirm(this.transloco.translate('common.confirmDisable', { name: role.name }))) return;
-    this.rolesService.patchApiAdminRolesId(role.id!, { isActive: !role.isActive }).subscribe({
+    if (!role.isActive) {
+      this.patchActive(role, true);
+      return;
+    }
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('common.confirmDisable', { name: role.name }),
+          confirmLabel: this.transloco.translate('common.disable'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.patchActive(role, false);
+      });
+  }
+
+  private patchActive(role: RoleResponse, isActive: boolean) {
+    this.rolesService.patchApiAdminRolesId(role.id!, { isActive }).subscribe({
       next: () => this.rolesResource.reload(),
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });

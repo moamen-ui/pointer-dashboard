@@ -11,7 +11,8 @@
     "enable": "تفعيل",
     "yes": "نعم",
     "no": "لا",
-    "confirmDisable": "تعطيل {{ name }}؟"
+    "confirmDisable": "تعطيل {{ name }}؟",
+    "confirm": "تأكيد"
   },
   "nav": {
     "overview": "نظرة عامة",

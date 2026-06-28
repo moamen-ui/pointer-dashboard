@@ -11,6 +11,7 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ProjectsService, getApiAdminProjectsResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import type { ProjectResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
@@ -150,9 +151,27 @@ export class ProjectsComponent {
   }
 
   toggleActive(project: ProjectResponse) {
-    if (project.isActive && !confirm(this.transloco.translate('common.confirmDisable', { name: project.key }))) return;
+    if (!project.isActive) {
+      this.patchActive(project, true);
+      return;
+    }
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('common.confirmDisable', { name: project.key }),
+          confirmLabel: this.transloco.translate('common.disable'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.patchActive(project, false);
+      });
+  }
+
+  private patchActive(project: ProjectResponse, isActive: boolean) {
     this.busy.set(true);
-    this.projectsService.patchApiAdminProjectsId(project.id!, { isActive: !project.isActive }).subscribe({
+    this.projectsService.patchApiAdminProjectsId(project.id!, { isActive }).subscribe({
       next: () => { this.busy.set(false); this.projectsResource.reload(); },
       error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });

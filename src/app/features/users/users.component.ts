@@ -16,6 +16,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import type { UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
@@ -295,9 +296,27 @@ export class UsersComponent {
   }
 
   toggleActive(user: UserResponse) {
-    if (user.isActive && !confirm(this.transloco.translate('common.confirmDisable', { name: user.email }))) return;
+    if (!user.isActive) {
+      this.patchActive(user, true);
+      return;
+    }
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('common.confirmDisable', { name: user.email }),
+          confirmLabel: this.transloco.translate('common.disable'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (ok) this.patchActive(user, false);
+      });
+  }
+
+  private patchActive(user: UserResponse, isActive: boolean) {
     this.busy.set(true);
-    this.usersService.patchApiAdminUsersId(user.id!, { isActive: !user.isActive }).subscribe({
+    this.usersService.patchApiAdminUsersId(user.id!, { isActive }).subscribe({
       next: () => { this.busy.set(false); this.usersResource.reload(); },
       error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
@@ -317,15 +336,26 @@ export class UsersComponent {
   }
 
   reject(user: UserResponse) {
-    if (!confirm(this.transloco.translate('users.confirmReject', { name: user.email }))) return;
-    this.busy.set(true);
-    this.usersService.postApiAdminUsersIdReject(user.id!).subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.usersResource.reload();
-        this.pendingResource.reload();
-      },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
-    });
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('users.confirmReject', { name: user.email }),
+          confirmLabel: this.transloco.translate('users.reject'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.busy.set(true);
+        this.usersService.postApiAdminUsersIdReject(user.id!).subscribe({
+          next: () => {
+            this.busy.set(false);
+            this.usersResource.reload();
+            this.pendingResource.reload();
+          },
+          error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+        });
+      });
   }
 }
