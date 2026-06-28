@@ -1,4 +1,4 @@
-import { Component, inject, signal, TemplateRef, ViewChild, computed } from '@angular/core';
+import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -114,7 +114,7 @@ export class ProjectsComponent {
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
 
-  @ViewChild('addDialog') addDialog!: TemplateRef<unknown>;
+  readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
   projectsResource = getApiAdminProjectsResource();
@@ -131,7 +131,7 @@ export class ProjectsComponent {
 
   openAdd() {
     this.addForm.reset({ key: '', name: '' });
-    this.dialogRef = this.dialog.open(this.addDialog, { width: '440px' });
+    this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
   }
 
   addProject() {

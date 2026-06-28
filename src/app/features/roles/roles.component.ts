@@ -1,4 +1,4 @@
-import { Component, inject, signal, TemplateRef, ViewChild, computed } from '@angular/core';
+import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -170,8 +170,8 @@ export class RolesComponent {
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
 
-  @ViewChild('addDialog') addDialog!: TemplateRef<unknown>;
-  @ViewChild('deleteDialog') deleteDialog!: TemplateRef<unknown>;
+  readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
+  readonly deleteDialog = viewChild.required<TemplateRef<unknown>>('deleteDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
   rolesResource = getApiAdminRolesResource();
@@ -193,7 +193,7 @@ export class RolesComponent {
   openAdd() {
     this.newName = '';
     this.newGrantsAdmin = false;
-    this.dialogRef = this.dialog.open(this.addDialog, { width: '440px' });
+    this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
   }
 
   addRole() {
@@ -237,7 +237,7 @@ export class RolesComponent {
   openDelete(role: RoleResponse) {
     this.deletingRole.set(role);
     this.reassignTargetId = null;
-    this.dialogRef = this.dialog.open(this.deleteDialog, { width: '440px' });
+    this.dialogRef = this.dialog.open(this.deleteDialog(), { width: '440px' });
   }
 
   deleteRole() {

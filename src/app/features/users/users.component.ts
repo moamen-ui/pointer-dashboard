@@ -1,4 +1,4 @@
-import { Component, inject, signal, TemplateRef, ViewChild, computed } from '@angular/core';
+import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
@@ -215,7 +215,7 @@ export class UsersComponent {
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
 
-  @ViewChild('addDialog') addDialog!: TemplateRef<unknown>;
+  readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
   filter = signal<FilterStatus>('Approved');
@@ -267,7 +267,7 @@ export class UsersComponent {
   openAdd() {
     const firstRole = this.activeRoles()[0]?.id ?? 0;
     this.addForm.reset({ email: '', displayName: '', password: '', roleId: firstRole });
-    this.dialogRef = this.dialog.open(this.addDialog, { width: '440px' });
+    this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
   }
 
   addUser() {

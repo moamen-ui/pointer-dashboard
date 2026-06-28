@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, effect, ViewChild } from '@angular/core';
+import { Component, inject, signal, computed, effect, viewChild } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
@@ -287,9 +287,7 @@ export class OverviewComponent {
   tableDataSource = new MatTableDataSource<ProjectStats>([]);
   displayedColumns = ['key', 'name', 'comments', 'privateComments', 'open', 'pending', 'completed', 'archived', 'status'];
 
-  @ViewChild(MatSort) set sort(value: MatSort) {
-    if (value) this.tableDataSource.sort = value;
-  }
+  readonly sort = viewChild(MatSort);
 
   constructor() {
     effect(() => {
@@ -297,6 +295,11 @@ export class OverviewComponent {
       if (stats?.projects) {
         this.tableDataSource.data = stats.projects;
       }
+    });
+    // Wire the sort header to the data source once it's in the view.
+    effect(() => {
+      const sort = this.sort();
+      if (sort) this.tableDataSource.sort = sort;
     });
   }
 
