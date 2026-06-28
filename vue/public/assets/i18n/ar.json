@@ -102,5 +102,15 @@
     "name": "الاسم",
     "status": "الحالة",
     "actions": "الإجراءات"
+  },
+  "profile": {
+    "projects": "المشاريع",
+    "comments": "التعليقات",
+    "replies": "الردود",
+    "projectBreakdown": "تفاصيل المشاريع",
+    "noProjects": "لا يوجد نشاط في المشاريع حتى الآن.",
+    "loadError": "فشل تحميل الملف الشخصي.",
+    "unknownUser": "مستخدم غير معروف",
+    "viewProfile": "عرض الملف الشخصي"
   }
 }

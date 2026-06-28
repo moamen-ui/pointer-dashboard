@@ -102,5 +102,15 @@
     "name": "Name",
     "status": "Status",
     "actions": "Actions"
+  },
+  "profile": {
+    "projects": "Projects",
+    "comments": "Comments",
+    "replies": "Replies",
+    "projectBreakdown": "Project Breakdown",
+    "noProjects": "No project activity yet.",
+    "loadError": "Failed to load profile.",
+    "unknownUser": "Unknown user",
+    "viewProfile": "View profile"
   }
 }

@@ -13,7 +13,7 @@ import {
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, UserCheck } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, UserCheck, UserRound } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,7 @@ import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
+import { RouterLink } from 'vue-router';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -315,29 +316,41 @@ function formatDate(value: unknown): string {
               </span>
             </TableCell>
             <TableCell>
-              <Button
-                v-if="filter === 'Approved'"
-                :variant="user.isActive ? 'destructive' : 'default'"
-                size="sm"
-                :disabled="loading"
-                @click="toggleActive(user)"
-              >
-                <component :is="user.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
-                {{ user.isActive ? t('common.disable') : t('common.enable') }}
-              </Button>
-              <div v-else class="flex items-center gap-2">
-                <Button size="sm" :disabled="loading" @click="openApprove(user)">
-                  <UserCheck class="h-4 w-4" /> {{ t('users.approve') }}
-                </Button>
+              <div class="flex items-center gap-2">
                 <Button
-                  v-if="filter === 'Pending'"
-                  variant="destructive"
+                  v-if="filter === 'Approved'"
+                  :variant="user.isActive ? 'destructive' : 'default'"
                   size="sm"
                   :disabled="loading"
-                  @click="reject(user)"
+                  @click="toggleActive(user)"
                 >
-                  <Ban class="h-4 w-4" /> {{ t('users.reject') }}
+                  <component :is="user.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
+                  {{ user.isActive ? t('common.disable') : t('common.enable') }}
                 </Button>
+                <template v-else>
+                  <Button size="sm" :disabled="loading" @click="openApprove(user)">
+                    <UserCheck class="h-4 w-4" /> {{ t('users.approve') }}
+                  </Button>
+                  <Button
+                    v-if="filter === 'Pending'"
+                    variant="destructive"
+                    size="sm"
+                    :disabled="loading"
+                    @click="reject(user)"
+                  >
+                    <Ban class="h-4 w-4" /> {{ t('users.reject') }}
+                  </Button>
+                </template>
+                <!-- View profile link — always shown for approved users -->
+                <RouterLink
+                  v-if="filter === 'Approved'"
+                  :to="`/users/${user.id}/profile`"
+                >
+                  <Button variant="outline" size="sm">
+                    <UserRound class="h-4 w-4" />
+                    {{ t('profile.viewProfile') }}
+                  </Button>
+                </RouterLink>
               </div>
             </TableCell>
           </TableRow>
