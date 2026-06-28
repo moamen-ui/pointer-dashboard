@@ -1,44 +1,30 @@
-# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# Monorepo: patterns are non-anchored so they apply in every app folder
+# (angular/, react/, vue/).
 
+# Dependencies & build output
+node_modules/
+dist/
+tmp/
+out-tsc/
+.angular/
+.nx/
+.vite/
+*.tsbuildinfo
 
-# Compiled output
-/dist
-/tmp
-/out-tsc
-/bazel-out
-
-# Node
-/node_modules
+# Logs
 npm-debug.log
 yarn-error.log
+*.log
 
-# IDEs and editors
+# Coverage / tests
+coverage/
+__screenshots__/
+
+# IDEs & editors
 .idea/
-.project
-.classpath
-.c9/
+.history/
 *.launch
 .settings/
-*.sublime-workspace
-
-# Visual Studio Code
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/mcp.json
-.history/*
-
-# Miscellaneous
-/.angular/cache
-.sass-cache/
-/connect.lock
-/coverage
-/libpeerconnection.log
-testem.log
-/typings
-__screenshots__/
 
 # System files
 .DS_Store

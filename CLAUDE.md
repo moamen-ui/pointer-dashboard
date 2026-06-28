@@ -5,61 +5,57 @@ Guidance for Claude Code (and other AI agents) working in this repository.
 
 ## Multi-client parity (READ FIRST)
 
-The Pointer dashboard is delivered in **multiple frontend frameworks** that share the **same features
-and UX**, each consuming its matching API client (`@moamen-ui/pointer-angular` / `-react` / `-vue`):
+The Pointer dashboard is a **monorepo of per-framework apps** with the **same features and UX**, each
+consuming its matching API client (`@moamen-ui/pointer-<framework>`) and styled with **Tailwind CSS v4**:
 
-| Framework | Status | Location |
-|---|---|---|
-| Angular | ✅ present | repo root (`src/`, `angular.json`) |
-| React | planned | — |
-| Vue | planned | — |
+| Framework | Dir | UI kit | API client |
+|---|---|---|---|
+| Angular | `angular/` | Angular Material + Tailwind v4 | `@moamen-ui/pointer-angular` |
+| React | `react/` | shadcn/ui + Tailwind v4 | `@moamen-ui/pointer-react` |
+| Vue 3 | `vue/` | shadcn-vue + Tailwind v4 | `@moamen-ui/pointer-vue` |
 
-> **When you implement ANY task** — a feature, bug fix, refactor, UI/style tweak, or copy change —
-> **apply it to EVERY framework client that currently exists in this repo**, so they stay at parity.
-> Don't update one and leave the others behind. Today that's **Angular only**; once React/Vue are
-> added, replicate the same change in each. If a change is genuinely framework-specific (e.g. uses an
-> Angular-only API), call that out explicitly and explain why it can't be mirrored.
+> **When you implement ANY task** — feature, bug fix, refactor, UI/style tweak, copy change —
+> **apply it to EVERY app that exists** (`angular/`, `react/`, `vue/`) so they stay at parity. Don't
+> update one and leave the others behind. If a change is genuinely framework-specific, call it out
+> and explain why it can't be mirrored.
 >
-> **Use subagents:** when more than one client exists, **dispatch one subagent per client** (Angular,
-> React, Vue) to implement the change in parallel — the per-client work is independent. Give each a
-> self-contained brief (the task + that client's conventions), then review the results together and
-> verify the clients ended up consistent (behavior, routes, labels, states).
+> **Use subagents:** dispatch **one subagent per app** to implement the change in parallel — the
+> per-app work is independent. Give each a self-contained brief (the task + that app's stack), then
+> review together and verify parity (behavior, routes, labels, states).
 
-## Project
+## Layout
 
-**Pointer Dashboard** — admin SPA(s) for [Pointer](https://github.com/moamen-ui/poitner-api),
-currently **Angular 22** (Angular Material + Transloco). Talks to the **Pointer API** (separate repo)
-over HTTP. Frontend-only — it needs a running API.
+Each app folder is **self-contained** (own `package.json`, `.npmrc`, build) — run commands from inside it:
 
-- Dev: `npm install && npm start` → http://localhost:4200 (API expected on `:8090`).
-- Prod build: `npm run build` → static bundle in `dist/admin-web/browser/`.
+```bash
+cd angular   # or react / vue
+export NODE_AUTH_TOKEN=$(gh auth token)   # GitHub Packages (read:packages) — for the API client
+npm install
+npm start     # dev server
+npm run build # production build
+```
+
+The committed per-app `.npmrc` points the `@moamen-ui` scope at `npm.pkg.github.com` and reads
+`${NODE_AUTH_TOKEN}` — set it before any `npm install`/`npm ci` (locally and in CI/VM builds).
 
 ## API client (READ FIRST)
 
-The typed API client is the **published [`@moamen-ui/pointer-angular`](https://github.com/moamen-ui/poitner-api/pkgs/npm/pointer-angular)**
-package (GitHub Packages), generated from the API's Swagger and built with ng-packagr **in the API
-repo** — not generated here. To change it: update the API, then run the *Publish API clients*
-workflow in [`poitner-api`](https://github.com/moamen-ui/poitner-api) and bump the version here.
+The typed clients are **published packages** (`@moamen-ui/pointer-angular | -react | -vue`), generated
+from the API's Swagger and built **in the API repo** — not generated here. To change one: update the
+API, run the *Publish API clients* workflow in [`poitner-api`](https://github.com/moamen-ui/poitner-api)
+(it auto-bumps), then bump `@moamen-ui/pointer-<framework>` in each app.
 
-- **Auth:** install needs a GitHub Packages token. `.npmrc` (committed) points the `@moamen-ui` scope
-  at `npm.pkg.github.com` and reads the token from `${NODE_AUTH_TOKEN}` — set that env var locally
-  (`export NODE_AUTH_TOKEN=$(gh auth token)`) and in CI/VM builds before `npm ci`.
+## Conventions
 
-## Key conventions
-
-1. All API responses are wrapped in `Result<T>`; the `apiInterceptor`
-   (`src/app/core/auth/auth.interceptor.ts`) unwraps `.data`, prepends `apiBase` to `/api/*` URLs,
-   adds the bearer token, and redirects to `/login` on 401. Client types are the **inner** type
+1. All API responses are wrapped in `Result<T>`; each app unwraps `.data`, prepends the API origin to
+   `/api/*`, adds the bearer token, and redirects to login on 401. Client types are the **inner** type
    (e.g. `UserResponse`, not `Result<UserResponse>`).
-2. Import from the package barrel: `import { UsersService } from '@moamen-ui/pointer-angular'`.
-
-## Environment / API base
-
-`apiBase` comes from `src/environments/environment.ts` (dev → `http://localhost:8090`). The
-`production` build configuration in `angular.json` swaps it for `environment.prod.ts`
-(→ `https://api.pointer.moamen.work`) via `fileReplacements`, so prod builds need no hand-editing.
+2. Import from the package barrel (e.g. `@moamen-ui/pointer-react`), not deep paths.
+3. **Styling is Tailwind v4** in every app — prefer utility classes over hand-written/inline CSS.
+4. Keep the API base in an env file per app; don't hardcode the API URL in components.
 
 ## Deploy
 
-In production this is served as static files by Caddy at `app.pointer.moamen.work` (SPA fallback to
-`index.html`). The deploy config (compose + Caddyfile) lives in the API repo's `DEPLOY.md`.
+Each app is served as static files by Caddy on the VM at `app-<framework>.pointer.moamen.work`
+(Angular also at `app.pointer.moamen.work`). Deploy config + per-app build steps live in the API
+repo's [`DEPLOY.md`](https://github.com/moamen-ui/poitner-api/blob/main/DEPLOY.md).
