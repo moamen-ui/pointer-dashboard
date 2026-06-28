@@ -50,22 +50,28 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
     <mat-sidenav-container class="flex-1 overflow-hidden bg-app" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">
       <mat-sidenav mode="side" opened class="sidenav w-[232px] border-e border-app-border bg-sidebar pt-2">
         <mat-nav-list>
-          <a mat-list-item routerLink="/overview" routerLinkActive="active-link">
-            <mat-icon matListItemIcon>dashboard</mat-icon>
-            <span matListItemTitle>{{ 'nav.overview' | transloco }}</span>
+          <a mat-list-item routerLink="/profile" routerLinkActive="active-link">
+            <mat-icon matListItemIcon>person</mat-icon>
+            <span matListItemTitle>{{ 'nav.myProfile' | transloco }}</span>
           </a>
-          <a mat-list-item routerLink="/roles" routerLinkActive="active-link">
-            <mat-icon matListItemIcon>manage_accounts</mat-icon>
-            <span matListItemTitle>{{ 'nav.roles' | transloco }}</span>
-          </a>
-          <a mat-list-item routerLink="/users" routerLinkActive="active-link">
-            <mat-icon matListItemIcon>people</mat-icon>
-            <span matListItemTitle>{{ 'nav.users' | transloco }}</span>
-          </a>
-          <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
-            <mat-icon matListItemIcon>folder</mat-icon>
-            <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
-          </a>
+          @if (auth.isAdmin()) {
+            <a mat-list-item routerLink="/overview" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>dashboard</mat-icon>
+              <span matListItemTitle>{{ 'nav.overview' | transloco }}</span>
+            </a>
+            <a mat-list-item routerLink="/roles" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>manage_accounts</mat-icon>
+              <span matListItemTitle>{{ 'nav.roles' | transloco }}</span>
+            </a>
+            <a mat-list-item routerLink="/users" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>people</mat-icon>
+              <span matListItemTitle>{{ 'nav.users' | transloco }}</span>
+            </a>
+            <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>folder</mat-icon>
+              <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
+            </a>
+          }
         </mat-nav-list>
       </mat-sidenav>
 

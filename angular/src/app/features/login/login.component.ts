@@ -6,7 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
 
@@ -33,12 +33,11 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
   private snack = inject(MatSnackBar);
-  private transloco = inject(TranslocoService);
   loading = signal(false);
 
   constructor() {
-    if (this.auth.isAuthenticated() && this.auth.isAdmin()) {
-      this.router.navigateByUrl('/overview');
+    if (this.auth.isAuthenticated()) {
+      this.router.navigateByUrl(this.auth.isAdmin() ? '/overview' : '/profile');
     }
   }
   form = this.fb.nonNullable.group({
@@ -53,16 +52,11 @@ export class LoginComponent {
     this.auth.login(email, password).subscribe({
       next: (user) => {
         this.loading.set(false);
-        if (!user.isAdmin) {
-          this.snack.open(this.transloco.translate('login.notAdmin'), 'OK', { duration: 4000 });
-          this.auth.logout();
-          return;
-        }
-        this.router.navigateByUrl('/overview');
+        this.router.navigateByUrl(user.isAdmin ? '/overview' : '/profile');
       },
       error: (e: unknown) => {
         this.loading.set(false);
-        this.snack.open(extractMessage(e) || this.transloco.translate('login.failed'), 'OK', { duration: 4000 });
+        this.snack.open(extractMessage(e) || 'Login failed', 'OK', { duration: 4000 });
       },
     });
   }

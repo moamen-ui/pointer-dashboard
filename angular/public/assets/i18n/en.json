@@ -18,7 +18,8 @@
     "overview": "Overview",
     "roles": "Roles",
     "users": "Users",
-    "projects": "Projects"
+    "projects": "Projects",
+    "myProfile": "My Profile"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -101,5 +102,21 @@
     "name": "Name",
     "status": "Status",
     "actions": "Actions"
+  },
+  "profile": {
+    "title": "My Profile",
+    "titleFor": "Profile: {{ name }}",
+    "projects": "Projects Involved",
+    "comments": "Comments",
+    "replies": "Replies",
+    "total": "Total",
+    "environment": "Environment",
+    "local": "Local",
+    "staging": "Staging",
+    "production": "Production",
+    "viewProfile": "View Profile",
+    "loading": "Loading profile…",
+    "error": "Failed to load profile.",
+    "noProjects": "No project activity yet."
   }
 }

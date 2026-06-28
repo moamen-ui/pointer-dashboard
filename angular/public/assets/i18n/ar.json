@@ -18,7 +18,8 @@
     "overview": "نظرة عامة",
     "roles": "الأدوار",
     "users": "المستخدمون",
-    "projects": "المشاريع"
+    "projects": "المشاريع",
+    "myProfile": "ملفي الشخصي"
   },
   "header": {
     "brand": "Pointer لوحة الإدارة",
@@ -101,5 +102,21 @@
     "name": "الاسم",
     "status": "الحالة",
     "actions": "الإجراءات"
+  },
+  "profile": {
+    "title": "ملفي الشخصي",
+    "titleFor": "ملف: {{ name }}",
+    "projects": "المشاريع المشارَك فيها",
+    "comments": "التعليقات",
+    "replies": "الردود",
+    "total": "الإجمالي",
+    "environment": "البيئة",
+    "local": "محلي",
+    "staging": "تجريبي",
+    "production": "إنتاجي",
+    "viewProfile": "عرض الملف",
+    "loading": "جارٍ تحميل الملف…",
+    "error": "فشل تحميل الملف.",
+    "noProjects": "لا نشاط بعد."
   }
 }
