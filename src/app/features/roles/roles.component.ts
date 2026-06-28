@@ -10,9 +10,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { RolesService, getApiAdminRolesResource } from '@api/roles/roles.service';
+import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular/roles/roles.service';
 import { extractMessage } from '../../core/api/extract-message';
-import type { RoleResponse } from '@api/model';
+import type { RoleResponse } from '@moamen-ui/pointer-angular/model';
 
 @Component({
   selector: 'app-roles',
@@ -157,14 +157,14 @@ export class RolesComponent {
         this.newGrantsAdmin = false;
         this.rolesResource.reload();
       },
-      error: (e) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }
 
   toggleGrantsAdmin(role: RoleResponse, grantsAdmin: boolean) {
     this.rolesService.patchApiAdminRolesId(role.id!, { grantsAdmin }).subscribe({
       next: () => this.rolesResource.reload(),
-      error: (e) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }
 
@@ -173,7 +173,7 @@ export class RolesComponent {
     if (!name || !name.trim() || name.trim() === role.name) return;
     this.rolesService.patchApiAdminRolesId(role.id!, { name: name.trim() }).subscribe({
       next: () => this.rolesResource.reload(),
-      error: (e) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }
 
@@ -181,7 +181,7 @@ export class RolesComponent {
     if (role.isActive && !confirm(this.transloco.translate('common.confirmDisable', { name: role.name }))) return;
     this.rolesService.patchApiAdminRolesId(role.id!, { isActive: !role.isActive }).subscribe({
       next: () => this.rolesResource.reload(),
-      error: (e) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }
 }

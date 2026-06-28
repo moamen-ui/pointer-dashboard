@@ -1,8 +1,8 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { map, Observable } from 'rxjs';
-import { AuthService as ApiAuthService } from '@api/auth/auth.service';
-import { LoginResponse, MeResponse } from '@api/model';
+import { AuthService as ApiAuthService } from '@moamen-ui/pointer-angular/auth/auth.service';
+import { LoginResponse, MeResponse } from '@moamen-ui/pointer-angular/model';
 import { PreferencesService } from '../prefs/preferences.service';
 
 const TOKEN_KEY = 'pointer_admin_token';

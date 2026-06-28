@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
+import { extractMessage } from '../../core/api/extract-message';
 
 @Component({
   selector: 'app-login',
@@ -62,9 +63,9 @@ export class LoginComponent {
         }
         this.router.navigateByUrl('/overview');
       },
-      error: (e) => {
+      error: (e: unknown) => {
         this.loading.set(false);
-        this.snack.open(e.message || this.transloco.translate('login.failed'), 'OK', { duration: 4000 });
+        this.snack.open(extractMessage(e) || this.transloco.translate('login.failed'), 'OK', { duration: 4000 });
       },
     });
   }

@@ -9,9 +9,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { ProjectsService, getApiAdminProjectsResource } from '@api/projects/projects.service';
+import { ProjectsService, getApiAdminProjectsResource } from '@moamen-ui/pointer-angular/projects/projects.service';
 import { extractMessage } from '../../core/api/extract-message';
-import type { ProjectResponse } from '@api/model';
+import type { ProjectResponse } from '@moamen-ui/pointer-angular/model';
 
 @Component({
   selector: 'app-projects',
@@ -145,7 +145,7 @@ export class ProjectsComponent {
         this.addForm.reset();
         this.projectsResource.reload();
       },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 
@@ -154,7 +154,7 @@ export class ProjectsComponent {
     this.busy.set(true);
     this.projectsService.patchApiAdminProjectsId(project.id!, { isActive: !project.isActive }).subscribe({
       next: () => { this.busy.set(false); this.projectsResource.reload(); },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 }

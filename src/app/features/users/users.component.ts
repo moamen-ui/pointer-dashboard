@@ -13,10 +13,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { UsersService, getApiAdminUsersResource } from '@api/users/users.service';
-import { getApiAdminRolesResource } from '@api/roles/roles.service';
+import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular/users/users.service';
+import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular/roles/roles.service';
 import { extractMessage } from '../../core/api/extract-message';
-import type { UserResponse, RoleResponse } from '@api/model';
+import type { UserResponse, RoleResponse } from '@moamen-ui/pointer-angular/model';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -282,7 +282,7 @@ export class UsersComponent {
         this.usersResource.reload();
         this.pendingResource.reload();
       },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 
@@ -290,7 +290,7 @@ export class UsersComponent {
     this.busy.set(true);
     this.usersService.patchApiAdminUsersId(user.id!, { roleId }).subscribe({
       next: () => { this.busy.set(false); this.usersResource.reload(); },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); this.usersResource.reload(); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); this.usersResource.reload(); },
     });
   }
 
@@ -299,7 +299,7 @@ export class UsersComponent {
     this.busy.set(true);
     this.usersService.patchApiAdminUsersId(user.id!, { isActive: !user.isActive }).subscribe({
       next: () => { this.busy.set(false); this.usersResource.reload(); },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 
@@ -312,7 +312,7 @@ export class UsersComponent {
         this.usersResource.reload();
         this.pendingResource.reload();
       },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 
@@ -325,7 +325,7 @@ export class UsersComponent {
         this.usersResource.reload();
         this.pendingResource.reload();
       },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 }

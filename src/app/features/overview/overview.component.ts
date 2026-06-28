@@ -12,12 +12,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { TranslocoModule } from '@jsverse/transloco';
-import { UsersService } from '@api/users/users.service';
-import { getApiAdminStatsResource } from '@api/stats/stats.service';
-import { getApiAdminUsersResource } from '@api/users/users.service';
-import { getApiAdminRolesResource } from '@api/roles/roles.service';
+import { UsersService } from '@moamen-ui/pointer-angular/users/users.service';
+import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular/stats/stats.service';
+import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular/users/users.service';
+import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular/roles/roles.service';
 import { extractMessage } from '../../core/api/extract-message';
-import type { ProjectStats, UserResponse, RoleResponse } from '@api/model';
+import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular/model';
 
 @Component({
   selector: 'app-overview',
@@ -311,7 +311,7 @@ export class OverviewComponent {
         this.pendingResource.reload();
         this.statsResource.reload();
       },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 
@@ -323,7 +323,7 @@ export class OverviewComponent {
         this.pendingResource.reload();
         this.statsResource.reload();
       },
-      error: (e) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
   }
 }

@@ -88,7 +88,9 @@ Full workflow + conventions: [`docs/skills/orval-codegen/SKILL.md`](docs/skills/
 
 - All API responses are wrapped in `Result<T>`; the `apiInterceptor` unwraps `.data` and prepends
   `apiBase` to `/api/*` URLs. Generated types are the **inner** type (e.g. `UserResponse`).
-- Frontend imports use the `@api/*` alias — never relative paths into `generated/`.
+- Frontend imports use the **`@moamen-ui/pointer-angular`** package (a tsconfig path maps it to the
+  generated client today; swap to the published GitHub Packages version when you install it) — never
+  relative paths into `generated/`.
 - **Language + theme:** header toggles for AR/EN (Arabic flips to RTL) and light/dark; each user's
   choice is saved server-side (`PATCH /api/me/preferences`) and restored on next login.
 

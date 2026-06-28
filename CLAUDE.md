@@ -24,7 +24,8 @@ repo) over HTTP. Frontend-only — it needs a running API.
    (`src/app/core/auth/auth.interceptor.ts`) unwraps `.data`, prepends `apiBase` to `/api/*` URLs,
    adds the bearer token, and redirects to `/login` on 401. Generated types are the **inner** type
    (e.g. `UserResponse`, not `Result<UserResponse>`).
-2. Frontend imports use the `@api/*` alias — never relative paths into `generated/`.
+2. Frontend imports use the **`@moamen-ui/pointer-angular`** package (tsconfig path → the generated
+   client) — never relative paths into `generated/`.
 3. Don't commit `openapi.json` edits by hand — it's the downloaded Swagger spec.
 
 ## Environment / API base
