@@ -1,12 +1,30 @@
 # CLAUDE.md
 
 Guidance for Claude Code (and other AI agents) working in this repository.
+**[AGENTS.md](AGENTS.md) is the canonical agent guide** — this mirrors its essentials.
+
+## Multi-client parity (READ FIRST)
+
+The Pointer dashboard is delivered in **multiple frontend frameworks** that share the **same features
+and UX**, each consuming its matching API client (`@moamen-ui/pointer-angular` / `-react` / `-vue`):
+
+| Framework | Status | Location |
+|---|---|---|
+| Angular | ✅ present | repo root (`src/`, `angular.json`) |
+| React | planned | — |
+| Vue | planned | — |
+
+> **When you implement ANY task** — a feature, bug fix, refactor, UI/style tweak, or copy change —
+> **apply it to EVERY framework client that currently exists in this repo**, so they stay at parity.
+> Don't update one and leave the others behind. Today that's **Angular only**; once React/Vue are
+> added, replicate the same change in each. If a change is genuinely framework-specific (e.g. uses an
+> Angular-only API), call that out explicitly and explain why it can't be mirrored.
 
 ## Project
 
-**Pointer Dashboard** — a standalone **Angular 22** admin SPA (Angular Material + Transloco) for
-[Pointer](https://github.com/moamen-ui/poitner-api). It talks to the **Pointer API** (separate
-repo) over HTTP. Frontend-only — it needs a running API.
+**Pointer Dashboard** — admin SPA(s) for [Pointer](https://github.com/moamen-ui/poitner-api),
+currently **Angular 22** (Angular Material + Transloco). Talks to the **Pointer API** (separate repo)
+over HTTP. Frontend-only — it needs a running API.
 
 - Dev: `npm install && npm start` → http://localhost:4200 (API expected on `:8090`).
 - Prod build: `npm run build` → static bundle in `dist/admin-web/browser/`.
