@@ -5,6 +5,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
@@ -27,6 +28,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     MatCheckboxModule,
     MatIconModule,
     MatDialogModule,
+    MatSelectModule,
     TranslocoModule,
   ],
   template: `
@@ -81,9 +83,13 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
                   mat-stroked-button
                   [color]="role.isActive ? 'warn' : 'primary'"
                   (click)="toggleActive(role)"
+                  style="margin-inline-end:8px"
                 >
                   <mat-icon>{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
                   {{ role.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+                </button>
+                <button mat-stroked-button color="warn" (click)="openDelete(role)">
+                  <mat-icon>delete</mat-icon> {{ 'roles.delete' | transloco }}
                 </button>
               }
             </td>
@@ -114,6 +120,39 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
         </button>
       </mat-dialog-actions>
     </ng-template>
+
+    <!-- Delete role + delegate users dialog -->
+    <ng-template #deleteDialog>
+      <h2 mat-dialog-title>{{ 'roles.deleteTitle' | transloco }}</h2>
+      <mat-dialog-content>
+        <div class="dialog-form">
+          <p>{{ 'roles.deleteIntro' | transloco: { name: deletingRole()?.name } }}</p>
+          @if (targetRoles().length > 0) {
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'roles.reassignLabel' | transloco }}</mat-label>
+              <mat-select [(ngModel)]="reassignTargetId">
+                @for (r of targetRoles(); track r.id) {
+                  <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          } @else {
+            <p class="muted">{{ 'roles.noTargets' | transloco }}</p>
+          }
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button
+          mat-flat-button
+          color="warn"
+          [disabled]="targetRoles().length > 0 && !reassignTargetId"
+          (click)="deleteRole()"
+        >
+          <mat-icon>delete</mat-icon> {{ 'roles.delete' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
   `,
   styles: [`
     .roles-page { padding: 24px; }
@@ -122,6 +161,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     .roles-table { width: 100%; }
     .system-chip { margin-inline-start: 8px; font-size: 10px; }
     .dialog-form { display: flex; flex-direction: column; gap: 16px; min-width: 320px; padding-top: 8px; }
+    .muted { color: #64748b; font-size: 13px; margin: 0; }
   `],
 })
 export class RolesComponent {
@@ -131,6 +171,7 @@ export class RolesComponent {
   private dialog = inject(MatDialog);
 
   @ViewChild('addDialog') addDialog!: TemplateRef<unknown>;
+  @ViewChild('deleteDialog') deleteDialog!: TemplateRef<unknown>;
   private dialogRef?: MatDialogRef<unknown>;
 
   rolesResource = getApiAdminRolesResource();
@@ -140,6 +181,14 @@ export class RolesComponent {
 
   newName = '';
   newGrantsAdmin = false;
+
+  // Delete + delegate state. deletingRole is a signal so targetRoles recomputes.
+  deletingRole = signal<RoleResponse | null>(null);
+  reassignTargetId: number | null = null;
+  // Valid reassignment targets: active, non-system roles other than the one being deleted.
+  targetRoles = computed(() =>
+    this.roles().filter((r) => r.isActive && !r.isSystem && r.id !== this.deletingRole()?.id),
+  );
 
   openAdd() {
     this.newName = '';
@@ -181,6 +230,30 @@ export class RolesComponent {
     if (role.isActive && !confirm(this.transloco.translate('common.confirmDisable', { name: role.name }))) return;
     this.rolesService.patchApiAdminRolesId(role.id!, { isActive: !role.isActive }).subscribe({
       next: () => this.rolesResource.reload(),
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  openDelete(role: RoleResponse) {
+    this.deletingRole.set(role);
+    this.reassignTargetId = null;
+    this.dialogRef = this.dialog.open(this.deleteDialog, { width: '440px' });
+  }
+
+  deleteRole() {
+    const role = this.deletingRole();
+    if (!role) return;
+    // reassignToRoleId is only needed when the role actually has users; the API
+    // validates and returns a 409 (shown via the snackbar) if it's required.
+    const params = this.reassignTargetId ? { reassignToRoleId: this.reassignTargetId } : undefined;
+    this.rolesService.deleteApiAdminRolesId(role.id!, params).subscribe({
+      next: (res: { reassignedUsers?: number }) => {
+        this.dialogRef?.close();
+        const moved = res?.reassignedUsers ?? 0;
+        const msg = this.transloco.translate('roles.deleted') + (moved ? ` (${moved})` : '');
+        this.snack.open(msg, 'OK', { duration: 3000 });
+        this.rolesResource.reload();
+      },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }

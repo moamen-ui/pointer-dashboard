@@ -63,7 +63,13 @@
     "grantsAdmin": "Grants admin",
     "system": "system",
     "status": "Status",
-    "actions": "Actions"
+    "actions": "Actions",
+    "delete": "Delete",
+    "deleteTitle": "Delete role",
+    "deleteIntro": "Users assigned to \"{{name}}\" will be moved to the role you choose below.",
+    "reassignLabel": "Move users to",
+    "noTargets": "No other active role to move users to.",
+    "deleted": "Role deleted"
   },
   "users": {
     "title": "Users",
