@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from '@/lib/auth';
+import { AuthProvider, useAuth } from '@/lib/auth';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ToastProvider } from '@/components/ui/toast';
 import { ProtectedRoute, AuthenticatedRoute } from '@/routes/ProtectedRoute';
@@ -10,6 +10,11 @@ import { RolesPage } from '@/features/roles/RolesPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { ProfilePage } from '@/features/profile';
+
+function IndexRedirect() {
+  const { isAdmin } = useAuth();
+  return <Navigate to={isAdmin ? '/overview' : '/profile'} replace />;
+}
 
 export default function App() {
   return (
@@ -23,8 +28,8 @@ export default function App() {
               {/* Shell wraps all authenticated routes */}
               <Route element={<AuthenticatedRoute />}>
                 <Route element={<Shell />}>
-                  {/* Root redirect: admin → overview, non-admin → profile (handled by LoginPage / post-login) */}
-                  <Route index element={<Navigate to="/overview" replace />} />
+                  {/* Root redirect: admin → overview, non-admin → profile */}
+                  <Route index element={<IndexRedirect />} />
 
                   {/* Admin-only section */}
                   <Route element={<ProtectedRoute />}>
