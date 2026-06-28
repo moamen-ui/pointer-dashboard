@@ -27,7 +27,7 @@ export interface ConfirmData {
   template: `
     <h2 mat-dialog-title>{{ data.title || ('common.confirm' | transloco) }}</h2>
     <mat-dialog-content>
-      <p style="white-space: pre-line; margin: 0; min-width: 320px;">{{ data.message }}</p>
+      <p class="m-0 min-w-80 whitespace-pre-line">{{ data.message }}</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button [mat-dialog-close]="false">

@@ -29,9 +29,9 @@ import type { ProjectResponse } from '@moamen-ui/pointer-angular';
     TranslocoModule,
   ],
   template: `
-    <div class="projects-container">
-      <div class="page-head">
-        <h2>{{ 'projects.title' | transloco }}</h2>
+    <div class="p-6">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="m-0 text-[1.5em] font-bold">{{ 'projects.title' | transloco }}</h2>
         <button mat-flat-button color="primary" (click)="openAdd()">
           <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
         </button>
@@ -41,7 +41,7 @@ import type { ProjectResponse } from '@moamen-ui/pointer-angular';
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
       }
 
-      <table mat-table [dataSource]="projects()" class="projects-table mat-elevation-z2">
+      <table mat-table [dataSource]="projects()" class="w-full mat-elevation-z2">
         <ng-container matColumnDef="key">
           <th mat-header-cell *matHeaderCellDef>{{ 'projects.key' | transloco }}</th>
           <td mat-cell *matCellDef="let project"><code>{{ project.key }}</code></td>
@@ -81,7 +81,7 @@ import type { ProjectResponse } from '@moamen-ui/pointer-angular';
     <ng-template #addDialog>
       <h2 mat-dialog-title>{{ 'projects.addProject' | transloco }}</h2>
       <mat-dialog-content>
-        <form [formGroup]="addForm" (ngSubmit)="addProject()" class="dialog-form">
+        <form [formGroup]="addForm" (ngSubmit)="addProject()" class="flex min-w-80 flex-col gap-3 pt-2">
           <mat-form-field appearance="outline">
             <mat-label>{{ 'projects.key' | transloco }}</mat-label>
             <input matInput formControlName="key" />
@@ -100,13 +100,6 @@ import type { ProjectResponse } from '@moamen-ui/pointer-angular';
       </mat-dialog-actions>
     </ng-template>
   `,
-  styles: [`
-    .projects-container { padding: 24px; }
-    .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
-    .page-head h2 { margin: 0; }
-    .projects-table { width: 100%; }
-    .dialog-form { display: flex; flex-direction: column; gap: 12px; min-width: 320px; padding-top: 8px; }
-  `],
 })
 export class ProjectsComponent {
   private projectsService = inject(ProjectsService);

@@ -40,9 +40,9 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     TranslocoModule,
   ],
   template: `
-    <div class="users-container">
-      <div class="page-head">
-        <h2>{{ 'users.title' | transloco }}</h2>
+    <div class="p-6">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="m-0 text-[1.5em] font-bold">{{ 'users.title' | transloco }}</h2>
         <button mat-flat-button color="primary" (click)="openAdd()">
           <mat-icon>add</mat-icon> {{ 'users.addUser' | transloco }}
         </button>
@@ -52,22 +52,22 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
       }
 
-      <div class="filter-bar">
-        <span class="filter-label">{{ 'users.filter' | transloco }}</span>
+      <div class="mb-4 flex flex-wrap items-center gap-3">
+        <span class="text-[0.85rem] text-muted">{{ 'users.filter' | transloco }}</span>
         <mat-button-toggle-group [value]="filter()" (change)="setFilter($event.value)" hideSingleSelectionIndicator>
           <mat-button-toggle value="Approved">{{ 'users.filterApproved' | transloco }}</mat-button-toggle>
           <mat-button-toggle value="Pending">
             {{ 'users.filterPending' | transloco }}
-            @if (pendingCount()) { <span class="count-badge">{{ pendingCount() }}</span> }
+            @if (pendingCount()) { <span class="ms-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[9px] bg-stat-amber-bg px-[5px] text-[0.72rem] font-bold text-stat-amber">{{ pendingCount() }}</span> }
           </mat-button-toggle>
           <mat-button-toggle value="Rejected">{{ 'users.filterRejected' | transloco }}</mat-button-toggle>
         </mat-button-toggle-group>
       </div>
 
       @if (users().length === 0 && !loading()) {
-        <p class="empty">{{ 'users.empty' | transloco }}</p>
+        <p class="py-6 text-muted">{{ 'users.empty' | transloco }}</p>
       } @else {
-        <table mat-table [dataSource]="users()" class="users-table mat-elevation-z2">
+        <table mat-table [dataSource]="users()" class="w-full mat-elevation-z2">
           <ng-container matColumnDef="email">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.email' | transloco }}</th>
             <td mat-cell *matCellDef="let user">{{ user.email }}</td>
@@ -85,7 +85,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
                 <mat-select
                   [value]="user.roleId"
                   (selectionChange)="changeRole(user, $event.value)"
-                  style="min-width:120px"
+                  class="min-w-[120px]"
                 >
                   @for (role of rolesForUser(user); track role.id) {
                     <mat-option [value]="role.id">{{ role.name }}</mat-option>
@@ -121,14 +121,14 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
                   {{ user.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
                 </button>
               } @else {
-                <div class="row-actions">
+                <div class="flex items-center gap-2">
                   <button mat-flat-button color="primary" [matMenuTriggerFor]="approveMenu"
                     (menuOpened)="approveSelection[user.id!] = user.roleId" [disabled]="loading()">
                     <mat-icon>how_to_reg</mat-icon> {{ 'users.approve' | transloco }}
                   </button>
                   <mat-menu #approveMenu="matMenu">
-                    <div class="approve-panel" (click)="$event.stopPropagation()">
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="approve-field">
+                    <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
                         <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
                         <mat-select [(value)]="approveSelection[user.id!]">
                           @for (r of activeRoles(); track r.id) {
@@ -136,7 +136,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
                           }
                         </mat-select>
                       </mat-form-field>
-                      <button mat-flat-button color="primary" class="approve-confirm"
+                      <button mat-flat-button color="primary" class="w-full"
                         (click)="approve(user)" [disabled]="loading()">
                         {{ 'users.confirm' | transloco }}
                       </button>
@@ -162,7 +162,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     <ng-template #addDialog>
       <h2 mat-dialog-title>{{ 'users.addUser' | transloco }}</h2>
       <mat-dialog-content>
-        <form [formGroup]="addForm" (ngSubmit)="addUser()" class="dialog-form">
+        <form [formGroup]="addForm" (ngSubmit)="addUser()" class="flex min-w-80 flex-col gap-3 pt-2">
           <mat-form-field appearance="outline">
             <mat-label>{{ 'users.email' | transloco }}</mat-label>
             <input matInput type="email" formControlName="email" />
@@ -193,21 +193,6 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
       </mat-dialog-actions>
     </ng-template>
   `,
-  styles: [`
-    .users-container { padding: 24px; }
-    .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
-    .page-head h2 { margin: 0; }
-    .filter-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-    .filter-label { color: var(--muted); font-size: 0.85rem; }
-    .count-badge { background: #fff4e5; color: #f57c00; font-size: 0.72rem; font-weight: 700; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; margin-inline-start: 6px; }
-    .users-table { width: 100%; }
-    .row-actions { display: flex; align-items: center; gap: 8px; }
-    .approve-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px; min-width: 200px; }
-    .approve-field { width: 100%; }
-    .approve-confirm { width: 100%; }
-    .empty { color: var(--muted); padding: 24px 0; }
-    .dialog-form { display: flex; flex-direction: column; gap: 12px; min-width: 320px; padding-top: 8px; }
-  `],
 })
 export class UsersComponent {
   private usersService = inject(UsersService);

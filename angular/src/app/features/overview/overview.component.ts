@@ -38,94 +38,94 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
   ],
   template: `
     @if (loading()) {
-      <mat-progress-bar mode="indeterminate" class="progress-bar"></mat-progress-bar>
+      <mat-progress-bar mode="indeterminate" class="fixed inset-x-0 top-0 z-[1000]"></mat-progress-bar>
     }
 
     @if (stats(); as s) {
-      <div class="stat-grid">
-        <mat-card class="stat-card" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-slate"><mat-icon>folder</mat-icon></div>
-            <div class="stat-text"><div class="stat-value">{{ s.totals?.projects }}</div><div class="stat-label">{{ 'overview.projects' | transloco }}</div></div>
+      <div class="mb-8 grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-4">
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>folder</mat-icon></div>
+            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1]">{{ s.totals?.projects }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.projects' | transloco }}</div></div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-slate"><mat-icon>group</mat-icon></div>
-            <div class="stat-text"><div class="stat-value">{{ s.totals?.users }}</div><div class="stat-label">{{ 'overview.users' | transloco }}</div></div>
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>group</mat-icon></div>
+            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1]">{{ s.totals?.users }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.users' | transloco }}</div></div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-slate"><mat-icon>chat_bubble_outline</mat-icon></div>
-            <div class="stat-text">
-              <div class="stat-value">{{ s.totals?.comments }}</div>
-              <div class="stat-label">{{ 'overview.comments' | transloco }}</div>
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>chat_bubble_outline</mat-icon></div>
+            <div class="flex flex-col">
+              <div class="text-[1.7rem] font-bold leading-[1.1]">{{ s.totals?.comments }}</div>
+              <div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.comments' | transloco }}</div>
               @if ((s.totals?.privateComments ?? 0) > 0) {
-                <div class="stat-subnote">{{ 'overview.privateHidden' | transloco: { count: s.totals?.privateComments ?? 0 } }}</div>
+                <div class="mt-1 inline-flex items-center gap-[3px] text-[0.7rem] text-muted">{{ 'overview.privateHidden' | transloco: { count: s.totals?.privateComments ?? 0 } }}</div>
               }
             </div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card accent-blue" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-blue"><mat-icon>radio_button_unchecked</mat-icon></div>
-            <div class="stat-text"><div class="stat-value">{{ s.totals?.open }}</div><div class="stat-label">{{ 'overview.open' | transloco }}</div></div>
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-blue-bg text-stat-blue"><mat-icon>radio_button_unchecked</mat-icon></div>
+            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-blue">{{ s.totals?.open }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.open' | transloco }}</div></div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card accent-amber" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-amber"><mat-icon>schedule</mat-icon></div>
-            <div class="stat-text"><div class="stat-value">{{ s.totals?.pending }}</div><div class="stat-label">{{ 'overview.pending' | transloco }}</div></div>
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-amber-bg text-stat-amber"><mat-icon>schedule</mat-icon></div>
+            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-amber">{{ s.totals?.pending }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.pending' | transloco }}</div></div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card accent-green" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-green"><mat-icon>check_circle</mat-icon></div>
-            <div class="stat-text"><div class="stat-value">{{ s.totals?.completed }}</div><div class="stat-label">{{ 'overview.completed' | transloco }}</div></div>
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-green-bg text-stat-green"><mat-icon>check_circle</mat-icon></div>
+            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-green">{{ s.totals?.completed }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.completed' | transloco }}</div></div>
           </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card accent-slate" appearance="outlined">
-          <mat-card-content>
-            <div class="stat-icon icon-slate"><mat-icon>archive</mat-icon></div>
-            <div class="stat-text"><div class="stat-value">{{ s.totals?.archived }}</div><div class="stat-label">{{ 'overview.archived' | transloco }}</div></div>
+        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="flex items-center gap-3.5 p-4">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>archive</mat-icon></div>
+            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1] text-stat-slate">{{ s.totals?.archived }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.archived' | transloco }}</div></div>
           </mat-card-content>
         </mat-card>
       </div>
 
-      <mat-card class="pending-card" appearance="outlined">
+      <mat-card class="mb-8 rounded-[14px] bg-panel text-ink" appearance="outlined">
         <mat-card-header>
-          <mat-card-title class="pending-title">
-            <mat-icon>how_to_reg</mat-icon>
+          <mat-card-title class="flex items-center gap-2 text-[1.05rem]">
+            <mat-icon class="text-stat-amber">how_to_reg</mat-icon>
             {{ 'overview.pendingApprovals' | transloco }}
-            <span class="count-badge">{{ pendingCount() }}</span>
+            <span class="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-stat-amber-bg px-[7px] text-[0.78rem] font-bold text-stat-amber">{{ pendingCount() }}</span>
           </mat-card-title>
         </mat-card-header>
         <mat-card-content>
           @if (pendingUsers().length === 0) {
-            <p class="pending-empty">{{ 'overview.noPending' | transloco }}</p>
+            <p class="mb-0 mt-2 text-muted">{{ 'overview.noPending' | transloco }}</p>
           } @else {
-            <div class="pending-list">
+            <div class="flex flex-col">
               @for (u of pendingUsers(); track u.id) {
-                <div class="pending-row">
-                  <div class="pending-info">
-                    <div class="pending-name">{{ u.displayName }}</div>
-                    <div class="pending-meta">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-t border-app-border py-3 first:border-t-0">
+                  <div>
+                    <div class="font-semibold">{{ u.displayName }}</div>
+                    <div class="mt-0.5 flex flex-wrap items-center gap-2.5 text-[0.85rem] text-muted">
                       <span>{{ u.email }}</span>
                       <span class="chip chip-neutral">{{ u.roleName }}</span>
                       @if ($any(u).createdAt) {
-                        <span class="pending-date">{{ $any(u).createdAt | date:'mediumDate' }}</span>
+                        <span class="text-[0.8rem]">{{ $any(u).createdAt | date:'mediumDate' }}</span>
                       }
                     </div>
                   </div>
-                  <div class="pending-actions">
+                  <div class="flex items-center gap-2">
                     <button mat-flat-button color="primary" [matMenuTriggerFor]="approveMenu"
                       (menuOpened)="approveSelection[u.id!] = u.roleId ?? 0" [disabled]="busy()">
                       {{ 'overview.approve' | transloco }}
                     </button>
                     <mat-menu #approveMenu="matMenu">
-                      <div class="approve-panel" (click)="$event.stopPropagation()">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="approve-field">
+                      <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
                           <mat-label>{{ 'overview.approveAs' | transloco }}</mat-label>
                           <mat-select [(value)]="approveSelection[u.id!]">
                             @for (r of activeRoles(); track r.id) {
@@ -133,7 +133,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
                             }
                           </mat-select>
                         </mat-form-field>
-                        <button mat-flat-button color="primary" class="approve-confirm"
+                        <button mat-flat-button color="primary" class="w-full"
                           (click)="approve(u)" [disabled]="busy()">
                           {{ 'overview.confirm' | transloco }}
                         </button>
@@ -150,15 +150,15 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
         </mat-card-content>
       </mat-card>
 
-      <div class="table-header">
-        <h2>{{ 'overview.breakdown' | transloco }}</h2>
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="m-0 text-[1.1rem] font-bold">{{ 'overview.breakdown' | transloco }}</h2>
         <button mat-stroked-button (click)="statsResource.reload()" [disabled]="loading()">
           <mat-icon>refresh</mat-icon> {{ 'common.refresh' | transloco }}
         </button>
       </div>
 
-      <div class="table-container">
-        <table mat-table [dataSource]="tableDataSource" matSort class="mat-elevation-z1">
+      <div class="overflow-x-auto">
+        <table mat-table [dataSource]="tableDataSource" matSort class="w-full mat-elevation-z1">
           <ng-container matColumnDef="key">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.key' | transloco }}</th>
             <td mat-cell *matCellDef="let row"><code>{{ row.key }}</code></td>
@@ -175,29 +175,29 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.private' | transloco }}</th>
             <td mat-cell *matCellDef="let row">
               @if (row.privateComments > 0) {
-                <span class="chip chip-private" [title]="'overview.privateHiddenTooltip' | transloco">
-                  <mat-icon class="chip-icon">lock</mat-icon>{{ row.privateComments }}
+                <span class="inline-flex items-center gap-[3px] rounded-[11px] bg-stat-slate-bg px-2 py-px text-[0.78rem] font-semibold text-stat-slate" [title]="'overview.privateHiddenTooltip' | transloco">
+                  <mat-icon class="chip-icon !h-[14px] !w-[14px] !text-[14px] !leading-[14px]">lock</mat-icon>{{ row.privateComments }}
                 </span>
               } @else {
-                <span class="muted-dash">—</span>
+                <span class="text-muted">—</span>
               }
             </td>
           </ng-container>
           <ng-container matColumnDef="open">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.open' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="col-blue">{{ row.open }}</td>
+            <td mat-cell *matCellDef="let row" class="font-medium text-stat-blue">{{ row.open }}</td>
           </ng-container>
           <ng-container matColumnDef="pending">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.pending' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="col-amber">{{ row.pending }}</td>
+            <td mat-cell *matCellDef="let row" class="font-medium text-stat-amber">{{ row.pending }}</td>
           </ng-container>
           <ng-container matColumnDef="completed">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.completed' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="col-green">{{ row.completed }}</td>
+            <td mat-cell *matCellDef="let row" class="font-medium text-stat-green">{{ row.completed }}</td>
           </ng-container>
           <ng-container matColumnDef="archived">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.archived' | transloco }}</th>
-            <td mat-cell *matCellDef="let row" class="col-slate">{{ row.archived }}</td>
+            <td mat-cell *matCellDef="let row" class="font-medium text-stat-slate">{{ row.archived }}</td>
           </ng-container>
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.status' | transloco }}</th>
@@ -213,59 +213,12 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
         </table>
       </div>
     } @else if (!loading()) {
-      <div class="empty-state">
+      <div class="p-12 text-center">
         <p>No data available.</p>
         <button mat-stroked-button (click)="statsResource.reload()">{{ 'common.refresh' | transloco }}</button>
       </div>
     }
   `,
-  styles: [`
-    .progress-bar { position: fixed; top: 0; inset-inline: 0; z-index: 1000; }
-    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: var(--panel-bg); color: var(--ink); border-radius: 14px; }
-    .stat-card mat-card-content { display: flex; align-items: center; gap: 14px; padding: 16px; }
-    .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .stat-icon mat-icon { font-size: 24px; width: 24px; height: 24px; }
-    .icon-slate { background: #eef2f7; color: #475569; }
-    .icon-blue { background: #e8f0fe; color: #1976d2; }
-    .icon-amber { background: #fff4e5; color: #f57c00; }
-    .icon-green { background: #e8f5e9; color: #388e3c; }
-    .stat-text { display: flex; flex-direction: column; }
-    .stat-value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
-    .stat-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
-    .stat-subnote { display: inline-flex; align-items: center; gap: 3px; font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
-    .accent-blue .stat-value { color: #1976d2; }
-    .accent-amber .stat-value { color: #f57c00; }
-    .accent-green .stat-value { color: #388e3c; }
-    .pending-card { background: var(--panel-bg); color: var(--ink); border-radius: 14px; margin-bottom: 32px; }
-    .pending-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; }
-    .pending-title mat-icon { color: #f57c00; }
-    .count-badge { background: #fff4e5; color: #f57c00; font-size: 0.78rem; font-weight: 700; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; }
-    .pending-empty { color: var(--muted); margin: 8px 0 0; }
-    .pending-list { display: flex; flex-direction: column; }
-    .pending-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border, rgba(128,128,128,0.18)); flex-wrap: wrap; }
-    .pending-row:first-child { border-top: none; }
-    .pending-name { font-weight: 600; }
-    .pending-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
-    .pending-date { font-size: 0.8rem; }
-    .pending-actions { display: flex; align-items: center; gap: 8px; }
-    .approve-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px; min-width: 200px; }
-    .approve-field { width: 100%; }
-    .approve-confirm { width: 100%; }
-    .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .table-header h2 { margin: 0; font-size: 1.1rem; }
-    .table-container { overflow-x: auto; }
-    table { width: 100%; }
-    .accent-slate .stat-value { color: #475569; }
-    .col-blue { color: #1976d2; font-weight: 500; }
-    .col-amber { color: #f57c00; font-weight: 500; }
-    .col-green { color: #388e3c; font-weight: 500; }
-    .col-slate { color: #475569; font-weight: 500; }
-    .chip-private { display: inline-flex; align-items: center; gap: 3px; background: #eef2f7; color: #475569; font-size: 0.78rem; font-weight: 600; padding: 1px 8px; border-radius: 11px; }
-    .chip-icon { font-size: 14px; width: 14px; height: 14px; }
-    .muted-dash { color: var(--muted); }
-    .empty-state { text-align: center; padding: 48px; }
-  `],
 })
 export class OverviewComponent {
   private usersService = inject(UsersService);

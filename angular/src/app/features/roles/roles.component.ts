@@ -33,22 +33,22 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     TranslocoModule,
   ],
   template: `
-    <div class="roles-page">
-      <div class="page-head">
-        <h2>{{ 'roles.title' | transloco }}</h2>
+    <div class="p-6">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="m-0 text-[1.5em] font-bold">{{ 'roles.title' | transloco }}</h2>
         <button mat-flat-button color="primary" (click)="openAdd()">
           <mat-icon>add</mat-icon> {{ 'roles.addRole' | transloco }}
         </button>
       </div>
 
       @if (roles().length > 0) {
-        <table mat-table [dataSource]="roles()" class="mat-elevation-z2 roles-table">
+        <table mat-table [dataSource]="roles()" class="w-full mat-elevation-z2">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.name' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
               {{ role.name }}
               @if (role.isSystem) {
-                <span class="chip chip-neutral system-chip">{{ 'roles.system' | transloco }}</span>
+                <span class="chip chip-neutral ms-2 text-[10px]">{{ 'roles.system' | transloco }}</span>
               }
             </td>
           </ng-container>
@@ -77,7 +77,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
               @if (!role.isSystem) {
-                <div class="row-actions">
+                <div class="flex flex-wrap gap-2">
                   <button mat-stroked-button (click)="renameRole(role)">
                     <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
                   </button>
@@ -107,7 +107,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     <ng-template #addDialog>
       <h2 mat-dialog-title>{{ 'roles.addRole' | transloco }}</h2>
       <mat-dialog-content>
-        <div class="dialog-form">
+        <div class="flex min-w-80 flex-col gap-4 pt-2">
           <mat-form-field appearance="outline">
             <mat-label>{{ 'roles.name' | transloco }}</mat-label>
             <input matInput [(ngModel)]="newName" (keydown.enter)="addRole()" />
@@ -127,7 +127,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     <ng-template #deleteDialog>
       <h2 mat-dialog-title>{{ 'roles.deleteTitle' | transloco }}</h2>
       <mat-dialog-content>
-        <div class="dialog-form">
+        <div class="flex min-w-80 flex-col gap-4 pt-2">
           <p>{{ 'roles.deleteIntro' | transloco: { name: deletingRole()?.name } }}</p>
           @if (targetRoles().length > 0) {
             <mat-form-field appearance="outline">
@@ -139,7 +139,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
               </mat-select>
             </mat-form-field>
           } @else {
-            <p class="muted">{{ 'roles.noTargets' | transloco }}</p>
+            <p class="m-0 text-[13px] text-muted">{{ 'roles.noTargets' | transloco }}</p>
           }
         </div>
       </mat-dialog-content>
@@ -160,7 +160,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     <ng-template #renameDialog>
       <h2 mat-dialog-title>{{ 'common.rename' | transloco }}</h2>
       <mat-dialog-content>
-        <div class="dialog-form">
+        <div class="flex min-w-80 flex-col gap-4 pt-2">
           <mat-form-field appearance="outline">
             <mat-label>{{ 'roles.name' | transloco }}</mat-label>
             <input matInput [(ngModel)]="editName" (keydown.enter)="saveRename()" />
@@ -175,16 +175,6 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
       </mat-dialog-actions>
     </ng-template>
   `,
-  styles: [`
-    .roles-page { padding: 24px; }
-    .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
-    .page-head h2 { margin: 0; }
-    .roles-table { width: 100%; }
-    .system-chip { margin-inline-start: 8px; font-size: 10px; }
-    .dialog-form { display: flex; flex-direction: column; gap: 16px; min-width: 320px; padding-top: 8px; }
-    .muted { color: #64748b; font-size: 13px; margin: 0; }
-    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  `],
 })
 export class RolesComponent {
   private rolesService = inject(RolesService);

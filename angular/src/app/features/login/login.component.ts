@@ -15,21 +15,18 @@ import { extractMessage } from '../../core/api/extract-message';
   standalone: true,
   imports: [ReactiveFormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
   template: `
-    <div class="login-wrap">
-      <mat-card class="login-card">
-        <h1>{{ 'login.title' | transloco }}</h1>
-        <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="flex min-h-screen items-center justify-center bg-slate-100">
+      <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
+        <h1 class="my-[0.67em] text-[2em] font-bold">{{ 'login.title' | transloco }}</h1>
+        <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
           <mat-form-field appearance="outline"><mat-label>{{ 'login.email' | transloco }}</mat-label>
             <input matInput type="email" formControlName="email" /></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>{{ 'login.password' | transloco }}</mat-label>
             <input matInput type="password" formControlName="password" /></mat-form-field>
-          <button mat-flat-button color="primary" [disabled]="form.invalid || loading()">{{ 'login.signIn' | transloco }}</button>
+          <button mat-flat-button color="primary" class="mt-2" [disabled]="form.invalid || loading()">{{ 'login.signIn' | transloco }}</button>
         </form>
       </mat-card>
     </div>`,
-  styles: [`.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f1f5f9}
-    .login-card{width:360px;max-width:92vw;padding:24px;display:flex;flex-direction:column;gap:8px}
-    form{display:flex;flex-direction:column;gap:8px} button{margin-top:8px}`],
 })
 export class LoginComponent {
   private fb = inject(FormBuilder);

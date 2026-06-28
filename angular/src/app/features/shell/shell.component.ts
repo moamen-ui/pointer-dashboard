@@ -26,29 +26,29 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
     TranslocoModule,
   ],
   template: `
-    <mat-toolbar class="toolbar">
-      <span class="brand">
-        <mat-icon class="brand-icon">push_pin</mat-icon>
+    <mat-toolbar class="toolbar z-[2] shrink-0 border-b border-app-border bg-header text-ink shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+      <span class="flex items-center gap-2 text-[1.1rem] font-bold">
+        <mat-icon class="rotate-45 text-brand">push_pin</mat-icon>
         {{ 'header.brand' | transloco }}
       </span>
-      <span class="spacer"></span>
+      <span class="flex-1"></span>
       @if (auth.user()) {
-        <span class="user-info">
-          <mat-icon class="user-icon">account_circle</mat-icon>
+        <span class="me-3.5 inline-flex items-center gap-1.5 text-[0.9rem] text-muted">
+          <mat-icon class="text-muted">account_circle</mat-icon>
           {{ auth.user()!.displayName }} · {{ auth.user()!.roleName }}
         </span>
       }
-      <button mat-icon-button (click)="toggleTheme()" class="toolbar-icon-btn">
+      <button mat-icon-button (click)="toggleTheme()">
         <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
-      <button mat-button (click)="togglePrefsLang()" class="lang-btn">{{ prefs.language() === 'ar' ? 'EN' : 'ع' }}</button>
-      <button mat-stroked-button class="signout" (click)="auth.logout()">
+      <button mat-button (click)="togglePrefsLang()">{{ prefs.language() === 'ar' ? 'EN' : 'ع' }}</button>
+      <button mat-stroked-button class="border-app-border text-ink" (click)="auth.logout()">
         <mat-icon>logout</mat-icon> {{ 'header.signOut' | transloco }}
       </button>
     </mat-toolbar>
 
-    <mat-sidenav-container class="sidenav-container" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">
-      <mat-sidenav mode="side" opened class="sidenav">
+    <mat-sidenav-container class="flex-1 overflow-hidden bg-app" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">
+      <mat-sidenav mode="side" opened class="sidenav w-[232px] border-e border-app-border bg-sidebar pt-2">
         <mat-nav-list>
           <a mat-list-item routerLink="/overview" routerLinkActive="active-link">
             <mat-icon matListItemIcon>dashboard</mat-icon>
@@ -69,40 +69,18 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
         </mat-nav-list>
       </mat-sidenav>
 
-      <mat-sidenav-content class="content">
+      <mat-sidenav-content class="h-full overflow-y-auto bg-app p-6">
         <router-outlet />
       </mat-sidenav-content>
     </mat-sidenav-container>
   `,
+  // Layout host + nav-list styling that reaches into Angular Material's internal
+  // DOM (.mat-mdc-list-item) is kept as scoped CSS — Tailwind utilities on the
+  // template can't target Material's generated inner elements. Colors still use
+  // the shared theme tokens so light/dark stays consistent.
   styles: [`
     :host { display: flex; flex-direction: column; height: 100vh; }
 
-    /* Header — white, distinct from the sidebar, with a subtle divider/shadow */
-    .toolbar {
-      flex-shrink: 0;
-      background: var(--header-bg);
-      color: var(--ink);
-      border-bottom: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-      z-index: 2;
-    }
-    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.1rem; }
-    .brand-icon { color: var(--brand); transform: rotate(45deg); }
-    .brand-light { color: var(--muted); font-weight: 600; }
-    .spacer { flex: 1; }
-    .user-info { display: inline-flex; align-items: center; gap: 6px; margin-inline-end: 14px; font-size: 0.9rem; color: var(--muted); }
-    .user-icon { color: var(--muted); }
-    .signout { color: var(--ink); border-color: var(--border); }
-
-    .sidenav-container { flex: 1; overflow: hidden; background: var(--app-bg); }
-
-    /* Sidebar — light tinted panel, a different bg than the white header/content */
-    .sidenav {
-      width: 232px;
-      background: var(--sidebar-bg);
-      border-inline-end: 1px solid var(--border);
-      padding-top: 8px;
-    }
     .sidenav a.mat-mdc-list-item {
       margin: 2px 10px;
       border-radius: 10px;
@@ -112,8 +90,6 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
     .sidenav a.mat-mdc-list-item:hover { background: rgba(15, 23, 42, 0.04); }
     .active-link.mat-mdc-list-item { background: var(--brand-tint); color: var(--brand); font-weight: 600; }
     .active-link.mat-mdc-list-item mat-icon { color: var(--brand); }
-
-    .content { padding: 24px; overflow-y: auto; height: 100%; background: var(--app-bg); }
   `],
 })
 export class ShellComponent {

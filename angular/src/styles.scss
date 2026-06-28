@@ -1,9 +1,11 @@
+@use '@angular/material' as mat;
+@import 'tailwindcss';
+
 // Include theming for Angular Material with `mat.theme()`.
 // This Sass mixin will define CSS variables that are used for styling Angular Material
 // components according to the Material 3 design spec.
 // Learn more about theming and how to use it for your application's
 // custom components at https://material.angular.dev/guide/theming
-@use '@angular/material' as mat;
 
 html {
   height: 100%;
@@ -30,6 +32,45 @@ html {
 @font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
 @font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
 @font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+
+// Dark mode is driven by `html.dark` (toggled in PreferencesService), not the OS
+// preference. Register the `dark:` variant against that class for any utilities
+// that need it.
+@custom-variant dark (&:where(.dark, .dark *));
+
+// Expose the app chrome palette as Tailwind utilities. Values point at the CSS
+// variables below so the utilities (bg-app, text-ink, border-app, ...) follow the
+// light/dark overrides automatically — same colors, same dark-mode mechanism.
+@theme {
+  --font-app: 'IBMPlexSansArabic', 'Segoe UI', Tahoma, sans-serif;
+
+  --color-app: var(--app-bg);
+  --color-header: var(--header-bg);
+  --color-sidebar: var(--sidebar-bg);
+  --color-panel: var(--panel-bg);
+  --color-app-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-tint: var(--brand-tint);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+
+  --color-chip-ok-bg: var(--chip-ok-bg);
+  --color-chip-ok-fg: var(--chip-ok-fg);
+  --color-chip-off-bg: var(--chip-off-bg);
+  --color-chip-off-fg: var(--chip-off-fg);
+  --color-chip-neutral-bg: var(--chip-neutral-bg);
+  --color-chip-neutral-fg: var(--chip-neutral-fg);
+
+  // Fixed accent colors used by overview stat cards / table columns (theme-agnostic).
+  --color-stat-blue: #1976d2;
+  --color-stat-amber: #f57c00;
+  --color-stat-green: #388e3c;
+  --color-stat-slate: #475569;
+  --color-stat-blue-bg: #e8f0fe;
+  --color-stat-amber-bg: #fff4e5;
+  --color-stat-green-bg: #e8f5e9;
+  --color-stat-slate-bg: #eef2f7;
+}
 
 // App chrome palette — light / white theme.
 :root {
