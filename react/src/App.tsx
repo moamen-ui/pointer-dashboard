@@ -32,6 +32,8 @@ export default function App() {
                     <Route path="/roles" element={<RolesPage />} />
                     <Route path="/users" element={<UsersPage />} />
                     <Route path="/projects" element={<ProjectsPage />} />
+                    {/* Admin view of another user's profile */}
+                    <Route path="/users/:id/profile" element={<ProfilePage />} />
                   </Route>
 
                   {/* Authenticated-user routes (non-admin allowed) */}

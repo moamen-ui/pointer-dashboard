@@ -4,6 +4,7 @@
 // change role inline for approved users.
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetApiAdminUsers,
@@ -16,7 +17,7 @@ import {
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, UserCheck } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, UserCheck, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,7 @@ export function UsersPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [filter, setFilter] = useState<FilterStatus>('Approved');
 
@@ -242,6 +244,7 @@ export function UsersPage() {
               <TableHead>{t('users.role')}</TableHead>
               <TableHead>{t('users.status')}</TableHead>
               <TableHead>{t('users.actions')}</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -305,11 +308,21 @@ export function UsersPage() {
                     </div>
                   )}
                 </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(`/users/${user.id}/profile`)}
+                  >
+                    <User className="h-4 w-4" />
+                    {t('profile.viewProfile')}
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
             {users.length === 0 && !isFetching && (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                   {t('users.empty')}
                 </TableCell>
               </TableRow>

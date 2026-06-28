@@ -104,5 +104,14 @@
     "status": "Status",
     "actions": "Actions",
     "empty": "No projects to show."
+  },
+  "profile": {
+    "title": "My Profile",
+    "projects": "Projects",
+    "comments": "Comments",
+    "replies": "Replies",
+    "breakdown": "Project Breakdown",
+    "noProjects": "No projects to show.",
+    "viewProfile": "View profile"
   }
 }
