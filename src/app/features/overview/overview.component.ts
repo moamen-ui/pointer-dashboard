@@ -12,12 +12,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { TranslocoModule } from '@jsverse/transloco';
-import { UsersService } from '@moamen-ui/pointer-angular/users/users.service';
-import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular/stats/stats.service';
-import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular/users/users.service';
-import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular/roles/roles.service';
+import { UsersService } from '@moamen-ui/pointer-angular';
+import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular';
+import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
+import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular/model';
+import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
   selector: 'app-overview',

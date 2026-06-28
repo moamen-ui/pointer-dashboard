@@ -9,9 +9,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { ProjectsService, getApiAdminProjectsResource } from '@moamen-ui/pointer-angular/projects/projects.service';
+import { ProjectsService, getApiAdminProjectsResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import type { ProjectResponse } from '@moamen-ui/pointer-angular/model';
+import type { ProjectResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
   selector: 'app-projects',

@@ -14,8 +14,6 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
-      "@moamen-ui/pointer-angular": ["./src/app/core/api/generated/index.ts"],
-      "@moamen-ui/pointer-angular/*": ["./src/app/core/api/generated/*"]
     }
   },
   "angularCompilerOptions": {

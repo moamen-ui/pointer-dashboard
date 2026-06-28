@@ -10,9 +10,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular/roles/roles.service';
+import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import type { RoleResponse } from '@moamen-ui/pointer-angular/model';
+import type { RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
   selector: 'app-roles',

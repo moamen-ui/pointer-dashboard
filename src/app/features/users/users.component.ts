@@ -13,10 +13,10 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular/users/users.service';
-import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular/roles/roles.service';
+import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
+import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import type { UserResponse, RoleResponse } from '@moamen-ui/pointer-angular/model';
+import type { UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 

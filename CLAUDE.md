@@ -11,22 +11,24 @@ repo) over HTTP. Frontend-only — it needs a running API.
 - Dev: `npm install && npm start` → http://localhost:4200 (API expected on `:8090`).
 - Prod build: `npm run build` → static bundle in `dist/admin-web/browser/`.
 
-## Critical Skill (READ FIRST)
+## API client (READ FIRST)
 
-- **[Orval Code Generation](docs/skills/orval-codegen/SKILL.md)** — the API services/models under
-  `src/app/core/api/generated/` are **auto-generated from the API's Swagger spec via Orval**. If the
-  backend changes endpoints or DTOs, regenerate: `npm run generate-services` (API up on `:8090`).
-  **Never hand-edit `src/app/core/api/generated/`.**
+The typed API client is the **published [`@moamen-ui/pointer-angular`](https://github.com/moamen-ui/poitner-api/pkgs/npm/pointer-angular)**
+package (GitHub Packages), generated from the API's Swagger and built with ng-packagr **in the API
+repo** — not generated here. To change it: update the API, then run the *Publish API clients*
+workflow in [`poitner-api`](https://github.com/moamen-ui/poitner-api) and bump the version here.
+
+- **Auth:** install needs a GitHub Packages token. `.npmrc` (committed) points the `@moamen-ui` scope
+  at `npm.pkg.github.com` and reads the token from `${NODE_AUTH_TOKEN}` — set that env var locally
+  (`export NODE_AUTH_TOKEN=$(gh auth token)`) and in CI/VM builds before `npm ci`.
 
 ## Key conventions
 
 1. All API responses are wrapped in `Result<T>`; the `apiInterceptor`
    (`src/app/core/auth/auth.interceptor.ts`) unwraps `.data`, prepends `apiBase` to `/api/*` URLs,
-   adds the bearer token, and redirects to `/login` on 401. Generated types are the **inner** type
+   adds the bearer token, and redirects to `/login` on 401. Client types are the **inner** type
    (e.g. `UserResponse`, not `Result<UserResponse>`).
-2. Frontend imports use the **`@moamen-ui/pointer-angular`** package (tsconfig path → the generated
-   client) — never relative paths into `generated/`.
-3. Don't commit `openapi.json` edits by hand — it's the downloaded Swagger spec.
+2. Import from the package barrel: `import { UsersService } from '@moamen-ui/pointer-angular'`.
 
 ## Environment / API base
 

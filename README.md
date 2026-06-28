@@ -72,25 +72,28 @@ docker compose -f ~/pointer-api/docker-compose.prod.yml restart caddy
 
 The `production` build bakes in `apiBase=https://api.pointer.moamen.work` via `fileReplacements`.
 
-## Generated API layer (Orval)
+## API client
 
-The Angular services + models under `src/app/core/api/generated/` are **auto-generated from the
-API's Swagger spec via Orval** — **never edit them by hand**. After the backend changes endpoints
-or DTOs, regenerate (with the API running on `:8090`):
+The typed API client is the published **`@moamen-ui/pointer-angular`** package (GitHub Packages),
+generated + built in the [`poitner-api`](https://github.com/moamen-ui/poitner-api) repo. It's a
+normal dependency here — `import { UsersService } from '@moamen-ui/pointer-angular'`.
+
+Installing it needs a **GitHub Packages token**. The committed `.npmrc` points the `@moamen-ui` scope
+at `npm.pkg.github.com` and reads the token from `${NODE_AUTH_TOKEN}`:
 
 ```bash
-npm run generate-services
+export NODE_AUTH_TOKEN=$(gh auth token)   # a token with read:packages
+npm install
 ```
 
-Full workflow + conventions: [`docs/skills/orval-codegen/SKILL.md`](docs/skills/orval-codegen/SKILL.md).
+To pick up API changes: republish the client (the *Publish API clients* workflow in `poitner-api`),
+then bump `@moamen-ui/pointer-angular` here.
 
 ## Conventions
 
 - All API responses are wrapped in `Result<T>`; the `apiInterceptor` unwraps `.data` and prepends
-  `apiBase` to `/api/*` URLs. Generated types are the **inner** type (e.g. `UserResponse`).
-- Frontend imports use the **`@moamen-ui/pointer-angular`** package (a tsconfig path maps it to the
-  generated client today; swap to the published GitHub Packages version when you install it) — never
-  relative paths into `generated/`.
+  `apiBase` to `/api/*` URLs. Client types are the **inner** type (e.g. `UserResponse`).
+- Import from the package barrel — `@moamen-ui/pointer-angular` (not deep paths).
 - **Language + theme:** header toggles for AR/EN (Arabic flips to RTL) and light/dark; each user's
   choice is saved server-side (`PATCH /api/me/preferences`) and restored on next login.
 

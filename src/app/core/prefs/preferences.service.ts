@@ -1,7 +1,7 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
-import { MeService } from '@moamen-ui/pointer-angular/me/me.service';
-import { UpdatePreferencesRequest } from '@moamen-ui/pointer-angular/model';
+import { MeService } from '@moamen-ui/pointer-angular';
+import { UpdatePreferencesRequest } from '@moamen-ui/pointer-angular';
 
 type Lang = 'ar' | 'en';
 type Theme = 'light' | 'dark';
