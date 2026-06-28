@@ -85,7 +85,7 @@ function statusBuckets(row: ProfileProject | ProfileEnvironment): StatusBucket[]
     { value: STATUS_READY,    count: row.readyToApply ?? 0 },
     { value: STATUS_APPLIED,  count: row.applied ?? 0 },
     { value: STATUS_ARCHIVED, count: row.archived ?? 0 },
-  ].filter((b) => b.count > 0);
+  ];
 }
 </script>
 
@@ -160,10 +160,12 @@ function statusBuckets(row: ProfileProject | ProfileEnvironment): StatusBucket[]
           <CardContent class="flex items-center gap-3 p-4">
             <div
               class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
-              :style="{ backgroundColor: statusColor(bucket.value) + '22', color: statusColor(bucket.value) }"
+              :style="{ backgroundColor: statusColor(bucket.value) + '22' }"
             >
-              <span class="text-xs font-bold">{{ bucket.count }}</span>
-            </div>
+              <span
+                class="h-3 w-3 rounded-full"
+                :style="{ backgroundColor: statusColor(bucket.value) }"
+              /></div>
             <div class="flex flex-col">
               <span
                 class="text-[1.5rem] font-bold leading-tight"
