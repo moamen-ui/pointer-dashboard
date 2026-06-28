@@ -19,8 +19,10 @@ parity. Never change one client and leave the others behind. Today only **Angula
 React/Vue are added, mirror the same change in each. If something is genuinely framework-specific,
 state that explicitly and explain why it can't be mirrored.
 
-When adding a brand-new feature, do it in each existing client and keep behavior, routes, labels, and
-states consistent across them.
+**Use subagents for cross-client work:** when more than one client exists, dispatch **one subagent per
+client** (Angular / React / Vue) to implement the change in parallel — the work is independent. Give
+each a self-contained brief (the task + that client's stack/conventions), then review all results
+together and confirm parity (behavior, routes, labels, states) before finishing.
 
 ## Project
 

@@ -19,6 +19,11 @@ and UX**, each consuming its matching API client (`@moamen-ui/pointer-angular` /
 > Don't update one and leave the others behind. Today that's **Angular only**; once React/Vue are
 > added, replicate the same change in each. If a change is genuinely framework-specific (e.g. uses an
 > Angular-only API), call that out explicitly and explain why it can't be mirrored.
+>
+> **Use subagents:** when more than one client exists, **dispatch one subagent per client** (Angular,
+> React, Vue) to implement the change in parallel — the per-client work is independent. Give each a
+> self-contained brief (the task + that client's conventions), then review the results together and
+> verify the clients ended up consistent (behavior, routes, labels, states).
 
 ## Project
 
