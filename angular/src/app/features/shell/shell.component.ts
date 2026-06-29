@@ -71,6 +71,10 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
               <mat-icon matListItemIcon>folder</mat-icon>
               <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
             </a>
+            <a mat-list-item routerLink="/statuses" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>label</mat-icon>
+              <span matListItemTitle>Statuses</span>
+            </a>
           }
         </mat-nav-list>
       </mat-sidenav>

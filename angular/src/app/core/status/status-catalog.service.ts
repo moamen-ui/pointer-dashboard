@@ -21,6 +21,11 @@ export class StatusCatalogService {
     return [...list].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   });
 
+  /** Re-fetch the status catalog from the API (call after a Save/Reset on the admin page). */
+  reload(): void {
+    this.resource.reload();
+  }
+
   /** Human-readable label for a status value. Falls back to the value as a string. */
   label(value: number | undefined): string {
     if (value == null) return '';
