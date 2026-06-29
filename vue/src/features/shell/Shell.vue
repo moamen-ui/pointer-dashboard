@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
 import { usePreferences } from '@/composables/usePreferences';
+import DemoPanel from '@/features/shell/DemoPanel.vue';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -74,6 +75,9 @@ function signOut() {
         {{ t('header.signOut') }}
       </Button>
     </header>
+
+    <!-- Demo banner (only when a demo session is active) -->
+    <DemoPanel />
 
     <!-- Body: sidebar + content -->
     <div class="flex flex-1 overflow-hidden bg-app">

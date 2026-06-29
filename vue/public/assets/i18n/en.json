@@ -13,7 +13,23 @@
     "yes": "Yes",
     "no": "No",
     "confirmDisable": "Disable {{ name }}?",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "or": "or"
+  },
+  "demo": {
+    "tryDemo": "Try the demo",
+    "starting": "Starting demo…",
+    "failed": "Could not start the demo. Please try again.",
+    "bannerTitle": "Demo mode",
+    "bannerDesc": "You're exploring a temporary demo workspace.",
+    "projectKey": "Project key",
+    "widgetLogin": "Widget login",
+    "snippetLabel": "Drop this into your page to collect feedback:",
+    "copy": "Copy",
+    "copied": "Copied",
+    "expiresIn": "Expires in {{ time }}",
+    "expired": "Demo expired",
+    "dismiss": "Dismiss"
   },
   "nav": {
     "overview": "Overview",

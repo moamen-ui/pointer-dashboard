@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -15,9 +15,10 @@ import { extractMessage } from '@/lib/error';
 const { t } = useI18n();
 const router = useRouter();
 
-// Check if signup is open — success = enabled, error = disabled / closed.
-const { isSuccess: signupOpen, isError: signupClosed, isPending: checking } =
-  useGetApiAuthSignupEnabled();
+// Signup availability comes from the typed SignupEnabledResponse { enabled }.
+const { data: signupData, isPending: checking } = useGetApiAuthSignupEnabled();
+const signupOpen = computed(() => signupData.value?.enabled === true);
+const signupClosed = computed(() => !checking.value && !signupOpen.value);
 
 const registerAdmin = usePostApiAuthRegisterAdmin();
 
