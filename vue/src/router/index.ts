@@ -14,6 +14,7 @@ import RolesPage from '@/features/roles/RolesPage.vue';
 import UsersPage from '@/features/users/UsersPage.vue';
 import ProjectsPage from '@/features/projects/ProjectsPage.vue';
 import ProfilePage from '@/features/profile/ProfilePage.vue';
+import StatusesPage from '@/features/statuses/StatusesPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -32,6 +33,7 @@ export const router = createRouter({
         { path: 'roles', name: 'roles', component: RolesPage, meta: { requiresAdmin: true } },
         { path: 'users', name: 'users', component: UsersPage, meta: { requiresAdmin: true } },
         { path: 'projects', name: 'projects', component: ProjectsPage, meta: { requiresAdmin: true } },
+        { path: 'statuses', name: 'statuses', component: StatusesPage, meta: { requiresAdmin: true } },
         // Admin-only: view another user's profile by id.
         { path: 'users/:id/profile', name: 'user-profile', component: ProfilePage, meta: { requiresAdmin: true } },
         // Authenticated (any role): own profile.

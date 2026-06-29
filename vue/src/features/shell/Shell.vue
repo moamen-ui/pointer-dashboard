@@ -7,6 +7,7 @@ import {
   UserCog,
   Users,
   Folder,
+  Tag,
   Sun,
   Moon,
   LogOut,
@@ -22,6 +23,7 @@ const ADMIN_NAV = [
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/projects', key: 'nav.projects', icon: Folder },
+  { to: '/statuses', key: 'nav.statuses', icon: Tag },
 ];
 
 const { t } = useI18n();
