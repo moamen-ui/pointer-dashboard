@@ -126,7 +126,7 @@ export function StatusesPage() {
   if (isLoading && !data) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        {t('common.refresh')}…
+        {t('statuses.loading')}
       </div>
     );
   }

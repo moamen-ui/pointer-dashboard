@@ -116,6 +116,7 @@
     "save": "Save",
     "reset": "Reset",
     "confirmReset": "Reset \"{{ name }}\" back to its defaults?",
+    "loading": "Loading statuses…",
     "saveSuccess": "Status saved.",
     "resetSuccess": "Status reset to defaults.",
     "loadError": "Failed to load statuses."
