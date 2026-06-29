@@ -23,6 +23,7 @@ const token = ref<string | null>(getItem(TOKEN_KEY));
 
 const isAuthenticated = computed(() => !!user.value && !!token.value);
 const isAdmin = computed(() => !!user.value?.isAdmin);
+const isSuperAdmin = computed(() => !!user.value?.isSuperAdmin);
 
 /** Resolves to the logged-in user; throws on failure. */
 async function login(email: string, password: string): Promise<MeResponse> {
@@ -50,6 +51,7 @@ export function useAuth() {
     token,
     isAuthenticated,
     isAdmin,
+    isSuperAdmin,
     login,
     logout,
   };

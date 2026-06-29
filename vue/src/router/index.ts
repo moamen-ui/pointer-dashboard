@@ -1,6 +1,7 @@
-// vue-router with two route guards:
+// vue-router with three route guards:
 //   authenticatedGuard — any logged-in user (blocks unauthenticated → /login)
 //   adminGuard         — admin only (blocks non-admin → /login)
+//   superAdminGuard    — super-admin only (blocks non-super-admin → /login)
 // The shell is reachable by any authenticated user; admin-only children are
 // additionally guarded by requiresAdmin. The `/profile` child is available to
 // all authenticated users. The index redirect picks the target by role so
@@ -15,11 +16,16 @@ import UsersPage from '@/features/users/UsersPage.vue';
 import ProjectsPage from '@/features/projects/ProjectsPage.vue';
 import ProfilePage from '@/features/profile/ProfilePage.vue';
 import StatusesPage from '@/features/statuses/StatusesPage.vue';
+import TenantsPage from '@/features/tenants/TenantsPage.vue';
+import SettingsPage from '@/features/settings/SettingsPage.vue';
+import SignupPage from '@/features/signup/SignupPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', name: 'login', component: LoginPage },
+    // Public self-signup (no auth required)
+    { path: '/signup', name: 'signup', component: SignupPage },
     {
       path: '/',
       component: Shell,
@@ -38,6 +44,9 @@ export const router = createRouter({
         { path: 'users/:id/profile', name: 'user-profile', component: ProfilePage, meta: { requiresAdmin: true } },
         // Authenticated (any role): own profile.
         { path: 'profile', name: 'profile', component: ProfilePage },
+        // Super-admin-only children.
+        { path: 'tenants', name: 'tenants', component: TenantsPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
+        { path: 'settings', name: 'settings', component: SettingsPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
@@ -45,7 +54,7 @@ export const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, isSuperAdmin } = useAuth();
 
   // requiresAuth: must be logged in.
   if (to.meta.requiresAuth && !isAuthenticated.value) {
@@ -54,6 +63,11 @@ router.beforeEach((to) => {
 
   // requiresAdmin: must be admin (also enforces auth).
   if (to.meta.requiresAdmin && (!isAuthenticated.value || !isAdmin.value)) {
+    return { name: 'login' };
+  }
+
+  // requiresSuperAdmin: must be super-admin (also enforces auth + admin).
+  if (to.meta.requiresSuperAdmin && (!isAuthenticated.value || !isSuperAdmin.value)) {
     return { name: 'login' };
   }
 

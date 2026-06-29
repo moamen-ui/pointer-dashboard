@@ -13,6 +13,8 @@ import {
   LogOut,
   CircleUserRound,
   UserRound,
+  Building2,
+  Settings,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
@@ -26,9 +28,14 @@ const ADMIN_NAV = [
   { to: '/statuses', key: 'nav.statuses', icon: Tag },
 ];
 
+const SUPER_ADMIN_NAV = [
+  { to: '/tenants', key: 'nav.tenants', icon: Building2 },
+  { to: '/settings', key: 'nav.settings', icon: Settings },
+];
+
 const { t } = useI18n();
 const router = useRouter();
-const { user, isAdmin, logout } = useAuth();
+const { user, isAdmin, isSuperAdmin, logout } = useAuth();
 const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
 
 function signOut() {
@@ -76,6 +83,19 @@ function signOut() {
           <template v-if="isAdmin">
             <RouterLink
               v-for="item in ADMIN_NAV"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              active-class="bg-brand-tint font-semibold !text-brand"
+            >
+              <component :is="item.icon" class="h-5 w-5" />
+              <span>{{ t(item.key) }}</span>
+            </RouterLink>
+          </template>
+          <!-- Super-admin-only nav items -->
+          <template v-if="isSuperAdmin">
+            <RouterLink
+              v-for="item in SUPER_ADMIN_NAV"
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"

@@ -9,6 +9,7 @@
     "rename": "Rename",
     "disable": "Disable",
     "enable": "Enable",
+    "delete": "Delete",
     "yes": "Yes",
     "no": "No",
     "confirmDisable": "Disable {{ name }}?",
@@ -20,7 +21,9 @@
     "users": "Users",
     "projects": "Projects",
     "statuses": "Statuses",
-    "myProfile": "My profile"
+    "myProfile": "My profile",
+    "tenants": "Tenants",
+    "settings": "Settings"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -32,7 +35,9 @@
     "password": "Password",
     "signIn": "Sign in",
     "notAdmin": "This account is not an admin.",
-    "failed": "Login failed"
+    "failed": "Login failed",
+    "signupPrompt": "Need an account?",
+    "signupLink": "Request access"
   },
   "overview": {
     "projects": "Projects",
@@ -130,5 +135,43 @@
     "loadError": "Failed to load profile.",
     "unknownUser": "Unknown user",
     "viewProfile": "View profile"
+  },
+  "tenants": {
+    "title": "Tenants",
+    "addTenant": "Add Tenant",
+    "email": "Email",
+    "displayName": "Display Name",
+    "password": "Password",
+    "approval": "Approval",
+    "status": "Status",
+    "projects": "Projects",
+    "comments": "Comments",
+    "actions": "Actions",
+    "approve": "Approve",
+    "created": "Tenant created.",
+    "deleted": "Tenant deleted.",
+    "empty": "No tenants yet.",
+    "loadError": "Failed to load tenants.",
+    "confirmDisable": "Disable {{ name }}?",
+    "confirmDelete": "Delete {{ name }} and all their data? This cannot be undone."
+  },
+  "settings": {
+    "title": "Settings",
+    "signupEnabled": "Allow public self-signup",
+    "signupEnabledDesc": "When enabled, new admins can request access via the sign-up page.",
+    "saved": "Settings saved.",
+    "loadError": "Failed to load settings."
+  },
+  "signup": {
+    "title": "Request Access",
+    "displayName": "Display Name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Request access",
+    "pendingApproval": "Your request has been submitted. A super-admin will review and approve your account.",
+    "closed": "Sign-up is currently closed. Please contact your administrator.",
+    "checking": "Checking availability…",
+    "backToLogin": "Back to login",
+    "failed": "Sign-up failed"
   }
 }

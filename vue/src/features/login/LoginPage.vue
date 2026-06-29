@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, RouterLink } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,10 @@ async function onSubmit() {
             {{ t('login.signIn') }}
           </Button>
         </form>
+        <p class="text-center text-xs text-muted-foreground">
+          {{ t('login.signupPrompt') }}
+          <RouterLink to="/signup" class="underline">{{ t('login.signupLink') }}</RouterLink>
+        </p>
       </CardContent>
     </Card>
   </div>
