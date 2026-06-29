@@ -9,6 +9,7 @@ import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
 import { PreferencesService } from '../../core/prefs/preferences.service';
+import { DemoPanelComponent } from './demo-panel.component';
 
 @Component({
   selector: 'app-shell',
@@ -24,6 +25,7 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
     MatButtonModule,
     BidiModule,
     TranslocoModule,
+    DemoPanelComponent,
   ],
   template: `
     <mat-toolbar class="toolbar z-[2] shrink-0 border-b border-app-border bg-header text-ink shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
@@ -90,6 +92,7 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
       </mat-sidenav>
 
       <mat-sidenav-content class="h-full overflow-y-auto bg-app p-6">
+        <app-demo-panel />
         <router-outlet />
       </mat-sidenav-content>
     </mat-sidenav-container>

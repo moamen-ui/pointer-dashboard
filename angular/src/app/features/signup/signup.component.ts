@@ -73,13 +73,7 @@ export class SignupComponent {
   private transloco = inject(TranslocoService);
 
   signupResource = getApiAuthSignupEnabledResource();
-  signupEnabled = computed(() => {
-    const val = this.signupResource.value() as unknown;
-    if (val && typeof val === 'object' && 'enabled' in (val as Record<string, unknown>)) {
-      return !!(val as Record<string, unknown>)['enabled'];
-    }
-    return false;
-  });
+  signupEnabled = computed(() => this.signupResource.value()?.enabled === true);
 
   loading = signal(false);
   submitted = signal(false);

@@ -36,7 +36,24 @@
     "signIn": "Sign in",
     "notAdmin": "This account is not an admin.",
     "failed": "Login failed",
-    "signUpLink": "Request an account"
+    "signUpLink": "Request an account",
+    "or": "or"
+  },
+  "demo": {
+    "tryDemo": "Try the demo",
+    "provisioning": "Setting up your demo…",
+    "failed": "Could not start the demo. Please try again.",
+    "panelTitle": "Demo session",
+    "panelIntro": "Drop the widget into any page to leave feedback, then watch it appear here.",
+    "projectKey": "Project key",
+    "widgetLogin": "Widget login",
+    "copySnippet": "Embed snippet",
+    "copy": "Copy",
+    "copied": "Snippet copied.",
+    "copyFailed": "Could not copy. Copy it manually.",
+    "expiresIn": "Expires in {{ hours }}h {{ minutes }}m",
+    "expired": "Expired",
+    "dismiss": "Dismiss"
   },
   "overview": {
     "projects": "Projects",
