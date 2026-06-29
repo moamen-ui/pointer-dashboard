@@ -19,6 +19,7 @@
     "roles": "Roles",
     "users": "Users",
     "projects": "Projects",
+    "statuses": "Statuses",
     "myProfile": "My Profile"
   },
   "header": {
@@ -102,6 +103,27 @@
     "name": "Name",
     "status": "Status",
     "actions": "Actions"
+  },
+  "statuses": {
+    "title": "Statuses",
+    "loading": "Loading statuses…",
+    "loadError": "Failed to load statuses.",
+    "colName": "Name",
+    "colLabel": "Label",
+    "colColor": "Color",
+    "colOrder": "Order",
+    "colActions": "Actions",
+    "save": "Save",
+    "saving": "Saving…",
+    "reset": "Reset",
+    "resetting": "Resetting…",
+    "noOverrides": "No overrides to reset",
+    "resetConfirmTitle": "Reset status",
+    "resetConfirmMessage": "Reset \"{{ name }}\" to its default label, color, and order?",
+    "saveSuccess": "Status saved.",
+    "saveError": "Failed to save status.",
+    "resetSuccess": "Status reset to defaults.",
+    "resetError": "Failed to reset status."
   },
   "profile": {
     "title": "My Profile",

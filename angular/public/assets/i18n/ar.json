@@ -19,6 +19,7 @@
     "roles": "الأدوار",
     "users": "المستخدمون",
     "projects": "المشاريع",
+    "statuses": "الحالات",
     "myProfile": "ملفي الشخصي"
   },
   "header": {
@@ -102,6 +103,27 @@
     "name": "الاسم",
     "status": "الحالة",
     "actions": "الإجراءات"
+  },
+  "statuses": {
+    "title": "الحالات",
+    "loading": "جارٍ تحميل الحالات…",
+    "loadError": "فشل تحميل الحالات.",
+    "colName": "الاسم",
+    "colLabel": "التسمية",
+    "colColor": "اللون",
+    "colOrder": "الترتيب",
+    "colActions": "الإجراءات",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
+    "reset": "إعادة الضبط",
+    "resetting": "جارٍ الإعادة…",
+    "noOverrides": "لا توجد تخصيصات للإعادة",
+    "resetConfirmTitle": "إعادة ضبط الحالة",
+    "resetConfirmMessage": "إعادة ضبط \"{{ name }}\" إلى التسمية واللون والترتيب الافتراضية؟",
+    "saveSuccess": "تم حفظ الحالة.",
+    "saveError": "فشل حفظ الحالة.",
+    "resetSuccess": "تمت إعادة ضبط الحالة إلى الإعدادات الافتراضية.",
+    "resetError": "فشل إعادة ضبط الحالة."
   },
   "profile": {
     "title": "ملفي الشخصي",

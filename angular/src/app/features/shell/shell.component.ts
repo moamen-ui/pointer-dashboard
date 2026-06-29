@@ -73,7 +73,7 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
             </a>
             <a mat-list-item routerLink="/statuses" routerLinkActive="active-link">
               <mat-icon matListItemIcon>label</mat-icon>
-              <span matListItemTitle>Statuses</span>
+              <span matListItemTitle>{{ 'nav.statuses' | transloco }}</span>
             </a>
           }
         </mat-nav-list>
