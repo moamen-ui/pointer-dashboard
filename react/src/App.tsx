@@ -10,6 +10,7 @@ import { RolesPage } from '@/features/roles/RolesPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { ProfilePage } from '@/features/profile';
+import { StatusesPage } from '@/features/statuses/StatusesPage';
 
 function IndexRedirect() {
   const { isAdmin } = useAuth();
@@ -37,6 +38,7 @@ export default function App() {
                     <Route path="/roles" element={<RolesPage />} />
                     <Route path="/users" element={<UsersPage />} />
                     <Route path="/projects" element={<ProjectsPage />} />
+                    <Route path="/statuses" element={<StatusesPage />} />
                     {/* Admin view of another user's profile */}
                     <Route path="/users/:id/profile" element={<ProfilePage />} />
                   </Route>

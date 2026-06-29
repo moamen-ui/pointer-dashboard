@@ -19,7 +19,8 @@
     "roles": "Roles",
     "users": "Users",
     "projects": "Projects",
-    "myProfile": "My Profile"
+    "myProfile": "My Profile",
+    "statuses": "Statuses"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -104,6 +105,20 @@
     "status": "Status",
     "actions": "Actions",
     "empty": "No projects to show."
+  },
+  "statuses": {
+    "title": "Statuses",
+    "colName": "Name",
+    "colLabel": "Label",
+    "colColor": "Color",
+    "colOrder": "Order",
+    "colActions": "Actions",
+    "save": "Save",
+    "reset": "Reset",
+    "confirmReset": "Reset \"{{ name }}\" back to its defaults?",
+    "saveSuccess": "Status saved.",
+    "resetSuccess": "Status reset to defaults.",
+    "loadError": "Failed to load statuses."
   },
   "profile": {
     "title": "My Profile",

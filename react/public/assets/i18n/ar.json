@@ -19,7 +19,8 @@
     "roles": "الأدوار",
     "users": "المستخدمون",
     "projects": "المشاريع",
-    "myProfile": "ملفي الشخصي"
+    "myProfile": "ملفي الشخصي",
+    "statuses": "الحالات"
   },
   "header": {
     "brand": "Pointer لوحة الإدارة",
@@ -104,6 +105,20 @@
     "status": "الحالة",
     "actions": "الإجراءات",
     "empty": "لا توجد مشاريع للعرض."
+  },
+  "statuses": {
+    "title": "الحالات",
+    "colName": "الاسم",
+    "colLabel": "التسمية",
+    "colColor": "اللون",
+    "colOrder": "الترتيب",
+    "colActions": "الإجراءات",
+    "save": "حفظ",
+    "reset": "إعادة تعيين",
+    "confirmReset": "إعادة تعيين \"{{ name }}\" إلى القيم الافتراضية؟",
+    "saveSuccess": "تم حفظ الحالة.",
+    "resetSuccess": "تمت إعادة تعيين الحالة إلى القيم الافتراضية.",
+    "loadError": "فشل تحميل الحالات."
   },
   "profile": {
     "title": "ملفي الشخصي",
