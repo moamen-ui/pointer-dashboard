@@ -6,6 +6,7 @@ import {
   useGetApiAdminSettings,
   usePutApiAdminSettings,
   getGetApiAdminSettingsQueryKey,
+  type SettingsResponse,
 } from '@moamen-ui/pointer-vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -17,7 +18,9 @@ const { t } = useI18n();
 const queryClient = useQueryClient();
 
 const { data, isError } = useGetApiAdminSettings();
-const settings = computed(() => data.value);
+// The interceptor unwraps the envelope at runtime; data.value IS SettingsResponse.
+// Bridge the TS type mismatch with a cast (mirrors the React dashboard pattern).
+const settings = computed(() => data.value as unknown as SettingsResponse | undefined);
 
 const updateSettings = usePutApiAdminSettings();
 

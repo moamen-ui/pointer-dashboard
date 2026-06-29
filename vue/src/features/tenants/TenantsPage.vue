@@ -39,7 +39,9 @@ const { t } = useI18n();
 const queryClient = useQueryClient();
 
 const { data, isFetching, isError } = useGetApiAdminTenants();
-const tenants = computed<TenantResponse[]>(() => data.value ?? []);
+// The interceptor unwraps the envelope at runtime; data.value IS TenantResponse[].
+// Bridge the TS type mismatch with a cast (mirrors the React dashboard pattern).
+const tenants = computed<TenantResponse[]>(() => (data.value as unknown as TenantResponse[] | undefined) ?? []);
 
 const createTenant = usePostApiAdminTenants();
 const patchTenant = usePatchApiAdminTenantsId();
