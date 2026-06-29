@@ -17,6 +17,7 @@ export class AuthService {
   user = this._user.asReadonly();
   isAuthenticated = computed(() => !!this._user() && !!this.token());
   isAdmin = computed(() => !!this._user()?.isAdmin);
+  isSuperAdmin = computed(() => !!this._user()?.isSuperAdmin);
 
   private readUser(): MeResponse | null {
     try {

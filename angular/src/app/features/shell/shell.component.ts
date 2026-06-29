@@ -76,6 +76,16 @@ import { PreferencesService } from '../../core/prefs/preferences.service';
               <span matListItemTitle>{{ 'nav.statuses' | transloco }}</span>
             </a>
           }
+          @if (auth.isSuperAdmin()) {
+            <a mat-list-item routerLink="/tenants" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>business</mat-icon>
+              <span matListItemTitle>{{ 'nav.tenants' | transloco }}</span>
+            </a>
+            <a mat-list-item routerLink="/settings" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>settings</mat-icon>
+              <span matListItemTitle>{{ 'nav.settings' | transloco }}</span>
+            </a>
+          }
         </mat-nav-list>
       </mat-sidenav>
 

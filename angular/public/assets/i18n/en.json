@@ -9,6 +9,7 @@
     "rename": "Rename",
     "disable": "Disable",
     "enable": "Enable",
+    "delete": "Delete",
     "yes": "Yes",
     "no": "No",
     "confirmDisable": "Disable {{ name }}?",
@@ -20,7 +21,9 @@
     "users": "Users",
     "projects": "Projects",
     "statuses": "Statuses",
-    "myProfile": "My Profile"
+    "myProfile": "My Profile",
+    "tenants": "Tenants",
+    "settings": "Settings"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -32,7 +35,8 @@
     "password": "Password",
     "signIn": "Sign in",
     "notAdmin": "This account is not an admin.",
-    "failed": "Login failed"
+    "failed": "Login failed",
+    "signUpLink": "Request an account"
   },
   "overview": {
     "projects": "Projects",
@@ -124,6 +128,48 @@
     "saveError": "Failed to save status.",
     "resetSuccess": "Status reset to defaults.",
     "resetError": "Failed to reset status."
+  },
+  "tenants": {
+    "title": "Tenants",
+    "loading": "Loading tenants…",
+    "loadError": "Failed to load tenants.",
+    "empty": "No tenants yet.",
+    "addTenant": "Add Tenant",
+    "email": "Email",
+    "displayName": "Display Name",
+    "password": "Password",
+    "approvalStatus": "Approval",
+    "status": "Status",
+    "projects": "Projects",
+    "comments": "Comments",
+    "actions": "Actions",
+    "approve": "Approve",
+    "created": "Tenant created.",
+    "statusUpdated": "Status updated.",
+    "deleteTitle": "Delete Tenant",
+    "deleteMessage": "Permanently delete \"{{ name }}\"? This will also remove all their projects and comments.",
+    "deleted": "Tenant deleted."
+  },
+  "settings": {
+    "title": "Global Settings",
+    "loading": "Loading settings…",
+    "loadError": "Failed to load settings.",
+    "signupEnabled": "Scoped admin self-signup",
+    "signupEnabledHint": "Allow new admins to self-register via the signup page. Accounts require super-admin approval before they can log in.",
+    "saved": "Settings saved."
+  },
+  "signup": {
+    "title": "Request an account",
+    "loading": "Checking signup status…",
+    "closed": "Sign-up is currently closed. Please contact your administrator.",
+    "displayName": "Full name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Request access",
+    "submitting": "Submitting…",
+    "pendingApproval": "Your request has been submitted. An administrator will review it shortly.",
+    "backToLogin": "Back to sign in",
+    "failed": "Signup failed"
   },
   "profile": {
     "title": "My Profile",

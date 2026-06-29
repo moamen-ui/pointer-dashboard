@@ -1,0 +1,231 @@
+import { Component, computed, inject, signal, TemplateRef, viewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTableModule } from '@angular/material/table';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { TenantsService, getApiAdminTenantsResource } from '@moamen-ui/pointer-angular';
+import type { TenantResponse, TenantResponseListResult } from '@moamen-ui/pointer-angular';
+import { extractMessage } from '../../core/api/extract-message';
+import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+
+@Component({
+  selector: 'app-tenants',
+  standalone: true,
+  imports: [
+    FormsModule,
+    MatTableModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatDialogModule,
+    MatTooltipModule,
+    TranslocoModule,
+  ],
+  template: `
+    <div class="p-6">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <h2 class="m-0 text-[1.5em] font-bold">{{ 'tenants.title' | transloco }}</h2>
+        <button mat-flat-button color="primary" (click)="openAdd()">
+          <mat-icon>add</mat-icon> {{ 'tenants.addTenant' | transloco }}
+        </button>
+      </div>
+
+      @if (tenantsResource.error()) {
+        <p class="text-red-500">{{ 'tenants.loadError' | transloco }}</p>
+      } @else if (tenantsResource.isLoading() && tenants().length === 0) {
+        <p class="text-muted">{{ 'tenants.loading' | transloco }}</p>
+      } @else if (tenants().length === 0) {
+        <p class="text-muted">{{ 'tenants.empty' | transloco }}</p>
+      } @else {
+        <table mat-table [dataSource]="tenants()" class="w-full mat-elevation-z2">
+
+          <ng-container matColumnDef="displayName">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.displayName' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">{{ t.displayName ?? '—' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.email' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">{{ t.email ?? '—' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="approvalStatus">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.approvalStatus' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">
+              <span class="chip"
+                [class.chip-active]="t.approvalStatus === 'approved'"
+                [class.chip-neutral]="t.approvalStatus === 'pending'"
+                [class.chip-disabled]="t.approvalStatus === 'rejected'">
+                {{ t.approvalStatus ?? '—' }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="isActive">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.status' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">
+              <span class="chip" [class.chip-active]="t.isActive" [class.chip-disabled]="!t.isActive">
+                {{ (t.isActive ? 'common.active' : 'common.disabled') | transloco }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="projects">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.projects' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">{{ t.projects ?? 0 }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="comments">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.comments' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">{{ t.comments ?? 0 }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.actions' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">
+              <div class="flex flex-wrap gap-2">
+                @if (t.approvalStatus !== 'approved') {
+                  <button mat-stroked-button color="primary" (click)="setStatus(t, 'approve')">
+                    <mat-icon>check_circle</mat-icon> {{ 'tenants.approve' | transloco }}
+                  </button>
+                }
+                @if (t.isActive) {
+                  <button mat-stroked-button color="warn" (click)="setStatus(t, 'disable')">
+                    <mat-icon>block</mat-icon> {{ 'common.disable' | transloco }}
+                  </button>
+                } @else {
+                  <button mat-stroked-button color="primary" (click)="setStatus(t, 'enable')">
+                    <mat-icon>check_circle</mat-icon> {{ 'common.enable' | transloco }}
+                  </button>
+                }
+                <button mat-stroked-button color="warn" (click)="openDelete(t)">
+                  <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                </button>
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      }
+    </div>
+
+    <!-- Add tenant dialog -->
+    <ng-template #addDialog>
+      <h2 mat-dialog-title>{{ 'tenants.addTenant' | transloco }}</h2>
+      <mat-dialog-content>
+        <div class="flex min-w-80 flex-col gap-4 pt-2">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'tenants.email' | transloco }}</mat-label>
+            <input matInput type="email" [(ngModel)]="newEmail" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'tenants.displayName' | transloco }}</mat-label>
+            <input matInput [(ngModel)]="newDisplayName" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'tenants.password' | transloco }}</mat-label>
+            <input matInput type="password" [(ngModel)]="newPassword" />
+          </mat-form-field>
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary"
+          [disabled]="!newEmail.trim() || !newPassword.trim()"
+          (click)="addTenant()">
+          <mat-icon>add</mat-icon> {{ 'tenants.addTenant' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
+  `,
+})
+export class TenantsComponent {
+  private tenantsService = inject(TenantsService);
+  private snack = inject(MatSnackBar);
+  private transloco = inject(TranslocoService);
+  private dialog = inject(MatDialog);
+
+  readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
+  private dialogRef?: MatDialogRef<unknown>;
+
+  tenantsResource = getApiAdminTenantsResource();
+  // The HTTP interceptor unwraps the envelope, so the actual runtime value is TenantResponse[].
+  tenants = computed(() => (this.tenantsResource.value() as unknown as TenantResponse[]) ?? []);
+
+  displayedColumns = ['displayName', 'email', 'approvalStatus', 'isActive', 'projects', 'comments', 'actions'];
+
+  newEmail = '';
+  newDisplayName = '';
+  newPassword = '';
+
+  deletingTenant = signal<TenantResponse | null>(null);
+
+  openAdd() {
+    this.newEmail = '';
+    this.newDisplayName = '';
+    this.newPassword = '';
+    this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
+  }
+
+  addTenant() {
+    const email = this.newEmail.trim();
+    const password = this.newPassword.trim();
+    if (!email || !password) return;
+    this.tenantsService
+      .postApiAdminTenants({ email, password, displayName: this.newDisplayName.trim() || undefined })
+      .subscribe({
+        next: () => {
+          this.dialogRef?.close();
+          this.tenantsResource.reload();
+          this.snack.open(this.transloco.translate('tenants.created'), 'OK', { duration: 3000 });
+        },
+        error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      });
+  }
+
+  setStatus(tenant: TenantResponse, action: 'approve' | 'enable' | 'disable') {
+    this.tenantsService.patchApiAdminTenantsId(tenant.id!, { action }).subscribe({
+      next: () => {
+        this.tenantsResource.reload();
+        this.snack.open(this.transloco.translate('tenants.statusUpdated'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  openDelete(tenant: TenantResponse) {
+    this.deletingTenant.set(tenant);
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: this.transloco.translate('tenants.deleteTitle'),
+          message: this.transloco.translate('tenants.deleteMessage', { name: tenant.displayName ?? tenant.email }),
+          confirmLabel: this.transloco.translate('common.delete'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok: boolean | undefined) => {
+        if (ok) this.deleteTenant(tenant);
+      });
+  }
+
+  private deleteTenant(tenant: TenantResponse) {
+    this.tenantsService.deleteApiAdminTenantsId(tenant.id!).subscribe({
+      next: () => {
+        this.tenantsResource.reload();
+        this.snack.open(this.transloco.translate('tenants.deleted'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+}

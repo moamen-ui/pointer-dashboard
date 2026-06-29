@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -13,7 +13,7 @@ import { extractMessage } from '../../core/api/extract-message';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
+  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -25,6 +25,9 @@ import { extractMessage } from '../../core/api/extract-message';
             <input matInput type="password" formControlName="password" /></mat-form-field>
           <button mat-flat-button color="primary" class="mt-2" [disabled]="form.invalid || loading()">{{ 'login.signIn' | transloco }}</button>
         </form>
+        <a mat-button routerLink="/signup" class="mt-1 text-center text-[0.9rem]">
+          {{ 'login.signUpLink' | transloco }}
+        </a>
       </mat-card>
     </div>`,
 })
