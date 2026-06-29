@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
+import { DemoPanel } from '@/components/DemoPanel';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -45,6 +46,8 @@ export function Shell() {
 
   return (
     <div className="flex h-screen flex-col">
+      {/* Demo panel — shown when a demo session exists in sessionStorage */}
+      <DemoPanel />
       {/* Header */}
       <header className="z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-header px-4 shadow-sm">
         <span className="flex items-center gap-2 font-bold">

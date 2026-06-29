@@ -35,7 +35,11 @@
     "signIn": "Sign in",
     "notAdmin": "This account is not an admin.",
     "failed": "Login failed",
-    "createAccount": "Create an account"
+    "createAccount": "Create an account",
+    "or": "or",
+    "tryDemo": "Try the demo",
+    "demoLoading": "Starting demo…",
+    "demoFailed": "Failed to start demo"
   },
   "overview": {
     "projects": "Projects",
@@ -173,5 +177,14 @@
     "pending": "Your account has been created and is pending approval. You will be notified once approved.",
     "closed": "Self-signup is currently closed. Contact your administrator.",
     "checking": "Checking signup availability…"
+  },
+  "demo": {
+    "banner": "Demo session",
+    "expires": "Expires in",
+    "copy": "Copy snippet",
+    "widgetLogin": "Widget login",
+    "email": "Email",
+    "password": "Password",
+    "dismiss": "Dismiss demo panel"
   }
 }

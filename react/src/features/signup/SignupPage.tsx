@@ -17,11 +17,10 @@ import { extractMessage } from '@/lib/error';
 export function SignupPage() {
   const { t } = useTranslation();
 
-  // The signup-enabled endpoint returns a 200 (with possibly empty body) when
-  // enabled, and a 4xx or a specific body when disabled. We treat any successful
-  // fetch as "enabled" and any error as "disabled".
-  const { isSuccess: signupEnabled, isLoading: checkingEnabled } =
+  // Use the typed enabled field from SignupEnabledResponse.
+  const { data: signupData, isLoading: checkingEnabled } =
     useGetApiAuthSignupEnabled();
+  const signupEnabled = signupData?.enabled === true;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
