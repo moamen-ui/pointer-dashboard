@@ -11,6 +11,8 @@ import {
   Moon,
   LogOut,
   CircleUserRound,
+  Building2,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -25,10 +27,15 @@ const ADMIN_NAV = [
   { to: '/statuses', key: 'nav.statuses', icon: Tags },
 ];
 
+const SUPER_ADMIN_NAV = [
+  { to: '/tenants', key: 'nav.tenants', icon: Building2 },
+  { to: '/settings', key: 'nav.settings', icon: Settings },
+];
+
 export function Shell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
 
   function signOut() {
@@ -70,6 +77,24 @@ export function Shell() {
             {/* Admin-only nav items */}
             {isAdmin &&
               ADMIN_NAV.map(({ to, key, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+                      isActive && 'bg-brand-tint font-semibold text-brand',
+                    )
+                  }
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{t(key)}</span>
+                </NavLink>
+              ))}
+
+            {/* Super-admin-only nav items */}
+            {isSuperAdmin &&
+              SUPER_ADMIN_NAV.map(({ to, key, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}

@@ -20,7 +20,9 @@
     "users": "Users",
     "projects": "Projects",
     "myProfile": "My Profile",
-    "statuses": "Statuses"
+    "statuses": "Statuses",
+    "tenants": "Tenants",
+    "settings": "Settings"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -32,7 +34,8 @@
     "password": "Password",
     "signIn": "Sign in",
     "notAdmin": "This account is not an admin.",
-    "failed": "Login failed"
+    "failed": "Login failed",
+    "createAccount": "Create an account"
   },
   "overview": {
     "projects": "Projects",
@@ -129,5 +132,46 @@
     "breakdown": "Project Breakdown",
     "noProjects": "No projects to show.",
     "viewProfile": "View profile"
+  },
+  "tenants": {
+    "title": "Tenants",
+    "addTenant": "Add Tenant",
+    "email": "Email",
+    "displayName": "Display Name",
+    "password": "Password",
+    "approval": "Approval",
+    "statusCol": "Status",
+    "projects": "Projects",
+    "comments": "Comments",
+    "actions": "Actions",
+    "approve": "Approve",
+    "delete": "Delete",
+    "deleteConfirm": "Delete tenant \"{{ email }}\"? This will cascade-delete all their projects and comments.",
+    "created": "Tenant created.",
+    "updated": "Tenant updated.",
+    "deleted": "Tenant deleted.",
+    "loading": "Loading tenants…",
+    "loadError": "Failed to load tenants.",
+    "empty": "No tenants to show."
+  },
+  "settings": {
+    "title": "Settings",
+    "signupEnabled": "Scoped-admin self-signup",
+    "signupEnabledHint": "Allow new admins to register themselves; accounts require approval before they can log in.",
+    "signupStatus": "Current status:",
+    "saved": "Settings saved.",
+    "loading": "Loading settings…",
+    "loadError": "Failed to load settings."
+  },
+  "signup": {
+    "title": "Create Account",
+    "displayName": "Display Name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Create Account",
+    "backToLogin": "Back to login",
+    "pending": "Your account has been created and is pending approval. You will be notified once approved.",
+    "closed": "Self-signup is currently closed. Contact your administrator.",
+    "checking": "Checking signup availability…"
   }
 }

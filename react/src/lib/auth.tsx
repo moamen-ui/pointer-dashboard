@@ -26,6 +26,7 @@ interface AuthValue {
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   /** Resolves to the logged-in user; throws on failure. */
   login: (email: string, password: string) => Promise<MeResponse>;
   logout: () => void;
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       isAuthenticated: !!user && !!token,
       isAdmin: !!user?.isAdmin,
+      isSuperAdmin: !!user?.isSuperAdmin,
       login,
       logout,
     }),

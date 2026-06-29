@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { PreferencesProvider } from '@/lib/preferences';
 import { ToastProvider } from '@/components/ui/toast';
-import { ProtectedRoute, AuthenticatedRoute } from '@/routes/ProtectedRoute';
+import { ProtectedRoute, SuperAdminRoute, AuthenticatedRoute } from '@/routes/ProtectedRoute';
 import { Shell } from '@/features/shell/Shell';
 import { LoginPage } from '@/features/login/LoginPage';
 import { OverviewPage } from '@/features/overview/OverviewPage';
@@ -11,6 +11,9 @@ import { UsersPage } from '@/features/users/UsersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { ProfilePage } from '@/features/profile';
 import { StatusesPage } from '@/features/statuses/StatusesPage';
+import { TenantsPage } from '@/features/tenants/TenantsPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
+import { SignupPage } from '@/features/signup/SignupPage';
 
 function IndexRedirect() {
   const { isAdmin } = useAuth();
@@ -25,6 +28,7 @@ export default function App() {
           <ToastProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
 
               {/* Shell wraps all authenticated routes */}
               <Route element={<AuthenticatedRoute />}>
@@ -41,6 +45,12 @@ export default function App() {
                     <Route path="/statuses" element={<StatusesPage />} />
                     {/* Admin view of another user's profile */}
                     <Route path="/users/:id/profile" element={<ProfilePage />} />
+
+                    {/* Super-admin-only section */}
+                    <Route element={<SuperAdminRoute />}>
+                      <Route path="/tenants" element={<TenantsPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                    </Route>
                   </Route>
 
                   {/* Authenticated-user routes (non-admin allowed) */}

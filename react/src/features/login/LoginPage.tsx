@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useGetApiAuthSignupEnabled } from '@moamen-ui/pointer-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { login, isAuthenticated, isAdmin } = useAuth();
+  const { isSuccess: signupEnabled } = useGetApiAuthSignupEnabled();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -75,6 +77,14 @@ export function LoginPage() {
             <Button type="submit" className="mt-1" disabled={loading || !email || !password}>
               {t('login.signIn')}
             </Button>
+            {signupEnabled && (
+              <Link
+                to="/signup"
+                className="text-center text-sm text-muted-foreground hover:underline"
+              >
+                {t('login.createAccount')}
+              </Link>
+            )}
           </form>
         </CardContent>
       </Card>
