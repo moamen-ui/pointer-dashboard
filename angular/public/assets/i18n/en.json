@@ -53,7 +53,13 @@
     "copyFailed": "Could not copy. Copy it manually.",
     "expiresIn": "Expires in {{ hours }}h {{ minutes }}m",
     "expired": "Expired",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "step1Title": "1 · Add the widget to your app",
+    "step1Hint": "Paste before </body> — the script defines the <pointer-feedback> element, then mounts it.",
+    "step2Title": "2 · Install the AI skills + credentials",
+    "step2Hint": "Installs the pointer-init & pointer-feedback skills and scaffolds .pointer/credentials.env.",
+    "step3Title": "3 · Fill .pointer/credentials.env",
+    "step3Hint": "Paste your widget login so any AI tool can pull and apply the feedback."
   },
   "overview": {
     "projects": "Projects",

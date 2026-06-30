@@ -50,13 +50,39 @@ const DEMO_SESSION_KEY = 'pointer_demo';
               </div>
             </div>
 
-            <div class="mt-3">
-              <div class="text-[0.75rem] font-semibold uppercase text-muted">{{ 'demo.copySnippet' | transloco }}</div>
-              <div class="mt-1 flex items-center gap-2">
-                <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ snippet() }}</code>
-                <button mat-stroked-button class="border-app-border" type="button" (click)="copySnippet()">
-                  <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                </button>
+            <div class="mt-4 grid gap-3">
+              <!-- Step 1: embed the widget (script import + element) -->
+              <div>
+                <div class="text-[0.8rem] font-semibold">{{ 'demo.step1Title' | transloco }}</div>
+                <div class="text-[0.75rem] text-muted">{{ 'demo.step1Hint' | transloco }}</div>
+                <div class="mt-1 flex items-start gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ embedSnippet() }}</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(embedSnippet())">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
+              <!-- Step 2: install the AI skills + credentials scaffold -->
+              <div>
+                <div class="text-[0.8rem] font-semibold">{{ 'demo.step2Title' | transloco }}</div>
+                <div class="text-[0.75rem] text-muted">{{ 'demo.step2Hint' | transloco }}</div>
+                <div class="mt-1 flex items-center gap-2">
+                  <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ installCmd() }}</code>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(installCmd())">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
+              <!-- Step 3: fill .pointer/credentials.env with the widget login -->
+              <div>
+                <div class="text-[0.8rem] font-semibold">{{ 'demo.step3Title' | transloco }}</div>
+                <div class="text-[0.75rem] text-muted">{{ 'demo.step3Hint' | transloco }}</div>
+                <div class="mt-1 flex items-start gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ credsBlock() }}</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(credsBlock())">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -76,10 +102,27 @@ export class DemoPanelComponent implements OnDestroy {
   private timer = setInterval(() => this.now.set(Date.now()), 1000);
   session = signal<DemoSession | null>(this.read());
 
-  snippet = computed(() => {
+  // Step 1: script that defines <pointer-feedback> + the mounted element.
+  embedSnippet = computed(() => {
     const s = this.session();
     if (!s) return '';
-    return `<pointer-feedback project="${s.projectKey ?? ''}" server="${s.serverUrl ?? ''}"></pointer-feedback>`;
+    const srv = s.serverUrl ?? '';
+    return `<script src="${srv}/pointer.js" defer></script>\n<pointer-feedback project="${s.projectKey ?? ''}" server="${srv}"></pointer-feedback>`;
+  });
+
+  // Step 2: one-line installer — pulls the pointer-init + pointer-feedback skills
+  // and scaffolds .pointer/credentials.env (+ .example), gitignored.
+  installCmd = computed(() => {
+    const s = this.session();
+    if (!s) return '';
+    return `curl -fsSL ${s.serverUrl ?? ''}/install.sh | sh`;
+  });
+
+  // Step 3: paste into .pointer/credentials.env — pre-filled with this demo's widget login.
+  credsBlock = computed(() => {
+    const s = this.session();
+    if (!s) return '';
+    return `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}`;
   });
 
   countdownLabel = computed(() => {
@@ -101,8 +144,8 @@ export class DemoPanelComponent implements OnDestroy {
     }
   }
 
-  copySnippet(): void {
-    navigator.clipboard?.writeText(this.snippet()).then(
+  copy(text: string): void {
+    navigator.clipboard?.writeText(text).then(
       () => this.snack.open(this.transloco.translate('demo.copied'), 'OK', { duration: 2000 }),
       () => this.snack.open(this.transloco.translate('demo.copyFailed'), 'OK', { duration: 3000 })
     );
