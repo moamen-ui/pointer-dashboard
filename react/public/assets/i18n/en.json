@@ -189,12 +189,12 @@
     "password": "Password",
     "dismiss": "Dismiss demo panel",
     "step1Title": "1 · Add the widget to your app",
-    "step1Hint": "Paste before </body> — the script defines the <pointer-feedback> element, then mounts it.",
-    "step2Title": "2 · Install the AI skills + credentials",
-    "step2Hint": "Installs the pointer-init & pointer-feedback skills and scaffolds .pointer/credentials.env.",
-    "step3Title": "3 · Fill .pointer/credentials.env",
-    "step3Hint": "Paste your widget login so any AI tool can pull and apply the feedback.",
-    "step4Title": "4 · Apply it with your AI tool",
-    "step4Hint": "After leaving a comment, ask your AI assistant (Claude Code, Cursor, …) — it reads the queue and applies the changes to your code."
+    "step1Hint": "In your app's index.html, paste this just before </body>: the <script> loads the widget and the <pointer-feedback> tag mounts it.",
+    "step2Title": "2 · Install the skills + credentials",
+    "step2Hint": "Open a terminal, cd into your project root, then run this — it installs the AI skills and creates .pointer/credentials.env.",
+    "step3Title": "3 · Add your login",
+    "step3Hint": "Open the generated .pointer/credentials.env and paste your widget login (the email & password shown above).",
+    "step4Title": "4 · Comment, then apply with AI",
+    "step4Hint": "Open your app in the browser, click any element and leave a comment. Then in your AI tool (Claude Code, Cursor, …) ask:"
   }
 }
