@@ -39,8 +39,9 @@ const steps = computed<SetupStep[]>(() => {
     {
       titleKey: 'demo.step1Title',
       hintKey: 'demo.step1Hint',
-      // Split the closing </script> tag so Vue/JS parsers don't choke on it.
-      code: `<script src="${srv}/pointer.js" defer><` + `/script>`,
+      // The closing tag's slash is escaped (\/) so this file's source never
+      // contains a literal closing-script token that would end the SFC block.
+      code: `<script src="${srv}/pointer.js" defer><\/script>`,
     },
     {
       titleKey: 'demo.step2Title',
