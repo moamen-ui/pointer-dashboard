@@ -9,7 +9,10 @@ const { t } = useI18n();
 
 const session = ref(getDemoSession());
 const dismissed = ref(false);
-const copied = ref(false);
+const copiedStep = ref<1 | 2 | 3 | 4 | null>(null);
+
+// Step 4: a fixed example prompt — intentionally NOT translated (same in all locales).
+const examplePrompt = 'What are the new Pointer comments?';
 const now = ref(Date.now());
 
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -24,11 +27,24 @@ onBeforeUnmount(() => {
   if (timer) clearInterval(timer);
 });
 
-const snippet = computed(() =>
-  session.value
-    ? `<pointer-feedback project="${session.value.projectKey}" server="${session.value.serverUrl}"></pointer-feedback>`
-    : '',
-);
+// Step 1: script that defines <pointer-feedback> + the mounted element.
+const embedSnippet = computed(() => {
+  if (!session.value) return '';
+  const srv = session.value.serverUrl;
+  return `<script src="${srv}/pointer.js" defer><\/script>\n<pointer-feedback project="${session.value.projectKey}" server="${srv}"></pointer-feedback>`;
+});
+
+// Step 2: one-line installer — pulls the pointer-init + pointer-feedback skills.
+const installCmd = computed(() => {
+  if (!session.value) return '';
+  return `curl -fsSL ${session.value.serverUrl}/install.sh | sh`;
+});
+
+// Step 3: paste into .pointer/credentials.env — pre-filled with this demo's widget login.
+const credsBlock = computed(() => {
+  if (!session.value) return '';
+  return `POINTER_EMAIL=${session.value.email}\nPOINTER_PASSWORD=${session.value.password}`;
+});
 
 const remainingMs = computed(() => {
   if (!session.value?.expiresAt) return 0;
@@ -47,11 +63,11 @@ const countdown = computed(() => {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 });
 
-async function copySnippet() {
+async function copyText(step: 1 | 2 | 3 | 4, text: string) {
   try {
-    await navigator.clipboard.writeText(snippet.value);
-    copied.value = true;
-    setTimeout(() => (copied.value = false), 1500);
+    await navigator.clipboard.writeText(text);
+    copiedStep.value = step;
+    setTimeout(() => (copiedStep.value = null), 1500);
   } catch {
     /* clipboard unavailable — ignore */
   }
@@ -95,18 +111,89 @@ function dismiss() {
           </span>
         </div>
 
-        <div class="space-y-1.5">
-          <span class="text-xs text-muted-foreground">{{ t('demo.snippetLabel') }}</span>
-          <div class="flex items-stretch gap-2">
-            <code
-              class="flex-1 overflow-x-auto whitespace-nowrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ snippet }}</code
-            >
-            <Button variant="outline" size="sm" class="flex-shrink-0" @click="copySnippet">
-              <Check v-if="copied" class="h-4 w-4" />
-              <Copy v-else class="h-4 w-4" />
-              {{ copied ? t('demo.copied') : t('demo.copy') }}
-            </Button>
+        <div class="grid gap-3">
+          <!-- Step 1: embed the widget (script import + element) -->
+          <div class="space-y-1.5">
+            <div class="text-xs font-semibold">{{ t('demo.step1Title') }}</div>
+            <div class="text-xs text-muted-foreground">{{ t('demo.step1Hint') }}</div>
+            <div class="flex items-start gap-2">
+              <pre
+                class="m-0 flex-1 overflow-x-auto rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+              >{{ embedSnippet }}</pre>
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-shrink-0"
+                @click="copyText(1, embedSnippet)"
+              >
+                <Check v-if="copiedStep === 1" class="h-4 w-4" />
+                <Copy v-else class="h-4 w-4" />
+                {{ copiedStep === 1 ? t('demo.copied') : t('demo.copy') }}
+              </Button>
+            </div>
+          </div>
+
+          <!-- Step 2: install the AI skills + credentials scaffold -->
+          <div class="space-y-1.5">
+            <div class="text-xs font-semibold">{{ t('demo.step2Title') }}</div>
+            <div class="text-xs text-muted-foreground">{{ t('demo.step2Hint') }}</div>
+            <div class="flex items-center gap-2">
+              <code
+                class="flex-1 overflow-x-auto whitespace-nowrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+              >{{ installCmd }}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-shrink-0"
+                @click="copyText(2, installCmd)"
+              >
+                <Check v-if="copiedStep === 2" class="h-4 w-4" />
+                <Copy v-else class="h-4 w-4" />
+                {{ copiedStep === 2 ? t('demo.copied') : t('demo.copy') }}
+              </Button>
+            </div>
+          </div>
+
+          <!-- Step 3: fill .pointer/credentials.env with the widget login -->
+          <div class="space-y-1.5">
+            <div class="text-xs font-semibold">{{ t('demo.step3Title') }}</div>
+            <div class="text-xs text-muted-foreground">{{ t('demo.step3Hint') }}</div>
+            <div class="flex items-start gap-2">
+              <pre
+                class="m-0 flex-1 overflow-x-auto rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+              >{{ credsBlock }}</pre>
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-shrink-0"
+                @click="copyText(3, credsBlock)"
+              >
+                <Check v-if="copiedStep === 3" class="h-4 w-4" />
+                <Copy v-else class="h-4 w-4" />
+                {{ copiedStep === 3 ? t('demo.copied') : t('demo.copy') }}
+              </Button>
+            </div>
+          </div>
+
+          <!-- Step 4: apply the feedback with an AI tool -->
+          <div class="space-y-1.5">
+            <div class="text-xs font-semibold">{{ t('demo.step4Title') }}</div>
+            <div class="text-xs text-muted-foreground">{{ t('demo.step4Hint') }}</div>
+            <div class="flex items-center gap-2">
+              <code
+                class="flex-1 overflow-x-auto whitespace-nowrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+              >{{ examplePrompt }}</code>
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-shrink-0"
+                @click="copyText(4, examplePrompt)"
+              >
+                <Check v-if="copiedStep === 4" class="h-4 w-4" />
+                <Copy v-else class="h-4 w-4" />
+                {{ copiedStep === 4 ? t('demo.copied') : t('demo.copy') }}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
