@@ -50,50 +50,62 @@ const DEMO_SESSION_KEY = 'pointer_demo';
               </div>
             </div>
 
-            <div class="mt-4 grid gap-3">
-              <!-- Step 1: embed the widget (script import + element) -->
-              <div>
-                <div class="text-[0.8rem] font-semibold">{{ 'demo.step1Title' | transloco }}</div>
-                <div class="text-[0.75rem] text-muted">{{ 'demo.step1Hint' | transloco }}</div>
-                <div class="mt-1 flex items-start gap-2">
-                  <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ embedSnippet() }}</code></pre>
-                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(embedSnippet())">
-                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                  </button>
+            <!-- Setup steps as a one-at-a-time slider with Prev/Next -->
+            <div class="mt-4 rounded-lg border border-app-border bg-app/40 p-3">
+              @if (step() === 1) {
+                <div>
+                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step1Title' | transloco }}</div>
+                  <div class="text-[0.75rem] text-muted">{{ 'demo.step1Hint' | transloco }}</div>
+                  <div class="mt-1 flex items-start gap-2">
+                    <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ embedSnippet() }}</code></pre>
+                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(embedSnippet())">
+                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <!-- Step 2: install the AI skills + credentials scaffold -->
-              <div>
-                <div class="text-[0.8rem] font-semibold">{{ 'demo.step2Title' | transloco }}</div>
-                <div class="text-[0.75rem] text-muted">{{ 'demo.step2Hint' | transloco }}</div>
-                <div class="mt-1 flex items-center gap-2">
-                  <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ installCmd() }}</code>
-                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(installCmd())">
-                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                  </button>
+              } @else if (step() === 2) {
+                <div>
+                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step2Title' | transloco }}</div>
+                  <div class="text-[0.75rem] text-muted">{{ 'demo.step2Hint' | transloco }}</div>
+                  <div class="mt-1 flex items-center gap-2">
+                    <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ installCmd() }}</code>
+                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(installCmd())">
+                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <!-- Step 3: fill .pointer/credentials.env with the widget login -->
-              <div>
-                <div class="text-[0.8rem] font-semibold">{{ 'demo.step3Title' | transloco }}</div>
-                <div class="text-[0.75rem] text-muted">{{ 'demo.step3Hint' | transloco }}</div>
-                <div class="mt-1 flex items-start gap-2">
-                  <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ credsBlock() }}</code></pre>
-                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(credsBlock())">
-                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                  </button>
+              } @else if (step() === 3) {
+                <div>
+                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step3Title' | transloco }}</div>
+                  <div class="text-[0.75rem] text-muted">{{ 'demo.step3Hint' | transloco }}</div>
+                  <div class="mt-1 flex items-start gap-2">
+                    <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ credsBlock() }}</code></pre>
+                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(credsBlock())">
+                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <!-- Step 4: leave a comment, then ask the AI tool to apply the feedback -->
-              <div>
-                <div class="text-[0.8rem] font-semibold">{{ 'demo.step4Title' | transloco }}</div>
-                <div class="text-[0.75rem] text-muted">{{ 'demo.step4Hint' | transloco }}</div>
-                <div class="mt-1 flex items-center gap-2">
-                  <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ aiPrompt }}</code>
-                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(aiPrompt)">
-                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                  </button>
+              } @else {
+                <div>
+                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step4Title' | transloco }}</div>
+                  <div class="text-[0.75rem] text-muted">{{ 'demo.step4Hint' | transloco }}</div>
+                  <div class="mt-1 flex items-center gap-2">
+                    <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ aiPrompt }}</code>
+                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(aiPrompt)">
+                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                    </button>
+                  </div>
                 </div>
+              }
+
+              <div class="mt-3 flex items-center gap-2">
+                <button mat-stroked-button class="border-app-border" type="button" [disabled]="step() === 1" (click)="prev()">
+                  <mat-icon>chevron_left</mat-icon> {{ 'demo.back' | transloco }}
+                </button>
+                <span class="text-[0.8rem] text-muted">{{ step() }} / 4</span>
+                <button mat-stroked-button class="ms-auto border-app-border" type="button" [disabled]="step() === 4" (click)="next()">
+                  {{ 'demo.next' | transloco }} <mat-icon>chevron_right</mat-icon>
+                </button>
               </div>
             </div>
           </div>
@@ -138,6 +150,11 @@ export class DemoPanelComponent implements OnDestroy {
 
   // Step 4: an example prompt to paste into the AI tool (kept English — the skill triggers on it).
   readonly aiPrompt = 'What are the new Pointer comments?';
+
+  // Setup-steps slider (1..4).
+  step = signal(1);
+  next(): void { this.step.update((n) => Math.min(4, n + 1)); }
+  prev(): void { this.step.update((n) => Math.max(1, n - 1)); }
 
   countdownLabel = computed(() => {
     const s = this.session();

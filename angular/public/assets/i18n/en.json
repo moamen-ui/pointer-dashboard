@@ -61,7 +61,9 @@
     "step3Title": "3 · Add your login",
     "step3Hint": "Open the generated .pointer/credentials.env and paste your widget login (the email & password shown above).",
     "step4Title": "4 · Comment, then apply with AI",
-    "step4Hint": "Open your app in the browser, click any element and leave a comment. Then in your AI tool (Claude Code, Cursor, …) ask:"
+    "step4Hint": "Open your app in the browser, click any element and leave a comment. Then in your AI tool (Claude Code, Cursor, …) ask:",
+    "back": "Back",
+    "next": "Next"
   },
   "overview": {
     "projects": "Projects",
