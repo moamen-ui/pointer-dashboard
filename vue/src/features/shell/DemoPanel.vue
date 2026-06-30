@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Copy, Check, X, Sparkles } from 'lucide-vue-next';
+import { Copy, Check, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { clearDemoSession, getDemoSession } from '@/lib/demoSession';
 
@@ -9,12 +9,9 @@ const { t } = useI18n();
 
 const session = ref(getDemoSession());
 const dismissed = ref(false);
-const copiedStep = ref<1 | 2 | 3 | 4 | null>(null);
+const copiedStep = ref<number | null>(null);
 
-// Step 4: a fixed example prompt — intentionally NOT translated (same in all locales).
-const examplePrompt = 'What are the new Pointer comments?';
 const now = ref(Date.now());
-
 let timer: ReturnType<typeof setInterval> | undefined;
 
 onMounted(() => {
@@ -27,24 +24,65 @@ onBeforeUnmount(() => {
   if (timer) clearInterval(timer);
 });
 
-// Step 1: script that defines <pointer-feedback> + the mounted element.
-const embedSnippet = computed(() => {
-  if (!session.value) return '';
-  const srv = session.value.serverUrl;
-  return `<script src="${srv}/pointer.js" defer><\/script>\n<pointer-feedback project="${session.value.projectKey}" server="${srv}"></pointer-feedback>`;
+interface SetupStep {
+  titleKey: string;
+  hintKey: string;
+  code?: string;
+}
+
+// Data-driven setup guide — 6 entries derived from the demo session.
+const steps = computed<SetupStep[]>(() => {
+  const s = session.value;
+  if (!s) return [];
+  const srv = s.serverUrl ?? '';
+  return [
+    {
+      titleKey: 'demo.step1Title',
+      hintKey: 'demo.step1Hint',
+      // Split the closing </script> tag so Vue/JS parsers don't choke on it.
+      code: `<script src="${srv}/pointer.js" defer><` + `/script>`,
+    },
+    {
+      titleKey: 'demo.step2Title',
+      hintKey: 'demo.step2Hint',
+      code: `<pointer-feedback project="${s.projectKey ?? ''}" server="${srv}"></pointer-feedback>`,
+    },
+    {
+      titleKey: 'demo.step3Title',
+      hintKey: 'demo.step3Hint',
+      code: `curl -fsSL ${srv}/install.sh | sh`,
+    },
+    {
+      titleKey: 'demo.step4Title',
+      hintKey: 'demo.step4Hint',
+      code: `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}`,
+    },
+    {
+      titleKey: 'demo.step5Title',
+      hintKey: 'demo.step5Hint',
+      // instruction-only step — no code block
+    },
+    {
+      titleKey: 'demo.step6Title',
+      hintKey: 'demo.step6Hint',
+      // Fixed English literal — NOT translated so the AI skill triggers on it.
+      code: 'What are the new Pointer comments?',
+    },
+  ];
 });
 
-// Step 2: one-line installer — pulls the pointer-init + pointer-feedback skills.
-const installCmd = computed(() => {
-  if (!session.value) return '';
-  return `curl -fsSL ${session.value.serverUrl}/install.sh | sh`;
-});
+// 1-based current step index.
+const step = ref(1);
 
-// Step 3: paste into .pointer/credentials.env — pre-filled with this demo's widget login.
-const credsBlock = computed(() => {
-  if (!session.value) return '';
-  return `POINTER_EMAIL=${session.value.email}\nPOINTER_PASSWORD=${session.value.password}`;
-});
+const current = computed<SetupStep | undefined>(() => steps.value[step.value - 1]);
+
+function prev() {
+  step.value = Math.max(1, step.value - 1);
+}
+
+function next() {
+  step.value = Math.min(steps.value.length, step.value + 1);
+}
 
 const remainingMs = computed(() => {
   if (!session.value?.expiresAt) return 0;
@@ -63,10 +101,10 @@ const countdown = computed(() => {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 });
 
-async function copyText(step: 1 | 2 | 3 | 4, text: string) {
+async function copyCode(index: number, text: string) {
   try {
     await navigator.clipboard.writeText(text);
-    copiedStep.value = step;
+    copiedStep.value = index;
     setTimeout(() => (copiedStep.value = null), 1500);
   } catch {
     /* clipboard unavailable — ignore */
@@ -87,6 +125,7 @@ function dismiss() {
     <div class="flex items-start gap-3">
       <Sparkles class="mt-0.5 h-5 w-5 flex-shrink-0 text-brand" />
       <div class="flex-1 space-y-3">
+        <!-- Header row: title + countdown -->
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="font-semibold text-brand">{{ t('demo.bannerTitle') }}</span>
           <span class="text-muted-foreground">{{ t('demo.bannerDesc') }}</span>
@@ -98,6 +137,7 @@ function dismiss() {
           </span>
         </div>
 
+        <!-- Project key + widget login (always visible) -->
         <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
           <span>
             <span class="text-muted-foreground">{{ t('demo.projectKey') }}:</span>
@@ -111,93 +151,58 @@ function dismiss() {
           </span>
         </div>
 
-        <div class="grid gap-3">
-          <!-- Step 1: embed the widget (script import + element) -->
-          <div class="space-y-1.5">
-            <div class="text-xs font-semibold">{{ t('demo.step1Title') }}</div>
-            <div class="text-xs text-muted-foreground">{{ t('demo.step1Hint') }}</div>
-            <div class="flex items-start gap-2">
+        <!-- Setup guide slider (one step at a time) -->
+        <div class="rounded-lg border border-border bg-background/40 p-3">
+          <template v-if="current">
+            <div class="text-xs font-semibold">{{ t(current.titleKey) }}</div>
+            <div class="mt-0.5 text-xs text-muted-foreground">{{ t(current.hintKey) }}</div>
+            <div v-if="current.code" class="mt-2 flex items-start gap-2">
               <pre
                 class="m-0 flex-1 overflow-x-auto rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ embedSnippet }}</pre>
+              >{{ current.code }}</pre>
               <Button
                 variant="outline"
                 size="sm"
                 class="flex-shrink-0"
-                @click="copyText(1, embedSnippet)"
+                type="button"
+                @click="copyCode(step, current.code!)"
               >
-                <Check v-if="copiedStep === 1" class="h-4 w-4" />
+                <Check v-if="copiedStep === step" class="h-4 w-4" />
                 <Copy v-else class="h-4 w-4" />
-                {{ copiedStep === 1 ? t('demo.copied') : t('demo.copy') }}
+                {{ copiedStep === step ? t('demo.copied') : t('demo.copy') }}
               </Button>
             </div>
-          </div>
+          </template>
 
-          <!-- Step 2: install the AI skills + credentials scaffold -->
-          <div class="space-y-1.5">
-            <div class="text-xs font-semibold">{{ t('demo.step2Title') }}</div>
-            <div class="text-xs text-muted-foreground">{{ t('demo.step2Hint') }}</div>
-            <div class="flex items-center gap-2">
-              <code
-                class="flex-1 overflow-x-auto whitespace-nowrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ installCmd }}</code>
-              <Button
-                variant="outline"
-                size="sm"
-                class="flex-shrink-0"
-                @click="copyText(2, installCmd)"
-              >
-                <Check v-if="copiedStep === 2" class="h-4 w-4" />
-                <Copy v-else class="h-4 w-4" />
-                {{ copiedStep === 2 ? t('demo.copied') : t('demo.copy') }}
-              </Button>
-            </div>
-          </div>
-
-          <!-- Step 3: fill .pointer/credentials.env with the widget login -->
-          <div class="space-y-1.5">
-            <div class="text-xs font-semibold">{{ t('demo.step3Title') }}</div>
-            <div class="text-xs text-muted-foreground">{{ t('demo.step3Hint') }}</div>
-            <div class="flex items-start gap-2">
-              <pre
-                class="m-0 flex-1 overflow-x-auto rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ credsBlock }}</pre>
-              <Button
-                variant="outline"
-                size="sm"
-                class="flex-shrink-0"
-                @click="copyText(3, credsBlock)"
-              >
-                <Check v-if="copiedStep === 3" class="h-4 w-4" />
-                <Copy v-else class="h-4 w-4" />
-                {{ copiedStep === 3 ? t('demo.copied') : t('demo.copy') }}
-              </Button>
-            </div>
-          </div>
-
-          <!-- Step 4: apply the feedback with an AI tool -->
-          <div class="space-y-1.5">
-            <div class="text-xs font-semibold">{{ t('demo.step4Title') }}</div>
-            <div class="text-xs text-muted-foreground">{{ t('demo.step4Hint') }}</div>
-            <div class="flex items-center gap-2">
-              <code
-                class="flex-1 overflow-x-auto whitespace-nowrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ examplePrompt }}</code>
-              <Button
-                variant="outline"
-                size="sm"
-                class="flex-shrink-0"
-                @click="copyText(4, examplePrompt)"
-              >
-                <Check v-if="copiedStep === 4" class="h-4 w-4" />
-                <Copy v-else class="h-4 w-4" />
-                {{ copiedStep === 4 ? t('demo.copied') : t('demo.copy') }}
-              </Button>
-            </div>
+          <!-- Nav row: Back — counter — Next -->
+          <div class="mt-3 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              :disabled="step === 1"
+              @click="prev"
+            >
+              <ChevronLeft class="h-4 w-4" />
+              {{ t('demo.back') }}
+            </Button>
+            <span class="text-xs text-muted-foreground">{{ step }} / {{ steps.length }}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              class="ms-auto"
+              :disabled="step === steps.length"
+              @click="next"
+            >
+              {{ t('demo.next') }}
+              <ChevronRight class="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
 
+      <!-- Dismiss button (always visible) -->
       <Button
         variant="ghost"
         size="icon"
