@@ -84,6 +84,17 @@ const DEMO_SESSION_KEY = 'pointer_demo';
                   </button>
                 </div>
               </div>
+              <!-- Step 4: leave a comment, then ask the AI tool to apply the feedback -->
+              <div>
+                <div class="text-[0.8rem] font-semibold">{{ 'demo.step4Title' | transloco }}</div>
+                <div class="text-[0.75rem] text-muted">{{ 'demo.step4Hint' | transloco }}</div>
+                <div class="mt-1 flex items-center gap-2">
+                  <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ aiPrompt }}</code>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(aiPrompt)">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <button mat-icon-button type="button" [attr.aria-label]="'demo.dismiss' | transloco" (click)="dismiss()">
@@ -124,6 +135,9 @@ export class DemoPanelComponent implements OnDestroy {
     if (!s) return '';
     return `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}`;
   });
+
+  // Step 4: an example prompt to paste into the AI tool (kept English — the skill triggers on it).
+  readonly aiPrompt = 'What are the new Pointer comments?';
 
   countdownLabel = computed(() => {
     const s = this.session();
