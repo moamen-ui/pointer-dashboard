@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -173,20 +173,26 @@ export class StatusesComponent {
     effect(() => {
       const fresh = this.statusesResource.value();
       if (!fresh) return;
-      // Only reseed when no row is mid-operation, to avoid wiping in-flight saves.
-      const current = this.rows();
-      const anyBusy = current.some((r) => r.saving || r.resetting);
-      if (anyBusy) return;
-      this.rows.set(
-        fresh.map((item) => ({
-          item,
-          label: item.label ?? item.defaultLabel ?? '',
-          color: item.color ?? item.defaultColor ?? '#6b7280',
-          order: item.order ?? item.defaultOrder ?? 0,
-          saving: false,
-          resetting: false,
-        })),
-      );
+      // Read/write `rows` inside untracked() so this effect depends ONLY on the
+      // resource value. Without it, reading this.rows() registers it as a
+      // dependency while this.rows.set() assigns a new array reference every
+      // run — the signal "changes", the effect re-runs, and the page freezes in
+      // an infinite loop. We still skip reseeding while a row is mid-operation.
+      untracked(() => {
+        const current = this.rows();
+        const anyBusy = current.some((r) => r.saving || r.resetting);
+        if (anyBusy) return;
+        this.rows.set(
+          fresh.map((item) => ({
+            item,
+            label: item.label ?? item.defaultLabel ?? '',
+            color: item.color ?? item.defaultColor ?? '#6b7280',
+            order: item.order ?? item.defaultOrder ?? 0,
+            saving: false,
+            resetting: false,
+          })),
+        );
+      });
     });
   }
 
