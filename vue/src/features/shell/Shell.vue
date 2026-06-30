@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { RouterView, RouterLink, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -15,11 +16,14 @@ import {
   UserRound,
   Building2,
   Settings,
+  Menu,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
 import { usePreferences } from '@/composables/usePreferences';
 import DemoPanel from '@/features/shell/DemoPanel.vue';
+
+const sidebarOpen = ref(false);
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -51,6 +55,15 @@ function signOut() {
     <header
       class="z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-header px-4 shadow-sm"
     >
+      <Button
+        variant="ghost"
+        size="icon"
+        class="md:hidden"
+        :aria-label="t('header.menu')"
+        @click="sidebarOpen = !sidebarOpen"
+      >
+        <Menu class="h-5 w-5" />
+      </Button>
       <span class="flex items-center gap-2 font-bold">
         <Pin class="h-5 w-5 rotate-45 text-brand" />
         {{ t('header.brand') }}
@@ -72,7 +85,7 @@ function signOut() {
       </Button>
       <Button variant="outline" size="sm" @click="signOut">
         <LogOut class="h-4 w-4" />
-        {{ t('header.signOut') }}
+        <span class="hidden sm:inline">{{ t('header.signOut') }}</span>
       </Button>
     </header>
 
@@ -81,7 +94,17 @@ function signOut() {
 
     <!-- Body: sidebar + content -->
     <div class="flex flex-1 overflow-hidden bg-app">
-      <aside class="w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2">
+      <!-- Backdrop (mobile only) -->
+      <div
+        v-if="sidebarOpen"
+        class="fixed inset-0 z-30 bg-black/40 md:hidden"
+        @click="sidebarOpen = false"
+      />
+
+      <aside
+        class="fixed bottom-0 start-0 top-14 z-40 w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2 transition-transform md:static md:top-auto md:z-auto md:translate-x-0"
+        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'"
+      >
         <nav class="flex flex-col gap-0.5 px-2.5">
           <!-- Admin-only nav items -->
           <template v-if="isAdmin">
@@ -91,6 +114,7 @@ function signOut() {
               :to="item.to"
               class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               active-class="bg-brand-tint font-semibold !text-brand"
+              @click="sidebarOpen = false"
             >
               <component :is="item.icon" class="h-5 w-5" />
               <span>{{ t(item.key) }}</span>
@@ -104,6 +128,7 @@ function signOut() {
               :to="item.to"
               class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               active-class="bg-brand-tint font-semibold !text-brand"
+              @click="sidebarOpen = false"
             >
               <component :is="item.icon" class="h-5 w-5" />
               <span>{{ t(item.key) }}</span>
@@ -114,6 +139,7 @@ function signOut() {
             to="/profile"
             class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             active-class="bg-brand-tint font-semibold !text-brand"
+            @click="sidebarOpen = false"
           >
             <UserRound class="h-5 w-5" />
             <span>{{ t('nav.myProfile') }}</span>
@@ -121,7 +147,7 @@ function signOut() {
         </nav>
       </aside>
 
-      <main class="h-full flex-1 overflow-y-auto bg-app p-6">
+      <main class="h-full min-w-0 flex-1 overflow-auto bg-app p-4 sm:p-6">
         <RouterView />
       </main>
     </div>

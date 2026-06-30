@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,6 +14,7 @@ import {
   CircleUserRound,
   Building2,
   Settings,
+  Menu,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -38,6 +40,7 @@ export function Shell() {
   const navigate = useNavigate();
   const { user, isAdmin, isSuperAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function signOut() {
     logout();
@@ -50,6 +53,15 @@ export function Shell() {
       <DemoPanel />
       {/* Header */}
       <header className="z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-header px-4 shadow-sm">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          aria-label={t('header.menu')}
+          onClick={() => setSidebarOpen(o => !o)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
         <span className="flex items-center gap-2 font-bold">
           <Pin className="h-5 w-5 rotate-45 text-brand" />
           {t('header.brand')}
@@ -69,13 +81,34 @@ export function Shell() {
         </Button>
         <Button variant="outline" size="sm" onClick={signOut}>
           <LogOut className="h-4 w-4" />
-          {t('header.signOut')}
+          <span className="hidden sm:inline">{t('header.signOut')}</span>
         </Button>
       </header>
 
       {/* Body: sidebar + content */}
       <div className="flex flex-1 overflow-hidden bg-app">
-        <aside className="w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2">
+        {/* Backdrop — mobile only, visible when drawer is open */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        <aside
+          className={cn(
+            // shared
+            'w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2',
+            // mobile: fixed off-canvas drawer below the header
+            'fixed top-14 bottom-0 start-0 z-40 transition-transform',
+            // desktop: static panel, always visible, reset transforms
+            'md:static md:top-auto md:bottom-auto md:z-auto md:translate-x-0',
+            // mobile open/closed — direction-aware slide
+            sidebarOpen
+              ? 'translate-x-0'
+              : '-translate-x-full rtl:translate-x-full',
+          )}
+        >
           <nav className="flex flex-col gap-0.5 px-2.5">
             {/* Admin-only nav items */}
             {isAdmin &&
@@ -83,6 +116,7 @@ export function Shell() {
                 <NavLink
                   key={to}
                   to={to}
+                  onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
                       'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
@@ -101,6 +135,7 @@ export function Shell() {
                 <NavLink
                   key={to}
                   to={to}
+                  onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
                       'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
@@ -116,6 +151,7 @@ export function Shell() {
             {/* My Profile – visible to all authenticated users */}
             <NavLink
               to="/profile"
+              onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
@@ -129,7 +165,7 @@ export function Shell() {
           </nav>
         </aside>
 
-        <main className="h-full flex-1 overflow-y-auto bg-app p-6">
+        <main className="h-full min-w-0 flex-1 overflow-auto bg-app p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

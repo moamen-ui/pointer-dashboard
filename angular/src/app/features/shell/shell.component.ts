@@ -1,4 +1,7 @@
 import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { map } from 'rxjs';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -29,13 +32,18 @@ import { DemoPanelComponent } from './demo-panel.component';
   ],
   template: `
     <mat-toolbar class="toolbar z-[2] shrink-0 border-b border-app-border bg-header text-ink shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+      @if (isMobile()) {
+        <button mat-icon-button class="me-1" (click)="snav.toggle()" [attr.aria-label]="'header.menu' | transloco">
+          <mat-icon>menu</mat-icon>
+        </button>
+      }
       <span class="flex items-center gap-2 text-[1.1rem] font-bold">
         <mat-icon class="rotate-45 text-brand">push_pin</mat-icon>
         {{ 'header.brand' | transloco }}
       </span>
       <span class="flex-1"></span>
       @if (auth.user()) {
-        <span class="me-3.5 inline-flex items-center gap-1.5 text-[0.9rem] text-muted">
+        <span class="me-3.5 hidden items-center gap-1.5 text-[0.9rem] text-muted sm:inline-flex">
           <mat-icon class="text-muted">account_circle</mat-icon>
           {{ auth.user()!.displayName }} · {{ auth.user()!.roleName }}
         </span>
@@ -45,13 +53,13 @@ import { DemoPanelComponent } from './demo-panel.component';
       </button>
       <button mat-button (click)="togglePrefsLang()">{{ prefs.language() === 'ar' ? 'EN' : 'ع' }}</button>
       <button mat-stroked-button class="border-app-border text-ink" (click)="auth.logout()">
-        <mat-icon>logout</mat-icon> {{ 'header.signOut' | transloco }}
+        <mat-icon>logout</mat-icon> <span class="hidden sm:inline">{{ 'header.signOut' | transloco }}</span>
       </button>
     </mat-toolbar>
 
     <mat-sidenav-container class="flex-1 overflow-hidden bg-app" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">
-      <mat-sidenav mode="side" opened class="sidenav w-[232px] border-e border-app-border bg-sidebar pt-2">
-        <mat-nav-list>
+      <mat-sidenav #snav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="sidenav w-[232px] border-e border-app-border bg-sidebar pt-2">
+        <mat-nav-list (click)="onNavClick(snav)">
           <a mat-list-item routerLink="/profile" routerLinkActive="active-link">
             <mat-icon matListItemIcon>person</mat-icon>
             <span matListItemTitle>{{ 'nav.myProfile' | transloco }}</span>
@@ -91,7 +99,7 @@ import { DemoPanelComponent } from './demo-panel.component';
         </mat-nav-list>
       </mat-sidenav>
 
-      <mat-sidenav-content class="h-full overflow-y-auto bg-app p-6">
+      <mat-sidenav-content class="h-full overflow-auto bg-app p-4 sm:p-6">
         <app-demo-panel />
         <router-outlet />
       </mat-sidenav-content>
@@ -118,6 +126,19 @@ import { DemoPanelComponent } from './demo-panel.component';
 export class ShellComponent {
   auth = inject(AuthService);
   prefs = inject(PreferencesService);
+
+  // True below the md breakpoint — drives the off-canvas drawer + hamburger.
+  isMobile = toSignal(
+    inject(BreakpointObserver)
+      .observe('(max-width: 767.98px)')
+      .pipe(map((r) => r.matches)),
+    { initialValue: typeof window !== 'undefined' && window.innerWidth < 768 },
+  );
+
+  // On mobile, tapping a nav link closes the drawer (clicks bubble up from the links).
+  onNavClick(snav: { close: () => void }): void {
+    if (this.isMobile()) snav.close();
+  }
 
   togglePrefsLang(): void {
     this.prefs.setLanguage(this.prefs.language() === 'ar' ? 'en' : 'ar');

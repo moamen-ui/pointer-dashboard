@@ -27,7 +27,8 @@
   },
   "header": {
     "brand": "Pointer لوحة الإدارة",
-    "signOut": "تسجيل الخروج"
+    "signOut": "تسجيل الخروج",
+    "menu": "القائمة"
   },
   "login": {
     "title": "Pointer لوحة الإدارة",

@@ -26,7 +26,8 @@
   },
   "header": {
     "brand": "Pointer Admin",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "menu": "Menu"
   },
   "login": {
     "title": "Pointer Admin",
