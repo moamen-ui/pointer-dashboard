@@ -12,12 +12,20 @@ interface DemoSession {
   expiresAt?: string;
 }
 
+/** One setup step in the guide slider. `code` is optional — instruction-only steps omit it. */
+interface SetupStep {
+  titleKey: string;
+  hintKey: string;
+  code?: string;
+}
+
 const DEMO_SESSION_KEY = 'pointer_demo';
 
 /**
  * Dismissible banner shown in the shell while a demo session (stored in
  * sessionStorage under `pointer_demo`) is active. Surfaces the demo project key,
- * a copy-paste widget snippet, the widget login, and a live countdown to expiry.
+ * the widget login, a live countdown, and a step-by-step setup guide shown one
+ * step at a time (Back / Next slider).
  */
 @Component({
   selector: 'app-demo-panel',
@@ -50,51 +58,20 @@ const DEMO_SESSION_KEY = 'pointer_demo';
               </div>
             </div>
 
-            <!-- Setup steps as a one-at-a-time slider with Prev/Next -->
+            <!-- Setup guide: one step at a time, Back / Next -->
             <div class="mt-4 rounded-lg border border-app-border bg-app/40 p-3">
-              @if (step() === 1) {
+              @if (steps()[step() - 1]; as st) {
                 <div>
-                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step1Title' | transloco }}</div>
-                  <div class="text-[0.75rem] text-muted">{{ 'demo.step1Hint' | transloco }}</div>
-                  <div class="mt-1 flex items-start gap-2">
-                    <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ embedSnippet() }}</code></pre>
-                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(embedSnippet())">
-                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                    </button>
-                  </div>
-                </div>
-              } @else if (step() === 2) {
-                <div>
-                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step2Title' | transloco }}</div>
-                  <div class="text-[0.75rem] text-muted">{{ 'demo.step2Hint' | transloco }}</div>
-                  <div class="mt-1 flex items-center gap-2">
-                    <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ installCmd() }}</code>
-                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(installCmd())">
-                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                    </button>
-                  </div>
-                </div>
-              } @else if (step() === 3) {
-                <div>
-                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step3Title' | transloco }}</div>
-                  <div class="text-[0.75rem] text-muted">{{ 'demo.step3Hint' | transloco }}</div>
-                  <div class="mt-1 flex items-start gap-2">
-                    <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ credsBlock() }}</code></pre>
-                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(credsBlock())">
-                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                    </button>
-                  </div>
-                </div>
-              } @else {
-                <div>
-                  <div class="text-[0.8rem] font-semibold">{{ 'demo.step4Title' | transloco }}</div>
-                  <div class="text-[0.75rem] text-muted">{{ 'demo.step4Hint' | transloco }}</div>
-                  <div class="mt-1 flex items-center gap-2">
-                    <code class="flex-1 overflow-x-auto whitespace-nowrap rounded bg-app px-2 py-1.5 text-[0.8rem]">{{ aiPrompt }}</code>
-                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(aiPrompt)">
-                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                    </button>
-                  </div>
+                  <div class="text-[0.8rem] font-semibold">{{ st.titleKey | transloco }}</div>
+                  <div class="text-[0.75rem] text-muted">{{ st.hintKey | transloco }}</div>
+                  @if (st.code; as code) {
+                    <div class="mt-1 flex items-start gap-2">
+                      <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.8rem]"><code>{{ code }}</code></pre>
+                      <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
+                        <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                      </button>
+                    </div>
+                  }
                 </div>
               }
 
@@ -102,8 +79,8 @@ const DEMO_SESSION_KEY = 'pointer_demo';
                 <button mat-stroked-button class="border-app-border" type="button" [disabled]="step() === 1" (click)="prev()">
                   <mat-icon>chevron_left</mat-icon> {{ 'demo.back' | transloco }}
                 </button>
-                <span class="text-[0.8rem] text-muted">{{ step() }} / 4</span>
-                <button mat-stroked-button class="ms-auto border-app-border" type="button" [disabled]="step() === 4" (click)="next()">
+                <span class="text-[0.8rem] text-muted">{{ step() }} / {{ steps().length }}</span>
+                <button mat-stroked-button class="ms-auto border-app-border" type="button" [disabled]="step() === steps().length" (click)="next()">
                   {{ 'demo.next' | transloco }} <mat-icon>chevron_right</mat-icon>
                 </button>
               </div>
@@ -125,35 +102,25 @@ export class DemoPanelComponent implements OnDestroy {
   private timer = setInterval(() => this.now.set(Date.now()), 1000);
   session = signal<DemoSession | null>(this.read());
 
-  // Step 1: script that defines <pointer-feedback> + the mounted element.
-  embedSnippet = computed(() => {
+  // The setup guide, derived from the demo session. Add/remove entries here to
+  // change the guide — the slider count follows the array length.
+  steps = computed<SetupStep[]>(() => {
     const s = this.session();
-    if (!s) return '';
+    if (!s) return [];
     const srv = s.serverUrl ?? '';
-    return `<script src="${srv}/pointer.js" defer></script>\n<pointer-feedback project="${s.projectKey ?? ''}" server="${srv}"></pointer-feedback>`;
+    return [
+      { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${srv}/pointer.js" defer></script>` },
+      { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${s.projectKey ?? ''}" server="${srv}"></pointer-feedback>` },
+      { titleKey: 'demo.step3Title', hintKey: 'demo.step3Hint', code: `curl -fsSL ${srv}/install.sh | sh` },
+      { titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}` },
+      { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
+      // Example prompt kept English — the pointer-feedback skill triggers on it.
+      { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' },
+    ];
   });
 
-  // Step 2: one-line installer — pulls the pointer-init + pointer-feedback skills
-  // and scaffolds .pointer/credentials.env (+ .example), gitignored.
-  installCmd = computed(() => {
-    const s = this.session();
-    if (!s) return '';
-    return `curl -fsSL ${s.serverUrl ?? ''}/install.sh | sh`;
-  });
-
-  // Step 3: paste into .pointer/credentials.env — pre-filled with this demo's widget login.
-  credsBlock = computed(() => {
-    const s = this.session();
-    if (!s) return '';
-    return `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}`;
-  });
-
-  // Step 4: an example prompt to paste into the AI tool (kept English — the skill triggers on it).
-  readonly aiPrompt = 'What are the new Pointer comments?';
-
-  // Setup-steps slider (1..4).
   step = signal(1);
-  next(): void { this.step.update((n) => Math.min(4, n + 1)); }
+  next(): void { this.step.update((n) => Math.min(this.steps().length, n + 1)); }
   prev(): void { this.step.update((n) => Math.max(1, n - 1)); }
 
   countdownLabel = computed(() => {
