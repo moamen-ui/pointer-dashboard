@@ -1,9 +1,10 @@
 // DemoPanel — shown inside the shell whenever a pointer_demo sessionStorage
-// entry exists. Displays project key, four guided copy-pasteable setup steps,
-// credentials, and a live countdown to expiry. Dismissible for the current session only.
+// entry exists. Displays project key, widget login, a live countdown to expiry,
+// and a 6-step data-driven setup guide shown one step at a time (Back / Next slider).
+// Dismissible for the current session only.
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, X } from 'lucide-react';
+import { Copy, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
@@ -14,6 +15,13 @@ interface DemoSession {
   projectKey: string | null;
   serverUrl: string | null;
   expiresAt: string | undefined;
+}
+
+/** One setup step in the guide slider. `code` is optional — instruction-only steps omit it. */
+interface SetupStep {
+  titleKey: string;
+  hintKey: string;
+  code?: string;
 }
 
 function readDemoSession(): DemoSession | null {
@@ -36,15 +44,53 @@ function formatCountdown(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Which step's copy button is in the "just copied" state, or null. */
-type CopiedStep = 'step1' | 'step2' | 'step3' | 'step4' | null;
+function buildSteps(session: DemoSession): SetupStep[] {
+  const srv = session.serverUrl ?? '';
+  const proj = session.projectKey ?? '';
+  const email = session.email ?? '';
+  const password = session.password ?? '';
+  return [
+    {
+      titleKey: 'demo.step1Title',
+      hintKey: 'demo.step1Hint',
+      code: `<script src="${srv}/pointer.js" defer></script>`,
+    },
+    {
+      titleKey: 'demo.step2Title',
+      hintKey: 'demo.step2Hint',
+      code: `<pointer-feedback project="${proj}" server="${srv}"></pointer-feedback>`,
+    },
+    {
+      titleKey: 'demo.step3Title',
+      hintKey: 'demo.step3Hint',
+      code: `curl -fsSL ${srv}/install.sh | sh`,
+    },
+    {
+      titleKey: 'demo.step4Title',
+      hintKey: 'demo.step4Hint',
+      code: `POINTER_EMAIL=${email}\nPOINTER_PASSWORD=${password}`,
+    },
+    {
+      titleKey: 'demo.step5Title',
+      hintKey: 'demo.step5Hint',
+      // no code — instruction-only step
+    },
+    {
+      titleKey: 'demo.step6Title',
+      hintKey: 'demo.step6Hint',
+      // Fixed English literal — do NOT translate.
+      code: 'What are the new Pointer comments?',
+    },
+  ];
+}
 
 export function DemoPanel() {
   const { t } = useTranslation();
   const [session, setSession] = useState<DemoSession | null>(() => readDemoSession());
   const [dismissed, setDismissed] = useState(false);
-  const [copiedStep, setCopiedStep] = useState<CopiedStep>(null);
+  const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<string>('');
+  const [step, setStep] = useState(1);
 
   const refreshCountdown = useCallback(() => {
     if (!session?.expiresAt) return;
@@ -66,25 +112,22 @@ export function DemoPanel() {
 
   const { projectKey, serverUrl, email, password, expiresAt } = session;
 
-  const embedSnippet = `<script src="${serverUrl ?? ''}/pointer.js" defer></script>\n<pointer-feedback project="${projectKey ?? ''}" server="${serverUrl ?? ''}"></pointer-feedback>`;
-  const installCmd = `curl -fsSL ${serverUrl ?? ''}/install.sh | sh`;
-  const credsBlock = `POINTER_EMAIL=${email ?? ''}\nPOINTER_PASSWORD=${password ?? ''}`;
-  // Fixed example prompt — same in every language; do not translate.
-  const examplePrompt = 'What are the new Pointer comments?';
+  const isExpiringSoon = expiresAt
+    ? new Date(expiresAt).getTime() - Date.now() < 5 * 60 * 1000
+    : false;
 
-  async function copyText(text: string, step: CopiedStep) {
+  const steps = buildSteps(session);
+  const currentStep = steps[step - 1];
+
+  async function copyText(text: string, stepIndex: number) {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedStep(step);
+      setCopiedStep(stepIndex);
       setTimeout(() => setCopiedStep(null), 2000);
     } catch {
       // clipboard not available — silently ignore
     }
   }
-
-  const isExpiringSoon = expiresAt
-    ? new Date(expiresAt).getTime() - Date.now() < 5 * 60 * 1000
-    : false;
 
   return (
     <div className="border-b border-border bg-brand-tint px-4 py-3">
@@ -115,119 +158,84 @@ export function DemoPanel() {
           </Button>
         </div>
 
-        {/* Three setup steps */}
-        <div className="flex flex-col gap-3">
-          {/* Step 1 — embed snippet */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold">{t('demo.step1Title')}</span>
-            <span className="text-xs text-muted-foreground">{t('demo.step1Hint')}</span>
-            <div className="flex items-start gap-2">
-              <pre className="m-0 flex-1 overflow-x-auto rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-                <code>{embedSnippet}</code>
-              </pre>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => copyText(embedSnippet, 'step1')}
-                aria-label={t('demo.copy')}
-              >
-                {copiedStep === 'step1' ? (
-                  <Check className="me-1 h-3.5 w-3.5 text-green-500" />
-                ) : (
-                  <Copy className="me-1 h-3.5 w-3.5" />
-                )}
-                {copiedStep === 'step1' ? t('demo.copied') : t('demo.copy')}
-              </Button>
+        {/* Widget login credentials */}
+        <div className="mb-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <div className="text-[0.75rem] font-semibold uppercase text-muted-foreground">
+              {t('demo.widgetLogin')}
             </div>
-          </div>
-
-          {/* Step 2 — install command */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold">{t('demo.step2Title')}</span>
-            <span className="text-xs text-muted-foreground">{t('demo.step2Hint')}</span>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto whitespace-nowrap rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-                {installCmd}
-              </code>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => copyText(installCmd, 'step2')}
-                aria-label={t('demo.copy')}
-              >
-                {copiedStep === 'step2' ? (
-                  <Check className="me-1 h-3.5 w-3.5 text-green-500" />
-                ) : (
-                  <Copy className="me-1 h-3.5 w-3.5" />
-                )}
-                {copiedStep === 'step2' ? t('demo.copied') : t('demo.copy')}
-              </Button>
-            </div>
-          </div>
-
-          {/* Step 3 — credentials block */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold">{t('demo.step3Title')}</span>
-            <span className="text-xs text-muted-foreground">{t('demo.step3Hint')}</span>
-            <div className="flex items-start gap-2">
-              <pre className="m-0 flex-1 overflow-x-auto rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-                <code>{credsBlock}</code>
-              </pre>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => copyText(credsBlock, 'step3')}
-                aria-label={t('demo.copy')}
-              >
-                {copiedStep === 'step3' ? (
-                  <Check className="me-1 h-3.5 w-3.5 text-green-500" />
-                ) : (
-                  <Copy className="me-1 h-3.5 w-3.5" />
-                )}
-                {copiedStep === 'step3' ? t('demo.copied') : t('demo.copy')}
-              </Button>
-            </div>
-          </div>
-
-          {/* Step 4 — example prompt for the AI tool */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold">{t('demo.step4Title')}</span>
-            <span className="text-xs text-muted-foreground">{t('demo.step4Hint')}</span>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 overflow-x-auto whitespace-nowrap rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-                {examplePrompt}
-              </code>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => copyText(examplePrompt, 'step4')}
-                aria-label={t('demo.copy')}
-              >
-                {copiedStep === 'step4' ? (
-                  <Check className="me-1 h-3.5 w-3.5 text-green-500" />
-                ) : (
-                  <Copy className="me-1 h-3.5 w-3.5" />
-                )}
-                {copiedStep === 'step4' ? t('demo.copied') : t('demo.copy')}
-              </Button>
+            <div className="mt-1 text-xs">
+              <span className="font-medium">{email}</span>
+              <span className="text-muted-foreground"> · </span>
+              <code className="rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
             </div>
           </div>
         </div>
 
-        {/* Widget login credentials (retained for quick reference) */}
-        <div className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">{t('demo.widgetLogin')}</span>
-          <span>
-            <span className="font-medium">{t('demo.email')}:</span> {email}
-          </span>
-          <span>
-            <span className="font-medium">{t('demo.password')}:</span> {password}
-          </span>
+        {/* Setup guide slider */}
+        <div className="rounded-lg border border-border bg-background/40 p-3">
+          {/* Current step content */}
+          <div className="mb-3">
+            <div className="text-xs font-semibold">{t(currentStep.titleKey)}</div>
+            <div className="text-xs text-muted-foreground">{t(currentStep.hintKey)}</div>
+            {currentStep.code !== undefined && (
+              <div className="mt-1 flex items-start gap-2">
+                <pre className="m-0 flex-1 overflow-x-auto rounded-md border border-border bg-background px-3 py-1.5 text-xs">
+                  <code>{currentStep.code}</code>
+                </pre>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => copyText(currentStep.code!, step)}
+                  aria-label={t('demo.copy')}
+                >
+                  {copiedStep === step ? (
+                    <Check className="me-1 h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <Copy className="me-1 h-3.5 w-3.5" />
+                  )}
+                  {copiedStep === step ? t('demo.copied') : t('demo.copy')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation row: Back · counter · Next */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              disabled={step === 1}
+              aria-label={t('demo.back')}
+            >
+              <ChevronLeft className="me-1 h-3.5 w-3.5" />
+              {t('demo.back')}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {step} / {steps.length}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ms-auto"
+              onClick={() => setStep((s) => Math.min(steps.length, s + 1))}
+              disabled={step === steps.length}
+              aria-label={t('demo.next')}
+            >
+              {t('demo.next')}
+              <ChevronRight className="ms-1 h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
+
+        {/* Server URL reference */}
+        {serverUrl && (
+          <div className="mt-2 text-[0.7rem] text-muted-foreground">
+            {serverUrl}
+          </div>
+        )}
       </div>
     </div>
   );
