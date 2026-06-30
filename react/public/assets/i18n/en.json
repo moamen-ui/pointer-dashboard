@@ -181,10 +181,20 @@
   "demo": {
     "banner": "Demo session",
     "expires": "Expires in",
-    "copy": "Copy snippet",
+    "copy": "Copy",
+    "copied": "Snippet copied.",
+    "copyFailed": "Could not copy. Copy it manually.",
     "widgetLogin": "Widget login",
     "email": "Email",
     "password": "Password",
-    "dismiss": "Dismiss demo panel"
+    "dismiss": "Dismiss demo panel",
+    "step1Title": "1 · Add the widget to your app",
+    "step1Hint": "Paste before </body> — the script defines the <pointer-feedback> element, then mounts it.",
+    "step2Title": "2 · Install the AI skills + credentials",
+    "step2Hint": "Installs the pointer-init & pointer-feedback skills and scaffolds .pointer/credentials.env.",
+    "step3Title": "3 · Fill .pointer/credentials.env",
+    "step3Hint": "Paste your widget login so any AI tool can pull and apply the feedback.",
+    "step4Title": "4 · Apply it with your AI tool",
+    "step4Hint": "After leaving a comment, ask your AI assistant (Claude Code, Cursor, …) — it reads the queue and applies the changes to your code."
   }
 }
