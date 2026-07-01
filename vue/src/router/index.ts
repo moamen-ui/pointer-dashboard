@@ -19,6 +19,8 @@ import StatusesPage from '@/features/statuses/StatusesPage.vue';
 import TenantsPage from '@/features/tenants/TenantsPage.vue';
 import SettingsPage from '@/features/settings/SettingsPage.vue';
 import SignupPage from '@/features/signup/SignupPage.vue';
+import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage.vue';
+import ResetPasswordPage from '@/features/auth/ResetPasswordPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +28,9 @@ export const router = createRouter({
     { path: '/login', name: 'login', component: LoginPage },
     // Public self-signup (no auth required)
     { path: '/signup', name: 'signup', component: SignupPage },
+    // Public password-reset flow (no auth required)
+    { path: '/forgot', name: 'forgot', component: ForgotPasswordPage },
+    { path: '/reset', name: 'reset', component: ResetPasswordPage },
     {
       path: '/',
       component: Shell,

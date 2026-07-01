@@ -9,6 +9,7 @@ export interface DemoSession {
   projectKey: string;
   serverUrl: string;
   expiresAt: string;
+  emailSent: boolean;
 }
 
 function safeSession(): Storage | null {

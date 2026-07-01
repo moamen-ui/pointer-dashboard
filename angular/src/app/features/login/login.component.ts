@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { DemoService, DemoSessionResponse } from '@moamen-ui/pointer-angular';
+import { DemoService, DemoRequest, DemoSessionResponse } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
 
@@ -16,7 +16,7 @@ const DEMO_SESSION_KEY = 'pointer_demo';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -26,11 +26,18 @@ const DEMO_SESSION_KEY = 'pointer_demo';
             <input matInput type="email" formControlName="email" /></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>{{ 'login.password' | transloco }}</mat-label>
             <input matInput type="password" formControlName="password" /></mat-form-field>
+          <a mat-button routerLink="/forgot" class="self-end text-[0.85rem]">
+            {{ 'login.forgot' | transloco }}
+          </a>
           <button mat-flat-button color="primary" class="mt-2" [disabled]="form.invalid || loading() || demoLoading()">{{ 'login.signIn' | transloco }}</button>
         </form>
         <div class="my-1 flex items-center gap-2 text-[0.8rem] text-muted">
           <span class="h-px flex-1 bg-app-border"></span>{{ 'login.or' | transloco }}<span class="h-px flex-1 bg-app-border"></span>
         </div>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'login.demoEmailLabel' | transloco }}</mat-label>
+          <input matInput type="email" [(ngModel)]="demoEmail" [ngModelOptions]="{standalone: true}" />
+        </mat-form-field>
         <button mat-stroked-button type="button" class="border-app-border" [disabled]="loading() || demoLoading()" (click)="tryDemo()">
           {{ demoLoading() ? ('demo.provisioning' | transloco) : ('demo.tryDemo' | transloco) }}
         </button>
@@ -49,6 +56,7 @@ export class LoginComponent {
   private transloco = inject(TranslocoService);
   loading = signal(false);
   demoLoading = signal(false);
+  demoEmail = '';
 
   constructor() {
     if (this.auth.isAuthenticated()) {
@@ -78,14 +86,19 @@ export class LoginComponent {
 
   tryDemo() {
     if (this.demoLoading()) return;
+    if (!this.demoEmail.trim()) {
+      this.snack.open(this.transloco.translate('login.demoEmailLabel'), 'OK', { duration: 3000 });
+      return;
+    }
     this.demoLoading.set(true);
     // Interceptor unwraps the response envelope, so the body is DemoSessionResponse.
-    this.demo.postApiDemo<DemoSessionResponse>().subscribe({
+    this.demo.postApiDemo<DemoSessionResponse>({ email: this.demoEmail } as DemoRequest).subscribe({
       next: (session) => {
         // Mirror login()'s post-token steps: store the token the same way, then
         // fetch the current user via /api/auth/me since the demo response has none.
         this.auth.loginWithToken(session.token!).subscribe({
           next: (user) => {
+            const emailSent = !session.password;
             sessionStorage.setItem(
               DEMO_SESSION_KEY,
               JSON.stringify({
@@ -94,9 +107,13 @@ export class LoginComponent {
                 projectKey: session.projectKey,
                 serverUrl: session.serverUrl,
                 expiresAt: session.expiresAt,
+                emailSent,
               })
             );
             this.demoLoading.set(false);
+            if (emailSent) {
+              this.snack.open(this.transloco.translate('login.demoEmailSent'), 'OK', { duration: 6000 });
+            }
             this.router.navigateByUrl(user.isAdmin ? '/overview' : '/profile');
           },
           error: (e: unknown) => {

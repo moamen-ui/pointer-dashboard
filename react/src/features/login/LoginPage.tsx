@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   useGetApiAuthSignupEnabled,
@@ -15,12 +15,16 @@ import { useAuth } from '@/lib/auth';
 import { setAuthHeader } from '@/lib/api';
 import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
+import { useToast } from '@/components/ui/toast';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
 export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const locationState = location.state as { message?: string } | null;
   const { login, isAuthenticated, isAdmin } = useAuth();
   const { data: signupData } = useGetApiAuthSignupEnabled();
   const signupEnabled = signupData?.enabled === true;
@@ -29,6 +33,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoEmail, setDemoEmail] = useState('');
+  const [demoEmailError, setDemoEmailError] = useState<string | null>(null);
   const [demoError, setDemoError] = useState<string | null>(null);
 
   const demoMut = usePostApiDemo();
@@ -58,9 +64,20 @@ export function LoginPage() {
     }
   }
 
+  function isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  }
+
   async function onTryDemo() {
+    setDemoEmailError(null);
     setDemoError(null);
-    demoMut.mutate(undefined, {
+
+    if (!demoEmail.trim() || !isValidEmail(demoEmail)) {
+      setDemoEmailError(t('login.demoEmailLabel'));
+      return;
+    }
+
+    demoMut.mutate({ data: { email: demoEmail.trim() } }, {
       onSuccess: async (rawSession) => {
         // The mutator unwraps the Result<T> envelope at runtime, so the actual
         // value is DemoSessionResponse despite the generated TS type saying
@@ -88,8 +105,13 @@ export function LoginPage() {
               projectKey: demoSession.projectKey,
               serverUrl: demoSession.serverUrl,
               expiresAt: demoSession.expiresAt,
+              emailSent: demoSession.emailSent,
             }),
           );
+
+          if (demoSession.emailSent) {
+            toast(t('login.demoEmailSent'));
+          }
 
           // Hard-navigate so AuthProvider reinitialises from localStorage.
           window.location.assign(me.isAdmin ? '/overview' : '/profile');
@@ -112,6 +134,9 @@ export function LoginPage() {
       <Card className="w-[380px] max-w-[92vw]">
         <CardContent className="flex flex-col gap-5 p-6">
           <h1 className="text-center text-xl font-bold">{t('login.title')}</h1>
+          {locationState?.message && (
+            <p className="text-center text-sm text-green-600">{locationState.message}</p>
+          )}
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">{t('login.email')}</Label>
@@ -147,6 +172,12 @@ export function LoginPage() {
                 {t('login.createAccount')}
               </Link>
             )}
+            <Link
+              to="/forgot"
+              className="text-center text-sm text-muted-foreground hover:underline"
+            >
+              {t('login.forgot')}
+            </Link>
           </form>
 
           <div className="relative flex items-center gap-2">
@@ -155,6 +186,23 @@ export function LoginPage() {
             <div className="flex-1 border-t border-border" />
           </div>
 
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="demo-email">{t('login.demoEmailLabel')}</Label>
+            <Input
+              id="demo-email"
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              value={demoEmail}
+              onChange={(e) => {
+                setDemoEmail(e.target.value);
+                setDemoEmailError(null);
+              }}
+            />
+            {demoEmailError && (
+              <p className="text-sm text-destructive">{t('login.demoEmailLabel')} is required.</p>
+            )}
+          </div>
           {demoError && <p className="text-sm text-destructive">{demoError}</p>}
           <Button
             variant="outline"

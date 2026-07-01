@@ -18,6 +18,7 @@
   },
   "demo": {
     "tryDemo": "Try the demo",
+    "credsEmailed": "Your widget password was emailed to you — check your inbox.",
     "starting": "Starting demo…",
     "failed": "Could not start the demo. Please try again.",
     "bannerTitle": "Demo mode",
@@ -69,7 +70,22 @@
     "notAdmin": "This account is not an admin.",
     "failed": "Login failed",
     "signupPrompt": "Need an account?",
-    "signupLink": "Request access"
+    "signupLink": "Request access",
+    "demoEmailLabel": "Your email",
+    "demoEmailSent": "Demo credentials sent to your email — check your inbox.",
+    "forgot": "Forgot password?"
+  },
+  "auth": {
+    "forgotTitle": "Reset your password",
+    "forgotSubmit": "Send reset link",
+    "forgotSent": "If that email is registered, a reset link is on its way.",
+    "resetTitle": "Choose a new password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "resetSubmit": "Update password",
+    "resetDone": "Password updated — sign in with your new password.",
+    "resetInvalid": "This reset link is invalid or has expired.",
+    "backToLogin": "Back to sign in"
   },
   "overview": {
     "projects": "Projects",

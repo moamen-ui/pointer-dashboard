@@ -38,7 +38,22 @@
     "notAdmin": "This account is not an admin.",
     "failed": "Login failed",
     "signUpLink": "Request an account",
-    "or": "or"
+    "or": "or",
+    "demoEmailLabel": "Your email",
+    "demoEmailSent": "Demo credentials sent to your email — check your inbox.",
+    "forgot": "Forgot password?"
+  },
+  "auth": {
+    "forgotTitle": "Reset your password",
+    "forgotSubmit": "Send reset link",
+    "forgotSent": "If that email is registered, a reset link is on its way.",
+    "resetTitle": "Choose a new password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "resetSubmit": "Update password",
+    "resetDone": "Password updated — sign in with your new password.",
+    "resetInvalid": "This reset link is invalid or has expired.",
+    "backToLogin": "Back to sign in"
   },
   "demo": {
     "tryDemo": "Try the demo",
@@ -68,7 +83,8 @@
     "step5Title": "Leave feedback",
     "step5Hint": "Open your app in the browser, click any element, and write a comment.",
     "step6Title": "Apply with AI",
-    "step6Hint": "Back in your AI tool (Claude Code, Cursor, …), ask this — it pulls the feedback and applies it to your code."
+    "step6Hint": "Back in your AI tool (Claude Code, Cursor, …), ask this — it pulls the feedback and applies it to your code.",
+    "credsEmailed": "Your widget password was emailed to you — check your inbox."
   },
   "overview": {
     "projects": "Projects",

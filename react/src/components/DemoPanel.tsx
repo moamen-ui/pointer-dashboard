@@ -15,6 +15,7 @@ interface DemoSession {
   projectKey: string | null;
   serverUrl: string | null;
   expiresAt: string | undefined;
+  emailSent?: boolean;
 }
 
 /** One setup step in the guide slider. `code` is optional — instruction-only steps omit it. */
@@ -68,7 +69,9 @@ function buildSteps(session: DemoSession): SetupStep[] {
     {
       titleKey: 'demo.step4Title',
       hintKey: 'demo.step4Hint',
-      code: `POINTER_EMAIL=${email}\nPOINTER_PASSWORD=${password}`,
+      code: password
+        ? `POINTER_EMAIL=${email}\nPOINTER_PASSWORD=${password}`
+        : `POINTER_EMAIL=${email}\nPOINTER_PASSWORD=<check your email>`,
     },
     {
       titleKey: 'demo.step5Title',
@@ -166,8 +169,14 @@ export function DemoPanel() {
             </div>
             <div className="mt-1 text-xs">
               <span className="font-medium">{email}</span>
-              <span className="text-muted-foreground"> · </span>
-              <code className="rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
+              {password ? (
+                <>
+                  <span className="text-muted-foreground"> · </span>
+                  <code className="rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
+                </>
+              ) : (
+                <span className="ms-1 text-muted-foreground italic">{t('demo.credsEmailed')}</span>
+              )}
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ interface DemoSession {
   projectKey?: string | null;
   serverUrl?: string | null;
   expiresAt?: string;
+  emailSent?: boolean;
 }
 
 /** One setup step in the guide slider. `code` is optional — instruction-only steps omit it. */
@@ -112,7 +113,13 @@ export class DemoPanelComponent implements OnDestroy {
       { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${srv}/pointer.js" defer></script>` },
       { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${s.projectKey ?? ''}" server="${srv}"></pointer-feedback>` },
       { titleKey: 'demo.step3Title', hintKey: 'demo.step3Hint', code: `curl -fsSL ${srv}/install.sh | sh` },
-      { titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}` },
+      {
+        titleKey: 'demo.step4Title',
+        hintKey: 'demo.step4Hint',
+        code: s.emailSent
+          ? this.transloco.translate('demo.credsEmailed')
+          : `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}`,
+      },
       { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
       // Example prompt kept English — the pointer-feedback skill triggers on it.
       { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' },

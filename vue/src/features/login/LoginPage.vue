@@ -19,9 +19,12 @@ const demoMutation = usePostApiDemo();
 
 const email = ref('');
 const password = ref('');
+const demoEmail = ref('');
 const loading = ref(false);
 const demoLoading = ref(false);
 const error = ref<string | null>(null);
+const demoEmailError = ref<string | null>(null);
+const demoEmailSent = ref(false);
 
 // Already authenticated? go straight to the role-appropriate page.
 if (isAuthenticated.value) {
@@ -42,13 +45,22 @@ async function onSubmit() {
   }
 }
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 async function onTryDemo() {
+  demoEmailError.value = null;
+  if (!demoEmail.value.trim() || !isValidEmail(demoEmail.value)) {
+    demoEmailError.value = t('login.demoEmailLabel');
+    return;
+  }
   demoLoading.value = true;
   error.value = null;
   try {
     // customInstance unwraps the Result<T> envelope, so this resolves to the inner
     // DemoSessionResponse at runtime (the generated type names the wrapper).
-    const demo = (await demoMutation.mutateAsync()) as unknown as DemoSessionResponse;
+    const demo = (await demoMutation.mutateAsync({ data: { email: demoEmail.value } })) as unknown as DemoSessionResponse;
     if (!demo?.token) throw new Error(t('demo.failed'));
 
     const user = await loginWithToken(demo.token);
@@ -58,7 +70,11 @@ async function onTryDemo() {
       projectKey: demo.projectKey ?? '',
       serverUrl: demo.serverUrl ?? '',
       expiresAt: demo.expiresAt ?? '',
+      emailSent: demo.emailSent === true,
     });
+    if (demo.emailSent) {
+      demoEmailSent.value = true;
+    }
     await router.replace(user?.isAdmin ? '/overview' : '/profile');
   } catch (err) {
     toast(extractMessage(err) || t('demo.failed'));
@@ -108,17 +124,40 @@ async function onTryDemo() {
           <span class="text-xs text-muted-foreground">{{ t('common.or') }}</span>
           <span class="h-px flex-1 bg-border" />
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          :disabled="demoLoading || loading"
-          @click="onTryDemo"
-        >
-          {{ demoLoading ? t('demo.starting') : t('demo.tryDemo') }}
-        </Button>
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col gap-2">
+            <Label for="demo-email">{{ t('login.demoEmailLabel') }}</Label>
+            <Input
+              id="demo-email"
+              v-model="demoEmail"
+              type="email"
+              autocomplete="email"
+              :placeholder="t('login.demoEmailLabel')"
+            />
+            <p v-if="demoEmailError" class="text-xs text-destructive">
+              {{ t('login.demoEmailLabel') }} — {{ t('login.failed').toLowerCase() }}
+            </p>
+          </div>
+          <p v-if="demoEmailSent" class="text-sm text-green-600 dark:text-green-400">
+            {{ t('login.demoEmailSent') }}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="demoLoading || loading"
+            @click="onTryDemo"
+          >
+            {{ demoLoading ? t('demo.starting') : t('demo.tryDemo') }}
+          </Button>
+        </div>
         <p class="text-center text-xs text-muted-foreground">
           {{ t('login.signupPrompt') }}
           <RouterLink to="/signup" class="underline">{{ t('login.signupLink') }}</RouterLink>
+        </p>
+        <p class="text-center text-xs">
+          <RouterLink to="/forgot" class="text-muted-foreground underline hover:text-foreground">
+            {{ t('login.forgot') }}
+          </RouterLink>
         </p>
       </CardContent>
     </Card>

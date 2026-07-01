@@ -147,8 +147,13 @@ function dismiss() {
           <span>
             <span class="text-muted-foreground">{{ t('demo.widgetLogin') }}:</span>
             <span class="ms-1 font-mono">{{ session.email }}</span>
-            <span class="mx-1 text-muted-foreground">/</span>
-            <span class="font-mono">{{ session.password }}</span>
+            <template v-if="session.password">
+              <span class="mx-1 text-muted-foreground">/</span>
+              <span class="font-mono">{{ session.password }}</span>
+            </template>
+            <template v-else>
+              <span class="ms-1 text-xs text-muted-foreground italic">{{ t('demo.credsEmailed') }}</span>
+            </template>
           </span>
         </div>
 
