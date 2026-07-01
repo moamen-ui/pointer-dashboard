@@ -12,6 +12,7 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   ProjectsService,
+  ExportImportService,
   getApiAdminProjectsResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
@@ -217,11 +218,9 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
 })
 export class ProjectsComponent {
   private projectsService = inject(ProjectsService);
-  // ExportImportService is injected but postApiProjectsKeyImport sends undefined as body
-  // (generated from OpenAPI spec that has no request body on the import endpoint).
-  // The actual import requires sending the parsed JSON payload, so we keep HttpClient
-  // for the import call. Export uses HttpClient because the generated client only
-  // exposes a Signal-based getApiProjectsKeyExportResource — no imperative variant exists.
+  private exportImportService = inject(ExportImportService);
+  // Export uses HttpClient because the generated client only exposes a Signal-based
+  // getApiProjectsKeyExportResource — no imperative variant exists.
   private http = inject(HttpClient);
   private snack = inject(MatSnackBar);
   private fb = inject(FormBuilder);
@@ -436,9 +435,7 @@ export class ProjectsComponent {
       try {
         const parsed = JSON.parse(reader.result as string);
         const key = this.importProjectKey();
-        // NOTE: ExportImportService.postApiProjectsKeyImport sends undefined as body (generated client
-        // has no request-body parameter for this endpoint). Keeping HttpClient to pass the parsed JSON payload.
-        this.http.post<ImportResultDto>(`/api/projects/${key}/import`, parsed).subscribe({
+        this.exportImportService.postApiProjectsKeyImport(key, parsed).subscribe({
           next: (result) => {
             this.importBusy.set(false);
             this.dialogRef?.close();

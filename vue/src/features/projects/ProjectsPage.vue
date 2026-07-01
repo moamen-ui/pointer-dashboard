@@ -9,9 +9,9 @@ import {
   getGetApiAdminProjectsQueryKey,
   getApiProjectsKeyExport,
   usePostApiProjectsKeyImport,
-  AXIOS_INSTANCE,
   type ProjectResponse,
   type ImportResultDto,
+  type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
 import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil } from 'lucide-vue-next';
@@ -154,24 +154,7 @@ const importTargetProject = ref<ProjectResponse | null>(null);
 const importFile = ref<File | null>(null);
 const importResult = ref<ImportResultDto | null>(null);
 
-// usePostApiProjectsKeyImport is used for lifecycle management; body must be
-// forwarded via AXIOS_INSTANCE because the generated function's signature
-// does not accept a request body (orval emitted no body parameter for this endpoint).
-const importMutation = usePostApiProjectsKeyImport({
-  mutation: {
-    mutationFn: async ({ key }: { key: string }) => {
-      const text = await importFile.value!.text();
-      const body = JSON.parse(text);
-      const res = await AXIOS_INSTANCE.post(
-        `/api/projects/${key}/import`,
-        body,
-        { headers: { 'Content-Type': 'application/json' } },
-      );
-      const result: ImportResultDto = res.data?.data ?? res.data;
-      return result as ImportResultDto;
-    },
-  },
-});
+const importMutation = usePostApiProjectsKeyImport();
 
 function openImport(project: ProjectResponse) {
   importTargetProject.value = project;
@@ -184,7 +167,9 @@ async function submitImport() {
   if (!importFile.value || !importTargetProject.value) return;
   busy.value = true;
   try {
-    const result = await importMutation.mutateAsync({ key: importTargetProject.value.key! });
+    const text = await importFile.value.text();
+    const data = JSON.parse(text) as ExportFileDto;
+    const result = await importMutation.mutateAsync({ key: importTargetProject.value.key!, data });
     importResult.value = result;
     const msg = t('exportImport.importCounts', {
       comments: result.importedComments ?? 0,

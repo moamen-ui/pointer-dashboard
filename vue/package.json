@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@moamen-ui/pointer-vue": "^1.0.10",
+    "@moamen-ui/pointer-vue": "^1.0.11",
     "@tanstack/vue-query": "^5.66.0",
     "@vueuse/core": "^12.8.2",
     "axios": "^1.7.9",

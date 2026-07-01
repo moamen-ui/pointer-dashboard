@@ -8,11 +8,12 @@ import {
   useGetApiAdminProjects,
   usePostApiAdminProjects,
   usePatchApiAdminProjectsId,
+  usePostApiProjectsKeyImport,
   getGetApiAdminProjectsQueryKey,
   getApiProjectsKeyExport,
-  AXIOS_INSTANCE,
   type ProjectResponse,
   type PredefinedActionInput,
+  type ExportFileDto,
 } from '@moamen-ui/pointer-react';
 import { Plus, Ban, CheckCircle2, Download, Upload, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -39,14 +40,6 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 import { useAuth } from '@/lib/auth';
-
-// ImportResultDto shape from the server
-interface ImportResultDto {
-  importedComments?: number;
-  importedReplies?: number;
-  skippedDuplicates?: number;
-  warnings?: string[];
-}
 
 // Local row type for predefined actions in the form
 interface PredefinedActionRow {
@@ -215,8 +208,26 @@ export function ProjectsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importProject, setImportProject] = useState<ProjectResponse | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const importMut = usePostApiProjectsKeyImport({
+    mutation: {
+      onSuccess: (result) => {
+        const countMsg = t('exportImport.importCounts', {
+          comments: result.importedComments ?? 0,
+          replies: result.importedReplies ?? 0,
+        });
+        toast(`${t('exportImport.imported')} ${countMsg}`);
+        if (result.warnings && result.warnings.length > 0) {
+          result.warnings.forEach((w) => toast(w, 'error'));
+        }
+        setImportOpen(false);
+        setImportFile(null);
+        reload();
+      },
+      onError,
+    },
+  });
 
   function openImport(project: ProjectResponse) {
     setImportProject(project);
@@ -227,33 +238,9 @@ export function ProjectsPage() {
 
   async function handleImport() {
     if (!importFile || !importProject) return;
-    setImporting(true);
-    try {
-      const text = await importFile.text();
-      const payload = JSON.parse(text) as ImportResultDto;
-      // Raw call kept intentionally: the generated postApiProjectsKeyImport accepts no body,
-      // but import requires sending a JSON payload. No generated symbol covers this case.
-      const res = await AXIOS_INSTANCE.post<ImportResultDto>(
-        `/api/admin/projects/${importProject.key}/import`,
-        payload,
-      );
-      const result: ImportResultDto =
-        (res.data as unknown as { data?: ImportResultDto })?.data ?? (res.data as ImportResultDto);
-      const countMsg = t('exportImport.importCounts', {
-        comments: result.importedComments ?? 0,
-        replies: result.importedReplies ?? 0,
-      });
-      toast(`${t('exportImport.imported')} ${countMsg}`);
-      if (result.warnings && result.warnings.length > 0) {
-        result.warnings.forEach((w) => toast(w, 'error'));
-      }
-      setImportOpen(false);
-      reload();
-    } catch (e) {
-      toast(extractMessage(e), 'error');
-    } finally {
-      setImporting(false);
-    }
+    const text = await importFile.text();
+    const payload = JSON.parse(text) as ExportFileDto;
+    importMut.mutate({ key: importProject.key!, data: payload });
   }
 
   // ---- Predefined actions helpers ----
@@ -565,7 +552,7 @@ export function ProjectsPage() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!importFile || importing}
+                disabled={!importFile || importMut.isPending}
                 onClick={handleImport}
               >
                 <Upload className="h-4 w-4" />
