@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal, TemplateRef, viewChild } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -18,6 +19,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
   selector: 'app-tenants',
   standalone: true,
   imports: [
+    DatePipe,
     FormsModule,
     MatTableModule,
     MatButtonModule,
@@ -87,6 +89,17 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
             <td mat-cell *matCellDef="let t">{{ t.comments ?? 0 }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="demoExpiry">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.demoExpiry' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">
+              @if (t.isDemo) {
+                {{ t.expiresAt ? (t.expiresAt | date:'short') : '—' }}
+              } @else {
+                —
+              }
+            </td>
+          </ng-container>
+
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'tenants.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let t">
@@ -108,6 +121,17 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
                 <button mat-stroked-button color="warn" (click)="openDelete(t)">
                   <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
                 </button>
+                @if (t.isDemo) {
+                  <button mat-stroked-button
+                    [disabled]="t.demoExtended"
+                    [matTooltip]="t.demoExtended ? ('tenants.extendOnce' | transloco) : ''"
+                    (click)="extendDemo(t)">
+                    <mat-icon>schedule</mat-icon> {{ 'tenants.extend' | transloco }}
+                  </button>
+                  <button mat-stroked-button (click)="openDemoConfig(t)">
+                    <mat-icon>tune</mat-icon> {{ 'tenants.editDemoConfig' | transloco }}
+                  </button>
+                }
               </div>
             </td>
           </ng-container>
@@ -146,6 +170,34 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
         </button>
       </mat-dialog-actions>
     </ng-template>
+
+    <!-- Demo config dialog -->
+    <ng-template #demoConfigDialog>
+      <h2 mat-dialog-title>{{ 'tenants.editDemoConfig' | transloco }}</h2>
+      <mat-dialog-content>
+        <div class="flex min-w-80 flex-col gap-4 pt-2">
+          <p class="text-xs text-muted-foreground m-0">{{ 'tenants.demoConfigHint' | transloco }}</p>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'tenants.commentCapOverride' | transloco }}</mat-label>
+            <input matInput type="number" min="1"
+              [(ngModel)]="demoConfigCapInput"
+              [placeholder]="'tenants.overridePlaceholder' | transloco" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'tenants.ttlHoursOverride' | transloco }}</mat-label>
+            <input matInput type="number" min="1"
+              [(ngModel)]="demoConfigTtlInput"
+              [placeholder]="'tenants.overridePlaceholder' | transloco" />
+          </mat-form-field>
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary" (click)="saveDemoConfig()">
+          {{ 'common.save' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
   `,
 })
 export class TenantsComponent {
@@ -155,19 +207,25 @@ export class TenantsComponent {
   private dialog = inject(MatDialog);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
+  readonly demoConfigDialog = viewChild.required<TemplateRef<unknown>>('demoConfigDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
   tenantsResource = getApiAdminTenantsResource();
   // The HTTP interceptor unwraps the envelope, so the actual runtime value is TenantResponse[].
   tenants = computed(() => (this.tenantsResource.value() as unknown as TenantResponse[]) ?? []);
 
-  displayedColumns = ['displayName', 'email', 'approvalStatus', 'isActive', 'projects', 'comments', 'actions'];
+  displayedColumns = ['displayName', 'email', 'approvalStatus', 'isActive', 'projects', 'comments', 'demoExpiry', 'actions'];
 
   newEmail = '';
   newDisplayName = '';
   newPassword = '';
 
   deletingTenant = signal<TenantResponse | null>(null);
+
+  // Demo config dialog state
+  demoConfigTenant = signal<TenantResponse | null>(null);
+  demoConfigCapInput = '';
+  demoConfigTtlInput = '';
 
   openAdd() {
     this.newEmail = '';
@@ -224,6 +282,45 @@ export class TenantsComponent {
       next: () => {
         this.tenantsResource.reload();
         this.snack.open(this.transloco.translate('tenants.deleted'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  extendDemo(tenant: TenantResponse) {
+    (this.tenantsService as any).postApiAdminTenantsIdExtend(tenant.id!).subscribe({
+      next: () => {
+        this.tenantsResource.reload();
+        this.snack.open(this.transloco.translate('tenants.extended'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  openDemoConfig(tenant: TenantResponse) {
+    this.demoConfigTenant.set(tenant);
+    // Pre-fill from existing overrides; blank string means "use global default"
+    this.demoConfigCapInput = (tenant as any).demoCommentCapOverride != null
+      ? String((tenant as any).demoCommentCapOverride)
+      : '';
+    this.demoConfigTtlInput = (tenant as any).demoTtlHoursOverride != null
+      ? String((tenant as any).demoTtlHoursOverride)
+      : '';
+    this.dialogRef = this.dialog.open(this.demoConfigDialog(), { width: '440px' });
+  }
+
+  saveDemoConfig() {
+    const tenant = this.demoConfigTenant();
+    if (!tenant) return;
+    const body = {
+      commentCapOverride: this.demoConfigCapInput === '' ? null : Number(this.demoConfigCapInput),
+      ttlHoursOverride: this.demoConfigTtlInput === '' ? null : Number(this.demoConfigTtlInput),
+    };
+    (this.tenantsService as any).patchApiAdminTenantsIdDemoConfig(tenant.id!, body).subscribe({
+      next: () => {
+        this.dialogRef?.close();
+        this.tenantsResource.reload();
+        this.snack.open(this.transloco.translate('tenants.demoConfigSaved'), 'OK', { duration: 3000 });
       },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });

@@ -1,5 +1,6 @@
 // Tenants admin page — super-admin only.
 // List all tenants; create; approve / enable / disable; delete with cascade warning.
+// Demo tenants: show expiry column, Extend demo button, Demo config dialog.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,10 +9,12 @@ import {
   usePostApiAdminTenants,
   usePatchApiAdminTenantsId,
   useDeleteApiAdminTenantsId,
+  usePostApiAdminTenantsIdExtend,
+  usePatchApiAdminTenantsIdDemoConfig,
   getGetApiAdminTenantsQueryKey,
   type TenantResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,14 +39,18 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 
+// The new TenantResponse fields are not in ^1.0.7 yet — cast via this helper type.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyTenant = TenantResponse & Record<string, any>;
+
 export function TenantsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const { data, isLoading, isError, isFetching } = useGetApiAdminTenants();
-  const tenants: TenantResponse[] = (data as unknown as { data?: TenantResponse[] })?.data
-    ?? (Array.isArray(data) ? (data as TenantResponse[]) : []);
+  const tenants: AnyTenant[] = (data as unknown as { data?: AnyTenant[] })?.data
+    ?? (Array.isArray(data) ? (data as AnyTenant[]) : []);
 
   const reload = () =>
     void qc.invalidateQueries({ queryKey: getGetApiAdminTenantsQueryKey() });
@@ -97,12 +104,12 @@ export function TenantsPage() {
     },
   });
 
-  function setStatus(tenant: TenantResponse, action: string) {
+  function setStatus(tenant: AnyTenant, action: string) {
     patchMut.mutate({ id: tenant.id!, data: { action } });
   }
 
   // ---- Delete with cascade warning ----
-  const [deleteTarget, setDeleteTarget] = useState<TenantResponse | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AnyTenant | null>(null);
 
   const deleteMut = useDeleteApiAdminTenantsId({
     mutation: {
@@ -121,6 +128,63 @@ export function TenantsPage() {
   function confirmDelete() {
     if (deleteTarget?.id == null) return;
     deleteMut.mutate({ id: deleteTarget.id });
+  }
+
+  // ---- Extend demo ----
+  const extendMut = usePostApiAdminTenantsIdExtend({
+    mutation: {
+      onSuccess: () => {
+        toast(t('tenants.extended'));
+        reload();
+      },
+      onError,
+    },
+  });
+
+  // ---- Demo config dialog ----
+  const [demoConfigTarget, setDemoConfigTarget] = useState<AnyTenant | null>(null);
+  const [capInput, setCapInput] = useState('');
+  const [ttlInput, setTtlInput] = useState('');
+
+  function openDemoConfig(tenant: AnyTenant) {
+    setCapInput(tenant.demoCommentCapOverride != null ? String(tenant.demoCommentCapOverride) : '');
+    setTtlInput(tenant.demoTtlHoursOverride != null ? String(tenant.demoTtlHoursOverride) : '');
+    setDemoConfigTarget(tenant);
+  }
+
+  const demoConfigMut = usePatchApiAdminTenantsIdDemoConfig({
+    mutation: {
+      onSuccess: () => {
+        setDemoConfigTarget(null);
+        toast(t('tenants.demoConfigSaved'));
+        reload();
+      },
+      onError: (e) => {
+        setDemoConfigTarget(null);
+        onError(e);
+      },
+    },
+  });
+
+  function saveDemoConfig() {
+    if (demoConfigTarget?.id == null) return;
+    demoConfigMut.mutate({
+      id: demoConfigTarget.id,
+      data: {
+        commentCapOverride: capInput === '' ? null : Number(capInput),
+        ttlHoursOverride: ttlInput === '' ? null : Number(ttlInput),
+      },
+    });
+  }
+
+  // ---- Helpers ----
+  function formatExpiry(expiresAt: string | null | undefined): string {
+    if (!expiresAt) return '—';
+    try {
+      return new Date(expiresAt).toLocaleString();
+    } catch {
+      return expiresAt;
+    }
   }
 
   // ---- Render ----
@@ -167,6 +231,7 @@ export function TenantsPage() {
               <TableHead>{t('tenants.statusCol')}</TableHead>
               <TableHead>{t('tenants.projects')}</TableHead>
               <TableHead>{t('tenants.comments')}</TableHead>
+              <TableHead>{t('tenants.demoExpiry')}</TableHead>
               <TableHead>{t('tenants.actions')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -196,6 +261,9 @@ export function TenantsPage() {
                 </TableCell>
                 <TableCell>{tenant.projects ?? 0}</TableCell>
                 <TableCell>{tenant.comments ?? 0}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {tenant.isDemo ? formatExpiry(tenant.expiresAt) : '—'}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-2">
                     {tenant.approvalStatus === 'pending' && (
@@ -230,6 +298,28 @@ export function TenantsPage() {
                         {t('common.enable')}
                       </Button>
                     )}
+                    {tenant.isDemo && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={extendMut.isPending || tenant.demoExtended === true}
+                          title={tenant.demoExtended ? t('tenants.extendOnce') : undefined}
+                          onClick={() => extendMut.mutate({ id: tenant.id! })}
+                        >
+                          <Clock className="h-4 w-4" />
+                          {t('tenants.extend')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDemoConfig(tenant)}
+                        >
+                          <Settings2 className="h-4 w-4" />
+                          {t('tenants.editDemoConfig')}
+                        </Button>
+                      </>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -245,7 +335,7 @@ export function TenantsPage() {
             ))}
             {tenants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                   {t('tenants.empty')}
                 </TableCell>
               </TableRow>
@@ -299,6 +389,51 @@ export function TenantsPage() {
             >
               <Plus className="h-4 w-4" />
               {t('tenants.addTenant')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Demo config dialog */}
+      <Dialog open={!!demoConfigTarget} onOpenChange={(open) => { if (!open) setDemoConfigTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('tenants.editDemoConfig')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            <p className="text-xs text-muted-foreground">{t('tenants.demoConfigHint')}</p>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="demo-cap-override">{t('tenants.commentCapOverride')}</Label>
+              <Input
+                id="demo-cap-override"
+                type="number"
+                min={1}
+                value={capInput}
+                placeholder={t('tenants.overridePlaceholder')}
+                onChange={(e) => setCapInput(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="demo-ttl-override">{t('tenants.ttlHoursOverride')}</Label>
+              <Input
+                id="demo-ttl-override"
+                type="number"
+                min={1}
+                value={ttlInput}
+                placeholder={t('tenants.overridePlaceholder')}
+                onChange={(e) => setTtlInput(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDemoConfigTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={demoConfigMut.isPending}
+              onClick={saveDemoConfig}
+            >
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

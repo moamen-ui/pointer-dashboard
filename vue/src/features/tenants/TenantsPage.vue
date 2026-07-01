@@ -10,7 +10,9 @@ import {
   getGetApiAdminTenantsQueryKey,
   type TenantResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck } from 'lucide-vue-next';
+// @ts-ignore
+import { usePostApiAdminTenantsIdExtend, usePatchApiAdminTenantsIdDemoConfig } from '@moamen-ui/pointer-vue';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,6 +48,8 @@ const tenants = computed<TenantResponse[]>(() => (data.value as unknown as Tenan
 const createTenant = usePostApiAdminTenants();
 const patchTenant = usePatchApiAdminTenantsId();
 const deleteTenant = useDeleteApiAdminTenantsId();
+const extendTenant = usePostApiAdminTenantsIdExtend();
+const patchDemoConfig = usePatchApiAdminTenantsIdDemoConfig();
 
 function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminTenantsQueryKey() });
@@ -126,6 +130,60 @@ async function doDelete(tenant: TenantResponse) {
   }
 }
 
+// ── Extend demo ────────────────────────────────────────────────────────
+async function doExtend(tenant: TenantResponse) {
+  try {
+    await extendTenant.mutateAsync({ id: tenant.id! });
+    toast(t('tenants.extended'));
+    reload();
+  } catch (e) {
+    fail(e);
+  }
+}
+
+// ── Demo config dialog ────────────────────────────────────────────────
+const demoConfigOpen = ref(false);
+const demoConfigTenant = ref<TenantResponse | null>(null);
+const demoCapInput = ref('');
+const demoTtlInput = ref('');
+
+function openDemoConfig(tenant: TenantResponse) {
+  demoConfigTenant.value = tenant;
+  const cap = (tenant as any).demoCommentCapOverride;
+  const ttl = (tenant as any).demoTtlHoursOverride;
+  demoCapInput.value = cap != null ? String(cap) : '';
+  demoTtlInput.value = ttl != null ? String(ttl) : '';
+  demoConfigOpen.value = true;
+}
+
+async function saveDemoConfig() {
+  if (!demoConfigTenant.value) return;
+  try {
+    await patchDemoConfig.mutateAsync({
+      id: demoConfigTenant.value.id!,
+      data: {
+        commentCapOverride: demoCapInput.value === '' ? null : Number(demoCapInput.value),
+        ttlHoursOverride: demoTtlInput.value === '' ? null : Number(demoTtlInput.value),
+      },
+    });
+    demoConfigOpen.value = false;
+    toast(t('tenants.demoConfigSaved'));
+    reload();
+  } catch (e) {
+    fail(e);
+  }
+}
+
+// ── Helper: format ISO expiry ─────────────────────────────────────────
+function formatExpiry(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
 // ── Local edit state (seeded via watch, never mutates cache) ──────────
 interface EditState {
   email: string;
@@ -179,6 +237,7 @@ function approvalChip(status: string | null | undefined) {
             <TableHead>{{ t('tenants.status') }}</TableHead>
             <TableHead>{{ t('tenants.projects') }}</TableHead>
             <TableHead>{{ t('tenants.comments') }}</TableHead>
+            <TableHead>{{ t('tenants.demoExpiry') }}</TableHead>
             <TableHead>{{ t('tenants.actions') }}</TableHead>
           </TableRow>
         </TableHeader>
@@ -198,6 +257,13 @@ function approvalChip(status: string | null | undefined) {
             </TableCell>
             <TableCell>{{ tenant.projects ?? 0 }}</TableCell>
             <TableCell>{{ tenant.comments ?? 0 }}</TableCell>
+            <!-- Demo expiry column -->
+            <TableCell class="text-sm">
+              <template v-if="(tenant as any).isDemo">
+                {{ formatExpiry((tenant as any).expiresAt) }}
+              </template>
+              <template v-else>—</template>
+            </TableCell>
             <TableCell>
               <div class="flex flex-wrap gap-2">
                 <Button
@@ -227,6 +293,25 @@ function approvalChip(status: string | null | undefined) {
                 <Button variant="destructive" size="sm" @click="doDelete(tenant)">
                   <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
                 </Button>
+                <!-- Demo-only actions -->
+                <template v-if="(tenant as any).isDemo">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="(tenant as any).demoExtended"
+                    :title="(tenant as any).demoExtended ? t('tenants.extendOnce') : undefined"
+                    @click="doExtend(tenant)"
+                  >
+                    <Clock class="h-4 w-4" /> {{ t('tenants.extend') }}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    @click="openDemoConfig(tenant)"
+                  >
+                    <Settings2 class="h-4 w-4" /> {{ t('tenants.editDemoConfig') }}
+                  </Button>
+                </template>
               </div>
             </TableCell>
           </TableRow>
@@ -266,6 +351,44 @@ function approvalChip(status: string | null | undefined) {
           @click="doCreate"
         >
           <Plus class="h-4 w-4" /> {{ t('tenants.addTenant') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Demo config dialog -->
+  <Dialog v-model:open="demoConfigOpen">
+    <DialogContent class="max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('tenants.editDemoConfig') }}</DialogTitle>
+      </DialogHeader>
+      <div class="flex flex-col gap-4 pt-2">
+        <p class="text-xs text-muted-foreground">{{ t('tenants.demoConfigHint') }}</p>
+        <div class="flex flex-col gap-2">
+          <Label for="demo-cap-override">{{ t('tenants.commentCapOverride') }}</Label>
+          <Input
+            id="demo-cap-override"
+            v-model="demoCapInput"
+            type="number"
+            :min="1"
+            :placeholder="t('tenants.overridePlaceholder')"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="demo-ttl-override">{{ t('tenants.ttlHoursOverride') }}</Label>
+          <Input
+            id="demo-ttl-override"
+            v-model="demoTtlInput"
+            type="number"
+            :min="1"
+            :placeholder="t('tenants.overridePlaceholder')"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" @click="demoConfigOpen = false">{{ t('common.cancel') }}</Button>
+        <Button :disabled="patchDemoConfig.isPending.value" @click="saveDemoConfig">
+          {{ t('common.save') }}
         </Button>
       </DialogFooter>
     </DialogContent>
