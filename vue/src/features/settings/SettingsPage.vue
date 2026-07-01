@@ -97,7 +97,7 @@ async function saveSettings() {
             <Switch
               :model-value="signupEnabled"
               :disabled="updateSettings.isPending.value"
-              @update:model-value="(v: boolean) => { signupEnabled.value = v; }"
+              @update:model-value="(v: boolean) => { signupEnabled = v; }"
             />
           </div>
         </CardContent>
@@ -117,7 +117,7 @@ async function saveSettings() {
             <Switch
               :model-value="emailEnabled"
               :disabled="updateSettings.isPending.value"
-              @update:model-value="(v: boolean) => { emailEnabled.value = v; }"
+              @update:model-value="(v: boolean) => { emailEnabled = v; }"
             />
           </div>
 
