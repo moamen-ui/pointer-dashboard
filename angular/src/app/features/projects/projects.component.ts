@@ -12,7 +12,6 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   ProjectsService,
-  ExportImportService,
   getApiAdminProjectsResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
@@ -72,6 +71,9 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
           <th mat-header-cell *matHeaderCellDef>{{ 'projects.actions' | transloco }}</th>
           <td mat-cell *matCellDef="let project">
             <div class="flex items-center gap-2 flex-wrap">
+              <button mat-stroked-button color="primary" (click)="openEdit(project)" [disabled]="loading()">
+                <mat-icon>edit</mat-icon> {{ 'projects.edit' | transloco }}
+              </button>
               <button mat-stroked-button [color]="project.isActive ? 'warn' : 'primary'"
                 (click)="toggleActive(project)" [disabled]="loading()">
                 <mat-icon>{{ project.isActive ? 'block' : 'check_circle' }}</mat-icon>
@@ -146,6 +148,54 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
       </mat-dialog-actions>
     </ng-template>
 
+    <!-- Edit project dialog -->
+    <ng-template #editDialog>
+      <h2 mat-dialog-title>{{ 'projects.editTitle' | transloco }}</h2>
+      <mat-dialog-content>
+        <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="flex min-w-80 flex-col gap-3 pt-2">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'projects.name' | transloco }}</mat-label>
+            <input matInput formControlName="name" />
+          </mat-form-field>
+
+          <!-- Predefined actions section (reused group) -->
+          <div class="mt-2">
+            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'predefined.section' | transloco }}</div>
+            <p class="mb-2 text-[0.8rem] text-muted">{{ 'predefined.projectHelp' | transloco }}</p>
+            <div formArrayName="predefinedActions" class="flex flex-col gap-3">
+              @for (action of editPredefinedActionsArray.controls; track $index) {
+                <div [formGroupName]="$index" class="rounded border border-app-border p-3 flex flex-col gap-2">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
+                    <input matInput formControlName="text" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
+                    <textarea matInput formControlName="prompt" rows="2"></textarea>
+                  </mat-form-field>
+                  <button mat-stroked-button color="warn" type="button" (click)="removeEditAction($index)">
+                    <mat-icon>remove</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+            @if (editPredefinedActionsArray.length === 0) {
+              <p class="text-[0.8rem] text-muted">{{ 'predefined.empty' | transloco }}</p>
+            }
+            <button mat-stroked-button type="button" class="mt-2 border-app-border" (click)="addEditAction()">
+              <mat-icon>add</mat-icon> {{ 'predefined.add' | transloco }}
+            </button>
+          </div>
+        </form>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary" (click)="saveEdit()" [disabled]="editForm.invalid || loading()">
+          <mat-icon>save</mat-icon> {{ 'common.save' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
+
     <!-- Import dialog -->
     <ng-template #importDialog>
       <h2 mat-dialog-title>{{ 'exportImport.importTitle' | transloco }}</h2>
@@ -167,7 +217,11 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
 })
 export class ProjectsComponent {
   private projectsService = inject(ProjectsService);
-  private exportImportService = inject(ExportImportService);
+  // ExportImportService is injected but postApiProjectsKeyImport sends undefined as body
+  // (generated from OpenAPI spec that has no request body on the import endpoint).
+  // The actual import requires sending the parsed JSON payload, so we keep HttpClient
+  // for the import call. Export uses HttpClient because the generated client only
+  // exposes a Signal-based getApiProjectsKeyExportResource — no imperative variant exists.
   private http = inject(HttpClient);
   private snack = inject(MatSnackBar);
   private fb = inject(FormBuilder);
@@ -176,6 +230,7 @@ export class ProjectsComponent {
   auth = inject(AuthService);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
+  readonly editDialog = viewChild.required<TemplateRef<unknown>>('editDialog');
   readonly importDialog = viewChild.required<TemplateRef<unknown>>('importDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
@@ -188,6 +243,8 @@ export class ProjectsComponent {
   importFile = signal<File | null>(null);
   private importProjectKey = signal<string>('');
 
+  private editingProjectId = signal<number | null>(null);
+
   displayedColumns = ['key', 'name', 'status', 'actions'];
 
   addForm = this.fb.nonNullable.group({
@@ -196,8 +253,17 @@ export class ProjectsComponent {
     predefinedActions: this.fb.array([]),
   });
 
+  editForm = this.fb.nonNullable.group({
+    name: ['', Validators.required],
+    predefinedActions: this.fb.array([]),
+  });
+
   get predefinedActionsArray(): FormArray {
     return this.addForm.get('predefinedActions') as FormArray;
+  }
+
+  get editPredefinedActionsArray(): FormArray {
+    return this.editForm.get('predefinedActions') as FormArray;
   }
 
   addAction(): void {
@@ -213,12 +279,44 @@ export class ProjectsComponent {
     this.predefinedActionsArray.removeAt(index);
   }
 
+  addEditAction(): void {
+    this.editPredefinedActionsArray.push(
+      this.fb.nonNullable.group({
+        id: [null as number | null],
+        text: ['', Validators.required],
+        prompt: ['', Validators.required],
+      })
+    );
+  }
+
+  removeEditAction(index: number): void {
+    this.editPredefinedActionsArray.removeAt(index);
+  }
+
   openAdd() {
     this.addForm.reset({ key: '', name: '' });
     while (this.predefinedActionsArray.length) {
       this.predefinedActionsArray.removeAt(0);
     }
     this.dialogRef = this.dialog.open(this.addDialog(), { width: '540px' });
+  }
+
+  openEdit(project: ProjectResponse): void {
+    this.editingProjectId.set(project.id ?? null);
+    this.editForm.reset({ name: project.name ?? '' });
+    while (this.editPredefinedActionsArray.length) {
+      this.editPredefinedActionsArray.removeAt(0);
+    }
+    for (const action of project.predefinedActions ?? []) {
+      this.editPredefinedActionsArray.push(
+        this.fb.nonNullable.group({
+          id: [action.id ?? null],
+          text: [action.text ?? '', Validators.required],
+          prompt: [action.prompt ?? '', Validators.required],
+        })
+      );
+    }
+    this.dialogRef = this.dialog.open(this.editDialog(), { width: '540px' });
   }
 
   addProject() {
@@ -237,6 +335,32 @@ export class ProjectsComponent {
         this.dialogRef?.close();
         this.addForm.reset();
         this.projectsResource.reload();
+      },
+      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+    });
+  }
+
+  saveEdit(): void {
+    if (this.editForm.invalid) return;
+    const id = this.editingProjectId();
+    if (id == null) return;
+    this.busy.set(true);
+    const val = this.editForm.getRawValue();
+    const predefinedActions = (val.predefinedActions as { id: number | null; text: string; prompt: string }[]).map(
+      (a, i) => ({
+        ...(a.id != null ? { id: a.id } : {}),
+        text: a.text,
+        prompt: a.prompt,
+        sortOrder: i,
+        isActive: true,
+      })
+    );
+    this.projectsService.patchApiAdminProjectsId(id, { name: val.name, predefinedActions } as any).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.dialogRef?.close();
+        this.projectsResource.reload();
+        this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 3000 });
       },
       error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });
@@ -270,6 +394,9 @@ export class ProjectsComponent {
   }
 
   // --- Export ---
+  // NOTE: The generated client only exposes getApiProjectsKeyExportResource (Signal-based httpResource)
+  // for the export endpoint — no imperative method exists in ExportImportService for GET /api/projects/{key}/export.
+  // Keeping HttpClient for this one-shot download call.
   exportProject(project: ProjectResponse): void {
     this.busy.set(true);
     this.http.get<ExportFileDto>(`/api/projects/${project.key}/export`).subscribe({
@@ -309,6 +436,8 @@ export class ProjectsComponent {
       try {
         const parsed = JSON.parse(reader.result as string);
         const key = this.importProjectKey();
+        // NOTE: ExportImportService.postApiProjectsKeyImport sends undefined as body (generated client
+        // has no request-body parameter for this endpoint). Keeping HttpClient to pass the parsed JSON payload.
         this.http.post<ImportResultDto>(`/api/projects/${key}/import`, parsed).subscribe({
           next: (result) => {
             this.importBusy.set(false);

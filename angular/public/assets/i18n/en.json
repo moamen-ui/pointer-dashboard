@@ -164,7 +164,10 @@
     "key": "Key",
     "name": "Name",
     "status": "Status",
-    "actions": "Actions"
+    "actions": "Actions",
+    "edit": "Edit",
+    "editTitle": "Edit project",
+    "saved": "Project updated."
   },
   "exportImport": {
     "export": "Export",

@@ -8,11 +8,13 @@ import {
   usePatchApiAdminProjectsId,
   getGetApiAdminProjectsQueryKey,
   getApiProjectsKeyExport,
+  usePostApiProjectsKeyImport,
   AXIOS_INSTANCE,
   type ProjectResponse,
   type ImportResultDto,
+  type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -132,8 +134,8 @@ async function patchActive(project: ProjectResponse, isActive: boolean) {
 // ── Export ────────────────────────────────────────────────────────────
 async function exportProject(project: ProjectResponse) {
   try {
-    const data = await getApiProjectsKeyExport(project.key!);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const exportData = await getApiProjectsKeyExport(project.key!);
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -152,6 +154,25 @@ const importTargetProject = ref<ProjectResponse | null>(null);
 const importFile = ref<File | null>(null);
 const importResult = ref<ImportResultDto | null>(null);
 
+// usePostApiProjectsKeyImport is used for lifecycle management; body must be
+// forwarded via AXIOS_INSTANCE because the generated function's signature
+// does not accept a request body (orval emitted no body parameter for this endpoint).
+const importMutation = usePostApiProjectsKeyImport({
+  mutation: {
+    mutationFn: async ({ key }: { key: string }) => {
+      const text = await importFile.value!.text();
+      const body = JSON.parse(text);
+      const res = await AXIOS_INSTANCE.post(
+        `/api/projects/${key}/import`,
+        body,
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+      const result: ImportResultDto = res.data?.data ?? res.data;
+      return result as ImportResultDto;
+    },
+  },
+});
+
 function openImport(project: ProjectResponse) {
   importTargetProject.value = project;
   importFile.value = null;
@@ -163,15 +184,7 @@ async function submitImport() {
   if (!importFile.value || !importTargetProject.value) return;
   busy.value = true;
   try {
-    const text = await importFile.value.text();
-    const body = JSON.parse(text);
-    const res = await AXIOS_INSTANCE.post(
-      `/api/projects/${importTargetProject.value.key}/import`,
-      body,
-      { headers: { 'Content-Type': 'application/json' } },
-    );
-    // res.data is { isSuccess: boolean, data: ImportResultDto }
-    const result: ImportResultDto = res.data?.data ?? res.data;
+    const result = await importMutation.mutateAsync({ key: importTargetProject.value.key! });
     importResult.value = result;
     const msg = t('exportImport.importCounts', {
       comments: result.importedComments ?? 0,
@@ -187,6 +200,66 @@ async function submitImport() {
     fail(e);
   } finally {
     busy.value = false;
+  }
+}
+
+// ── Edit project ──────────────────────────────────────────────────────
+interface EditableAction {
+  id?: number;
+  text: string;
+  prompt: string;
+}
+
+const editOpen = ref(false);
+const editProject = ref<ProjectResponse | null>(null);
+const editName = ref('');
+const editActions = ref<EditableAction[]>([]);
+const editInvalid = computed(() => !editName.value.trim());
+
+const patchProject = usePatchApiAdminProjectsId();
+
+function openEdit(project: ProjectResponse) {
+  editProject.value = project;
+  editName.value = project.name ?? '';
+  editActions.value = (project.predefinedActions ?? []).map((a: PredefinedActionResponse) => ({
+    id: a.id,
+    text: a.text ?? '',
+    prompt: a.prompt ?? '',
+  }));
+  editOpen.value = true;
+}
+
+function addEditActionRow() {
+  editActions.value.push({ text: '', prompt: '' });
+}
+
+function removeEditActionRow(index: number) {
+  editActions.value.splice(index, 1);
+}
+
+async function saveEdit() {
+  if (editInvalid.value || !editProject.value) return;
+  busy.value = true;
+  try {
+    await patchProject.mutateAsync({
+      id: editProject.value.id!,
+      data: {
+        name: editName.value,
+        predefinedActions: editActions.value.map((a, i) => ({
+          ...(a.id != null ? { id: a.id } : {}),
+          text: a.text,
+          prompt: a.prompt,
+          sortOrder: i,
+          isActive: true,
+        })),
+      },
+    });
+    busy.value = false;
+    editOpen.value = false;
+    toast(t('projects.saved'));
+    reload();
+  } catch (e) {
+    fail(e);
   }
 }
 </script>
@@ -234,6 +307,9 @@ async function submitImport() {
               >
                 <component :is="project.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
                 {{ project.isActive ? t('common.disable') : t('common.enable') }}
+              </Button>
+              <Button variant="outline" size="sm" :disabled="loading" @click="openEdit(project)">
+                <Pencil class="h-4 w-4" /> {{ t('projects.edit') }}
               </Button>
               <Button variant="outline" size="sm" :disabled="loading" @click="exportProject(project)">
                 <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
@@ -297,6 +373,56 @@ async function submitImport() {
         <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="addInvalid || loading" @click="addProject">
           <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Edit project dialog -->
+  <Dialog v-model:open="editOpen">
+    <DialogContent class="max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('projects.editTitle') }}</DialogTitle>
+      </DialogHeader>
+      <form class="flex flex-col gap-3 pt-2" @submit.prevent="saveEdit">
+        <div class="flex flex-col gap-2">
+          <Label for="edit-name">{{ t('projects.name') }}</Label>
+          <Input id="edit-name" v-model="editName" />
+        </div>
+
+        <!-- Predefined actions section -->
+        <div class="flex flex-col gap-2">
+          <p class="text-xs text-muted-foreground">{{ t('predefined.projectHelp') }}</p>
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium">{{ t('predefined.section') }}</span>
+            <Button type="button" variant="outline" size="sm" @click="addEditActionRow">
+              <PlusCircle class="h-4 w-4" /> {{ t('predefined.add') }}
+            </Button>
+          </div>
+          <p v-if="editActions.length === 0" class="text-xs text-muted-foreground italic">{{ t('predefined.empty') }}</p>
+          <div v-for="(action, idx) in editActions" :key="idx" class="flex flex-col gap-1 rounded-md border p-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-muted-foreground">#{{ idx + 1 }}</span>
+              <Button type="button" variant="ghost" size="icon" @click="removeEditActionRow(idx)">
+                <Trash2 class="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+            <Label :for="'edit-act-text-' + idx">{{ t('predefined.text') }}</Label>
+            <Input :id="'edit-act-text-' + idx" v-model="action.text" />
+            <Label :for="'edit-act-prompt-' + idx">{{ t('predefined.prompt') }}</Label>
+            <textarea
+              :id="'edit-act-prompt-' + idx"
+              v-model="action.prompt"
+              rows="2"
+              class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+            />
+          </div>
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="editOpen = false">{{ t('common.cancel') }}</Button>
+        <Button :disabled="editInvalid || loading" @click="saveEdit">
+          {{ t('common.save') }}
         </Button>
       </DialogFooter>
     </DialogContent>

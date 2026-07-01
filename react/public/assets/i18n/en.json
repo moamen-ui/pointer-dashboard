@@ -127,7 +127,10 @@
     "name": "Name",
     "status": "Status",
     "actions": "Actions",
-    "empty": "No projects to show."
+    "empty": "No projects to show.",
+    "edit": "Edit",
+    "editTitle": "Edit project",
+    "saved": "Project updated."
   },
   "statuses": {
     "title": "Statuses",

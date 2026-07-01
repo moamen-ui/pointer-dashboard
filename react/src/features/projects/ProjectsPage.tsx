@@ -9,9 +9,10 @@ import {
   usePostApiAdminProjects,
   usePatchApiAdminProjectsId,
   getGetApiAdminProjectsQueryKey,
+  getApiProjectsKeyExport,
+  AXIOS_INSTANCE,
   type ProjectResponse,
   type PredefinedActionInput,
-  AXIOS_INSTANCE,
 } from '@moamen-ui/pointer-react';
 import { Plus, Ban, CheckCircle2, Download, Upload, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -129,6 +130,7 @@ export function ProjectsPage() {
     mutation: {
       onSuccess: () => {
         setEditOpen(false);
+        toast(t('projects.saved'));
         reload();
       },
       onError,
@@ -193,11 +195,8 @@ export function ProjectsPage() {
   // ---- Export ----
   async function handleExport(project: ProjectResponse) {
     try {
-      const res = await AXIOS_INSTANCE.get<unknown>(
-        `/api/admin/projects/${project.key}/export`,
-        { responseType: 'json' },
-      );
-      const blob = new Blob([JSON.stringify(res.data, null, 2)], {
+      const exportData = await getApiProjectsKeyExport(project.key!);
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json',
       });
       const url = URL.createObjectURL(blob);
@@ -231,7 +230,9 @@ export function ProjectsPage() {
     setImporting(true);
     try {
       const text = await importFile.text();
-      const payload = JSON.parse(text);
+      const payload = JSON.parse(text) as ImportResultDto;
+      // Raw call kept intentionally: the generated postApiProjectsKeyImport accepts no body,
+      // but import requires sending a JSON payload. No generated symbol covers this case.
       const res = await AXIOS_INSTANCE.post<ImportResultDto>(
         `/api/admin/projects/${importProject.key}/import`,
         payload,
@@ -320,7 +321,7 @@ export function ProjectsPage() {
                       size="sm"
                       onClick={() => openEdit(project)}
                     >
-                      {t('common.rename')}
+                      {t('projects.edit')}
                     </Button>
                     <Button
                       variant="outline"
@@ -461,7 +462,7 @@ export function ProjectsPage() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('common.rename')}</DialogTitle>
+            <DialogTitle>{t('projects.editTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <div className="flex flex-col gap-2">

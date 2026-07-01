@@ -2,14 +2,18 @@
 // Three-section form: Access, Email, Demo. Loads current settings into local state;
 // one "Save changes" button PUTs the whole UpdateSettingsRequest.
 // Phase B: Predefined actions section at the bottom (tenant-wide, projectId == null).
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetApiAdminSettings,
   usePutApiAdminSettings,
   getGetApiAdminSettingsQueryKey,
-  AXIOS_INSTANCE,
+  useGetApiAdminPredefinedActions,
+  getGetApiAdminPredefinedActionsQueryKey,
+  usePostApiAdminPredefinedActions,
+  usePatchApiAdminPredefinedActionsId,
+  useDeleteApiAdminPredefinedActionsId,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-react';
 import { Plus, Trash2 } from 'lucide-react';
@@ -23,13 +27,6 @@ import { extractMessage } from '@/lib/error';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySettings = any;
 
-// Local editable row for a predefined action
-interface PredefinedActionEditable extends PredefinedActionResponse {
-  _localText: string;
-  _localPrompt: string;
-  _dirty: boolean;
-  _saving: boolean;
-}
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -71,110 +68,101 @@ export function SettingsPage() {
     void qc.invalidateQueries({ queryKey: getGetApiAdminSettingsQueryKey() });
 
   // ---- Predefined actions (tenant-wide, projectId == null) ----
-  const [predefinedActions, setPredefinedActions] = useState<PredefinedActionEditable[]>([]);
-  const [predefinedLoading, setPredefinedLoading] = useState(false);
-  const [addingAction, setAddingAction] = useState(false);
+  const [localEdits, setLocalEdits] = useState<
+    Record<number, { text: string; prompt: string; dirty: boolean }>
+  >({});
   const [newActionText, setNewActionText] = useState('');
   const [newActionPrompt, setNewActionPrompt] = useState('');
 
-  const loadPredefinedActions = useCallback(async () => {
-    setPredefinedLoading(true);
-    try {
-      const res = await AXIOS_INSTANCE.get<PredefinedActionResponse[] | { data: PredefinedActionResponse[] }>(
-        '/api/admin/predefined-actions',
-      );
-      const raw = (res.data as { data?: PredefinedActionResponse[] })?.data
-        ?? (res.data as PredefinedActionResponse[]);
-      const tenantWide = raw.filter((a) => a.projectId == null);
-      setPredefinedActions(
-        tenantWide.map((a) => ({
-          ...a,
-          _localText: a.text ?? '',
-          _localPrompt: a.prompt ?? '',
-          _dirty: false,
-          _saving: false,
-        })),
-      );
-    } catch (e) {
-      toast(extractMessage(e), 'error');
-    } finally {
-      setPredefinedLoading(false);
-    }
-  }, [toast]);
+  const reloadPredefined = () =>
+    void qc.invalidateQueries({ queryKey: getGetApiAdminPredefinedActionsQueryKey() });
 
+  const { data: rawPredefined = [], isLoading: predefinedLoading } =
+    useGetApiAdminPredefinedActions();
+  const predefinedActions = rawPredefined.filter((a) => a.projectId == null);
+
+  // Seed local edit state when server data arrives (only for items not already edited)
   useEffect(() => {
-    void loadPredefinedActions();
-  }, [loadPredefinedActions]);
+    setLocalEdits((prev) => {
+      const next = { ...prev };
+      for (const a of predefinedActions) {
+        if (a.id != null && !(a.id in next)) {
+          next[a.id] = { text: a.text ?? '', prompt: a.prompt ?? '', dirty: false };
+        }
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawPredefined]);
 
-  function updateLocalAction(id: number, field: '_localText' | '_localPrompt', value: string) {
-    setPredefinedActions((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, [field]: value, _dirty: true } : a)),
-    );
+  function updateLocalAction(id: number, field: 'text' | 'prompt', value: string) {
+    setLocalEdits((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value, dirty: true },
+    }));
   }
 
-  async function saveAction(action: PredefinedActionEditable) {
-    setPredefinedActions((prev) =>
-      prev.map((a) => (a.id === action.id ? { ...a, _saving: true } : a)),
-    );
-    try {
-      await AXIOS_INSTANCE.patch(`/api/admin/predefined-actions/${action.id}`, {
-        text: action._localText,
-        prompt: action._localPrompt,
+  const patchActionMut = usePatchApiAdminPredefinedActionsId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalEdits((prev) => ({
+          ...prev,
+          [vars.id]: { ...prev[vars.id], dirty: false },
+        }));
+        reloadPredefined();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  function saveAction(action: PredefinedActionResponse) {
+    const edit = localEdits[action.id!];
+    if (!edit) return;
+    patchActionMut.mutate({
+      id: action.id!,
+      data: {
+        text: edit.text,
+        prompt: edit.prompt,
         isActive: action.isActive,
-      });
-      setPredefinedActions((prev) =>
-        prev.map((a) => (a.id === action.id ? { ...a, _dirty: false, _saving: false } : a)),
-      );
-    } catch (e) {
-      toast(extractMessage(e), 'error');
-      setPredefinedActions((prev) =>
-        prev.map((a) => (a.id === action.id ? { ...a, _saving: false } : a)),
-      );
-    }
+      },
+    });
   }
 
-  async function deleteAction(id: number) {
-    try {
-      await AXIOS_INSTANCE.delete(`/api/admin/predefined-actions/${id}`);
-      setPredefinedActions((prev) => prev.filter((a) => a.id !== id));
-    } catch (e) {
-      toast(extractMessage(e), 'error');
-    }
-  }
+  const deleteActionMut = useDeleteApiAdminPredefinedActionsId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalEdits((prev) => {
+          const next = { ...prev };
+          delete next[vars.id];
+          return next;
+        });
+        reloadPredefined();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
 
-  async function addAction() {
+  const addActionMut = usePostApiAdminPredefinedActions({
+    mutation: {
+      onSuccess: () => {
+        setNewActionText('');
+        setNewActionPrompt('');
+        reloadPredefined();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  function addAction() {
     if (!newActionText.trim()) return;
-    setAddingAction(true);
-    try {
-      const res = await AXIOS_INSTANCE.post<PredefinedActionResponse | { data: PredefinedActionResponse }>(
-        '/api/admin/predefined-actions',
-        {
-          text: newActionText.trim(),
-          prompt: newActionPrompt.trim(),
-          isActive: true,
-          sortOrder: predefinedActions.length,
-        },
-      );
-      const created =
-        (res.data as { data?: PredefinedActionResponse })?.data ??
-        (res.data as PredefinedActionResponse);
-      setPredefinedActions((prev) => [
-        ...prev,
-        {
-          ...created,
-          _localText: created.text ?? '',
-          _localPrompt: created.prompt ?? '',
-          _dirty: false,
-          _saving: false,
-        },
-      ]);
-      setNewActionText('');
-      setNewActionPrompt('');
-    } catch (e) {
-      toast(extractMessage(e), 'error');
-    } finally {
-      setAddingAction(false);
-    }
+    addActionMut.mutate({
+      data: {
+        text: newActionText.trim(),
+        prompt: newActionPrompt.trim(),
+        isActive: true,
+        sortOrder: predefinedActions.length,
+      },
+    });
   }
 
   const updateMut = usePutApiAdminSettings({
@@ -424,51 +412,62 @@ export function SettingsPage() {
             <p className="text-sm text-muted-foreground">{t('predefined.empty')}</p>
           )}
 
-          {predefinedActions.map((action) => (
-            <div
-              key={action.id}
-              className="flex flex-col gap-2 rounded-md border border-border p-3"
-            >
-              <div className="flex items-start gap-2">
-                <div className="flex flex-1 flex-col gap-1">
-                  <Label className="text-xs">{t('predefined.text')}</Label>
-                  <Input
-                    value={action._localText}
-                    onChange={(e) => updateLocalAction(action.id!, '_localText', e.target.value)}
-                  />
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="mt-5 h-7 w-7 shrink-0 text-destructive"
-                  onClick={() => deleteAction(action.id!)}
-                  type="button"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">{t('predefined.prompt')}</Label>
-                <textarea
-                  value={action._localPrompt}
-                  onChange={(e) => updateLocalAction(action.id!, '_localPrompt', e.target.value)}
-                  rows={2}
-                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-              {action._dirty && (
-                <div className="flex justify-end">
+          {predefinedActions.map((action) => {
+            const edit = localEdits[action.id!] ?? {
+              text: action.text ?? '',
+              prompt: action.prompt ?? '',
+              dirty: false,
+            };
+            const isSaving =
+              patchActionMut.isPending &&
+              (patchActionMut.variables as { id?: number } | undefined)?.id === action.id;
+            return (
+              <div
+                key={action.id}
+                className="flex flex-col gap-2 rounded-md border border-border p-3"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="flex flex-1 flex-col gap-1">
+                    <Label className="text-xs">{t('predefined.text')}</Label>
+                    <Input
+                      value={edit.text}
+                      onChange={(e) => updateLocalAction(action.id!, 'text', e.target.value)}
+                    />
+                  </div>
                   <Button
-                    size="sm"
-                    disabled={action._saving}
-                    onClick={() => saveAction(action)}
+                    variant="ghost"
+                    size="icon"
+                    className="mt-5 h-7 w-7 shrink-0 text-destructive"
+                    onClick={() => deleteActionMut.mutate({ id: action.id! })}
+                    disabled={deleteActionMut.isPending}
+                    type="button"
                   >
-                    {t('common.save')}
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">{t('predefined.prompt')}</Label>
+                  <textarea
+                    value={edit.prompt}
+                    onChange={(e) => updateLocalAction(action.id!, 'prompt', e.target.value)}
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+                {edit.dirty && (
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      disabled={isSaving}
+                      onClick={() => saveAction(action)}
+                    >
+                      {t('common.save')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           {/* Add new action */}
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
@@ -494,7 +493,7 @@ export function SettingsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!newActionText.trim() || addingAction}
+                disabled={!newActionText.trim() || addActionMut.isPending}
                 onClick={addAction}
                 type="button"
               >
