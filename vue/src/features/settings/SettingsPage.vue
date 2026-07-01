@@ -11,15 +11,22 @@ import {
   usePatchApiAdminPredefinedActionsId,
   useDeleteApiAdminPredefinedActionsId,
   getGetApiAdminPredefinedActionsQueryKey,
+  useGetApiAdminRoles,
+  useGetApiAdminInvites,
+  usePostApiAdminInvites,
+  useDeleteApiAdminInvitesId,
+  getGetApiAdminInvitesQueryKey,
   type SettingsResponse,
   type PredefinedActionResponse,
+  type RoleResponse,
+  type InviteResponse,
 } from '@moamen-ui/pointer-vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2 } from 'lucide-vue-next';
+import { PlusCircle, Trash2, Copy, Link2Off } from 'lucide-vue-next';
 import { extractMessage } from '@/lib/error';
 import { toast } from '@/composables/useToast';
 
@@ -158,6 +165,73 @@ async function deleteTenantAction(action: EditableAction, index: number) {
   } catch (e) {
     toast(extractMessage(e));
   }
+}
+
+// ── Invite teammates ──────────────────────────────────────────────────
+const rolesQuery = useGetApiAdminRoles();
+const nonAdminRoles = computed<RoleResponse[]>(
+  () => ((rolesQuery.data.value ?? []) as RoleResponse[]).filter((r) => !r.grantsAdmin),
+);
+
+const invitesQuery = useGetApiAdminInvites();
+const inviteList = computed<InviteResponse[]>(
+  () => (invitesQuery.data.value ?? []) as InviteResponse[],
+);
+
+const inviteRoleId = ref<number | null>(null);
+const inviteEmail = ref('');
+const inviteExpiresDays = ref<number | undefined>(7);
+const inviteMaxUses = ref<number | undefined>(undefined);
+const createdUrl = ref<string | null>(null);
+
+const createInvite = usePostApiAdminInvites();
+const revokeInvite = useDeleteApiAdminInvitesId();
+
+function reloadInvites() {
+  void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+}
+
+async function onCreateInvite() {
+  if (!inviteRoleId.value) return;
+  try {
+    const res = await createInvite.mutateAsync({
+      data: {
+        roleId: inviteRoleId.value ?? undefined,
+        email: inviteEmail.value || undefined,
+        expiresInDays: inviteExpiresDays.value ?? undefined,
+        maxUses: inviteMaxUses.value ?? undefined,
+      },
+    }) as unknown as InviteResponse;
+    createdUrl.value = res.url ?? null;
+    toast(t('invite.created'));
+    reloadInvites();
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+async function copyUrl(url: string) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(t('invite.copied'));
+  } catch {
+    toast(url);
+  }
+}
+
+async function onRevoke(id: number) {
+  try {
+    await revokeInvite.mutateAsync({ id });
+    toast(t('invite.revoked'));
+    reloadInvites();
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+function formatDate(iso: string | undefined): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString();
 }
 </script>
 
@@ -326,6 +400,116 @@ async function deleteTenantAction(action: EditableAction, index: number) {
                 {{ t('common.save') }}
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Section: Invite teammates -->
+      <Card>
+        <CardContent class="flex flex-col gap-4 p-6">
+          <div class="flex flex-col gap-1">
+            <h3 class="text-sm font-semibold">{{ t('invite.section') }}</h3>
+            <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
+          </div>
+
+          <!-- Create form -->
+          <div class="flex flex-col gap-3 rounded-md border p-4">
+            <!-- Role select -->
+            <div class="flex flex-col gap-1">
+              <Label for="invite-role">{{ t('invite.role') }}</Label>
+              <select
+                id="invite-role"
+                v-model="inviteRoleId"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option :value="null" disabled>— {{ t('invite.role') }} —</option>
+                <option v-for="r in nonAdminRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
+              </select>
+            </div>
+
+            <!-- Optional email -->
+            <div class="flex flex-col gap-1">
+              <Label for="invite-email">{{ t('invite.email') }}</Label>
+              <Input id="invite-email" v-model="inviteEmail" type="email" />
+            </div>
+
+            <!-- Expires in days -->
+            <div class="flex flex-col gap-1">
+              <Label for="invite-expires">{{ t('invite.expiresDays') }}</Label>
+              <Input id="invite-expires" v-model.number="inviteExpiresDays" type="number" :min="1" />
+            </div>
+
+            <!-- Max uses -->
+            <div class="flex flex-col gap-1">
+              <Label for="invite-maxuses">{{ t('invite.maxUses') }}</Label>
+              <Input id="invite-maxuses" v-model.number="inviteMaxUses" type="number" :min="1" />
+            </div>
+
+            <Button
+              type="button"
+              :disabled="!inviteRoleId || createInvite.isPending.value"
+              @click="onCreateInvite"
+            >
+              {{ t('invite.create') }}
+            </Button>
+          </div>
+
+          <!-- Newly created URL -->
+          <div v-if="createdUrl" class="flex items-center gap-2 rounded-md bg-muted p-3">
+            <span class="flex-1 truncate text-sm font-mono">{{ createdUrl }}</span>
+            <Button type="button" size="sm" variant="outline" @click="copyUrl(createdUrl!)">
+              <Copy class="h-4 w-4 mr-1" />{{ t('invite.copy') }}
+            </Button>
+          </div>
+
+          <!-- Active invites list -->
+          <div v-if="invitesQuery.isError.value" class="text-sm text-destructive">
+            {{ t('settings.loadError') }}
+          </div>
+          <p v-else-if="inviteList.length === 0" class="text-sm text-muted-foreground italic">
+            {{ t('invite.empty') }}
+          </p>
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b text-left text-xs text-muted-foreground">
+                  <th class="py-2 pr-4 font-medium">{{ t('invite.role') }}</th>
+                  <th class="py-2 pr-4 font-medium">{{ t('login.email') }}</th>
+                  <th class="py-2 pr-4 font-medium">{{ t('invite.expires') }}</th>
+                  <th class="py-2 pr-4 font-medium">{{ t('invite.uses') }}</th>
+                  <th class="py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="inv in inviteList" :key="inv.id" class="border-b last:border-0">
+                  <td class="py-2 pr-4">{{ inv.roleName ?? '—' }}</td>
+                  <td class="py-2 pr-4">{{ inv.email ?? t('invite.anyone') }}</td>
+                  <td class="py-2 pr-4">{{ formatDate(inv.expiresAt) }}</td>
+                  <td class="py-2 pr-4">{{ inv.uses ?? 0 }} / {{ inv.maxUses ?? '∞' }}</td>
+                  <td class="py-2">
+                    <div class="flex items-center gap-1">
+                      <Button
+                        v-if="inv.url"
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        @click="copyUrl(inv.url!)"
+                      >
+                        <Copy class="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        @click="onRevoke(inv.id!)"
+                      >
+                        <Link2Off class="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

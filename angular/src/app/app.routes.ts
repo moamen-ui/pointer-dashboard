@@ -35,6 +35,11 @@ export const routes: Routes = [
       import('./features/auth/reset-password.component').then((m) => m.ResetPasswordComponent),
   },
   {
+    path: 'join',
+    loadComponent: () =>
+      import('./features/auth/join.component').then((m) => m.JoinComponent),
+  },
+  {
     path: '',
     canActivate: [authenticatedGuard],
     loadComponent: () =>

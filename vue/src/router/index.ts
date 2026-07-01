@@ -21,6 +21,7 @@ import SettingsPage from '@/features/settings/SettingsPage.vue';
 import SignupPage from '@/features/signup/SignupPage.vue';
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage.vue';
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage.vue';
+import JoinPage from '@/features/auth/JoinPage.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -31,6 +32,8 @@ export const router = createRouter({
     // Public password-reset flow (no auth required)
     { path: '/forgot', name: 'forgot', component: ForgotPasswordPage },
     { path: '/reset', name: 'reset', component: ResetPasswordPage },
+    // Public invite-accept flow (no auth required)
+    { path: '/join', name: 'join', component: JoinPage },
     {
       path: '/',
       component: Shell,

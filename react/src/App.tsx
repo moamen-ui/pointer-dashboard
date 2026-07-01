@@ -16,6 +16,7 @@ import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
+import { JoinPage } from '@/features/auth/JoinPage';
 
 function IndexRedirect() {
   const { isAdmin } = useAuth();
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot" element={<ForgotPasswordPage />} />
               <Route path="/reset" element={<ResetPasswordPage />} />
+              <Route path="/join" element={<JoinPage />} />
 
               {/* Shell wraps all authenticated routes */}
               <Route element={<AuthenticatedRoute />}>

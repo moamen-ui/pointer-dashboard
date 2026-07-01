@@ -1,9 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,10 +14,13 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   SettingsService,
   PredefinedActionsService,
+  InvitesService,
   getApiAdminSettingsResource,
   getApiAdminPredefinedActionsResource,
+  getApiAdminInvitesResource,
+  getApiAdminRolesResource,
 } from '@moamen-ui/pointer-angular';
-import type { SettingsResponse, PredefinedActionResponse } from '@moamen-ui/pointer-angular';
+import type { SettingsResponse, PredefinedActionResponse, InviteResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 
 interface EditableAction {
@@ -32,10 +37,12 @@ interface EditableAction {
   selector: 'app-settings',
   standalone: true,
   imports: [
+    DatePipe,
     FormsModule,
     ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
+    MatSelectModule,
     MatSlideToggleModule,
     MatFormFieldModule,
     MatInputModule,
@@ -254,6 +261,100 @@ interface EditableAction {
           </div>
         </mat-card>
       </div>
+
+      <!-- Invite teammates section -->
+      <div class="mt-8 max-w-2xl">
+        <mat-card class="p-4">
+          <h3 class="m-0 mb-1 text-base font-semibold">{{ 'invite.section' | transloco }}</h3>
+          <p class="mb-4 text-[0.85rem] text-muted">{{ 'invite.sectionHint' | transloco }}</p>
+
+          <!-- Create invite form -->
+          <div class="flex flex-col gap-3 rounded border border-app-border p-3">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>{{ 'invite.role' | transloco }}</mat-label>
+              <mat-select [ngModel]="inviteRoleId()" (ngModelChange)="inviteRoleId.set($event)">
+                @for (r of nonAdminRoles(); track r.id) {
+                  <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>{{ 'invite.email' | transloco }}</mat-label>
+              <input matInput type="email"
+                [ngModel]="inviteEmail()"
+                (ngModelChange)="inviteEmail.set($event)" />
+            </mat-form-field>
+
+            <div class="flex gap-3">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                <mat-label>{{ 'invite.expiresDays' | transloco }}</mat-label>
+                <input matInput type="number" min="1"
+                  [ngModel]="inviteExpiresInDays()"
+                  (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                <mat-label>{{ 'invite.maxUses' | transloco }}</mat-label>
+                <input matInput type="number" min="1"
+                  [ngModel]="inviteMaxUses()"
+                  (ngModelChange)="inviteMaxUses.set($event ? +$event : null)" />
+              </mat-form-field>
+            </div>
+
+            <div>
+              <button mat-flat-button color="primary"
+                [disabled]="!inviteRoleId() || inviteCreating()"
+                (click)="createInvite()">
+                {{ 'invite.create' | transloco }}
+              </button>
+            </div>
+
+            @if (inviteCreatedUrl()) {
+              <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all">
+                <span class="flex-1">{{ inviteCreatedUrl() }}</span>
+                <button mat-stroked-button (click)="copyInviteUrl(inviteCreatedUrl()!)">
+                  {{ 'invite.copy' | transloco }}
+                </button>
+              </div>
+            }
+          </div>
+
+          <!-- Active invites list -->
+          <div class="mt-4">
+            @if (invitesResource.isLoading()) {
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            }
+
+            @if (!invitesResource.isLoading() && invites().length === 0) {
+              <p class="text-[0.85rem] text-muted">{{ 'invite.empty' | transloco }}</p>
+            }
+
+            @for (inv of invites(); track inv.id) {
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-app-border p-3 text-[0.85rem]">
+                <div class="flex flex-col gap-0.5">
+                  <div><span class="font-medium">{{ inv.roleName }}</span></div>
+                  <div class="text-muted">
+                    {{ inv.email || ('invite.anyone' | transloco) }}
+                  </div>
+                  <div class="text-muted">
+                    {{ 'invite.expires' | transloco }}: {{ inv.expiresAt | date:'mediumDate' }}
+                    &nbsp;·&nbsp;
+                    {{ 'invite.uses' | transloco }}: {{ inv.uses }}/{{ inv.maxUses ?? '∞' }}
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <button mat-stroked-button (click)="copyInviteUrl(inv.url!)">
+                    {{ 'invite.copy' | transloco }}
+                  </button>
+                  <button mat-stroked-button color="warn" (click)="revokeInvite(inv)">
+                    {{ 'invite.revoke' | transloco }}
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </mat-card>
+      </div>
     </div>
   `,
 })
@@ -329,6 +430,26 @@ export class SettingsComponent {
   newActionText = this.fb.nonNullable.control('');
   newActionPrompt = this.fb.nonNullable.control('');
   newActionBusy = signal(false);
+
+  // --- Invite teammates ---
+
+  private invitesService = inject(InvitesService);
+
+  invitesResource = getApiAdminInvitesResource();
+  rolesForInvite = getApiAdminRolesResource();
+
+  invites = computed(() => (this.invitesResource.value() ?? []) as InviteResponse[]);
+  nonAdminRoles = computed(() =>
+    ((this.rolesForInvite.value() ?? []) as RoleResponse[]).filter((r) => !r.grantsAdmin && r.isActive),
+  );
+
+  // Create invite form state
+  inviteRoleId = signal<number | null>(null);
+  inviteEmail = signal('');
+  inviteExpiresInDays = signal<number | null>(7);
+  inviteMaxUses = signal<number | null>(null);
+  inviteCreating = signal(false);
+  inviteCreatedUrl = signal<string | null>(null);
 
   // Mutable local copy for editing existing actions.
   private _editableActions = signal<EditableAction[]>([]);
@@ -429,6 +550,48 @@ export class SettingsComponent {
         this.newActionBusy.set(false);
         this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
       },
+    });
+  }
+
+  createInvite(): void {
+    const roleId = this.inviteRoleId();
+    if (!roleId) return;
+    this.inviteCreating.set(true);
+    this.inviteCreatedUrl.set(null);
+    const body = {
+      roleId,
+      email: this.inviteEmail() || null,
+      expiresInDays: this.inviteExpiresInDays(),
+      maxUses: this.inviteMaxUses(),
+    };
+    this.invitesService.postApiAdminInvites(body).subscribe({
+      next: (res: InviteResponse) => {
+        this.inviteCreating.set(false);
+        this.inviteCreatedUrl.set(res.url ?? null);
+        this.snack.open(this.transloco.translate('invite.created'), 'OK', { duration: 3000 });
+        this.invitesResource.reload();
+      },
+      error: (e: unknown) => {
+        this.inviteCreating.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  copyInviteUrl(url: string): void {
+    navigator.clipboard.writeText(url).then(() => {
+      this.snack.open(this.transloco.translate('invite.copied'), 'OK', { duration: 2000 });
+    });
+  }
+
+  revokeInvite(invite: InviteResponse): void {
+    if (!invite.id) return;
+    this.invitesService.deleteApiAdminInvitesId(invite.id).subscribe({
+      next: () => {
+        this.snack.open(this.transloco.translate('invite.revoked'), 'OK', { duration: 3000 });
+        this.invitesResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
   }
 }

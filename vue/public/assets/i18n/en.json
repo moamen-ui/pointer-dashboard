@@ -286,5 +286,33 @@
     "checking": "Checking availability…",
     "backToLogin": "Back to login",
     "failed": "Sign-up failed"
+  },
+  "invite": {
+    "section": "Invite teammates",
+    "sectionHint": "Generate a link that lets a teammate join this workspace with a chosen role. Invited teammates skip the approval queue.",
+    "role": "Role",
+    "email": "Restrict to email (optional)",
+    "expiresDays": "Expires in (days)",
+    "maxUses": "Max uses (optional)",
+    "create": "Create invite",
+    "created": "Invite created",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "revoke": "Revoke",
+    "revoked": "Invite revoked",
+    "empty": "No active invites.",
+    "anyone": "Anyone with the link",
+    "uses": "Uses",
+    "expires": "Expires",
+    "joinTitle": "Join {{workspace}}",
+    "joinRole": "You'll join as {{role}}.",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "displayName": "Display name",
+    "join": "Join workspace",
+    "joined": "Welcome! You're now a member.",
+    "invalidLink": "This invite link is missing its code.",
+    "invalidOrExpired": "This invite is invalid, expired, or already used.",
+    "passwordMismatch": "Passwords do not match."
   }
 }
