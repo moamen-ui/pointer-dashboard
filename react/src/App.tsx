@@ -47,7 +47,6 @@ export default function App() {
                     <Route path="/overview" element={<OverviewPage />} />
                     <Route path="/roles" element={<RolesPage />} />
                     <Route path="/users" element={<UsersPage />} />
-                    <Route path="/projects" element={<ProjectsPage />} />
                     <Route path="/statuses" element={<StatusesPage />} />
                     {/* Admin view of another user's profile */}
                     <Route path="/users/:id/profile" element={<ProfilePage />} />
@@ -60,6 +59,7 @@ export default function App() {
                   </Route>
 
                   {/* Authenticated-user routes (non-admin allowed) */}
+                  <Route path="/projects" element={<ProjectsPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                 </Route>
               </Route>

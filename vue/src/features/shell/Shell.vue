@@ -29,8 +29,11 @@ const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
-  { to: '/projects', key: 'nav.projects', icon: Folder },
   { to: '/statuses', key: 'nav.statuses', icon: Tag },
+];
+
+const ALL_NAV = [
+  { to: '/projects', key: 'nav.projects', icon: Folder },
 ];
 
 const SUPER_ADMIN_NAV = [
@@ -134,6 +137,18 @@ function signOut() {
               <span>{{ t(item.key) }}</span>
             </RouterLink>
           </template>
+          <!-- Available to all authenticated users -->
+          <RouterLink
+            v-for="item in ALL_NAV"
+            :key="item.to"
+            :to="item.to"
+            class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            active-class="bg-brand-tint font-semibold !text-brand"
+            @click="sidebarOpen = false"
+          >
+            <component :is="item.icon" class="h-5 w-5" />
+            <span>{{ t(item.key) }}</span>
+          </RouterLink>
           <!-- Always visible: My profile -->
           <RouterLink
             to="/profile"

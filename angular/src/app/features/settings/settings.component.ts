@@ -10,18 +10,23 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatBadgeModule } from '@angular/material/badge';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   SettingsService,
   PredefinedActionsService,
+  SuggestionsService,
   InvitesService,
+  SuggestionStatus,
   getApiAdminSettingsResource,
   getApiAdminPredefinedActionsResource,
+  getApiAdminPredefinedActionSuggestionsResource,
   getApiAdminInvitesResource,
   getApiAdminRolesResource,
 } from '@moamen-ui/pointer-angular';
-import type { SettingsResponse, PredefinedActionResponse, InviteResponse, RoleResponse } from '@moamen-ui/pointer-angular';
+import type { SettingsResponse, PredefinedActionResponse, InviteResponse, RoleResponse, SuggestionResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { AuthService } from '../../core/auth/auth.service';
 
 interface EditableAction {
   id?: number;
@@ -48,6 +53,7 @@ interface EditableAction {
     MatInputModule,
     MatIconModule,
     MatProgressBarModule,
+    MatBadgeModule,
     TranslocoModule,
   ],
   template: `
@@ -262,6 +268,52 @@ interface EditableAction {
         </mat-card>
       </div>
 
+      <!-- Prompt suggestions review (admins only) -->
+      @if (auth.isAdmin()) {
+        <div class="mt-8 max-w-2xl">
+          <mat-card class="p-4">
+            <h3 class="m-0 mb-2 text-base font-semibold flex items-center gap-2">
+              {{ 'suggestions.section' | transloco }}
+              @if (pendingSuggestionsCount() > 0) {
+                <span class="inline-flex items-center justify-center rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">
+                  {{ pendingSuggestionsCount() }}
+                </span>
+              }
+            </h3>
+
+            @if (suggestionsResource.isLoading()) {
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            }
+
+            @if (!suggestionsResource.isLoading() && pendingSuggestions().length === 0) {
+              <p class="text-[0.85rem] text-muted">{{ 'suggestions.empty' | transloco }}</p>
+            }
+
+            <div class="flex flex-col gap-3">
+              @for (s of pendingSuggestions(); track s.id) {
+                <div class="rounded border border-app-border p-3 flex flex-col gap-1">
+                  <div class="flex flex-wrap items-center gap-1 text-[0.8rem] text-muted mb-1">
+                    <span class="font-medium text-ink">{{ s.projectName }}</span>
+                    &nbsp;·&nbsp;
+                    <span>{{ 'suggestions.by' | transloco }}: {{ s.suggestedByName }}</span>
+                  </div>
+                  <div class="text-[0.85rem] font-semibold">{{ s.text }}</div>
+                  <div class="text-[0.8rem] text-muted whitespace-pre-wrap">{{ s.prompt }}</div>
+                  <div class="mt-2 flex gap-2">
+                    <button mat-flat-button color="primary" [disabled]="suggestionBusy()" (click)="approveSuggestion(s)">
+                      {{ 'suggestions.approve' | transloco }}
+                    </button>
+                    <button mat-stroked-button color="warn" [disabled]="suggestionBusy()" (click)="rejectSuggestion(s)">
+                      {{ 'suggestions.reject' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </mat-card>
+        </div>
+      }
+
       <!-- Invite teammates section -->
       <div class="mt-8 max-w-2xl">
         <mat-card class="p-4">
@@ -361,12 +413,24 @@ interface EditableAction {
 export class SettingsComponent {
   private settingsService = inject(SettingsService);
   private predefinedService = inject(PredefinedActionsService);
+  private suggestionsService = inject(SuggestionsService);
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
   private fb = inject(FormBuilder);
+  auth = inject(AuthService);
 
   settingsResource = getApiAdminSettingsResource();
   actionsResource = getApiAdminPredefinedActionsResource();
+  suggestionsResource = getApiAdminPredefinedActionSuggestionsResource();
+
+  // Pending suggestions (SuggestionStatus.NUMBER_1 = Pending)
+  pendingSuggestions = computed(() =>
+    ((this.suggestionsResource.value() ?? []) as SuggestionResponse[]).filter(
+      (s) => s.status === SuggestionStatus.NUMBER_1
+    )
+  );
+  pendingSuggestionsCount = computed(() => this.pendingSuggestions().length);
+  suggestionBusy = signal(false);
 
   // The HTTP interceptor unwraps the API envelope, so the runtime value is SettingsResponse.
   settingsValue = computed(() => this.settingsResource.value() as unknown as SettingsResponse | undefined);
@@ -573,6 +637,40 @@ export class SettingsComponent {
       },
       error: (e: unknown) => {
         this.inviteCreating.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  // --- Suggestions ---
+
+  approveSuggestion(s: SuggestionResponse): void {
+    if (!s.id) return;
+    this.suggestionBusy.set(true);
+    this.suggestionsService.postApiAdminPredefinedActionSuggestionsIdApprove(s.id).subscribe({
+      next: () => {
+        this.suggestionBusy.set(false);
+        this.suggestionsResource.reload();
+        this.snack.open(this.transloco.translate('suggestions.approved'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => {
+        this.suggestionBusy.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  rejectSuggestion(s: SuggestionResponse): void {
+    if (!s.id) return;
+    this.suggestionBusy.set(true);
+    this.suggestionsService.postApiAdminPredefinedActionSuggestionsIdReject(s.id).subscribe({
+      next: () => {
+        this.suggestionBusy.set(false);
+        this.suggestionsResource.reload();
+        this.snack.open(this.transloco.translate('suggestions.rejected'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => {
+        this.suggestionBusy.set(false);
         this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
       },
     });

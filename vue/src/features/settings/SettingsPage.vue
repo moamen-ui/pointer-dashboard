@@ -16,11 +16,18 @@ import {
   usePostApiAdminInvites,
   useDeleteApiAdminInvitesId,
   getGetApiAdminInvitesQueryKey,
+  useGetApiAdminPredefinedActionSuggestions,
+  getGetApiAdminPredefinedActionSuggestionsQueryKey,
+  usePostApiAdminPredefinedActionSuggestionsIdApprove,
+  usePostApiAdminPredefinedActionSuggestionsIdReject,
+  SuggestionStatus,
   type SettingsResponse,
   type PredefinedActionResponse,
   type RoleResponse,
   type InviteResponse,
+  type SuggestionResponse,
 } from '@moamen-ui/pointer-vue';
+import { useAuth } from '@/composables/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -32,6 +39,7 @@ import { toast } from '@/composables/useToast';
 
 const { t } = useI18n();
 const queryClient = useQueryClient();
+const { isAdmin } = useAuth();
 
 const { data, isError } = useGetApiAdminSettings();
 // The interceptor unwraps the envelope at runtime; data.value IS SettingsResponse.
@@ -232,6 +240,43 @@ async function onRevoke(id: number) {
 function formatDate(iso: string | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
+}
+
+// ── Suggestions review (admin-only) ───────────────────────────────────
+const suggestionsQuery = useGetApiAdminPredefinedActionSuggestions();
+const pendingSuggestions = computed<SuggestionResponse[]>(
+  () => ((suggestionsQuery.data.value ?? []) as SuggestionResponse[]).filter(
+    (s: SuggestionResponse) => s.status === SuggestionStatus.NUMBER_1,
+  ),
+);
+
+const approveSuggestion = usePostApiAdminPredefinedActionSuggestionsIdApprove();
+const rejectSuggestion = usePostApiAdminPredefinedActionSuggestionsIdReject();
+
+function reloadSuggestions() {
+  void queryClient.invalidateQueries({
+    queryKey: getGetApiAdminPredefinedActionSuggestionsQueryKey(),
+  });
+}
+
+async function onApproveSuggestion(s: SuggestionResponse) {
+  try {
+    await approveSuggestion.mutateAsync({ id: s.id! });
+    toast(t('suggestions.approved'));
+    reloadSuggestions();
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+async function onRejectSuggestion(s: SuggestionResponse) {
+  try {
+    await rejectSuggestion.mutateAsync({ id: s.id! });
+    toast(t('suggestions.rejected'));
+    reloadSuggestions();
+  } catch (e) {
+    toast(extractMessage(e));
+  }
 }
 </script>
 
@@ -511,6 +556,61 @@ function formatDate(iso: string | undefined): string {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      <!-- Section: Prompt suggestions review (admin-only) -->
+      <Card v-if="isAdmin">
+        <CardContent class="flex flex-col gap-4 p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold">{{ t('suggestions.section') }}</h3>
+            <span
+              v-if="pendingSuggestions.length > 0"
+              class="rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white"
+            >
+              {{ t('suggestions.pending', { count: pendingSuggestions.length }) }}
+            </span>
+          </div>
+          <p v-if="suggestionsQuery.isLoading.value" class="text-sm text-muted-foreground">…</p>
+          <p v-else-if="pendingSuggestions.length === 0" class="text-sm text-muted-foreground italic">
+            {{ t('suggestions.empty') }}
+          </p>
+          <template v-else>
+            <div
+              v-for="s in pendingSuggestions"
+              :key="s.id"
+              class="flex flex-col gap-2 rounded-md border p-3"
+            >
+              <div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>{{ t('suggestions.project') }}: <strong>{{ s.projectName ?? s.projectKey }}</strong></span>
+                <span>·</span>
+                <span>{{ t('suggestions.by') }}: <strong>{{ s.suggestedByName }}</strong></span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <p class="text-sm font-medium">{{ s.text }}</p>
+                <p class="text-xs text-muted-foreground whitespace-pre-wrap">{{ s.prompt }}</p>
+              </div>
+              <div class="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  :disabled="rejectSuggestion.isPending.value"
+                  @click="onRejectSuggestion(s)"
+                >
+                  {{ t('suggestions.reject') }}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  :disabled="approveSuggestion.isPending.value"
+                  @click="onApproveSuggestion(s)"
+                >
+                  {{ t('suggestions.approve') }}
+                </Button>
+              </div>
+            </div>
+          </template>
         </CardContent>
       </Card>
 

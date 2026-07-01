@@ -9,6 +9,8 @@ import {
   getGetApiAdminProjectsQueryKey,
   getApiProjectsKeyExport,
   usePostApiProjectsKeyImport,
+  useDeleteApiAdminProjectsId,
+  usePostApiProjectsIdPredefinedActionSuggestions,
   type ProjectResponse,
   type ImportResultDto,
   type ExportFileDto,
@@ -247,6 +249,72 @@ async function saveEdit() {
     fail(e);
   }
 }
+
+// ── Delete project ────────────────────────────────────────────────────
+const deleteProject = useDeleteApiAdminProjectsId();
+
+async function confirmDelete(project: ProjectResponse) {
+  const ok = await confirm({
+    message: t('projects.deleteConfirm'),
+    confirmLabel: t('projects.delete'),
+    confirmVariant: 'destructive',
+  });
+  if (!ok) return;
+  busy.value = true;
+  try {
+    await deleteProject.mutateAsync({ id: project.id! });
+    busy.value = false;
+    toast(t('projects.deleted'));
+    reload();
+  } catch (e) {
+    fail(e);
+  }
+}
+
+// ── Suggest prompt ────────────────────────────────────────────────────
+const suggestMutation = usePostApiProjectsIdPredefinedActionSuggestions();
+const suggestOpen = ref(false);
+const suggestTargetProject = ref<ProjectResponse | null>(null);
+const suggestForm = reactive<{ text: string; prompt: string }>({ text: '', prompt: '' });
+
+function openSuggest(project: ProjectResponse) {
+  suggestTargetProject.value = project;
+  suggestForm.text = '';
+  suggestForm.prompt = '';
+  suggestOpen.value = true;
+}
+
+async function submitSuggest() {
+  if (!suggestTargetProject.value) return;
+  busy.value = true;
+  try {
+    await suggestMutation.mutateAsync({
+      id: suggestTargetProject.value.id!,
+      data: { text: suggestForm.text, prompt: suggestForm.prompt },
+    });
+    busy.value = false;
+    suggestOpen.value = false;
+    toast(t('suggestions.sent'));
+  } catch (e) {
+    busy.value = false;
+    // Check for 403 — user can actually edit directly
+    const status = (e as any)?.response?.status;
+    if (status === 403) {
+      toast(t('suggestions.canEditDirectly'));
+    } else {
+      toast(extractMessage(e));
+    }
+  }
+}
+
+// ── View prompts (read-only) ──────────────────────────────────────────
+const viewPromptsOpen = ref(false);
+const viewPromptsProject = ref<ProjectResponse | null>(null);
+
+function openViewPrompts(project: ProjectResponse) {
+  viewPromptsProject.value = project;
+  viewPromptsOpen.value = true;
+}
 </script>
 
 <template>
@@ -268,6 +336,8 @@ async function saveEdit() {
           <TableRow>
             <TableHead>{{ t('projects.key') }}</TableHead>
             <TableHead>{{ t('projects.name') }}</TableHead>
+            <TableHead>{{ t('projects.createdBy') }}</TableHead>
+            <TableHead>{{ t('projects.comments') }}</TableHead>
             <TableHead>{{ t('projects.status') }}</TableHead>
             <TableHead>{{ t('projects.actions') }}</TableHead>
           </TableRow>
@@ -278,6 +348,8 @@ async function saveEdit() {
               <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ project.key }}</code>
             </TableCell>
             <TableCell>{{ project.name }}</TableCell>
+            <TableCell class="text-sm text-muted-foreground">{{ project.createdByName ?? '—' }}</TableCell>
+            <TableCell class="text-sm text-muted-foreground">{{ project.commentsCount ?? 0 }}</TableCell>
             <TableCell>
               <span :class="cn('chip', project.isActive ? 'chip-active' : 'chip-disabled')">
                 {{ t(project.isActive ? 'common.active' : 'common.disabled') }}
@@ -293,8 +365,54 @@ async function saveEdit() {
                 <component :is="project.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
                 {{ project.isActive ? t('common.disable') : t('common.enable') }}
               </Button>
-              <Button variant="outline" size="sm" :disabled="loading" @click="openEdit(project)">
+              <!-- Edit: only when canEdit -->
+              <Button
+                v-if="project.canEdit"
+                variant="outline"
+                size="sm"
+                :disabled="loading"
+                @click="openEdit(project)"
+              >
                 <Pencil class="h-4 w-4" /> {{ t('projects.edit') }}
+              </Button>
+              <!-- View prompts (read-only): when !canEdit -->
+              <Button
+                v-if="!project.canEdit"
+                variant="outline"
+                size="sm"
+                :disabled="loading"
+                @click="openViewPrompts(project)"
+              >
+                <Pencil class="h-4 w-4" /> {{ t('projects.viewPrompts') }}
+              </Button>
+              <!-- Suggest prompt: when !canEdit -->
+              <Button
+                v-if="!project.canEdit"
+                variant="outline"
+                size="sm"
+                :disabled="loading"
+                @click="openSuggest(project)"
+              >
+                <PlusCircle class="h-4 w-4" /> {{ t('projects.suggest') }}
+              </Button>
+              <!-- Delete: when canDelete (enabled), or disabled with tooltip when !canDelete -->
+              <Button
+                v-if="project.canDelete"
+                variant="destructive"
+                size="sm"
+                :disabled="loading"
+                @click="confirmDelete(project)"
+              >
+                <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
+              </Button>
+              <Button
+                v-else
+                variant="outline"
+                size="sm"
+                disabled
+                :title="t('projects.deleteBlockedComments')"
+              >
+                <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
               </Button>
               <Button variant="outline" size="sm" :disabled="loading" @click="exportProject(project)">
                 <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
@@ -437,6 +555,70 @@ async function saveEdit() {
         <Button :disabled="!importFile || loading" @click="submitImport">
           {{ t('exportImport.import') }}
         </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Suggest prompt dialog -->
+  <Dialog v-model:open="suggestOpen">
+    <DialogContent class="max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('projects.suggest') }}</DialogTitle>
+      </DialogHeader>
+      <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitSuggest">
+        <div class="flex flex-col gap-2">
+          <Label for="suggest-text">{{ t('predefined.text') }}</Label>
+          <Input id="suggest-text" v-model="suggestForm.text" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="suggest-prompt">{{ t('predefined.prompt') }}</Label>
+          <textarea
+            id="suggest-prompt"
+            v-model="suggestForm.prompt"
+            rows="3"
+            class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+          />
+        </div>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="suggestOpen = false">{{ t('common.cancel') }}</Button>
+        <Button :disabled="!suggestForm.text || loading" @click="submitSuggest">
+          {{ t('projects.suggest') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- View predefined prompts (read-only) dialog -->
+  <Dialog v-model:open="viewPromptsOpen">
+    <DialogContent class="max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('projects.viewPrompts') }}</DialogTitle>
+      </DialogHeader>
+      <div class="flex flex-col gap-3 pt-2">
+        <p
+          v-if="!viewPromptsProject?.predefinedActions?.length"
+          class="text-sm text-muted-foreground italic"
+        >
+          {{ t('predefined.empty') }}
+        </p>
+        <div
+          v-for="(action, idx) in (viewPromptsProject?.predefinedActions ?? [])"
+          :key="action.id ?? idx"
+          class="flex flex-col gap-1 rounded-md border p-2"
+        >
+          <div class="flex flex-col gap-1">
+            <Label>{{ t('predefined.text') }}</Label>
+            <p class="text-sm">{{ action.text }}</p>
+          </div>
+          <div class="flex flex-col gap-1">
+            <Label>{{ t('predefined.prompt') }}</Label>
+            <p class="text-sm text-muted-foreground whitespace-pre-wrap">{{ action.prompt }}</p>
+          </div>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" @click="viewPromptsOpen = false">{{ t('common.cancel') }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

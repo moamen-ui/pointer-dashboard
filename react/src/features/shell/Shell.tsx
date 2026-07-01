@@ -26,8 +26,12 @@ const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
-  { to: '/projects', key: 'nav.projects', icon: Folder },
   { to: '/statuses', key: 'nav.statuses', icon: Tags },
+];
+
+// Projects is visible to all authenticated users (admin + non-admin)
+const ALL_USER_NAV = [
+  { to: '/projects', key: 'nav.projects', icon: Folder },
 ];
 
 const SUPER_ADMIN_NAV = [
@@ -128,6 +132,24 @@ export function Shell() {
                   <span>{t(key)}</span>
                 </NavLink>
               ))}
+
+            {/* Projects — visible to all authenticated users */}
+            {ALL_USER_NAV.map(({ to, key, icon: Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+                    isActive && 'bg-brand-tint font-semibold text-brand',
+                  )
+                }
+              >
+                <Icon className="h-5 w-5" />
+                <span>{t(key)}</span>
+              </NavLink>
+            ))}
 
             {/* Super-admin-only nav items */}
             {isSuperAdmin &&

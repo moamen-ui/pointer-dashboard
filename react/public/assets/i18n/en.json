@@ -130,7 +130,28 @@
     "empty": "No projects to show.",
     "edit": "Edit",
     "editTitle": "Edit project",
-    "saved": "Project updated."
+    "saved": "Project updated.",
+    "delete": "Delete",
+    "deleted": "Project deleted",
+    "deleteConfirm": "Delete this project? This cannot be undone.",
+    "deleteBlockedComments": "This project has comments — only an admin can delete it.",
+    "comments": "Comments",
+    "createdBy": "Created by",
+    "viewPrompts": "Predefined prompts",
+    "suggest": "Suggest prompt"
+  },
+  "suggestions": {
+    "section": "Prompt suggestions",
+    "sent": "Suggestion sent for admin review",
+    "canEditDirectly": "You can add this prompt directly.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Suggestion approved",
+    "rejected": "Suggestion rejected",
+    "empty": "No pending suggestions.",
+    "by": "Suggested by",
+    "project": "Project",
+    "pending": "{{count}} pending"
   },
   "statuses": {
     "title": "Statuses",

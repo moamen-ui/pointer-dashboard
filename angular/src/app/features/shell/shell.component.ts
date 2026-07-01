@@ -64,6 +64,10 @@ import { DemoPanelComponent } from './demo-panel.component';
             <mat-icon matListItemIcon>person</mat-icon>
             <span matListItemTitle>{{ 'nav.myProfile' | transloco }}</span>
           </a>
+          <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
+            <mat-icon matListItemIcon>folder</mat-icon>
+            <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
+          </a>
           @if (auth.isAdmin()) {
             <a mat-list-item routerLink="/overview" routerLinkActive="active-link">
               <mat-icon matListItemIcon>dashboard</mat-icon>
@@ -76,10 +80,6 @@ import { DemoPanelComponent } from './demo-panel.component';
             <a mat-list-item routerLink="/users" routerLinkActive="active-link">
               <mat-icon matListItemIcon>people</mat-icon>
               <span matListItemTitle>{{ 'nav.users' | transloco }}</span>
-            </a>
-            <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
-              <mat-icon matListItemIcon>folder</mat-icon>
-              <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
             </a>
             <a mat-list-item routerLink="/statuses" routerLinkActive="active-link">
               <mat-icon matListItemIcon>label</mat-icon>

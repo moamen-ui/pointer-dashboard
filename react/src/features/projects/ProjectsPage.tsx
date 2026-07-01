@@ -1,6 +1,11 @@
-// Projects admin page. React port of angular/.../projects/projects.component.ts.
-// list (key, name, status) + add project + enable/disable (disable confirmed).
-// Phase B additions: export/import comments, predefined actions in add/edit forms.
+// Projects page — available to all authenticated users.
+// Admins see all projects; non-admins see their own.
+// Per-row capabilities driven by server flags: canEdit, canDelete.
+// New in this revision:
+//   • Delete (useDeleteApiAdminProjectsId) — only when canDelete; disabled+tooltip when !canDelete
+//   • commentsCount + createdByName shown as row info
+//   • View predefined prompts read-only when !canEdit
+//   • "Suggest prompt" dialog when !canEdit (usePostApiProjectsIdPredefinedActionSuggestions)
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,14 +13,16 @@ import {
   useGetApiAdminProjects,
   usePostApiAdminProjects,
   usePatchApiAdminProjectsId,
+  useDeleteApiAdminProjectsId,
   usePostApiProjectsKeyImport,
+  usePostApiProjectsIdPredefinedActionSuggestions,
   getGetApiAdminProjectsQueryKey,
   getApiProjectsKeyExport,
   type ProjectResponse,
   type PredefinedActionInput,
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2 } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +69,7 @@ export function ProjectsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isAdmin } = useAuth();
 
   const { data: projects = [] } = useGetApiAdminProjects();
 
@@ -113,11 +120,13 @@ export function ProjectsPage() {
     });
   }
 
-  // ---- Edit project (name + predefined actions) ----
+  // ---- Edit / view project (name + predefined actions) ----
   const [editOpen, setEditOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectResponse | null>(null);
   const [editName, setEditName] = useState('');
   const [editActions, setEditActions] = useState<PredefinedActionRow[]>([]);
+  // readOnly = true when canEdit is false (view mode)
+  const [editReadOnly, setEditReadOnly] = useState(false);
 
   const patchMut = usePatchApiAdminProjectsId({
     mutation: {
@@ -130,9 +139,10 @@ export function ProjectsPage() {
     },
   });
 
-  function openEdit(project: ProjectResponse) {
+  function openEdit(project: ProjectResponse, readOnly = false) {
     setEditProject(project);
     setEditName(project.name ?? '');
+    setEditReadOnly(readOnly);
     setEditActions(
       (project.predefinedActions ?? []).map((a) => ({
         _localId: nextLocalId(),
@@ -183,6 +193,25 @@ export function ProjectsPage() {
     const p = confirmProject;
     setConfirmProject(null);
     if (p) toggleMut.mutate({ id: p.id!, data: { isActive: false } });
+  }
+
+  // ---- Delete project ----
+  const [deleteProject, setDeleteProject] = useState<ProjectResponse | null>(null);
+
+  const deleteMut = useDeleteApiAdminProjectsId({
+    mutation: {
+      onSuccess: () => {
+        toast(t('projects.deleted'));
+        reload();
+      },
+      onError,
+    },
+  });
+
+  function confirmDelete() {
+    const p = deleteProject;
+    setDeleteProject(null);
+    if (p) deleteMut.mutate({ id: p.id! });
   }
 
   // ---- Export ----
@@ -243,6 +272,47 @@ export function ProjectsPage() {
     importMut.mutate({ key: importProject.key!, data: payload });
   }
 
+  // ---- Suggest prompt dialog ----
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestProject, setSuggestProject] = useState<ProjectResponse | null>(null);
+  const [suggestText, setSuggestText] = useState('');
+  const [suggestPrompt, setSuggestPrompt] = useState('');
+
+  const suggestMut = usePostApiProjectsIdPredefinedActionSuggestions({
+    mutation: {
+      onSuccess: () => {
+        toast(t('suggestions.sent'));
+        setSuggestOpen(false);
+        setSuggestText('');
+        setSuggestPrompt('');
+      },
+      onError: (e: unknown) => {
+        // 403 means the user can actually edit directly
+        const msg = extractMessage(e);
+        if (msg.includes('403') || msg.toLowerCase().includes('forbidden')) {
+          toast(t('suggestions.canEditDirectly'), 'error');
+        } else {
+          toast(msg, 'error');
+        }
+      },
+    },
+  });
+
+  function openSuggest(project: ProjectResponse) {
+    setSuggestProject(project);
+    setSuggestText('');
+    setSuggestPrompt('');
+    setSuggestOpen(true);
+  }
+
+  function submitSuggest() {
+    if (!suggestProject || !suggestText.trim()) return;
+    suggestMut.mutate({
+      id: suggestProject.id!,
+      data: { text: suggestText.trim(), prompt: suggestPrompt.trim() },
+    });
+  }
+
   // ---- Predefined actions helpers ----
   function addActionRow(
     rows: PredefinedActionRow[],
@@ -285,6 +355,8 @@ export function ProjectsPage() {
             <TableRow>
               <TableHead>{t('projects.key')}</TableHead>
               <TableHead>{t('projects.name')}</TableHead>
+              <TableHead>{t('projects.createdBy')}</TableHead>
+              <TableHead>{t('projects.comments')}</TableHead>
               <TableHead>{t('projects.status')}</TableHead>
               <TableHead>{t('projects.actions')}</TableHead>
             </TableRow>
@@ -296,6 +368,12 @@ export function ProjectsPage() {
                   <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{project.key}</code>
                 </TableCell>
                 <TableCell>{project.name}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {project.createdByName ?? '—'}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {project.commentsCount ?? 0}
+                </TableCell>
                 <TableCell>
                   <span className={cn('chip', project.isActive ? 'chip-active' : 'chip-disabled')}>
                     {t(project.isActive ? 'common.active' : 'common.disabled')}
@@ -303,22 +381,55 @@ export function ProjectsPage() {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEdit(project)}
-                    >
-                      {t('projects.edit')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleActive(project)}
-                      disabled={toggleMut.isPending}
-                    >
-                      {project.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                      {t(project.isActive ? 'common.disable' : 'common.enable')}
-                    </Button>
+                    {/* Edit — only when canEdit */}
+                    {project.canEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(project, false)}
+                      >
+                        {t('projects.edit')}
+                      </Button>
+                    )}
+
+                    {/* View predefined prompts — read-only when !canEdit */}
+                    {!project.canEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(project, true)}
+                      >
+                        <Eye className="h-4 w-4" />
+                        {t('projects.viewPrompts')}
+                      </Button>
+                    )}
+
+                    {/* Suggest prompt — only when !canEdit */}
+                    {!project.canEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openSuggest(project)}
+                      >
+                        <MessageSquarePlus className="h-4 w-4" />
+                        {t('projects.suggest')}
+                      </Button>
+                    )}
+
+                    {/* Enable / disable — admin only */}
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleActive(project)}
+                        disabled={toggleMut.isPending}
+                      >
+                        {project.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                        {t(project.isActive ? 'common.disable' : 'common.enable')}
+                      </Button>
+                    )}
+
+                    {/* Export */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -327,6 +438,8 @@ export function ProjectsPage() {
                       <Download className="h-4 w-4" />
                       {t('exportImport.export')}
                     </Button>
+
+                    {/* Import — super-admin only */}
                     {isSuperAdmin && (
                       <Button
                         variant="outline"
@@ -337,13 +450,39 @@ export function ProjectsPage() {
                         {t('exportImport.import')}
                       </Button>
                     )}
+
+                    {/* Delete — canDelete shows enabled; !canDelete shows disabled with tooltip */}
+                    {project.canDelete ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeleteProject(project)}
+                        disabled={deleteMut.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('projects.delete')}
+                      </Button>
+                    ) : (
+                      <span title={t('projects.deleteBlockedComments')}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive opacity-50 cursor-not-allowed"
+                          disabled
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {t('projects.delete')}
+                        </Button>
+                      </span>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
             ))}
             {projects.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
                   {t('projects.empty')}
                 </TableCell>
               </TableRow>
@@ -445,27 +584,33 @@ export function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit project dialog */}
+      {/* Edit / View project dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('projects.editTitle')}</DialogTitle>
+            <DialogTitle>
+              {editReadOnly ? t('projects.viewPrompts') : t('projects.editTitle')}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="edit-project-name">{t('projects.name')}</Label>
-              <Input
-                id="edit-project-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                autoFocus
-              />
-            </div>
+            {!editReadOnly && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="edit-project-name">{t('projects.name')}</Label>
+                <Input
+                  id="edit-project-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
 
             {/* Predefined actions */}
             <div className="flex flex-col gap-2">
               <h4 className="text-sm font-semibold">{t('predefined.section')}</h4>
-              <p className="text-xs text-muted-foreground">{t('predefined.projectHelp')}</p>
+              {!editReadOnly && (
+                <p className="text-xs text-muted-foreground">{t('predefined.projectHelp')}</p>
+              )}
               {editActions.length === 0 && (
                 <p className="text-xs text-muted-foreground">{t('predefined.empty')}</p>
               )}
@@ -474,55 +619,112 @@ export function ProjectsPage() {
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
                       <Label className="text-xs">{t('predefined.text')}</Label>
-                      <Input
-                        value={row.text}
-                        onChange={(e) =>
-                          updateActionRow(editActions, setEditActions, row._localId, 'text', e.target.value)
-                        }
-                        className="mt-1"
-                      />
+                      {editReadOnly ? (
+                        <p className="mt-1 text-sm">{row.text || '—'}</p>
+                      ) : (
+                        <Input
+                          value={row.text}
+                          onChange={(e) =>
+                            updateActionRow(editActions, setEditActions, row._localId, 'text', e.target.value)
+                          }
+                          className="mt-1"
+                        />
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="mt-5 h-7 w-7 shrink-0 text-destructive"
-                      onClick={() => removeActionRow(editActions, setEditActions, row._localId)}
-                      type="button"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!editReadOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="mt-5 h-7 w-7 shrink-0 text-destructive"
+                        onClick={() => removeActionRow(editActions, setEditActions, row._localId)}
+                        type="button"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                   <Label className="text-xs">{t('predefined.prompt')}</Label>
-                  <textarea
-                    value={row.prompt}
-                    onChange={(e) =>
-                      updateActionRow(editActions, setEditActions, row._localId, 'prompt', e.target.value)
-                    }
-                    rows={2}
-                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
+                  {editReadOnly ? (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{row.prompt || '—'}</p>
+                  ) : (
+                    <textarea
+                      value={row.prompt}
+                      onChange={(e) =>
+                        updateActionRow(editActions, setEditActions, row._localId, 'prompt', e.target.value)
+                      }
+                      rows={2}
+                      className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    />
+                  )}
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addActionRow(editActions, setEditActions)}
-              >
-                <Plus className="h-4 w-4" />
-                {t('predefined.add')}
-              </Button>
+              {!editReadOnly && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addActionRow(editActions, setEditActions)}
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('predefined.add')}
+                </Button>
+              )}
             </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditOpen(false)}>
+              {editReadOnly ? t('common.cancel') : t('common.cancel')}
+            </Button>
+            {!editReadOnly && (
+              <Button
+                disabled={!editName.trim() || patchMut.isPending}
+                onClick={saveEdit}
+              >
+                {t('common.save')}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suggest prompt dialog */}
+      <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('projects.suggest')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            <p className="text-xs text-muted-foreground">{suggestProject?.name}</p>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="suggest-text">{t('predefined.text')}</Label>
+              <Input
+                id="suggest-text"
+                value={suggestText}
+                onChange={(e) => setSuggestText(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="suggest-prompt">{t('predefined.prompt')}</Label>
+              <textarea
+                id="suggest-prompt"
+                value={suggestPrompt}
+                onChange={(e) => setSuggestPrompt(e.target.value)}
+                rows={3}
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setSuggestOpen(false)}>
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={!editName.trim() || patchMut.isPending}
-              onClick={saveEdit}
+              disabled={!suggestText.trim() || suggestMut.isPending}
+              onClick={submitSuggest}
             >
-              {t('common.save')}
+              <MessageSquarePlus className="h-4 w-4" />
+              {t('projects.suggest')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -571,6 +773,16 @@ export function ProjectsPage() {
         confirmColor="warn"
         onConfirm={confirmDisable}
         onCancel={() => setConfirmProject(null)}
+      />
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={!!deleteProject}
+        message={t('projects.deleteConfirm')}
+        confirmLabel={t('projects.delete')}
+        confirmColor="warn"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteProject(null)}
       />
     </div>
   );

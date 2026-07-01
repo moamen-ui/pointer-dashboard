@@ -9,10 +9,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   ProjectsService,
   ExportImportService,
+  SuggestionsService,
   getApiAdminProjectsResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
@@ -33,6 +35,7 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
     MatProgressBarModule,
     MatIconModule,
     MatDialogModule,
+    MatTooltipModule,
     TranslocoModule,
   ],
   template: `
@@ -68,25 +71,57 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
           </td>
         </ng-container>
 
+        <ng-container matColumnDef="createdBy">
+          <th mat-header-cell *matHeaderCellDef>{{ 'projects.createdBy' | transloco }}</th>
+          <td mat-cell *matCellDef="let project" class="text-[0.85rem] text-muted">{{ project.createdByName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="comments">
+          <th mat-header-cell *matHeaderCellDef>{{ 'projects.comments' | transloco }}</th>
+          <td mat-cell *matCellDef="let project" class="text-[0.85rem]">{{ project.commentsCount ?? 0 }}</td>
+        </ng-container>
+
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef>{{ 'projects.actions' | transloco }}</th>
           <td mat-cell *matCellDef="let project">
             <div class="flex items-center gap-2 flex-wrap">
-              <button mat-stroked-button color="primary" (click)="openEdit(project)" [disabled]="loading()">
-                <mat-icon>edit</mat-icon> {{ 'projects.edit' | transloco }}
-              </button>
-              <button mat-stroked-button [color]="project.isActive ? 'warn' : 'primary'"
-                (click)="toggleActive(project)" [disabled]="loading()">
-                <mat-icon>{{ project.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                {{ project.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
-              </button>
-              <button mat-stroked-button (click)="exportProject(project)" [disabled]="loading()">
-                <mat-icon>download</mat-icon> {{ 'exportImport.export' | transloco }}
-              </button>
-              @if (auth.isSuperAdmin()) {
-                <button mat-stroked-button (click)="openImport(project)" [disabled]="loading()">
-                  <mat-icon>upload</mat-icon> {{ 'exportImport.import' | transloco }}
+              @if (project.canEdit) {
+                <button mat-stroked-button color="primary" (click)="openEdit(project)" [disabled]="loading()">
+                  <mat-icon>edit</mat-icon> {{ 'projects.edit' | transloco }}
                 </button>
+              }
+              @if (!project.canEdit) {
+                <button mat-stroked-button color="primary" (click)="openViewPrompts(project)" [disabled]="loading()">
+                  <mat-icon>visibility</mat-icon> {{ 'projects.viewPrompts' | transloco }}
+                </button>
+                <button mat-stroked-button color="accent" (click)="openSuggest(project)" [disabled]="loading()">
+                  <mat-icon>lightbulb</mat-icon> {{ 'projects.suggest' | transloco }}
+                </button>
+              }
+              @if (project.canDelete) {
+                <button mat-stroked-button color="warn" (click)="deleteProject(project)" [disabled]="loading()">
+                  <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
+                </button>
+              } @else {
+                <button mat-stroked-button color="warn" disabled
+                  [matTooltip]="'projects.deleteBlockedComments' | transloco">
+                  <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
+                </button>
+              }
+              @if (project.canEdit) {
+                <button mat-stroked-button [color]="project.isActive ? 'warn' : 'primary'"
+                  (click)="toggleActive(project)" [disabled]="loading()">
+                  <mat-icon>{{ project.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  {{ project.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+                </button>
+                <button mat-stroked-button (click)="exportProject(project)" [disabled]="loading()">
+                  <mat-icon>download</mat-icon> {{ 'exportImport.export' | transloco }}
+                </button>
+                @if (auth.isSuperAdmin()) {
+                  <button mat-stroked-button (click)="openImport(project)" [disabled]="loading()">
+                    <mat-icon>upload</mat-icon> {{ 'exportImport.import' | transloco }}
+                  </button>
+                }
               }
             </div>
           </td>
@@ -197,6 +232,50 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
       </mat-dialog-actions>
     </ng-template>
 
+    <!-- View predefined prompts (read-only) dialog -->
+    <ng-template #viewPromptsDialog>
+      <h2 mat-dialog-title>{{ 'projects.viewPrompts' | transloco }}</h2>
+      <mat-dialog-content>
+        <div class="flex min-w-80 flex-col gap-3 pt-2">
+          @if ((viewingProject()?.predefinedActions ?? []).length === 0) {
+            <p class="text-[0.85rem] text-muted">{{ 'predefined.empty' | transloco }}</p>
+          }
+          @for (action of viewingProject()?.predefinedActions ?? []; track $index) {
+            <div class="rounded border border-app-border p-3 flex flex-col gap-1">
+              <div class="text-[0.85rem] font-semibold">{{ action.text }}</div>
+              <div class="text-[0.8rem] text-muted whitespace-pre-wrap">{{ action.prompt }}</div>
+            </div>
+          }
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+      </mat-dialog-actions>
+    </ng-template>
+
+    <!-- Suggest prompt dialog -->
+    <ng-template #suggestDialog>
+      <h2 mat-dialog-title>{{ 'projects.suggest' | transloco }}</h2>
+      <mat-dialog-content>
+        <form [formGroup]="suggestForm" class="flex min-w-80 flex-col gap-3 pt-2">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
+            <input matInput formControlName="text" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
+            <textarea matInput formControlName="prompt" rows="3"></textarea>
+          </mat-form-field>
+        </form>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary" (click)="submitSuggest()" [disabled]="suggestForm.invalid || suggestBusy()">
+          <mat-icon>send</mat-icon> {{ 'projects.suggest' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
+
     <!-- Import dialog -->
     <ng-template #importDialog>
       <h2 mat-dialog-title>{{ 'exportImport.importTitle' | transloco }}</h2>
@@ -219,6 +298,7 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
 export class ProjectsComponent {
   private projectsService = inject(ProjectsService);
   private exportImportService = inject(ExportImportService);
+  private suggestionsService = inject(SuggestionsService);
   // Export uses HttpClient because the generated client only exposes a Signal-based
   // getApiProjectsKeyExportResource — no imperative variant exists.
   private http = inject(HttpClient);
@@ -230,6 +310,8 @@ export class ProjectsComponent {
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly editDialog = viewChild.required<TemplateRef<unknown>>('editDialog');
+  readonly viewPromptsDialog = viewChild.required<TemplateRef<unknown>>('viewPromptsDialog');
+  readonly suggestDialog = viewChild.required<TemplateRef<unknown>>('suggestDialog');
   readonly importDialog = viewChild.required<TemplateRef<unknown>>('importDialog');
   private dialogRef?: MatDialogRef<unknown>;
 
@@ -243,8 +325,11 @@ export class ProjectsComponent {
   private importProjectKey = signal<string>('');
 
   private editingProjectId = signal<number | null>(null);
+  viewingProject = signal<ProjectResponse | null>(null);
+  private suggestingProjectId = signal<number | null>(null);
+  suggestBusy = signal(false);
 
-  displayedColumns = ['key', 'name', 'status', 'actions'];
+  displayedColumns = ['key', 'name', 'status', 'createdBy', 'comments', 'actions'];
 
   addForm = this.fb.nonNullable.group({
     key: ['', Validators.required],
@@ -255,6 +340,11 @@ export class ProjectsComponent {
   editForm = this.fb.nonNullable.group({
     name: ['', Validators.required],
     predefinedActions: this.fb.array([]),
+  });
+
+  suggestForm = this.fb.nonNullable.group({
+    text: ['', Validators.required],
+    prompt: ['', Validators.required],
   });
 
   get predefinedActionsArray(): FormArray {
@@ -316,6 +406,63 @@ export class ProjectsComponent {
       );
     }
     this.dialogRef = this.dialog.open(this.editDialog(), { width: '540px' });
+  }
+
+  openViewPrompts(project: ProjectResponse): void {
+    this.viewingProject.set(project);
+    this.dialogRef = this.dialog.open(this.viewPromptsDialog(), { width: '540px' });
+  }
+
+  openSuggest(project: ProjectResponse): void {
+    this.suggestingProjectId.set(project.id ?? null);
+    this.suggestForm.reset({ text: '', prompt: '' });
+    this.dialogRef = this.dialog.open(this.suggestDialog(), { width: '480px' });
+  }
+
+  submitSuggest(): void {
+    if (this.suggestForm.invalid) return;
+    const id = this.suggestingProjectId();
+    if (id == null) return;
+    this.suggestBusy.set(true);
+    const val = this.suggestForm.getRawValue();
+    this.suggestionsService.postApiProjectsIdPredefinedActionSuggestions(id, { text: val.text, prompt: val.prompt }).subscribe({
+      next: () => {
+        this.suggestBusy.set(false);
+        this.dialogRef?.close();
+        this.snack.open(this.transloco.translate('suggestions.sent'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => {
+        this.suggestBusy.set(false);
+        const msg = (e as any)?.status === 403
+          ? this.transloco.translate('suggestions.canEditDirectly')
+          : extractMessage(e);
+        this.snack.open(msg, 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  deleteProject(project: ProjectResponse): void {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('projects.deleteConfirm'),
+          confirmLabel: this.transloco.translate('projects.delete'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.busy.set(true);
+        this.projectsService.deleteApiAdminProjectsId(project.id!).subscribe({
+          next: () => {
+            this.busy.set(false);
+            this.projectsResource.reload();
+            this.snack.open(this.transloco.translate('projects.deleted'), 'OK', { duration: 3000 });
+          },
+          error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+        });
+      });
   }
 
   addProject() {

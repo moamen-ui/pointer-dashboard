@@ -3,6 +3,7 @@
 // one "Save changes" button PUTs the whole UpdateSettingsRequest.
 // Phase B: Predefined actions section at the bottom (tenant-wide, projectId == null).
 // Phase C: Invite teammates section.
+// Phase D: Suggestions review section (admin only).
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,8 +24,14 @@ import {
   type InviteResponse,
   useGetApiAdminRoles,
   type RoleResponse,
+  useGetApiAdminPredefinedActionSuggestions,
+  getGetApiAdminPredefinedActionSuggestionsQueryKey,
+  usePostApiAdminPredefinedActionSuggestionsIdApprove,
+  usePostApiAdminPredefinedActionSuggestionsIdReject,
+  type SuggestionResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, Copy, Link } from 'lucide-react';
+import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +56,134 @@ import { extractMessage } from '@/lib/error';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySettings = any;
+
+// ---- Suggestions review card (admin-only) ----
+function SuggestionsCard() {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: suggestionsRaw = [], isLoading, isError } =
+    useGetApiAdminPredefinedActionSuggestions();
+  const suggestions: SuggestionResponse[] = suggestionsRaw as SuggestionResponse[];
+
+  // status 1 = Pending, 2 = Approved, 3 = Rejected (from SuggestionStatus enum)
+  const pending = suggestions.filter((s) => s.status === 1);
+
+  const reloadSuggestions = () =>
+    void qc.invalidateQueries({ queryKey: getGetApiAdminPredefinedActionSuggestionsQueryKey() });
+
+  const approveMut = usePostApiAdminPredefinedActionSuggestionsIdApprove({
+    mutation: {
+      onSuccess: () => {
+        toast(t('suggestions.approved'));
+        reloadSuggestions();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const rejectMut = usePostApiAdminPredefinedActionSuggestionsIdReject({
+    mutation: {
+      onSuccess: () => {
+        toast(t('suggestions.rejected'));
+        reloadSuggestions();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const pendingCount = pending.length;
+  const sectionTitle = pendingCount > 0
+    ? `${t('suggestions.section')} — ${t('suggestions.pending', { count: pendingCount })}`
+    : t('suggestions.section');
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-4 p-6">
+        <h3 className="text-sm font-semibold">
+          {sectionTitle}
+          {pendingCount > 0 && (
+            <span className="ms-2 inline-flex items-center justify-center rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+              {pendingCount}
+            </span>
+          )}
+        </h3>
+
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
+        )}
+        {isError && (
+          <p className="text-sm text-destructive">{t('settings.loadError')}</p>
+        )}
+        {!isLoading && !isError && pending.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t('suggestions.empty')}</p>
+        )}
+
+        {pending.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('suggestions.project')}</TableHead>
+                <TableHead>{t('suggestions.by')}</TableHead>
+                <TableHead>{t('predefined.text')}</TableHead>
+                <TableHead>{t('predefined.prompt')}</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pending.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="text-sm">
+                    <span className="font-medium">{s.projectName ?? '—'}</span>
+                    {s.projectKey && (
+                      <code className="ms-1 rounded bg-muted px-1 py-0.5 text-xs">
+                        {s.projectKey}
+                      </code>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {s.suggestedByName ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-sm">{s.text ?? '—'}</TableCell>
+                  <TableCell className="max-w-[200px] text-sm text-muted-foreground truncate">
+                    {s.prompt ?? '—'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600 dark:text-green-400"
+                        onClick={() => approveMut.mutate({ id: s.id! })}
+                        disabled={approveMut.isPending}
+                        type="button"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {t('suggestions.approve')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive"
+                        onClick={() => rejectMut.mutate({ id: s.id! })}
+                        disabled={rejectMut.isPending}
+                        type="button"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        {t('suggestions.reject')}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ---- Invite teammates card (extracted for readability) ----
 function InviteCard() {
@@ -287,6 +422,7 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { isAdmin } = useAuth();
 
   const { data, isLoading, isError } = useGetApiAdminSettings();
 
@@ -762,6 +898,9 @@ export function SettingsPage() {
 
       {/* ── Section 5: Invite teammates ── */}
       <InviteCard />
+
+      {/* ── Section 6: Suggestions review (admin only) ── */}
+      {isAdmin && <SuggestionsCard />}
     </div>
   );
 }

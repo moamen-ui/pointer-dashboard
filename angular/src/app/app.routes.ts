@@ -77,7 +77,7 @@ export const routes: Routes = [
       },
       {
         path: 'projects',
-        canActivate: [adminGuard],
+        canActivate: [authenticatedGuard],
         loadComponent: () =>
           import('./features/projects/projects.component').then((m) => m.ProjectsComponent),
       },

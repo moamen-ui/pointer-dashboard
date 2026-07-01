@@ -46,7 +46,7 @@ export const router = createRouter({
         { path: 'overview', name: 'overview', component: OverviewPage, meta: { requiresAdmin: true } },
         { path: 'roles', name: 'roles', component: RolesPage, meta: { requiresAdmin: true } },
         { path: 'users', name: 'users', component: UsersPage, meta: { requiresAdmin: true } },
-        { path: 'projects', name: 'projects', component: ProjectsPage, meta: { requiresAdmin: true } },
+        { path: 'projects', name: 'projects', component: ProjectsPage },
         { path: 'statuses', name: 'statuses', component: StatusesPage, meta: { requiresAdmin: true } },
         // Admin-only: view another user's profile by id.
         { path: 'users/:id/profile', name: 'user-profile', component: ProfilePage, meta: { requiresAdmin: true } },
