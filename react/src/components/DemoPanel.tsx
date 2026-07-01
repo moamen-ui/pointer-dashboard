@@ -2,10 +2,25 @@
 // entry exists. Displays project key, widget login, a live countdown to expiry,
 // and a 6-step data-driven setup guide shown one step at a time (Back / Next slider).
 // Dismissible for the current session only.
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { usePostApiDemoUpgrade } from '@moamen-ui/pointer-react';
+import { getApiAuthMe } from '@moamen-ui/pointer-react';
+import { setAuthHeader } from '@/lib/api';
+import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
+import { extractMessage } from '@/lib/error';
+import { useToast } from '@/components/ui/toast';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
@@ -89,11 +104,83 @@ function buildSteps(session: DemoSession): SetupStep[] {
 
 export function DemoPanel() {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [session, setSession] = useState<DemoSession | null>(() => readDemoSession());
   const [dismissed, setDismissed] = useState(false);
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<string>('');
   const [step, setStep] = useState(1);
+
+  // Upgrade dialog state
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeEmail, setUpgradeEmail] = useState('');
+  const [upgradePassword, setUpgradePassword] = useState('');
+  const [upgradeConfirmPassword, setUpgradeConfirmPassword] = useState('');
+  const [upgradeDisplayName, setUpgradeDisplayName] = useState('');
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
+  const upgradeMut = usePostApiDemoUpgrade();
+
+  function openUpgradeDialog() {
+    setUpgradeEmail(session?.email ?? '');
+    setUpgradePassword('');
+    setUpgradeConfirmPassword('');
+    setUpgradeDisplayName('');
+    setUpgradeError(null);
+    setUpgradeOpen(true);
+  }
+
+  function isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  }
+
+  async function onUpgradeSubmit(e: FormEvent) {
+    e.preventDefault();
+    setUpgradeError(null);
+
+    if (!isValidEmail(upgradeEmail)) {
+      setUpgradeError(t('demo.email') + ' is required.');
+      return;
+    }
+    if (upgradePassword.length < 8) {
+      setUpgradeError(t('demo.password') + ' must be at least 8 characters.');
+      return;
+    }
+    if (upgradePassword !== upgradeConfirmPassword) {
+      setUpgradeError(t('demo.passwordMismatch'));
+      return;
+    }
+
+    upgradeMut.mutate(
+      {
+        data: {
+          email: upgradeEmail.trim(),
+          password: upgradePassword,
+          displayName: upgradeDisplayName.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: async (res) => {
+          try {
+            const token = res.token ?? '';
+            setItem(TOKEN_KEY, token);
+            setAuthHeader(token);
+            const me = await getApiAuthMe();
+            setItem(USER_KEY, JSON.stringify(me));
+            sessionStorage.removeItem(DEMO_SESSION_KEY);
+            setUpgradeOpen(false);
+            toast(t('demo.upgradeSuccess'));
+            window.location.assign(me.isAdmin ? '/overview' : '/profile');
+          } catch (err) {
+            setUpgradeError(extractMessage(err));
+          }
+        },
+        onError: (err: unknown) => {
+          setUpgradeError(extractMessage(err));
+        },
+      },
+    );
+  }
 
   const refreshCountdown = useCallback(() => {
     if (!session?.expiresAt) return;
@@ -135,7 +222,7 @@ export function DemoPanel() {
   return (
     <div className="border-b border-border bg-brand-tint px-4 py-3">
       <div className="mx-auto max-w-5xl">
-        {/* Header row: banner badge + project key + countdown + dismiss */}
+        {/* Header row: banner badge + project key + countdown + keep + dismiss */}
         <div className="mb-3 flex items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-brand">
             {t('demo.banner')}
@@ -150,6 +237,14 @@ export function DemoPanel() {
               {t('demo.expires')} {countdown}
             </span>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 shrink-0 text-xs"
+            onClick={openUpgradeDialog}
+          >
+            {t('demo.keepWorkspace')}
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -246,6 +341,67 @@ export function DemoPanel() {
           </div>
         )}
       </div>
+
+      {/* Upgrade dialog */}
+      <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('demo.upgradeTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('demo.upgradeIntro')}</p>
+          <form onSubmit={onUpgradeSubmit} className="flex flex-col gap-4 pt-1">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="upgrade-email">{t('demo.email')}</Label>
+              <Input
+                id="upgrade-email"
+                type="email"
+                autoComplete="email"
+                value={upgradeEmail}
+                onChange={(e) => setUpgradeEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="upgrade-password">{t('demo.password')}</Label>
+              <Input
+                id="upgrade-password"
+                type="password"
+                autoComplete="new-password"
+                value={upgradePassword}
+                onChange={(e) => setUpgradePassword(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="upgrade-confirm-password">{t('demo.confirmPassword')}</Label>
+              <Input
+                id="upgrade-confirm-password"
+                type="password"
+                autoComplete="new-password"
+                value={upgradeConfirmPassword}
+                onChange={(e) => setUpgradeConfirmPassword(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="upgrade-display-name">{t('demo.displayName')}</Label>
+              <Input
+                id="upgrade-display-name"
+                value={upgradeDisplayName}
+                onChange={(e) => setUpgradeDisplayName(e.target.value)}
+              />
+            </div>
+            {upgradeError && (
+              <p className="text-sm text-destructive">{upgradeError}</p>
+            )}
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setUpgradeOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={upgradeMut.isPending}>
+                {t('demo.upgradeSubmit')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

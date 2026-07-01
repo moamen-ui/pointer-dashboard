@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Copy, Check, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { clearDemoSession, getDemoSession } from '@/lib/demoSession';
+import { usePostApiDemoUpgrade } from '@moamen-ui/pointer-vue';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useAuth } from '@/composables/useAuth';
+import { toast } from '@/composables/useToast';
+import { extractMessage } from '@/lib/error';
 
 const { t } = useI18n();
 
@@ -116,6 +123,54 @@ function dismiss() {
   dismissed.value = true;
   clearDemoSession();
 }
+
+const { loginWithToken } = useAuth();
+const upgradeDialogOpen = ref(false);
+const upgradeForm = reactive({ email: '', password: '', confirmPassword: '', displayName: '' });
+const upgradeError = ref('');
+const upgradeInvalid = computed(() => {
+  if (!upgradeForm.email.trim() || !upgradeForm.password) return true;
+  if (upgradeForm.password.length < 8) return true;
+  if (upgradeForm.password !== upgradeForm.confirmPassword) return true;
+  return false;
+});
+
+const upgradeHook = usePostApiDemoUpgrade();
+
+function openUpgrade() {
+  upgradeForm.email = session.value?.email ?? '';
+  upgradeForm.password = '';
+  upgradeForm.confirmPassword = '';
+  upgradeForm.displayName = '';
+  upgradeError.value = '';
+  upgradeDialogOpen.value = true;
+}
+
+async function submitUpgrade() {
+  if (upgradeInvalid.value) return;
+  if (upgradeForm.password !== upgradeForm.confirmPassword) {
+    upgradeError.value = t('demo.passwordMismatch');
+    return;
+  }
+  try {
+    const res = await upgradeHook.mutateAsync({
+      data: {
+        email: upgradeForm.email,
+        password: upgradeForm.password,
+        displayName: upgradeForm.displayName || undefined,
+      },
+    });
+    if (res.token) {
+      await loginWithToken(res.token);
+    }
+    upgradeDialogOpen.value = false;
+    clearDemoSession();
+    dismissed.value = true;
+    toast(t('demo.upgradeSuccess'));
+  } catch (e: unknown) {
+    upgradeError.value = extractMessage(e);
+  }
+}
 </script>
 
 <template>
@@ -206,6 +261,13 @@ function dismiss() {
             </Button>
           </div>
         </div>
+
+        <!-- Keep this workspace button -->
+        <div class="flex justify-end">
+          <Button variant="outline" size="sm" type="button" @click="openUpgrade">
+            {{ t('demo.keepWorkspace') }}
+          </Button>
+        </div>
       </div>
 
       <!-- Dismiss button (always visible) -->
@@ -220,4 +282,39 @@ function dismiss() {
       </Button>
     </div>
   </div>
+
+  <!-- Upgrade dialog -->
+  <Dialog v-model:open="upgradeDialogOpen">
+    <DialogContent class="max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('demo.upgradeTitle') }}</DialogTitle>
+      </DialogHeader>
+      <p class="text-sm text-muted-foreground">{{ t('demo.upgradeIntro') }}</p>
+      <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitUpgrade">
+        <div class="flex flex-col gap-2">
+          <Label for="upg-email">{{ t('demo.email') }}</Label>
+          <Input id="upg-email" v-model="upgradeForm.email" type="email" autocomplete="email" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="upg-pw">{{ t('demo.password') }}</Label>
+          <Input id="upg-pw" v-model="upgradeForm.password" type="password" autocomplete="new-password" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="upg-cpw">{{ t('demo.confirmPassword') }}</Label>
+          <Input id="upg-cpw" v-model="upgradeForm.confirmPassword" type="password" autocomplete="new-password" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label for="upg-dn">{{ t('demo.displayName') }}</Label>
+          <Input id="upg-dn" v-model="upgradeForm.displayName" autocomplete="name" />
+        </div>
+        <p v-if="upgradeError" class="text-sm text-destructive">{{ upgradeError }}</p>
+      </form>
+      <DialogFooter>
+        <Button variant="outline" @click="upgradeDialogOpen = false">{{ t('common.cancel') }}</Button>
+        <Button :disabled="upgradeInvalid || upgradeHook.isPending.value" @click="submitUpgrade">
+          {{ t('demo.upgradeSubmit') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

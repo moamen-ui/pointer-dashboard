@@ -1,8 +1,15 @@
-import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, signal, viewChild, TemplateRef } from '@angular/core';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { DemoService, UpgradeDemoResponse } from '@moamen-ui/pointer-angular';
+import { AuthService } from '../../core/auth/auth.service';
+import { extractMessage } from '../../core/api/extract-message';
 
 interface DemoSession {
   email?: string | null;
@@ -27,11 +34,22 @@ const DEMO_SESSION_KEY = 'pointer_demo';
  * sessionStorage under `pointer_demo`) is active. Surfaces the demo project key,
  * the widget login, a live countdown, and a step-by-step setup guide shown one
  * step at a time (Back / Next slider).
+ *
+ * Also includes a "Keep this workspace" button that opens an upgrade dialog to
+ * convert the demo session into a permanent account.
  */
 @Component({
   selector: 'app-demo-panel',
   standalone: true,
-  imports: [MatIconModule, MatButtonModule, TranslocoModule],
+  imports: [
+    ReactiveFormsModule,
+    MatIconModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    TranslocoModule,
+  ],
   template: `
     @if (session(); as s) {
       <div class="mb-4 rounded-xl border border-brand/40 bg-brand-tint p-4 text-ink">
@@ -86,6 +104,13 @@ const DEMO_SESSION_KEY = 'pointer_demo';
                 </button>
               </div>
             </div>
+
+            <!-- Keep this workspace button -->
+            <div class="mt-3">
+              <button mat-flat-button color="primary" type="button" (click)="openUpgrade(s)">
+                <mat-icon>lock_open</mat-icon> {{ 'demo.keepWorkspace' | transloco }}
+              </button>
+            </div>
           </div>
           <button mat-icon-button type="button" [attr.aria-label]="'demo.dismiss' | transloco" (click)="dismiss()">
             <mat-icon>close</mat-icon>
@@ -93,15 +118,73 @@ const DEMO_SESSION_KEY = 'pointer_demo';
         </div>
       </div>
     }
+
+    <!-- Upgrade dialog template -->
+    <ng-template #upgradeDialog>
+      <h2 mat-dialog-title>{{ 'demo.upgradeTitle' | transloco }}</h2>
+      <mat-dialog-content>
+        <p class="mb-4 mt-1 text-[0.9rem] text-muted">{{ 'demo.upgradeIntro' | transloco }}</p>
+        <form [formGroup]="upgradeForm" class="flex min-w-80 flex-col gap-3">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'demo.email' | transloco }}</mat-label>
+            <input matInput type="email" formControlName="email" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'demo.password' | transloco }}</mat-label>
+            <input matInput type="password" formControlName="password" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'demo.confirmPassword' | transloco }}</mat-label>
+            <input matInput type="password" formControlName="confirmPassword" />
+          </mat-form-field>
+          @if (upgradeForm.errors?.['passwordMismatch'] && upgradeForm.get('confirmPassword')?.dirty) {
+            <p class="m-0 text-[0.85rem] text-red-600">{{ 'demo.passwordMismatch' | transloco }}</p>
+          }
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'demo.displayName' | transloco }}</mat-label>
+            <input matInput formControlName="displayName" />
+          </mat-form-field>
+        </form>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close [disabled]="upgradeBusy()">{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary" (click)="submitUpgrade()" [disabled]="upgradeForm.invalid || upgradeBusy()">
+          {{ 'demo.upgradeSubmit' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
   `,
 })
 export class DemoPanelComponent implements OnDestroy {
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
+  private dialog = inject(MatDialog);
+  private demoService = inject(DemoService);
+  private auth = inject(AuthService);
+  private fb = inject(FormBuilder);
+
+  readonly upgradeDialog = viewChild.required<TemplateRef<unknown>>('upgradeDialog');
+  private dialogRef?: MatDialogRef<unknown>;
 
   private now = signal(Date.now());
   private timer = setInterval(() => this.now.set(Date.now()), 1000);
   session = signal<DemoSession | null>(this.read());
+  upgradeBusy = signal(false);
+
+  upgradeForm = this.fb.nonNullable.group(
+    {
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(8)]],
+      confirmPassword: ['', Validators.required],
+      displayName: [''],
+    },
+    { validators: (g) => {
+        const pw = g.get('password')?.value;
+        const cpw = g.get('confirmPassword')?.value;
+        return pw && cpw && pw !== cpw ? { passwordMismatch: true } : null;
+      }
+    }
+  );
 
   // The setup guide, derived from the demo session. Add/remove entries here to
   // change the guide — the slider count follows the array length.
@@ -159,6 +242,48 @@ export class DemoPanelComponent implements OnDestroy {
   dismiss(): void {
     sessionStorage.removeItem(DEMO_SESSION_KEY);
     this.session.set(null);
+  }
+
+  openUpgrade(session: DemoSession): void {
+    this.upgradeForm.reset({
+      email: session.email ?? '',
+      password: '',
+      confirmPassword: '',
+      displayName: '',
+    });
+    this.dialogRef = this.dialog.open(this.upgradeDialog(), { width: '480px' });
+  }
+
+  submitUpgrade(): void {
+    if (this.upgradeForm.invalid) return;
+    const val = this.upgradeForm.getRawValue();
+    this.upgradeBusy.set(true);
+    this.demoService.postApiDemoUpgrade<UpgradeDemoResponse>({
+      email: val.email,
+      password: val.password,
+      displayName: val.displayName || undefined,
+    }).subscribe({
+      next: (res) => {
+        // Swap the token exactly like the demo-login flow does.
+        this.auth.loginWithToken(res.token!).subscribe({
+          next: () => {
+            this.upgradeBusy.set(false);
+            this.dialogRef?.close();
+            sessionStorage.removeItem(DEMO_SESSION_KEY);
+            this.session.set(null);
+            this.snack.open(this.transloco.translate('demo.upgradeSuccess'), 'OK', { duration: 5000 });
+          },
+          error: (e: unknown) => {
+            this.upgradeBusy.set(false);
+            this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+          },
+        });
+      },
+      error: (e: unknown) => {
+        this.upgradeBusy.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
   }
 
   ngOnDestroy(): void {

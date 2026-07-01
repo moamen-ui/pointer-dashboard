@@ -45,7 +45,17 @@
     "step5Title": "Leave feedback",
     "step5Hint": "Open your app in the browser, click any element, and write a comment.",
     "step6Title": "Apply with AI",
-    "step6Hint": "Back in your AI tool (Claude Code, Cursor, …), ask this — it pulls the feedback and applies it to your code."
+    "step6Hint": "Back in your AI tool (Claude Code, Cursor, …), ask this — it pulls the feedback and applies it to your code.",
+    "keepWorkspace": "Keep this workspace",
+    "upgradeTitle": "Create your permanent account",
+    "upgradeIntro": "Keep this demo workspace and all its comments — just set your email and a password.",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "displayName": "Display name",
+    "upgradeSubmit": "Create account",
+    "upgradeSuccess": "Your workspace is now permanent. Welcome to Pointer!",
+    "passwordMismatch": "Passwords do not match."
   },
   "nav": {
     "overview": "Overview",
@@ -156,6 +166,24 @@
     "name": "Name",
     "status": "Status",
     "actions": "Actions"
+  },
+  "exportImport": {
+    "export": "Export",
+    "import": "Import",
+    "exported": "Comments exported.",
+    "imported": "Import complete.",
+    "importTitle": "Import comments",
+    "importHint": "Upload a Pointer export file (.json). Comments are added to this project under your account.",
+    "importCounts": "{{comments}} comments and {{replies}} replies imported."
+  },
+  "predefined": {
+    "section": "Predefined actions",
+    "tenantHelp": "Reusable actions available in every project. Each has a label users pick and a prompt sent to the AI when applying the comment.",
+    "projectHelp": "Actions available only in this project (added to the workspace-wide ones). Label is what users see; prompt is sent to the AI.",
+    "text": "Label",
+    "prompt": "AI prompt",
+    "add": "Add action",
+    "empty": "No predefined actions yet."
   },
   "statuses": {
     "title": "Statuses",

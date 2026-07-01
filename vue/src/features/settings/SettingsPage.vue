@@ -6,13 +6,20 @@ import {
   useGetApiAdminSettings,
   usePutApiAdminSettings,
   getGetApiAdminSettingsQueryKey,
+  useGetApiAdminPredefinedActions,
+  usePostApiAdminPredefinedActions,
+  usePatchApiAdminPredefinedActionsId,
+  useDeleteApiAdminPredefinedActionsId,
+  getGetApiAdminPredefinedActionsQueryKey,
   type SettingsResponse,
+  type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { PlusCircle, Trash2 } from 'lucide-vue-next';
 import { extractMessage } from '@/lib/error';
 import { toast } from '@/composables/useToast';
 
@@ -71,6 +78,83 @@ async function saveSettings() {
     });
     toast(t('settings.saved'));
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminSettingsQueryKey() });
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+// ── Predefined actions (tenant-wide) ──────────────────────────────────
+const predefinedActionsQuery = useGetApiAdminPredefinedActions();
+const tenantActions = computed<PredefinedActionResponse[]>(
+  () => (predefinedActionsQuery.data.value ?? []).filter((a: PredefinedActionResponse) => a.projectId == null),
+);
+
+interface EditableAction {
+  id?: number;
+  text: string;
+  prompt: string;
+  isNew?: boolean;
+}
+const editableActions = ref<EditableAction[]>([]);
+
+watch(
+  tenantActions,
+  (actions) => {
+    editableActions.value = actions.map((a) => ({
+      id: a.id,
+      text: a.text ?? '',
+      prompt: a.prompt ?? '',
+    }));
+  },
+  { immediate: true },
+);
+
+const createPredefined = usePostApiAdminPredefinedActions();
+const updatePredefined = usePatchApiAdminPredefinedActionsId();
+const deletePredefined = useDeleteApiAdminPredefinedActionsId();
+
+function reloadPredefined() {
+  void queryClient.invalidateQueries({ queryKey: getGetApiAdminPredefinedActionsQueryKey() });
+}
+
+function addTenantAction() {
+  editableActions.value.push({ text: '', prompt: '', isNew: true });
+}
+
+async function saveTenantAction(action: EditableAction, index: number) {
+  try {
+    if (action.isNew || action.id == null) {
+      await createPredefined.mutateAsync({
+        data: {
+          text: action.text,
+          prompt: action.prompt,
+          isActive: true,
+          sortOrder: index,
+        },
+      });
+    } else {
+      await updatePredefined.mutateAsync({
+        id: action.id,
+        data: {
+          text: action.text,
+          prompt: action.prompt,
+        },
+      });
+    }
+    reloadPredefined();
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+async function deleteTenantAction(action: EditableAction, index: number) {
+  if (action.isNew || action.id == null) {
+    editableActions.value.splice(index, 1);
+    return;
+  }
+  try {
+    await deletePredefined.mutateAsync({ id: action.id });
+    reloadPredefined();
   } catch (e) {
     toast(extractMessage(e));
   }
@@ -189,6 +273,59 @@ async function saveSettings() {
             <Label for="demo-comment-cap" class="text-sm font-medium">{{ t('settings.demoCommentCap') }}</Label>
             <p class="text-xs text-muted-foreground">{{ t('settings.demoCommentCapHint') }}</p>
             <Input id="demo-comment-cap" v-model.number="demoCommentCap" type="number" :min="1" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Section: Predefined actions -->
+      <Card>
+        <CardContent class="flex flex-col gap-4 p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold">{{ t('predefined.section') }}</h3>
+            <Button type="button" variant="outline" size="sm" @click="addTenantAction">
+              <PlusCircle class="h-4 w-4" /> {{ t('predefined.add') }}
+            </Button>
+          </div>
+          <p class="text-xs text-muted-foreground">{{ t('predefined.tenantHelp') }}</p>
+          <p v-if="editableActions.length === 0" class="text-sm text-muted-foreground italic">
+            {{ t('predefined.empty') }}
+          </p>
+          <div
+            v-for="(action, idx) in editableActions"
+            :key="idx"
+            class="flex flex-col gap-2 rounded-md border p-3"
+          >
+            <div class="flex flex-col gap-1">
+              <Label :for="'pa-text-' + idx">{{ t('predefined.text') }}</Label>
+              <Input :id="'pa-text-' + idx" v-model="action.text" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <Label :for="'pa-prompt-' + idx">{{ t('predefined.prompt') }}</Label>
+              <textarea
+                :id="'pa-prompt-' + idx"
+                v-model="action.prompt"
+                rows="2"
+                class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+              />
+            </div>
+            <div class="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                @click="deleteTenantAction(action, idx)"
+              >
+                <Trash2 class="h-4 w-4 text-destructive" />
+                {{ t('common.delete') }}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                @click="saveTenantAction(action, idx)"
+              >
+                {{ t('common.save') }}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
