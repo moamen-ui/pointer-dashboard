@@ -91,6 +91,10 @@ import { DemoPanelComponent } from './demo-panel.component';
               <mat-icon matListItemIcon>business</mat-icon>
               <span matListItemTitle>{{ 'nav.tenants' | transloco }}</span>
             </a>
+            <a mat-list-item routerLink="/plans" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>credit_card</mat-icon>
+              <span matListItemTitle>{{ 'nav.plans' | transloco }}</span>
+            </a>
             <a mat-list-item routerLink="/settings" routerLinkActive="active-link">
               <mat-icon matListItemIcon>settings</mat-icon>
               <span matListItemTitle>{{ 'nav.settings' | transloco }}</span>

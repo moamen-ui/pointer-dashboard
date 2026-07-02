@@ -99,6 +99,12 @@ export const routes: Routes = [
           import('./features/tenants/tenants.component').then((m) => m.TenantsComponent),
       },
       {
+        path: 'plans',
+        canActivate: [superAdminGuard],
+        loadComponent: () =>
+          import('./features/plans/plans.component').then((m) => m.PlansComponent),
+      },
+      {
         path: 'settings',
         canActivate: [superAdminGuard],
         loadComponent: () =>

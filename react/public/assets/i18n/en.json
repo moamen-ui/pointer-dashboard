@@ -22,6 +22,7 @@
     "myProfile": "My Profile",
     "statuses": "Statuses",
     "tenants": "Tenants",
+    "plans": "Plans",
     "settings": "Settings"
   },
   "header": {
@@ -206,7 +207,13 @@
     "ttlHoursOverride": "Demo period (hours)",
     "overridePlaceholder": "Global default",
     "demoConfigSaved": "Demo config updated",
-    "demoConfigHint": "Override the comment cap and demo period for this one demo tenant. Leave a field blank to use the global default."
+    "demoConfigHint": "Override the comment cap and demo period for this one demo tenant. Leave a field blank to use the global default.",
+    "planCol": "Plan",
+    "freePlan": "Free",
+    "changePlan": "Change plan",
+    "planChanged": "Plan updated.",
+    "selectPlan": "Select plan",
+    "selectPlanPlaceholder": "Choose a plan…"
   },
   "settings": {
     "title": "Settings",
@@ -250,7 +257,12 @@
     "backToLogin": "Back to login",
     "pending": "Your account has been created and is pending approval. You will be notified once approved.",
     "closed": "Self-signup is currently closed. Contact your administrator.",
-    "checking": "Checking signup availability…"
+    "checking": "Checking signup availability…",
+    "plan": {
+      "chooseLabel": "Choose a plan",
+      "comingSoon": "Coming soon",
+      "hint": "Plan selection is for display purposes. Subscription management will be available after payment integration."
+    }
   },
   "demo": {
     "banner": "Demo session",
@@ -331,5 +343,67 @@
     "invalidLink": "This invite link is missing its code.",
     "invalidOrExpired": "This invite is invalid, expired, or already used.",
     "passwordMismatch": "Passwords do not match."
+  },
+  "plans": {
+    "title": "Plans",
+    "addPlan": "Add Plan",
+    "editPlan": "Edit Plan",
+    "delete": "Delete",
+    "created": "Plan created.",
+    "updated": "Plan updated.",
+    "deleted": "Plan deleted.",
+    "loading": "Loading plans…",
+    "loadError": "Failed to load plans.",
+    "empty": "No plans to show.",
+    "deleteConfirm": "Delete plan \"{{name}}\"? This cannot be undone.",
+    "colName": "Name",
+    "colSlug": "Slug",
+    "colPrice": "Price",
+    "colActive": "Active",
+    "colDisplay": "Display",
+    "colSubs": "Subscriptions",
+    "priceMonthly": "Price / month",
+    "currency": "Currency",
+    "interval": "Interval",
+    "intervalMonthly": "Monthly",
+    "intervalYearly": "Yearly",
+    "sortOrder": "Sort order",
+    "isActive": "Active",
+    "displayStateLabel": "Display state",
+    "displayState": {
+      "visible": "Visible",
+      "coming-soon": "Coming soon",
+      "hidden": "Hidden"
+    },
+    "featureBullets": "Feature bullets (one per line)",
+    "bulletsPlaceholder": "Unlimited projects\nPriority support\n…",
+    "entNull": "Default (unset)",
+    "enforcedSection": "Enforced entitlements",
+    "displayOnlySection": "Display-only entitlements",
+    "ent": {
+      "maxProjects": "Projects",
+      "maxSeats": "Seats",
+      "maxCommentsPerMonth": "Comments / month",
+      "extensionEnabled": "Browser extension",
+      "maxExtensionSites": "Extension sites",
+      "maxPredefinedActionsPerProject": "Predefined actions / project",
+      "maxTenantWidePredefinedActions": "Tenant-wide predefined actions",
+      "retentionDays": "Retention (days)",
+      "maxEnvironments": "Environments",
+      "maxActiveInvites": "Active invites",
+      "emailsPerMonth": "Emails / month",
+      "extensionCommentsPerMonth": "Extension comments / month",
+      "maxPendingSuggestions": "Pending suggestions",
+      "exportImportEnabled": "Export / import",
+      "promptSuggestionsEnabled": "Prompt suggestions",
+      "customStatusesEnabled": "Custom statuses",
+      "prioritySupport": "Priority support"
+    }
+  },
+  "limit": {
+    "title": "Plan limit reached",
+    "body": "You've reached the limit for {{lever}} ({{current}} / {{limit}}).",
+    "resource": "resource",
+    "cta": "Upgrade plan →"
   }
 }

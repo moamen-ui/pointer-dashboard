@@ -5,13 +5,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { TenantsService, getApiAdminTenantsResource } from '@moamen-ui/pointer-angular';
-import type { TenantResponse, TenantResponseListResult } from '@moamen-ui/pointer-angular';
+import { TenantsService, getApiAdminTenantsResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
+import type { TenantResponse, PlanAdminResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 
@@ -25,6 +26,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
+    MatSelectModule,
     MatIconModule,
     MatDialogModule,
     MatTooltipModule,
@@ -89,6 +91,16 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
             <td mat-cell *matCellDef="let t">{{ t.comments ?? 0 }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="plan">
+            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.plan' | transloco }}</th>
+            <td mat-cell *matCellDef="let t">
+              <span class="chip chip-neutral">{{ t.planName ?? ('tenants.noPlan' | transloco) }}</span>
+              @if (t.subscriptionStatus) {
+                <span class="chip chip-active ms-1 text-[10px]">{{ t.subscriptionStatus }}</span>
+              }
+            </td>
+          </ng-container>
+
           <ng-container matColumnDef="demoExpiry">
             <th mat-header-cell *matHeaderCellDef>{{ 'tenants.demoExpiry' | transloco }}</th>
             <td mat-cell *matCellDef="let t">
@@ -120,6 +132,9 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
                 }
                 <button mat-stroked-button color="warn" (click)="openDelete(t)">
                   <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                </button>
+                <button mat-stroked-button (click)="openChangePlan(t)">
+                  <mat-icon>swap_horiz</mat-icon> {{ 'tenants.changePlan' | transloco }}
                 </button>
                 @if (t.isDemo) {
                   <button mat-stroked-button
@@ -198,6 +213,30 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
         </button>
       </mat-dialog-actions>
     </ng-template>
+
+    <!-- Change plan dialog -->
+    <ng-template #changePlanDialog>
+      <h2 mat-dialog-title>{{ 'tenants.changePlan' | transloco }}</h2>
+      <mat-dialog-content>
+        <div class="flex min-w-80 flex-col gap-4 pt-2">
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'tenants.selectPlan' | transloco }}</mat-label>
+            <mat-select [ngModel]="changePlanSelectedId()" (ngModelChange)="changePlanSelectedId.set($event)">
+              <mat-option [value]="null">{{ 'tenants.noPlan' | transloco }}</mat-option>
+              @for (plan of plans(); track plan.id) {
+                <mat-option [value]="plan.id">{{ plan.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+        <button mat-flat-button color="primary" (click)="submitChangePlan()">
+          {{ 'common.save' | transloco }}
+        </button>
+      </mat-dialog-actions>
+    </ng-template>
   `,
 })
 export class TenantsComponent {
@@ -208,13 +247,22 @@ export class TenantsComponent {
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly demoConfigDialog = viewChild.required<TemplateRef<unknown>>('demoConfigDialog');
+  readonly changePlanDialog = viewChild.required<TemplateRef<unknown>>('changePlanDialog');
   private dialogRef?: MatDialogRef<unknown>;
+
+  // Plans list for the change-plan dropdown. Interceptor unwraps the envelope → PlanAdminResponse[].
+  plansResource = getApiAdminPlansResource();
+  plans = computed(() => (this.plansResource.value() as unknown as PlanAdminResponse[]) ?? []);
+
+  // Change-plan dialog state.
+  changePlanTenant = signal<TenantResponse | null>(null);
+  changePlanSelectedId = signal<number | null>(null);
 
   tenantsResource = getApiAdminTenantsResource();
   // The HTTP interceptor unwraps the envelope, so the actual runtime value is TenantResponse[].
   tenants = computed(() => (this.tenantsResource.value() as unknown as TenantResponse[]) ?? []);
 
-  displayedColumns = ['displayName', 'email', 'approvalStatus', 'isActive', 'projects', 'comments', 'demoExpiry', 'actions'];
+  displayedColumns = ['displayName', 'email', 'approvalStatus', 'isActive', 'projects', 'comments', 'plan', 'demoExpiry', 'actions'];
 
   newEmail = '';
   newDisplayName = '';
@@ -321,6 +369,30 @@ export class TenantsComponent {
         this.dialogRef?.close();
         this.tenantsResource.reload();
         this.snack.open(this.transloco.translate('tenants.demoConfigSaved'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  openChangePlan(tenant: TenantResponse) {
+    this.changePlanTenant.set(tenant);
+    // Preselect the tenant's current plan by matching planName against the plans list.
+    const current = this.plans().find((p) => p.name === tenant.planName);
+    this.changePlanSelectedId.set(current?.id ?? null);
+    this.plansResource.reload();
+    this.dialogRef = this.dialog.open(this.changePlanDialog(), { width: '400px' });
+  }
+
+  submitChangePlan() {
+    const tenant = this.changePlanTenant();
+    if (!tenant) return;
+    // ChangeTenantPlanRequest.planId is a number; null clears the plan (back to Free).
+    const planId = this.changePlanSelectedId();
+    this.tenantsService.patchApiAdminTenantsIdPlan(tenant.id!, { planId: planId ?? undefined }).subscribe({
+      next: () => {
+        this.dialogRef?.close();
+        this.tenantsResource.reload();
+        this.snack.open(this.transloco.translate('tenants.planChanged'), 'OK', { duration: 3000 });
       },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });

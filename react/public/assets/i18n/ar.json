@@ -22,6 +22,7 @@
     "myProfile": "ملفي الشخصي",
     "statuses": "الحالات",
     "tenants": "المستأجرون",
+    "plans": "الخطط",
     "settings": "الإعدادات"
   },
   "header": {
@@ -206,7 +207,13 @@
     "ttlHoursOverride": "مدة التجربة (ساعات)",
     "overridePlaceholder": "الافتراضي العام",
     "demoConfigSaved": "تم تحديث إعدادات التجربة",
-    "demoConfigHint": "تجاوز حد التعليقات ومدة التجربة لهذا المستأجر التجريبي فقط. اترك الحقل فارغًا لاستخدام الافتراضي العام."
+    "demoConfigHint": "تجاوز حد التعليقات ومدة التجربة لهذا المستأجر التجريبي فقط. اترك الحقل فارغًا لاستخدام الافتراضي العام.",
+    "planCol": "الخطة",
+    "freePlan": "مجاني",
+    "changePlan": "تغيير الخطة",
+    "planChanged": "تم تحديث الخطة.",
+    "selectPlan": "اختر خطة",
+    "selectPlanPlaceholder": "اختر خطة…"
   },
   "settings": {
     "title": "الإعدادات",
@@ -250,7 +257,12 @@
     "backToLogin": "العودة إلى تسجيل الدخول",
     "pending": "تم إنشاء حسابك وهو بانتظار الموافقة. سيتم إخطارك عند الموافقة.",
     "closed": "التسجيل الذاتي مغلق حالياً. تواصل مع المسؤول.",
-    "checking": "جارٍ التحقق من إمكانية التسجيل…"
+    "checking": "جارٍ التحقق من إمكانية التسجيل…",
+    "plan": {
+      "chooseLabel": "اختر خطة",
+      "comingSoon": "قريباً",
+      "hint": "اختيار الخطة للعرض فقط. ستتوفر إدارة الاشتراكات بعد دمج نظام الدفع."
+    }
   },
   "demo": {
     "banner": "جلسة تجريبية",
@@ -331,5 +343,67 @@
     "invalidLink": "رابط الدعوة يفتقد الرمز.",
     "invalidOrExpired": "هذه الدعوة غير صالحة أو منتهية أو مستخدمة بالفعل.",
     "passwordMismatch": "كلمتا المرور غير متطابقتين."
+  },
+  "plans": {
+    "title": "الخطط",
+    "addPlan": "إضافة خطة",
+    "editPlan": "تعديل الخطة",
+    "delete": "حذف",
+    "created": "تم إنشاء الخطة.",
+    "updated": "تم تحديث الخطة.",
+    "deleted": "تم حذف الخطة.",
+    "loading": "جارٍ تحميل الخطط…",
+    "loadError": "فشل تحميل الخطط.",
+    "empty": "لا توجد خطط للعرض.",
+    "deleteConfirm": "حذف الخطة «{{name}}»؟ لا يمكن التراجع.",
+    "colName": "الاسم",
+    "colSlug": "المعرّف",
+    "colPrice": "السعر",
+    "colActive": "نشطة",
+    "colDisplay": "العرض",
+    "colSubs": "الاشتراكات",
+    "priceMonthly": "السعر / شهر",
+    "currency": "العملة",
+    "interval": "الدورة",
+    "intervalMonthly": "شهرية",
+    "intervalYearly": "سنوية",
+    "sortOrder": "ترتيب العرض",
+    "isActive": "نشطة",
+    "displayStateLabel": "حالة العرض",
+    "displayState": {
+      "visible": "ظاهرة",
+      "coming-soon": "قريباً",
+      "hidden": "مخفية"
+    },
+    "featureBullets": "مميزات الخطة (سطر لكل ميزة)",
+    "bulletsPlaceholder": "مشاريع غير محدودة\nدعم أولوي\n…",
+    "entNull": "افتراضي (غير محدد)",
+    "enforcedSection": "الصلاحيات المفعّلة",
+    "displayOnlySection": "الصلاحيات العرضية فقط",
+    "ent": {
+      "maxProjects": "المشاريع",
+      "maxSeats": "المقاعد",
+      "maxCommentsPerMonth": "التعليقات / شهر",
+      "extensionEnabled": "إضافة المتصفح",
+      "maxExtensionSites": "مواقع الإضافة",
+      "maxPredefinedActionsPerProject": "إجراءات معرّفة / مشروع",
+      "maxTenantWidePredefinedActions": "إجراءات معرّفة على مستوى المستأجر",
+      "retentionDays": "مدة الاحتفاظ (أيام)",
+      "maxEnvironments": "البيئات",
+      "maxActiveInvites": "الدعوات النشطة",
+      "emailsPerMonth": "الرسائل / شهر",
+      "extensionCommentsPerMonth": "تعليقات الإضافة / شهر",
+      "maxPendingSuggestions": "الاقتراحات المعلّقة",
+      "exportImportEnabled": "التصدير / الاستيراد",
+      "promptSuggestionsEnabled": "اقتراحات الموجّهات",
+      "customStatusesEnabled": "الحالات المخصصة",
+      "prioritySupport": "الدعم ذو الأولوية"
+    }
+  },
+  "limit": {
+    "title": "تم بلوغ حد الخطة",
+    "body": "لقد وصلت إلى الحد المسموح به لـ {{lever}} ({{current}} / {{limit}}).",
+    "resource": "المورد",
+    "cta": "الترقية إلى خطة أعلى ←"
   }
 }

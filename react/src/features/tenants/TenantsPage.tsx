@@ -1,6 +1,7 @@
 // Tenants admin page — super-admin only.
 // List all tenants; create; approve / enable / disable; delete with cascade warning.
 // Demo tenants: show expiry column, Extend demo button, Demo config dialog.
+// v2: Plan column (planName + subscriptionStatus) + Change plan action.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,10 +12,13 @@ import {
   useDeleteApiAdminTenantsId,
   usePostApiAdminTenantsIdExtend,
   usePatchApiAdminTenantsIdDemoConfig,
+  usePatchApiAdminTenantsIdPlan,
+  useGetApiAdminPlans,
   getGetApiAdminTenantsQueryKey,
   type TenantResponse,
+  type PlanAdminResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2 } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +38,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -51,6 +62,12 @@ export function TenantsPage() {
   const { data, isLoading, isError, isFetching } = useGetApiAdminTenants();
   const tenants: AnyTenant[] = (data as unknown as { data?: AnyTenant[] })?.data
     ?? (Array.isArray(data) ? (data as AnyTenant[]) : []);
+
+  // Fetch all plans for the change-plan dropdown
+  const { data: plansData } = useGetApiAdminPlans();
+  const allPlans: PlanAdminResponse[] =
+    (plansData as unknown as { data?: PlanAdminResponse[] })?.data ??
+    (Array.isArray(plansData) ? (plansData as PlanAdminResponse[]) : []);
 
   const reload = () =>
     void qc.invalidateQueries({ queryKey: getGetApiAdminTenantsQueryKey() });
@@ -177,6 +194,38 @@ export function TenantsPage() {
     });
   }
 
+  // ---- Change plan ----
+  const [changePlanTarget, setChangePlanTarget] = useState<AnyTenant | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+
+  function openChangePlan(tenant: AnyTenant) {
+    setChangePlanTarget(tenant);
+    // pre-select current plan if resolvable
+    setSelectedPlanId('');
+  }
+
+  const changePlanMut = usePatchApiAdminTenantsIdPlan({
+    mutation: {
+      onSuccess: () => {
+        setChangePlanTarget(null);
+        toast(t('tenants.planChanged'));
+        reload();
+      },
+      onError: (e) => {
+        setChangePlanTarget(null);
+        onError(e);
+      },
+    },
+  });
+
+  function saveChangePlan() {
+    if (changePlanTarget?.id == null || !selectedPlanId) return;
+    changePlanMut.mutate({
+      id: changePlanTarget.id,
+      data: { planId: Number(selectedPlanId) },
+    });
+  }
+
   // ---- Helpers ----
   function formatExpiry(expiresAt: string | null | undefined): string {
     if (!expiresAt) return '—';
@@ -229,6 +278,7 @@ export function TenantsPage() {
               <TableHead>{t('tenants.displayName')}</TableHead>
               <TableHead>{t('tenants.approval')}</TableHead>
               <TableHead>{t('tenants.statusCol')}</TableHead>
+              <TableHead>{t('tenants.planCol')}</TableHead>
               <TableHead>{t('tenants.projects')}</TableHead>
               <TableHead>{t('tenants.comments')}</TableHead>
               <TableHead>{t('tenants.demoExpiry')}</TableHead>
@@ -258,6 +308,14 @@ export function TenantsPage() {
                   <span className={cn('chip', tenant.isActive ? 'chip-active' : 'chip-disabled')}>
                     {t(tenant.isActive ? 'common.active' : 'common.disabled')}
                   </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">{tenant.planName ?? t('tenants.freePlan')}</span>
+                    {tenant.subscriptionStatus && (
+                      <span className="chip chip-neutral text-[10px]">{tenant.subscriptionStatus}</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{tenant.projects ?? 0}</TableCell>
                 <TableCell>{tenant.comments ?? 0}</TableCell>
@@ -323,6 +381,14 @@ export function TenantsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => openChangePlan(tenant)}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      {t('tenants.changePlan')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       disabled={deleteMut.isPending}
                       onClick={() => setDeleteTarget(tenant)}
                     >
@@ -335,7 +401,7 @@ export function TenantsPage() {
             ))}
             {tenants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                   {t('tenants.empty')}
                 </TableCell>
               </TableRow>
@@ -343,6 +409,46 @@ export function TenantsPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Change plan dialog */}
+      <Dialog open={!!changePlanTarget} onOpenChange={(open) => { if (!open) setChangePlanTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('tenants.changePlan')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            <p className="text-sm text-muted-foreground">
+              {changePlanTarget?.email ?? changePlanTarget?.displayName ?? ''}
+            </p>
+            <div className="flex flex-col gap-2">
+              <Label>{t('tenants.selectPlan')}</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('tenants.selectPlanPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {allPlans.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setChangePlanTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={!selectedPlanId || changePlanMut.isPending}
+              onClick={saveChangePlan}
+            >
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create tenant dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

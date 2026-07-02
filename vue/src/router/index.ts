@@ -18,6 +18,7 @@ import ProfilePage from '@/features/profile/ProfilePage.vue';
 import StatusesPage from '@/features/statuses/StatusesPage.vue';
 import TenantsPage from '@/features/tenants/TenantsPage.vue';
 import SettingsPage from '@/features/settings/SettingsPage.vue';
+import PlansPage from '@/features/plans/PlansPage.vue';
 import SignupPage from '@/features/signup/SignupPage.vue';
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage.vue';
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage.vue';
@@ -55,6 +56,7 @@ export const router = createRouter({
         // Super-admin-only children.
         { path: 'tenants', name: 'tenants', component: TenantsPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
         { path: 'settings', name: 'settings', component: SettingsPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
+        { path: 'plans', name: 'plans', component: PlansPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

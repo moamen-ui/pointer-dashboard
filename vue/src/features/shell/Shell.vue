@@ -17,6 +17,7 @@ import {
   Building2,
   Settings,
   Menu,
+  CreditCard,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
@@ -38,6 +39,7 @@ const ALL_NAV = [
 
 const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
+  { to: '/plans', key: 'nav.plans', icon: CreditCard },
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 

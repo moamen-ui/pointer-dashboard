@@ -15,6 +15,7 @@ import {
   Building2,
   Settings,
   Menu,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ const ALL_USER_NAV = [
 
 const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
+  { to: '/plans', key: 'nav.plans', icon: CreditCard },
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 

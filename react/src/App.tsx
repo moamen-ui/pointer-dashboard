@@ -13,10 +13,12 @@ import { ProfilePage } from '@/features/profile';
 import { StatusesPage } from '@/features/statuses/StatusesPage';
 import { TenantsPage } from '@/features/tenants/TenantsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { PlansPage } from '@/features/plans/PlansPage';
 import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { JoinPage } from '@/features/auth/JoinPage';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
 
 function IndexRedirect() {
   const { isAdmin } = useAuth();
@@ -29,6 +31,7 @@ export default function App() {
       <PreferencesProvider>
         <AuthProvider>
           <ToastProvider>
+            <UpgradePrompt />
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
@@ -54,6 +57,7 @@ export default function App() {
                     {/* Super-admin-only section */}
                     <Route element={<SuperAdminRoute />}>
                       <Route path="/tenants" element={<TenantsPage />} />
+                      <Route path="/plans" element={<PlansPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                     </Route>
                   </Route>

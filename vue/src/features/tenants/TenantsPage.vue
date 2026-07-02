@@ -10,9 +10,13 @@ import {
   getGetApiAdminTenantsQueryKey,
   type TenantResponse,
 } from '@moamen-ui/pointer-vue';
-// @ts-ignore
-import { usePostApiAdminTenantsIdExtend, usePatchApiAdminTenantsIdDemoConfig } from '@moamen-ui/pointer-vue';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2 } from 'lucide-vue-next';
+import {
+  usePostApiAdminTenantsIdExtend,
+  usePatchApiAdminTenantsIdDemoConfig,
+  useGetApiAdminPlans,
+  usePatchApiAdminTenantsIdPlan,
+} from '@moamen-ui/pointer-vue';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,6 +36,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
@@ -50,6 +61,14 @@ const patchTenant = usePatchApiAdminTenantsId();
 const deleteTenant = useDeleteApiAdminTenantsId();
 const extendTenant = usePostApiAdminTenantsIdExtend();
 const patchDemoConfig = usePatchApiAdminTenantsIdDemoConfig();
+const changePlanMut = usePatchApiAdminTenantsIdPlan();
+
+// ── Plans list (for change-plan dropdown) ─────────────────────────────────────
+interface PlanOption { id: number; name: string; }
+const { data: plansData } = useGetApiAdminPlans();
+const planOptions = computed<PlanOption[]>(
+  () => ((plansData.value as unknown as PlanOption[] | undefined) ?? []).map((p: PlanOption) => ({ id: p.id, name: p.name })),
+);
 
 function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminTenantsQueryKey() });
@@ -214,6 +233,32 @@ function approvalChip(status: string | null | undefined) {
   if (status === 'pending') return 'chip-pending';
   return 'chip-disabled';
 }
+
+// ── Change plan dialog ────────────────────────────────────────────────────────
+const changePlanOpen = ref(false);
+const changePlanTenant = ref<TenantResponse | null>(null);
+const selectedPlanId = ref<string>('');
+
+function openChangePlan(tenant: TenantResponse) {
+  changePlanTenant.value = tenant;
+  selectedPlanId.value = '';
+  changePlanOpen.value = true;
+}
+
+async function saveChangePlan() {
+  if (!changePlanTenant.value || !selectedPlanId.value) return;
+  try {
+    await changePlanMut.mutateAsync({
+      id: changePlanTenant.value.id!,
+      data: { planId: Number(selectedPlanId.value) },
+    });
+    changePlanOpen.value = false;
+    toast(t('tenants.planChanged'));
+    reload();
+  } catch (e) {
+    fail(e);
+  }
+}
 </script>
 
 <template>
@@ -238,6 +283,7 @@ function approvalChip(status: string | null | undefined) {
             <TableHead>{{ t('tenants.projects') }}</TableHead>
             <TableHead>{{ t('tenants.comments') }}</TableHead>
             <TableHead>{{ t('tenants.demoExpiry') }}</TableHead>
+            <TableHead>{{ t('tenants.plan') }}</TableHead>
             <TableHead>{{ t('tenants.actions') }}</TableHead>
           </TableRow>
         </TableHeader>
@@ -263,6 +309,15 @@ function approvalChip(status: string | null | undefined) {
                 {{ formatExpiry((tenant as any).expiresAt) }}
               </template>
               <template v-else>—</template>
+            </TableCell>
+            <!-- Plan column -->
+            <TableCell class="text-sm">
+              <div class="flex flex-col gap-0.5">
+                <span>{{ (tenant as any).planName ?? t('tenants.freePlan') }}</span>
+                <span v-if="(tenant as any).subscriptionStatus" class="chip chip-neutral text-[10px]">
+                  {{ (tenant as any).subscriptionStatus }}
+                </span>
+              </div>
             </TableCell>
             <TableCell>
               <div class="flex flex-wrap gap-2">
@@ -292,6 +347,9 @@ function approvalChip(status: string | null | undefined) {
                 </Button>
                 <Button variant="destructive" size="sm" @click="doDelete(tenant)">
                   <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
+                </Button>
+                <Button variant="outline" size="sm" @click="openChangePlan(tenant)">
+                  <CreditCard class="h-4 w-4" /> {{ t('tenants.changePlan') }}
                 </Button>
                 <!-- Demo-only actions -->
                 <template v-if="(tenant as any).isDemo">
@@ -388,6 +446,42 @@ function approvalChip(status: string | null | undefined) {
       <DialogFooter>
         <Button variant="outline" @click="demoConfigOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="patchDemoConfig.isPending.value" @click="saveDemoConfig">
+          {{ t('common.save') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- Change plan dialog -->
+  <Dialog v-model:open="changePlanOpen">
+    <DialogContent class="max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('tenants.changePlan') }}</DialogTitle>
+      </DialogHeader>
+      <div class="flex flex-col gap-4 pt-2">
+        <p class="text-sm text-muted-foreground">
+          {{ t('tenants.changePlanFor', { name: changePlanTenant?.displayName ?? changePlanTenant?.email }) }}
+        </p>
+        <div class="flex flex-col gap-2">
+          <Label for="change-plan-select">{{ t('tenants.plan') }}</Label>
+          <Select v-model="selectedPlanId">
+            <SelectTrigger id="change-plan-select">
+              <SelectValue :placeholder="t('tenants.selectPlan')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="plan in planOptions" :key="plan.id" :value="String(plan.id)">
+                {{ plan.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" @click="changePlanOpen = false">{{ t('common.cancel') }}</Button>
+        <Button
+          :disabled="!selectedPlanId || changePlanMut.isPending.value"
+          @click="saveChangePlan"
+        >
           {{ t('common.save') }}
         </Button>
       </DialogFooter>

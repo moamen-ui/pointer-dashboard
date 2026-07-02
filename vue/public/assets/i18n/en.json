@@ -14,7 +14,8 @@
     "no": "No",
     "confirmDisable": "Disable {{ name }}?",
     "confirm": "Confirm",
-    "or": "or"
+    "or": "or",
+    "edit": "Edit"
   },
   "demo": {
     "tryDemo": "Try the demo",
@@ -65,7 +66,8 @@
     "statuses": "Statuses",
     "myProfile": "My profile",
     "tenants": "Tenants",
-    "settings": "Settings"
+    "settings": "Settings",
+    "plans": "Plans"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -250,7 +252,13 @@
     "ttlHoursOverride": "Demo period (hours)",
     "overridePlaceholder": "Global default",
     "demoConfigSaved": "Demo config updated",
-    "demoConfigHint": "Override the comment cap and demo period for this one demo tenant. Leave a field blank to use the global default."
+    "demoConfigHint": "Override the comment cap and demo period for this one demo tenant. Leave a field blank to use the global default.",
+    "plan": "Plan",
+    "freePlan": "Free",
+    "changePlan": "Change plan",
+    "changePlanFor": "Change plan for {{ name }}",
+    "selectPlan": "Select a plan",
+    "planChanged": "Plan updated."
   },
   "settings": {
     "title": "Settings",
@@ -293,7 +301,13 @@
     "closed": "Sign-up is currently closed. Please contact your administrator.",
     "checking": "Checking availability…",
     "backToLogin": "Back to login",
-    "failed": "Sign-up failed"
+    "failed": "Sign-up failed",
+    "plan": {
+      "choosePlan": "Choose a plan",
+      "free": "Free",
+      "comingSoon": "Coming soon",
+      "marketingNote": "Plan selection is informational. Billing integration coming soon."
+    }
   },
   "suggestions": {
     "section": "Prompt suggestions",
@@ -335,5 +349,65 @@
     "invalidLink": "This invite link is missing its code.",
     "invalidOrExpired": "This invite is invalid, expired, or already used.",
     "passwordMismatch": "Passwords do not match."
+  },
+  "plans": {
+    "title": "Plans",
+    "addPlan": "Add plan",
+    "editPlan": "Edit plan",
+    "delete": "Delete plan",
+    "deleteConfirm": "Delete plan \"{{ name }}\"? This cannot be undone.",
+    "created": "Plan created.",
+    "updated": "Plan updated.",
+    "deleted": "Plan deleted.",
+    "empty": "No plans yet.",
+    "loadError": "Failed to load plans.",
+    "loading": "Loading",
+    "colName": "Name",
+    "colSlug": "Slug",
+    "colPrice": "Price",
+    "colActive": "Active",
+    "colDisplay": "Display",
+    "colSubs": "Subscribers",
+    "priceMonthly": "Price / month",
+    "currency": "Currency",
+    "interval": "Billing interval",
+    "intervalMonthly": "Monthly",
+    "intervalYearly": "Yearly",
+    "sortOrder": "Sort order",
+    "isActive": "Active",
+    "displayStateLabel": "Display state",
+    "displayState": {
+      "visible": "Visible",
+      "coming-soon": "Coming soon",
+      "hidden": "Hidden"
+    },
+    "featureBullets": "Feature bullets (one per line)",
+    "bulletsPlaceholder": "e.g. Up to 5 projects\nUnlimited comments",
+    "enforcedSection": "Enforced limits",
+    "displayOnlySection": "Display-only limits",
+    "entNull": "Default (unset)",
+    "ent": {
+      "maxProjects": "Projects",
+      "maxSeats": "Seats",
+      "maxCommentsPerMonth": "Comments / month",
+      "extensionEnabled": "Browser extension",
+      "maxExtensionSites": "Extension sites",
+      "maxPredefinedActionsPerProject": "Predefined actions / project",
+      "maxTenantWidePredefinedActions": "Tenant-wide predefined actions",
+      "retentionDays": "Retention (days)",
+      "maxEnvironments": "Environments",
+      "maxActiveInvites": "Active invites",
+      "emailsPerMonth": "Emails / month",
+      "extensionCommentsPerMonth": "Extension comments / month",
+      "maxPendingSuggestions": "Pending suggestions",
+      "exportImportEnabled": "Export / import",
+      "promptSuggestionsEnabled": "Prompt suggestions",
+      "customStatusesEnabled": "Custom statuses",
+      "prioritySupport": "Priority support"
+    }
+  },
+  "limit": {
+    "reached": "Limit reached for {{ lever }} ({{ current }}/{{ limit }}). Upgrade your plan to continue.",
+    "upgrade": "Upgrade"
   }
 }
