@@ -18,10 +18,12 @@ import {
   Settings,
   Menu,
   CreditCard,
+  Palette,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
 import { usePreferences } from '@/composables/usePreferences';
+import { useBranding } from '@/composables/useBranding';
 import DemoPanel from '@/features/shell/DemoPanel.vue';
 
 const sidebarOpen = ref(false);
@@ -40,6 +42,7 @@ const ALL_NAV = [
 const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
   { to: '/plans', key: 'nav.plans', icon: CreditCard },
+  { to: '/branding', key: 'nav.branding', icon: Palette },
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
@@ -47,6 +50,7 @@ const { t } = useI18n();
 const router = useRouter();
 const { user, isAdmin, isSuperAdmin, logout } = useAuth();
 const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
+const { branding } = useBranding();
 
 function signOut() {
   logout();
@@ -70,8 +74,16 @@ function signOut() {
         <Menu class="h-5 w-5" />
       </Button>
       <span class="flex items-center gap-2 font-bold">
-        <Pin class="h-5 w-5 rotate-45 text-brand" />
-        {{ t('header.brand') }}
+        <img
+          v-if="branding.assets.logo"
+          :src="branding.assets.logo"
+          :alt="branding.productName"
+          class="h-7 max-w-[120px] object-contain"
+        />
+        <template v-else>
+          <Pin class="h-5 w-5 rotate-45 text-brand" />
+          {{ branding.productName }} Admin
+        </template>
       </span>
       <span class="flex-1" />
       <span

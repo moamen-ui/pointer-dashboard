@@ -24,7 +24,8 @@
     "myProfile": "My Profile",
     "tenants": "Tenants",
     "plans": "Plans",
-    "settings": "Settings"
+    "settings": "Settings",
+    "branding": "Branding"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -427,5 +428,40 @@
     "invalidLink": "This invite link is missing its code.",
     "invalidOrExpired": "This invite is invalid, expired, or already used.",
     "passwordMismatch": "Passwords do not match."
+  },
+  "branding": {
+    "title": "Branding",
+    "loading": "Loading branding settings…",
+    "loadError": "Failed to load branding settings.",
+    "saved": "Branding saved.",
+    "uploaded": "Asset uploaded.",
+    "resetDone": "Asset reset to default.",
+    "fileTooLarge": "File exceeds 1 MB limit.",
+    "sectionText": "Text & Colors",
+    "sectionUrls": "Reference URLs",
+    "sectionAssets": "Icons & Assets",
+    "productName": "Product name",
+    "tagline": "Tagline",
+    "primaryColor": "Primary color",
+    "urlApp": "App URL",
+    "urlDemo": "Demo URL",
+    "urlDocs": "Docs URL",
+    "urlLanding": "Landing URL",
+    "save": "Save changes",
+    "upload": "Upload",
+    "resetToDefault": "Reset to default",
+    "usingDefault": "Using bundled default",
+    "assetLogo": "Logo (wordmark)",
+    "assetLogoHint": "SVG or transparent PNG, ~40 px tall",
+    "assetIconSquare": "Icon (square)",
+    "assetIconSquareHint": "512 × 512 PNG",
+    "assetFavicon": "Favicon",
+    "assetFaviconHint": "32 × 32 PNG",
+    "assetAppleTouch": "Apple Touch icon",
+    "assetAppleTouchHint": "180 × 180 PNG",
+    "assetPwa192": "PWA icon 192",
+    "assetPwa192Hint": "192 × 192 PNG",
+    "assetPwa512": "PWA icon 512",
+    "assetPwa512Hint": "512 × 512 PNG"
   }
 }

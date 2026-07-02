@@ -23,7 +23,8 @@
     "statuses": "الحالات",
     "tenants": "المستأجرون",
     "plans": "الخطط",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "branding": "الهوية البصرية"
   },
   "header": {
     "brand": "Pointer لوحة الإدارة",
@@ -405,5 +406,43 @@
     "body": "لقد وصلت إلى الحد المسموح به لـ {{lever}} ({{current}} / {{limit}}).",
     "resource": "المورد",
     "cta": "الترقية إلى خطة أعلى ←"
+  },
+  "branding": {
+    "title": "الهوية البصرية",
+    "loading": "جارٍ تحميل بيانات الهوية…",
+    "loadError": "فشل تحميل بيانات الهوية.",
+    "saved": "تم حفظ الهوية البصرية.",
+    "uploadSuccess": "تم رفع الأصل.",
+    "resetSuccess": "تمت إعادة تعيين الأصل إلى الافتراضي.",
+    "textSection": "هوية المنتج",
+    "urlsSection": "روابط مرجعية",
+    "assetsSection": "الشعارات والأيقونات",
+    "assetsHint": "الصيغ المقبولة: PNG، SVG، WebP، JPEG · الحجم الأقصى 1 ميغابايت للملف. اتركه فارغًا لاستخدام الافتراضي.",
+    "productName": "اسم المنتج",
+    "tagline": "الشعار التسويقي",
+    "primaryColor": "اللون الرئيسي",
+    "urlApp": "رابط التطبيق",
+    "urlDemo": "رابط التجربة",
+    "urlDocs": "رابط التوثيق",
+    "urlLanding": "رابط الصفحة الرئيسية",
+    "upload": "رفع",
+    "resetToDefault": "إعادة تعيين",
+    "usingDefault": "يستخدم الافتراضي المدمج",
+    "assetKind": {
+      "logo": "الشعار (wordmark)",
+      "iconSquare": "أيقونة مربعة",
+      "favicon": "Favicon",
+      "appleTouch": "أيقونة Apple Touch",
+      "pwa192": "أيقونة PWA 192×192",
+      "pwa512": "أيقونة PWA 512×512"
+    },
+    "assetHint": {
+      "logo": "SVG أو PNG شفاف، ارتفاع ~40 بكسل",
+      "iconSquare": "PNG 512×512",
+      "favicon": "PNG 32×32",
+      "appleTouch": "PNG 180×180",
+      "pwa192": "PNG 192×192",
+      "pwa512": "PNG 512×512"
+    }
   }
 }

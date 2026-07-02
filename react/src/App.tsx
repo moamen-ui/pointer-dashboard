@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { PreferencesProvider } from '@/lib/preferences';
+import { BrandingProvider } from '@/lib/branding';
 import { ToastProvider } from '@/components/ui/toast';
 import { ProtectedRoute, SuperAdminRoute, AuthenticatedRoute } from '@/routes/ProtectedRoute';
 import { Shell } from '@/features/shell/Shell';
@@ -14,6 +15,7 @@ import { StatusesPage } from '@/features/statuses/StatusesPage';
 import { TenantsPage } from '@/features/tenants/TenantsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { PlansPage } from '@/features/plans/PlansPage';
+import { BrandingPage } from '@/features/branding/BrandingPage';
 import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
@@ -29,6 +31,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <PreferencesProvider>
+        <BrandingProvider>
         <AuthProvider>
           <ToastProvider>
             <UpgradePrompt />
@@ -59,6 +62,7 @@ export default function App() {
                       <Route path="/tenants" element={<TenantsPage />} />
                       <Route path="/plans" element={<PlansPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/branding" element={<BrandingPage />} />
                     </Route>
                   </Route>
 
@@ -72,6 +76,7 @@ export default function App() {
             </Routes>
           </ToastProvider>
         </AuthProvider>
+        </BrandingProvider>
       </PreferencesProvider>
     </BrowserRouter>
   );

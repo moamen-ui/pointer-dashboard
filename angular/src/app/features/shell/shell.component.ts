@@ -12,6 +12,7 @@ import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
 import { PreferencesService } from '../../core/prefs/preferences.service';
+import { BrandingService } from '../../core/branding/branding.service';
 import { DemoPanelComponent } from './demo-panel.component';
 
 @Component({
@@ -38,8 +39,12 @@ import { DemoPanelComponent } from './demo-panel.component';
         </button>
       }
       <span class="flex items-center gap-2 text-[1.1rem] font-bold">
-        <mat-icon class="rotate-45 text-brand">push_pin</mat-icon>
-        {{ 'header.brand' | transloco }}
+        @if (branding.logo()) {
+          <img [src]="branding.logo()!" alt="" class="h-[28px] max-w-[120px] object-contain" />
+        } @else {
+          <mat-icon class="rotate-45 text-brand">push_pin</mat-icon>
+        }
+        {{ branding.productName() }} Admin
       </span>
       <span class="flex-1"></span>
       @if (auth.user()) {
@@ -99,6 +104,10 @@ import { DemoPanelComponent } from './demo-panel.component';
               <mat-icon matListItemIcon>settings</mat-icon>
               <span matListItemTitle>{{ 'nav.settings' | transloco }}</span>
             </a>
+            <a mat-list-item routerLink="/branding" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>palette</mat-icon>
+              <span matListItemTitle>{{ 'nav.branding' | transloco }}</span>
+            </a>
           }
         </mat-nav-list>
       </mat-sidenav>
@@ -130,6 +139,7 @@ import { DemoPanelComponent } from './demo-panel.component';
 export class ShellComponent {
   auth = inject(AuthService);
   prefs = inject(PreferencesService);
+  branding = inject(BrandingService);
 
   // True below the md breakpoint — drives the off-canvas drawer + hamburger.
   isMobile = toSignal(

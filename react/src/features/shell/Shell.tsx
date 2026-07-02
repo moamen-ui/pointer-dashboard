@@ -16,11 +16,13 @@ import {
   Settings,
   Menu,
   CreditCard,
+  Paintbrush,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
+import { useBranding } from '@/lib/branding';
 import { DemoPanel } from '@/components/DemoPanel';
 
 const ADMIN_NAV = [
@@ -39,6 +41,7 @@ const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
   { to: '/plans', key: 'nav.plans', icon: CreditCard },
   { to: '/settings', key: 'nav.settings', icon: Settings },
+  { to: '/branding', key: 'nav.branding', icon: Paintbrush },
 ];
 
 export function Shell() {
@@ -46,6 +49,7 @@ export function Shell() {
   const navigate = useNavigate();
   const { user, isAdmin, isSuperAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
+  const { branding } = useBranding();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function signOut() {
@@ -69,8 +73,18 @@ export function Shell() {
           <Menu className="h-5 w-5" />
         </Button>
         <span className="flex items-center gap-2 font-bold">
-          <Pin className="h-5 w-5 rotate-45 text-brand" />
-          {t('header.brand')}
+          {branding?.assets?.logo ? (
+            <img
+              src={branding.assets.logo}
+              alt={branding.productName}
+              className="h-7 max-w-[120px] object-contain"
+            />
+          ) : (
+            <>
+              <Pin className="h-5 w-5 rotate-45 text-brand" />
+              {branding?.productName ? `${branding.productName} Admin` : t('header.brand')}
+            </>
+          )}
         </span>
         <span className="flex-1" />
         {user && (

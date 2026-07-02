@@ -24,7 +24,8 @@
     "myProfile": "ملفي الشخصي",
     "tenants": "المستأجرون",
     "plans": "الخطط",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "branding": "العلامة التجارية"
   },
   "header": {
     "brand": "Pointer لوحة الإدارة",
@@ -427,5 +428,40 @@
     "invalidLink": "رابط الدعوة يفتقد الرمز.",
     "invalidOrExpired": "هذه الدعوة غير صالحة أو منتهية أو مستخدمة بالفعل.",
     "passwordMismatch": "كلمتا المرور غير متطابقتين."
+  },
+  "branding": {
+    "title": "العلامة التجارية",
+    "loading": "جارٍ تحميل إعدادات العلامة التجارية…",
+    "loadError": "فشل تحميل إعدادات العلامة التجارية.",
+    "saved": "تم حفظ العلامة التجارية.",
+    "uploaded": "تم رفع الأصل.",
+    "resetDone": "تمت إعادة الأصل إلى الافتراضي.",
+    "fileTooLarge": "الملف يتجاوز حد 1 ميغابايت.",
+    "sectionText": "النصوص والألوان",
+    "sectionUrls": "عناوين URL المرجعية",
+    "sectionAssets": "الأيقونات والأصول",
+    "productName": "اسم المنتج",
+    "tagline": "الشعار",
+    "primaryColor": "اللون الرئيسي",
+    "urlApp": "رابط التطبيق",
+    "urlDemo": "رابط النسخة التجريبية",
+    "urlDocs": "رابط التوثيق",
+    "urlLanding": "رابط الصفحة الرئيسية",
+    "save": "حفظ التغييرات",
+    "upload": "رفع",
+    "resetToDefault": "إعادة إلى الافتراضي",
+    "usingDefault": "يستخدم الافتراضي المدمج",
+    "assetLogo": "الشعار (wordmark)",
+    "assetLogoHint": "SVG أو PNG شفاف، ارتفاع ~40 بكسل",
+    "assetIconSquare": "الأيقونة (مربعة)",
+    "assetIconSquareHint": "512 × 512 PNG",
+    "assetFavicon": "الفافيكون",
+    "assetFaviconHint": "32 × 32 PNG",
+    "assetAppleTouch": "أيقونة Apple Touch",
+    "assetAppleTouchHint": "180 × 180 PNG",
+    "assetPwa192": "أيقونة PWA 192",
+    "assetPwa192Hint": "192 × 192 PNG",
+    "assetPwa512": "أيقونة PWA 512",
+    "assetPwa512Hint": "512 × 512 PNG"
   }
 }

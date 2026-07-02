@@ -110,6 +110,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
+      {
+        path: 'branding',
+        canActivate: [superAdminGuard],
+        loadComponent: () =>
+          import('./features/branding/branding.component').then((m) => m.BrandingComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

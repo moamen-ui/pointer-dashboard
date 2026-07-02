@@ -15,7 +15,8 @@
     "confirmDisable": "تعطيل {{ name }}؟",
     "confirm": "تأكيد",
     "or": "أو",
-    "edit": "تعديل"
+    "edit": "تعديل",
+    "loading": "جارٍ التحميل"
   },
   "demo": {
     "tryDemo": "جرّب العرض التوضيحي",
@@ -67,7 +68,8 @@
     "myProfile": "ملفي الشخصي",
     "tenants": "المستأجرون",
     "settings": "الإعدادات",
-    "plans": "الخطط"
+    "plans": "الخطط",
+    "branding": "العلامة التجارية"
   },
   "header": {
     "brand": "Pointer لوحة الإدارة",
@@ -409,5 +411,42 @@
   "limit": {
     "reached": "تم الوصول إلى الحد المسموح به لـ {{ lever }} ({{ current }}/{{ limit }}). قم بترقية خطتك للمتابعة.",
     "upgrade": "ترقية"
+  },
+  "branding": {
+    "title": "العلامة التجارية",
+    "textSection": "النصوص والألوان",
+    "urlSection": "روابط المرجعية",
+    "assetsSection": "الأيقونات والشعارات",
+    "productName": "اسم المنتج",
+    "productNamePlaceholder": "مثال: Pointer",
+    "tagline": "الشعار التسويقي",
+    "taglinePlaceholder": "مثال: أشر على الواجهة. أطلق المنتج بالذكاء الاصطناعي.",
+    "primaryColor": "اللون الرئيسي",
+    "urlApp": "رابط التطبيق",
+    "urlDemo": "رابط العرض التجريبي",
+    "urlDocs": "رابط التوثيق",
+    "urlLanding": "رابط الصفحة الرئيسية",
+    "urlPlaceholder": "https://…",
+    "saved": "تم حفظ العلامة التجارية.",
+    "loadError": "فشل تحميل بيانات العلامة التجارية.",
+    "assetUploaded": "تم رفع الملف.",
+    "assetReset": "تمت استعادة الافتراضي.",
+    "fileTooLarge": "يجب أن يكون حجم الملف ≤ 1 ميغابايت.",
+    "upload": "رفع",
+    "uploading": "جارٍ الرفع",
+    "resetToDefault": "استعادة الافتراضي",
+    "usingDefault": "يستخدم الافتراضي",
+    "assetLogo": "الشعار (wordmark)",
+    "assetLogoHint": "SVG أو PNG شفاف، ارتفاع ~40px",
+    "assetIconSquare": "أيقونة مربعة",
+    "assetIconSquareHint": "512×512 PNG",
+    "assetFavicon": "Favicon",
+    "assetFaviconHint": "32×32 PNG",
+    "assetAppleTouch": "أيقونة Apple Touch",
+    "assetAppleTouchHint": "180×180 PNG",
+    "assetPwa192": "أيقونة PWA 192",
+    "assetPwa192Hint": "192×192 PNG",
+    "assetPwa512": "أيقونة PWA 512",
+    "assetPwa512Hint": "512×512 PNG"
   }
 }

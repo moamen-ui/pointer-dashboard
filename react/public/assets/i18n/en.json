@@ -23,7 +23,8 @@
     "statuses": "Statuses",
     "tenants": "Tenants",
     "plans": "Plans",
-    "settings": "Settings"
+    "settings": "Settings",
+    "branding": "Branding"
   },
   "header": {
     "brand": "Pointer Admin",
@@ -405,5 +406,43 @@
     "body": "You've reached the limit for {{lever}} ({{current}} / {{limit}}).",
     "resource": "resource",
     "cta": "Upgrade plan →"
+  },
+  "branding": {
+    "title": "Branding",
+    "loading": "Loading branding…",
+    "loadError": "Failed to load branding.",
+    "saved": "Branding saved.",
+    "uploadSuccess": "Asset uploaded.",
+    "resetSuccess": "Asset reset to default.",
+    "textSection": "Product identity",
+    "urlsSection": "Reference URLs",
+    "assetsSection": "Logos & icons",
+    "assetsHint": "Accepted formats: PNG, SVG, WebP, JPEG · Max 1 MB per file. Leave blank to use the bundled default.",
+    "productName": "Product name",
+    "tagline": "Tagline",
+    "primaryColor": "Primary color",
+    "urlApp": "App URL",
+    "urlDemo": "Demo URL",
+    "urlDocs": "Docs URL",
+    "urlLanding": "Landing page URL",
+    "upload": "Upload",
+    "resetToDefault": "Reset to default",
+    "usingDefault": "Using bundled default",
+    "assetKind": {
+      "logo": "Logo (wordmark)",
+      "iconSquare": "Square icon",
+      "favicon": "Favicon",
+      "appleTouch": "Apple touch icon",
+      "pwa192": "PWA icon 192×192",
+      "pwa512": "PWA icon 512×512"
+    },
+    "assetHint": {
+      "logo": "SVG or transparent PNG, ~40 px tall",
+      "iconSquare": "PNG 512×512",
+      "favicon": "PNG 32×32",
+      "appleTouch": "PNG 180×180",
+      "pwa192": "PNG 192×192",
+      "pwa512": "PNG 512×512"
+    }
   }
 }
