@@ -36,7 +36,10 @@ export class AuthService {
   login(email: string, password: string): Observable<MeResponse> {
     return this.apiAuth.postApiAuthLogin<LoginResponse>({ email, password }).pipe(
       map((res) => {
-        localStorage.setItem(TOKEN_KEY, res.token!);
+        // Guard: never persist a missing token as the string "undefined", which would read
+        // back as truthy and flip isAuthenticated to a false-positive authenticated state.
+        if (!res.token) throw new Error('Login response did not include a token.');
+        localStorage.setItem(TOKEN_KEY, res.token);
         localStorage.setItem(USER_KEY, JSON.stringify(res.user));
         this._user.set(res.user ?? null);
         this.prefs.init(res.user ?? undefined);

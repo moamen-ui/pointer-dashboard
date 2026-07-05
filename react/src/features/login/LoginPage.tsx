@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   useGetApiAuthSignupEnabled,
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { setAuthHeader } from '@/lib/api';
-import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
+import { removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
 import { useToast } from '@/components/ui/toast';
 
@@ -39,9 +39,11 @@ export function LoginPage() {
 
   const demoMut = usePostApiDemo();
 
-  // Already authenticated? Bounce to the appropriate landing page.
+  // Already authenticated? Bounce to the appropriate landing page. Use <Navigate> (a render
+  // result) rather than calling navigate() during render, which triggers React's
+  // "cannot update a component while rendering" warning and can double-fire.
   if (isAuthenticated) {
-    navigate(isAdmin ? '/overview' : '/profile', { replace: true });
+    return <Navigate to={isAdmin ? '/overview' : '/profile'} replace />;
   }
 
   async function onSubmit(e: FormEvent) {
@@ -118,7 +120,7 @@ export function LoginPage() {
         } catch (err) {
           setDemoError(extractMessage(err) || t('login.demoFailed'));
           // Cleanup on failure.
-          setItem(TOKEN_KEY, '');
+          removeItem(TOKEN_KEY);
           setAuthHeader(null);
           sessionStorage.removeItem(DEMO_SESSION_KEY);
         }

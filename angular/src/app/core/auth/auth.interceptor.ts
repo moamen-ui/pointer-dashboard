@@ -21,15 +21,15 @@ const LEVER_I18N: Record<string, string> = {
 export const apiInterceptor: HttpInterceptorFn = (req, next) => {
   const isApiRequest = req.url.startsWith('/api/');
 
+  // Only /api/* requests are rewritten to the API origin AND get the bearer token.
+  // Attaching Authorization outside this guard would leak the JWT to non-API requests
+  // (e.g. the same-origin i18n JSON fetch) and to any future absolute/cross-origin URL.
   let modifiedReq = req;
   if (isApiRequest) {
-    modifiedReq = req.clone({ url: environment.apiBase + req.url });
-  }
-
-  const token = localStorage.getItem('pointer_admin_token');
-  if (token) {
-    modifiedReq = modifiedReq.clone({
-      setHeaders: { Authorization: `Bearer ${token}` },
+    const token = localStorage.getItem('pointer_admin_token');
+    modifiedReq = req.clone({
+      url: environment.apiBase + req.url,
+      ...(token ? { setHeaders: { Authorization: `Bearer ${token}` } } : {}),
     });
   }
 

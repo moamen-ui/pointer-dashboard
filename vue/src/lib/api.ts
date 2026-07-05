@@ -43,9 +43,18 @@ export function configureApi(): void {
 
   AXIOS_INSTANCE.interceptors.request.use((config) => {
     const token = getItem(TOKEN_KEY);
-    if (token) {
-      config.headers = config.headers ?? {};
+    // Only attach the bearer to same-API requests: relative URLs (resolved against the API
+    // baseURL) or absolute URLs on the API origin. This also strips any header applied via
+    // defaults.common so the JWT is never sent to a foreign origin.
+    const url = config.url ?? '';
+    const base = (AXIOS_INSTANCE.defaults.baseURL as string | undefined) ?? '';
+    const isAbsolute = /^https?:\/\//i.test(url);
+    const sameApi = !isAbsolute || (base !== '' && url.startsWith(base));
+    config.headers = config.headers ?? {};
+    if (token && sameApi) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   });

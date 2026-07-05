@@ -8,6 +8,7 @@
 import { computed, ref } from 'vue';
 import { getApiAuthMe, postApiAuthLogin, type MeResponse } from '@moamen-ui/pointer-vue';
 import { setAuthHeader } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { getItem, removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 
 function readUser(): MeResponse | null {
@@ -58,6 +59,9 @@ function logout(): void {
   setAuthHeader(null);
   token.value = null;
   user.value = null;
+  // Drop every cached query so the next user on this tab can't see the previous
+  // user's data (SPA logout/login does not reload the page).
+  queryClient.clear();
 }
 
 export function useAuth() {

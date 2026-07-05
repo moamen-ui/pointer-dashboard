@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePostApiAuthLogin, type MeResponse } from '@moamen-ui/pointer-react';
 import { setAuthHeader } from './api';
 import {
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(() => readUser());
   const [token, setToken] = useState<string | null>(() => getItem(TOKEN_KEY));
 
+  const queryClient = useQueryClient();
   const { mutateAsync: loginAsync } = usePostApiAuthLogin();
 
   const login = useCallback(
@@ -68,7 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthHeader(null);
     setToken(null);
     setUser(null);
-  }, []);
+    // Drop every cached query so the next user on this tab can't see the previous
+    // user's data (SPA logout/login does not reload the page).
+    queryClient.clear();
+  }, [queryClient]);
 
   const value = useMemo<AuthValue>(
     () => ({
