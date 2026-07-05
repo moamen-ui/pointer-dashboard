@@ -13,7 +13,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { AXIOS_INSTANCE } from '@moamen-ui/pointer-react';
+import { getApiBranding } from '@moamen-ui/pointer-react';
 
 // ---- Types ------------------------------------------------------------------
 
@@ -98,12 +98,29 @@ function applyBranding(b: BrandingData) {
 // ---- Provider ---------------------------------------------------------------
 
 async function fetchBranding(): Promise<BrandingData> {
-  const res = await AXIOS_INSTANCE.get<{ isSuccess: boolean; data: BrandingData }>(
-    '/api/branding',
-  );
-  const envelope = res.data;
+  const envelope = await getApiBranding();
   if (!envelope?.isSuccess) throw new Error('branding fetch failed');
-  return envelope.data;
+  const d = envelope.data;
+  return {
+    productName: d?.productName ?? 'Pointer',
+    tagline: d?.tagline ?? null,
+    primaryColor: d?.primaryColor ?? null,
+    urls: {
+      app: d?.urls?.app ?? null,
+      demo: d?.urls?.demo ?? null,
+      docs: d?.urls?.docs ?? null,
+      landing: d?.urls?.landing ?? null,
+    },
+    assets: {
+      logo: d?.assets?.logo ?? null,
+      iconSquare: d?.assets?.iconSquare ?? null,
+      favicon: d?.assets?.favicon ?? null,
+      appleTouch: d?.assets?.appleTouch ?? null,
+      pwa192: d?.assets?.pwa192 ?? null,
+      pwa512: d?.assets?.pwa512 ?? null,
+    },
+    version: d?.version ?? 0,
+  };
 }
 
 export function BrandingProvider({ children }: { children: ReactNode }) {

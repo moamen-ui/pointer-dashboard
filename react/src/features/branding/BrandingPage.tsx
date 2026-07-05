@@ -1,10 +1,13 @@
 // Branding admin page — super-admin only.
 // Text/URL/color form + per-kind icon upload widgets (6 kinds) + reset-to-default.
-// Uses AXIOS_INSTANCE directly for multipart upload and DELETE (the generated
-// client package v1.0.16 does not expose branding hooks yet).
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AXIOS_INSTANCE } from '@moamen-ui/pointer-react';
+import {
+  getApiAdminBranding,
+  putApiAdminBranding,
+  postApiAdminBrandingAssetKind,
+  deleteApiAdminBrandingAssetKind,
+} from '@moamen-ui/pointer-react';
 import { Upload, RotateCcw, ImageIcon, Palette } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,14 +36,32 @@ const ASSET_KINDS: AssetMeta[] = [
   { kind: 'pwa512',      labelKey: 'branding.assetKind.pwa512',       hintKey: 'branding.assetHint.pwa512' },
 ];
 
-// ---- API helpers (raw AXIOS_INSTANCE — branding not in v1.0.16 client) -----
+// ---- API helpers (generated @moamen-ui/pointer-react client) ----------------
 
 async function fetchAdminBranding(): Promise<BrandingData> {
-  const res = await AXIOS_INSTANCE.get<{ isSuccess: boolean; data: BrandingData; message?: string }>(
-    '/api/admin/branding',
-  );
-  if (!res.data?.isSuccess) throw new Error(res.data?.message || 'Failed');
-  return res.data.data;
+  const envelope = await getApiAdminBranding();
+  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Failed');
+  const d = envelope.data;
+  return {
+    productName: d?.productName ?? 'Pointer',
+    tagline: d?.tagline ?? null,
+    primaryColor: d?.primaryColor ?? null,
+    urls: {
+      app: d?.urls?.app ?? null,
+      demo: d?.urls?.demo ?? null,
+      docs: d?.urls?.docs ?? null,
+      landing: d?.urls?.landing ?? null,
+    },
+    assets: {
+      logo: d?.assets?.logo ?? null,
+      iconSquare: d?.assets?.iconSquare ?? null,
+      favicon: d?.assets?.favicon ?? null,
+      appleTouch: d?.assets?.appleTouch ?? null,
+      pwa192: d?.assets?.pwa192 ?? null,
+      pwa512: d?.assets?.pwa512 ?? null,
+    },
+    version: d?.version ?? 0,
+  };
 }
 
 async function putAdminBranding(body: {
@@ -49,26 +70,18 @@ async function putAdminBranding(body: {
   primaryColor: string;
   urls: { app: string; demo: string; docs: string; landing: string };
 }): Promise<void> {
-  const res = await AXIOS_INSTANCE.put<{ isSuccess: boolean }>('/api/admin/branding', body);
-  if (!res.data?.isSuccess) throw new Error((res.data as Record<string, unknown>)?.['message'] as string || 'Save failed');
+  const envelope = await putApiAdminBranding(body);
+  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Save failed');
 }
 
 async function postAdminBrandingAsset(kind: AssetKind, file: File): Promise<void> {
-  const fd = new FormData();
-  fd.append('file', file);
-  const res = await AXIOS_INSTANCE.post<{ isSuccess: boolean }>(
-    `/api/admin/branding/asset/${kind}`,
-    fd,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
-  );
-  if (!res.data?.isSuccess) throw new Error((res.data as Record<string, unknown>)?.['message'] as string || 'Upload failed');
+  const envelope = await postApiAdminBrandingAssetKind(kind, { file });
+  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Upload failed');
 }
 
 async function deleteAdminBrandingAsset(kind: AssetKind): Promise<void> {
-  const res = await AXIOS_INSTANCE.delete<{ isSuccess: boolean }>(
-    `/api/admin/branding/asset/${kind}`,
-  );
-  if (!res.data?.isSuccess) throw new Error((res.data as Record<string, unknown>)?.['message'] as string || 'Reset failed');
+  const envelope = await deleteApiAdminBrandingAssetKind(kind);
+  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Reset failed');
 }
 
 // ---- Form state -------------------------------------------------------------

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 // Branding admin page — super-admin only.
-// Uses AXIOS_INSTANCE directly for all calls because @moamen-ui/pointer-vue@1.0.16
-// does not yet include branding hooks (they land in 1.0.17). Once the package is
-// updated, replace these raw calls with the generated hooks.
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { AXIOS_INSTANCE } from '@moamen-ui/pointer-vue';
+import {
+  getApiAdminBranding,
+  putApiAdminBranding,
+  postApiAdminBrandingAssetKind,
+  deleteApiAdminBrandingAssetKind,
+  type PostApiAdminBrandingAssetKindBody,
+} from '@moamen-ui/pointer-vue';
 import { Upload, RotateCcw, ImageOff } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -67,36 +70,6 @@ const assetUrls = ref<Record<AssetKind, string | null>>({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-interface ApiEnvelope<T> {
-  isSuccess: boolean;
-  data: T;
-  message?: string;
-}
-
-function unwrap<T>(raw: ApiEnvelope<T> | T): T {
-  const env = raw as ApiEnvelope<T>;
-  if (typeof env.isSuccess === 'boolean') {
-    if (!env.isSuccess) throw new Error(env.message || 'Request failed');
-    return env.data;
-  }
-  return raw as T;
-}
-
-async function getAdminBranding(): Promise<BrandingData> {
-  const r = await AXIOS_INSTANCE.get<ApiEnvelope<BrandingData> | BrandingData>('/api/admin/branding');
-  return unwrap(r.data as ApiEnvelope<BrandingData>);
-}
-
-async function putAdminBranding(body: {
-  productName: string;
-  tagline: string | null;
-  primaryColor: string | null;
-  urls: { app: string | null; demo: string | null; docs: string | null; landing: string | null };
-}): Promise<void> {
-  const r = await AXIOS_INSTANCE.put<ApiEnvelope<unknown> | unknown>('/api/admin/branding', body);
-  unwrap(r.data as ApiEnvelope<unknown>);
-}
-
 function populateForm(data: BrandingData) {
   form.value.productName = data.productName ?? '';
   form.value.tagline = data.tagline ?? '';
@@ -119,8 +92,32 @@ async function loadData() {
   loading.value = true;
   loadError.value = '';
   try {
-    const data = await getAdminBranding();
-    populateForm(data);
+    const result = await getApiAdminBranding();
+    if (!result.isSuccess) throw new Error(result.message ?? 'Request failed');
+    const raw = result.data;
+    if (raw) {
+      const data: BrandingData = {
+        productName: raw.productName ?? 'Pointer',
+        tagline: raw.tagline ?? null,
+        primaryColor: raw.primaryColor ?? null,
+        urls: {
+          app: raw.urls?.app ?? null,
+          demo: raw.urls?.demo ?? null,
+          docs: raw.urls?.docs ?? null,
+          landing: raw.urls?.landing ?? null,
+        },
+        assets: {
+          logo: raw.assets?.logo ?? null,
+          iconSquare: raw.assets?.iconSquare ?? null,
+          favicon: raw.assets?.favicon ?? null,
+          appleTouch: raw.assets?.appleTouch ?? null,
+          pwa192: raw.assets?.pwa192 ?? null,
+          pwa512: raw.assets?.pwa512 ?? null,
+        },
+        version: raw.version ?? 0,
+      };
+      populateForm(data);
+    }
   } catch (e) {
     loadError.value = extractMessage(e);
   } finally {
@@ -136,7 +133,7 @@ async function saveForm() {
   if (!form.value.productName.trim()) return;
   saving.value = true;
   try {
-    await putAdminBranding({
+    const result = await putApiAdminBranding({
       productName: form.value.productName.trim(),
       tagline: form.value.tagline.trim() || null,
       primaryColor: form.value.primaryColor || null,
@@ -147,6 +144,7 @@ async function saveForm() {
         landing: form.value.urlLanding.trim() || null,
       },
     });
+    if (!result.isSuccess) throw new Error(result.message ?? 'Request failed');
     toast(t('branding.saved'));
     await loadData();
     await refreshBranding();
@@ -166,11 +164,9 @@ async function uploadAsset(kind: AssetKind, file: File) {
   }
   uploadingKind.value = kind;
   try {
-    const fd = new FormData();
-    fd.append('file', file);
-    await AXIOS_INSTANCE.post(`/api/admin/branding/asset/${kind}`, fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const body: PostApiAdminBrandingAssetKindBody = { file };
+    const result = await postApiAdminBrandingAssetKind(kind, body);
+    if (!result.isSuccess) throw new Error(result.message ?? 'Request failed');
     toast(t('branding.assetUploaded'));
     await loadData();
     await refreshBranding();
@@ -196,7 +192,8 @@ function onFileChange(kind: AssetKind, event: Event) {
 async function deleteAsset(kind: AssetKind) {
   deletingKind.value = kind;
   try {
-    await AXIOS_INSTANCE.delete(`/api/admin/branding/asset/${kind}`);
+    const result = await deleteApiAdminBrandingAssetKind(kind);
+    if (!result.isSuccess) throw new Error(result.message ?? 'Request failed');
     toast(t('branding.assetReset'));
     await loadData();
     await refreshBranding();

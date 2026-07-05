@@ -45,6 +45,17 @@ from the API's Swagger and built **in the API repo** — not generated here. To 
 API, run the *Publish API clients* workflow in [`poitner-api`](https://github.com/moamen-ui/poitner-api)
 (it auto-bumps), then bump `@moamen-ui/pointer-<framework>` in each app.
 
+> **RULE — never call the API with raw `axios`/`HttpClient`/`fetch`.** Always use the **generated**
+> hooks/services from `@moamen-ui/pointer-<framework>` (React/Vue hooks, Angular services/resources).
+> If an endpoint you need is missing from the installed client, that means the client is stale or the
+> API tag isn't in `orval.config.ts` `filters.tags` — **fix the source**: (1) ensure the controller has
+> `[Tags("X")]` and `X` is in the orval `filters.tags`; (2) re-run the *Publish API clients* workflow
+> to bump the version; (3) `npm install @moamen-ui/pointer-<fw>@<new>` and use the generated hook.
+> Do **not** work around a missing hook with a raw request — that silently diverges from the typed
+> client (this is exactly how the branding calls ended up on raw axios). The shared `AXIOS_INSTANCE`
+> in `src/lib/api.ts` exists only as the generated client's transport (baseURL/token/401) — feature
+> code must not call it directly.
+
 ## Conventions
 
 1. All API responses are wrapped in `Result<T>`; each app unwraps `.data`, prepends the API origin to

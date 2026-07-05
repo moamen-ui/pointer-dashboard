@@ -6,7 +6,7 @@
 //
 // Falls back to bundled defaults if the fetch fails — the header never blanks.
 import { ref, readonly } from 'vue';
-import { AXIOS_INSTANCE } from '@moamen-ui/pointer-vue';
+import { getApiBranding } from '@moamen-ui/pointer-vue';
 
 export interface BrandingAssets {
   logo: string | null;
@@ -63,18 +63,30 @@ function applyBrandingEffects(data: BrandingData): void {
 
 async function fetchBranding(): Promise<void> {
   try {
-    const response = await AXIOS_INSTANCE.get<{
-      isSuccess: boolean;
-      data: BrandingData;
-    }>('/api/branding');
-    const raw = response.data;
-    // Handle both wrapped (isSuccess envelope) and unwrapped responses
-    const data: BrandingData = (raw as unknown as { isSuccess?: boolean }).isSuccess !== undefined
-      ? (raw as unknown as { data: BrandingData }).data
-      : (raw as unknown as BrandingData);
+    const result = await getApiBranding();
+    const data = result.data;
     if (data?.productName) {
-      branding.value = data;
-      applyBrandingEffects(data);
+      branding.value = {
+        productName: data.productName,
+        tagline: data.tagline ?? null,
+        primaryColor: data.primaryColor ?? null,
+        urls: {
+          app: data.urls?.app ?? null,
+          demo: data.urls?.demo ?? null,
+          docs: data.urls?.docs ?? null,
+          landing: data.urls?.landing ?? null,
+        },
+        assets: {
+          logo: data.assets?.logo ?? null,
+          iconSquare: data.assets?.iconSquare ?? null,
+          favicon: data.assets?.favicon ?? null,
+          appleTouch: data.assets?.appleTouch ?? null,
+          pwa192: data.assets?.pwa192 ?? null,
+          pwa512: data.assets?.pwa512 ?? null,
+        },
+        version: data.version ?? 0,
+      };
+      applyBrandingEffects(branding.value);
     }
   } catch {
     // Silently fall back to defaults — never blank the header.

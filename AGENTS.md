@@ -41,6 +41,13 @@ the [`poitner-api`](https://github.com/moamen-ui/poitner-api) repo — not gener
 update the API, run that repo's *Publish API clients* workflow (auto-bumps), then bump the dependency
 in each app. Auth: the committed per-app `.npmrc` reads `${NODE_AUTH_TOKEN}`.
 
+**RULE — never call the API with raw `axios`/`HttpClient`/`fetch`.** Always use the generated
+hooks/services from `@moamen-ui/pointer-<framework>`. If a needed endpoint is missing from the
+installed client: ensure the controller has `[Tags("X")]` and `X` is in the API's `orval.config.ts`
+`filters.tags`, re-run *Publish API clients*, bump, and use the generated hook — do **not** fall back
+to a raw request. `src/lib/api.ts`'s `AXIOS_INSTANCE` is only the generated client's transport; feature
+code must not call it directly.
+
 ## Conventions
 
 1. All API responses are wrapped in `Result<T>`; each app unwraps `.data`, prepends the API origin to

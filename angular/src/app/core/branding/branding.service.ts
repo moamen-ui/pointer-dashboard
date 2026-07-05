@@ -1,6 +1,6 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { catchError, of } from 'rxjs';
+import { computed, effect, Injectable } from '@angular/core';
+import { getApiBrandingResource } from '@moamen-ui/pointer-angular';
+import type { BrandingResponse as ApiBrandingResponse } from '@moamen-ui/pointer-angular';
 
 export interface BrandingResponse {
   productName: string;
@@ -27,26 +27,55 @@ const DEFAULTS: BrandingResponse = {
   version: 0,
 };
 
+function toLocal(api: ApiBrandingResponse | null | undefined): BrandingResponse {
+  if (!api) return DEFAULTS;
+  return {
+    productName: api.productName ?? DEFAULTS.productName,
+    tagline: api.tagline ?? DEFAULTS.tagline,
+    primaryColor: api.primaryColor ?? DEFAULTS.primaryColor,
+    urls: {
+      app: api.urls?.app ?? '',
+      demo: api.urls?.demo ?? '',
+      docs: api.urls?.docs ?? '',
+      landing: api.urls?.landing ?? '',
+    },
+    assets: {
+      logo: api.assets?.logo ?? null,
+      iconSquare: api.assets?.iconSquare ?? null,
+      favicon: api.assets?.favicon ?? null,
+      appleTouch: api.assets?.appleTouch ?? null,
+      pwa192: api.assets?.pwa192 ?? null,
+      pwa512: api.assets?.pwa512 ?? null,
+    },
+    version: api.version ?? 0,
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class BrandingService {
-  private http = inject(HttpClient);
-  private _data = signal<BrandingResponse>(DEFAULTS);
+  private readonly resource = getApiBrandingResource();
+
+  private readonly _data = computed<BrandingResponse>(() =>
+    toLocal(this.resource.value()?.data)
+  );
 
   readonly productName = computed(() => this._data().productName || 'Pointer');
   readonly tagline = computed(() => this._data().tagline);
   readonly primaryColor = computed(() => this._data().primaryColor);
   readonly logo = computed(() => this._data().assets.logo);
   readonly favicon = computed(() => this._data().assets.favicon);
-  readonly data = this._data.asReadonly();
+  readonly data = this._data;
 
-  /** Call once on app init. Also called after save/upload to refresh live branding. */
+  constructor() {
+    effect(() => {
+      const res = this._data();
+      this.applyEffects(res);
+    });
+  }
+
+  /** Re-fetch live branding from the API (call after save/upload). */
   refresh(): void {
-    this.http.get<BrandingResponse>('/api/branding')
-      .pipe(catchError(() => of(DEFAULTS)))
-      .subscribe((res) => {
-        this._data.set(res);
-        this.applyEffects(res);
-      });
+    this.resource.reload();
   }
 
   private applyEffects(res: BrandingResponse): void {

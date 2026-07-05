@@ -1,6 +1,5 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,7 +8,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { BrandingService, BrandingResponse } from '../../core/branding/branding.service';
+import {
+  BrandingService as ApiBrandingService,
+  getApiAdminBrandingResource,
+} from '@moamen-ui/pointer-angular';
+import type { BrandingResponse, PostApiAdminBrandingAssetKindBody } from '@moamen-ui/pointer-angular';
+import { BrandingService } from '../../core/branding/branding.service';
 import { extractMessage } from '../../core/api/extract-message';
 
 type AssetKind = 'logo' | 'iconSquare' | 'favicon' | 'appleTouch' | 'pwa192' | 'pwa512';
@@ -155,57 +159,47 @@ interface BrandingForm {
     </div>
   `,
 })
-export class BrandingComponent implements OnInit {
-  private http = inject(HttpClient);
+export class BrandingComponent {
+  private apiBranding = inject(ApiBrandingService);
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
   private brandingService = inject(BrandingService);
 
   readonly assetKinds = ASSET_KINDS;
 
-  loading = signal(true);
-  loadError = signal(false);
+  private readonly brandingResource = getApiAdminBrandingResource();
+
+  readonly loading = computed(() => this.brandingResource.isLoading());
+  readonly loadError = computed(() => !!this.brandingResource.error());
+
   saving = signal(false);
   uploadingKind = signal<AssetKind | null>(null);
   deletingKind = signal<AssetKind | null>(null);
-
-  private _serverData = signal<BrandingResponse | null>(null);
 
   form: BrandingForm = {
     productName: '', tagline: '', primaryColor: '#2563eb',
     urlApp: '', urlDemo: '', urlDocs: '', urlLanding: '',
   };
 
-  ngOnInit(): void {
-    this.loadBranding();
+  constructor() {
+    // Sync form fields whenever the resource delivers fresh data
+    effect(() => {
+      const res = this.brandingResource.value()?.data;
+      if (!res) return;
+      this.form = {
+        productName: res.productName ?? '',
+        tagline: res.tagline ?? '',
+        primaryColor: res.primaryColor ?? '#2563eb',
+        urlApp: res.urls?.app ?? '',
+        urlDemo: res.urls?.demo ?? '',
+        urlDocs: res.urls?.docs ?? '',
+        urlLanding: res.urls?.landing ?? '',
+      };
+    });
   }
 
   assetUrl(kind: AssetKind): string | null {
-    return this._serverData()?.assets[kind] ?? null;
-  }
-
-  private loadBranding(): void {
-    this.loading.set(true);
-    this.loadError.set(false);
-    this.http.get<BrandingResponse>('/api/admin/branding').subscribe({
-      next: (res) => {
-        this._serverData.set(res);
-        this.form = {
-          productName: res.productName ?? '',
-          tagline: res.tagline ?? '',
-          primaryColor: res.primaryColor ?? '#2563eb',
-          urlApp: res.urls?.app ?? '',
-          urlDemo: res.urls?.demo ?? '',
-          urlDocs: res.urls?.docs ?? '',
-          urlLanding: res.urls?.landing ?? '',
-        };
-        this.loading.set(false);
-      },
-      error: () => {
-        this.loadError.set(true);
-        this.loading.set(false);
-      },
-    });
+    return this.brandingResource.value()?.data?.assets?.[kind] ?? null;
   }
 
   saveText(): void {
@@ -221,12 +215,12 @@ export class BrandingComponent implements OnInit {
         landing: this.form.urlLanding.trim(),
       },
     };
-    this.http.put<unknown>('/api/admin/branding', body).subscribe({
+    this.apiBranding.putApiAdminBranding(body).subscribe({
       next: () => {
         this.saving.set(false);
         this.snack.open(this.transloco.translate('branding.saved'), 'OK', { duration: 3000 });
         this.brandingService.refresh();
-        this.loadBranding();
+        this.brandingResource.reload();
       },
       error: (err: unknown) => {
         this.saving.set(false);
@@ -244,15 +238,14 @@ export class BrandingComponent implements OnInit {
       return;
     }
     this.uploadingKind.set(kind);
-    const fd = new FormData();
-    fd.append('file', file);
-    this.http.post<unknown>(`/api/admin/branding/asset/${kind}`, fd).subscribe({
+    const body: PostApiAdminBrandingAssetKindBody = { file };
+    this.apiBranding.postApiAdminBrandingAssetKind(kind, body).subscribe({
       next: () => {
         this.uploadingKind.set(null);
         input.value = '';
         this.snack.open(this.transloco.translate('branding.uploaded'), 'OK', { duration: 3000 });
         this.brandingService.refresh();
-        this.loadBranding();
+        this.brandingResource.reload();
       },
       error: (err: unknown) => {
         this.uploadingKind.set(null);
@@ -264,12 +257,12 @@ export class BrandingComponent implements OnInit {
 
   deleteAsset(kind: AssetKind): void {
     this.deletingKind.set(kind);
-    this.http.delete<unknown>(`/api/admin/branding/asset/${kind}`).subscribe({
+    this.apiBranding.deleteApiAdminBrandingAssetKind(kind).subscribe({
       next: () => {
         this.deletingKind.set(null);
         this.snack.open(this.transloco.translate('branding.resetDone'), 'OK', { duration: 3000 });
         this.brandingService.refresh();
-        this.loadBranding();
+        this.brandingResource.reload();
       },
       error: (err: unknown) => {
         this.deletingKind.set(null);
