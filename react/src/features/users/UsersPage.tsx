@@ -17,10 +17,11 @@ import {
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, UserCheck, User } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, UserCheck, User, EllipsisVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -44,10 +45,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
+import { formatRequestedAt } from '@/lib/format';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -242,87 +250,103 @@ export function UsersPage() {
               <TableHead>{t('users.email')}</TableHead>
               <TableHead>{t('users.name')}</TableHead>
               <TableHead>{t('users.role')}</TableHead>
+              {!isApproved && <TableHead>{t('overview.requested')}</TableHead>}
               <TableHead>{t('users.status')}</TableHead>
               <TableHead>{t('users.actions')}</TableHead>
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.displayName}</TableCell>
-                <TableCell>
-                  {isApproved ? (
-                    <Select
-                      value={user.roleId != null ? String(user.roleId) : undefined}
-                      onValueChange={(v) => changeRole(user, Number(v))}
-                    >
-                      <SelectTrigger className="min-w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rolesForUser(user).map((r) => (
-                          <SelectItem key={r.id} value={String(r.id)}>
-                            {r.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span>{user.roleName}</span>
+            {users.map((user) => {
+              // createdAt = when access was requested. The API returns it; the
+              // generated client only declares it from the next publish on.
+              const requestedAt = (user as { createdAt?: string | null }).createdAt ?? null;
+              return (
+                <TableRow key={user.id}>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.displayName}</TableCell>
+                  <TableCell>
+                    {isApproved ? (
+                      <Select
+                        value={user.roleId != null ? String(user.roleId) : undefined}
+                        onValueChange={(v) => changeRole(user, Number(v))}
+                      >
+                        <SelectTrigger className="min-w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rolesForUser(user).map((r) => (
+                            <SelectItem key={r.id} value={String(r.id)}>
+                              {r.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span>{user.roleName}</span>
+                    )}
+                  </TableCell>
+                  {!isApproved && (
+                    <TableCell>
+                      {requestedAt ? formatRequestedAt(requestedAt) : '—'}
+                    </TableCell>
                   )}
-                </TableCell>
-                <TableCell>
-                  <span className={cn('chip', user.isActive ? 'chip-active' : 'chip-disabled')}>
-                    {t(user.isActive ? 'common.active' : 'common.disabled')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {isApproved ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleActive(user)}
-                      disabled={patchMut.isPending}
-                    >
-                      {user.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                      {t(user.isActive ? 'common.disable' : 'common.enable')}
-                    </Button>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => openApprove(user)}>
-                        <UserCheck className="h-4 w-4" />
-                        {t('users.approve')}
-                      </Button>
-                      {filter === 'Pending' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRejectUser(user)}
-                        >
-                          <Ban className="h-4 w-4" />
-                          {t('users.reject')}
+                  <TableCell>
+                    <span className={cn('chip', user.isActive ? 'chip-active' : 'chip-disabled')}>
+                      {t(user.isActive ? 'common.active' : 'common.disabled')}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <EllipsisVertical className="h-4 w-4" />
+                          <span className="sr-only">{t('users.actions')}</span>
                         </Button>
-                      )}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/users/${user.id}/profile`)}
-                  >
-                    <User className="h-4 w-4" />
-                    {t('profile.viewProfile')}
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {isApproved ? (
+                          <DropdownMenuItem
+                            onSelect={() => toggleActive(user)}
+                            disabled={patchMut.isPending}
+                            className={cn(
+                              user.isActive && 'text-destructive focus:text-destructive',
+                            )}
+                          >
+                            {user.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                            {t(user.isActive ? 'common.disable' : 'common.enable')}
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem onSelect={() => openApprove(user)}>
+                              <UserCheck className="h-4 w-4" />
+                              {t('users.approve')}
+                            </DropdownMenuItem>
+                            {filter === 'Pending' && (
+                              <DropdownMenuItem
+                                onSelect={() => setRejectUser(user)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Ban className="h-4 w-4" />
+                                {t('users.reject')}
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onSelect={() => navigate(`/users/${user.id}/profile`)}
+                        >
+                          <User className="h-4 w-4" />
+                          {t('profile.viewProfile')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {users.length === 0 && !isFetching && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={isApproved ? 5 : 6} className="py-10 text-center text-muted-foreground">
                   {t('users.empty')}
                 </TableCell>
               </TableRow>
@@ -358,9 +382,8 @@ export function UsersPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="u-pass">{t('users.password')}</Label>
-              <Input
+              <PasswordInput
                 id="u-pass"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />

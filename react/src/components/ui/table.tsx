@@ -19,7 +19,9 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('[&_tr]:border-b', className)} {...props} />
+  // Header rows get a subtle filled background so they read as a header band
+  // and not as another body row.
+  <thead ref={ref} className={cn('[&_tr]:border-b [&_tr]:bg-muted/60', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -53,7 +55,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      'h-10 px-3 text-start align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground',
+      'h-10 px-3 text-start align-middle text-xs font-semibold uppercase tracking-wide text-foreground',
       className,
     )}
     {...props}

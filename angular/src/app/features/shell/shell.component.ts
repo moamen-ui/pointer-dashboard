@@ -56,7 +56,12 @@ import { DemoPanelComponent } from './demo-panel.component';
       <button mat-icon-button (click)="toggleTheme()">
         <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
-      <button mat-button (click)="togglePrefsLang()">{{ prefs.language() === 'ar' ? 'EN' : 'ع' }}</button>
+      <!-- Icon-button footprint: a text button pads a 2-character label out to a
+           64px min-width, which left dead space around the glyph. -->
+      <button mat-icon-button (click)="togglePrefsLang()"
+        [attr.aria-label]="'header.language' | transloco">
+        <span class="text-[0.85rem] font-semibold">{{ prefs.language() === 'ar' ? 'EN' : 'ع' }}</span>
+      </button>
       <button mat-stroked-button class="border-app-border text-ink" (click)="auth.logout()">
         <mat-icon>logout</mat-icon> <span class="hidden sm:inline">{{ 'header.signOut' | transloco }}</span>
       </button>

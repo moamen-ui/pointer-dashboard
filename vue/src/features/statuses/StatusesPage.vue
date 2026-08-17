@@ -10,7 +10,7 @@ import {
   getGetApiAdminStatusesQueryKey,
   type StatusAdminItem,
 } from '@moamen-ui/pointer-vue';
-import { Save, RotateCcw } from 'lucide-vue-next';
+import { Save, RotateCcw, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -155,24 +161,27 @@ async function resetRow(row: EditRow) {
             <TableCell>
               <Input
                 v-model="row.label"
-                class="min-w-[120px]"
+                class="w-[132px]"
                 :maxlength="64"
               />
             </TableCell>
 
-            <!-- Color: swatch + hex input -->
+            <!-- Color: single merged swatch + hex input -->
             <TableCell>
-              <div class="flex items-center gap-2">
+              <div
+                class="flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent px-2 shadow-sm focus-within:outline-none focus-within:ring-1 focus-within:ring-ring"
+              >
                 <input
                   v-model="row.color"
                   type="color"
-                  class="h-8 w-8 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                  class="h-6 w-6 flex-shrink-0 cursor-pointer border-none bg-transparent p-0"
                   :title="row.color"
                 />
-                <Input
+                <input
                   v-model="row.color"
-                  class="w-[96px] font-mono text-sm"
+                  type="text"
                   :maxlength="7"
+                  class="w-full min-w-0 border-none bg-transparent p-0 font-mono text-xs outline-none placeholder:text-muted-foreground"
                   placeholder="#000000"
                 />
               </div>
@@ -183,33 +192,36 @@ async function resetRow(row: EditRow) {
               <Input
                 v-model.number="row.order"
                 type="number"
-                class="w-[72px]"
+                class="w-16"
                 :min="0"
               />
             </TableCell>
 
             <!-- Actions -->
             <TableCell>
-              <div class="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  :disabled="row.saving || row.resetting"
-                  @click="saveRow(row)"
-                >
-                  <Save class="h-4 w-4" />
-                  {{ t('statuses.save') }}
-                </Button>
-                <Button
-                  v-if="row.isOverridden"
-                  variant="destructive"
-                  size="sm"
-                  :disabled="row.saving || row.resetting"
-                  @click="resetRow(row)"
-                >
-                  <RotateCcw class="h-4 w-4" />
-                  {{ t('statuses.reset') }}
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <span class="sr-only">{{ t('statuses.colActions') }}</span>
+                    <EllipsisVertical class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem :disabled="row.saving || row.resetting" @select="saveRow(row)">
+                    <Save class="h-4 w-4" />
+                    {{ t('statuses.save') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="row.isOverridden"
+                    :disabled="row.saving || row.resetting"
+                    class="text-destructive focus:text-destructive"
+                    @select="resetRow(row)"
+                  >
+                    <RotateCcw class="h-4 w-4" />
+                    {{ t('statuses.reset') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         </TableBody>

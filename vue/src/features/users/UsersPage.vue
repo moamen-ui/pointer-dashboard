@@ -14,10 +14,11 @@ import {
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, UserCheck, UserRound } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, UserCheck, UserRound, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -41,7 +42,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
+import { formatRequestedAt } from '@/lib/formatRequestedAt';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -219,12 +227,9 @@ async function reject(user: UserResponse) {
   }
 }
 
-function formatDate(value: unknown): string {
-  if (!value) return '—';
-  const d = new Date(value as string);
-  return Number.isNaN(d.getTime())
-    ? '—'
-    : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+function requestedAt(user: UserResponse): string | null {
+  // createdAt lands in UserResponse with the next client publish; narrow cast until then
+  return (user as { createdAt?: string | null }).createdAt ?? null;
 }
 </script>
 
@@ -309,7 +314,7 @@ function formatDate(value: unknown): string {
               <span v-else>{{ user.roleName }}</span>
             </TableCell>
             <TableCell v-if="filter !== 'Approved'">
-              {{ formatDate((user as any).createdAt) }}
+              {{ formatRequestedAt(requestedAt(user)) }}
             </TableCell>
             <TableCell>
               <span :class="cn('chip', user.isActive ? 'chip-active' : 'chip-disabled')">
@@ -317,42 +322,46 @@ function formatDate(value: unknown): string {
               </span>
             </TableCell>
             <TableCell>
-              <div class="flex items-center gap-2">
-                <Button
-                  v-if="filter === 'Approved'"
-                  :variant="user.isActive ? 'destructive' : 'default'"
-                  size="sm"
-                  :disabled="loading"
-                  @click="toggleActive(user)"
-                >
-                  <component :is="user.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
-                  {{ user.isActive ? t('common.disable') : t('common.enable') }}
-                </Button>
-                <template v-else>
-                  <Button size="sm" :disabled="loading" @click="openApprove(user)">
-                    <UserCheck class="h-4 w-4" /> {{ t('users.approve') }}
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <span class="sr-only">{{ t('users.actions') }}</span>
+                    <EllipsisVertical class="h-4 w-4" />
                   </Button>
-                  <Button
-                    v-if="filter === 'Pending'"
-                    variant="destructive"
-                    size="sm"
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    v-if="filter === 'Approved'"
                     :disabled="loading"
-                    @click="reject(user)"
+                    :class="user.isActive ? 'text-destructive focus:text-destructive' : undefined"
+                    @select="toggleActive(user)"
                   >
-                    <Ban class="h-4 w-4" /> {{ t('users.reject') }}
-                  </Button>
-                </template>
-                <!-- View profile link — always shown for approved users -->
-                <Button
-                  v-if="filter === 'Approved'"
-                  variant="outline"
-                  size="sm"
-                  @click="router.push(`/users/${user.id}/profile`)"
-                >
-                  <UserRound class="h-4 w-4" />
-                  {{ t('profile.viewProfile') }}
-                </Button>
-              </div>
+                    <component :is="user.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
+                    {{ user.isActive ? t('common.disable') : t('common.enable') }}
+                  </DropdownMenuItem>
+                  <template v-else>
+                    <DropdownMenuItem :disabled="loading" @select="openApprove(user)">
+                      <UserCheck class="h-4 w-4" /> {{ t('users.approve') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      v-if="filter === 'Pending'"
+                      :disabled="loading"
+                      class="text-destructive focus:text-destructive"
+                      @select="reject(user)"
+                    >
+                      <Ban class="h-4 w-4" /> {{ t('users.reject') }}
+                    </DropdownMenuItem>
+                  </template>
+                  <!-- View profile link — always shown for approved users -->
+                  <DropdownMenuItem
+                    v-if="filter === 'Approved'"
+                    @select="router.push(`/users/${user.id}/profile`)"
+                  >
+                    <UserRound class="h-4 w-4" />
+                    {{ t('profile.viewProfile') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         </TableBody>
@@ -377,7 +386,7 @@ function formatDate(value: unknown): string {
         </div>
         <div class="flex flex-col gap-2">
           <Label for="u-pass">{{ t('users.password') }}</Label>
-          <Input id="u-pass" v-model="addForm.password" type="password" />
+          <PasswordInput id="u-pass" v-model="addForm.password" />
         </div>
         <div class="flex flex-col gap-2">
           <Label>{{ t('users.role') }}</Label>

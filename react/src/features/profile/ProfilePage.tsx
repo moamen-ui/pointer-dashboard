@@ -65,7 +65,7 @@ function StatusBar({ project, catalog }: { project: ProfileProject; catalog: Ret
               width: `${(count / total) * 100}%`,
               backgroundColor: s.color ?? '#6b7280',
             }}
-            title={`${s.label}: ${count}`}
+            title={`${catalog.displayLabel(s)}: ${count}`}
           />
         ) : null,
       )}
@@ -228,7 +228,7 @@ export function ProfilePage() {
                   {getTotalsStatusCount(totals, s.value)}
                 </div>
                 <div className="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-                  {s.label}
+                  {catalog.displayLabel(s)}
                 </div>
               </div>
             </CardContent>
@@ -248,7 +248,7 @@ export function ProfilePage() {
                 <TableHead>{t('profile.replies')}</TableHead>
                 {catalog.items.map((s) => (
                   <TableHead key={s.value} style={{ color: s.color ?? undefined }}>
-                    {s.label}
+                    {catalog.displayLabel(s)}
                   </TableHead>
                 ))}
               </TableRow>
@@ -348,7 +348,7 @@ export function ProfilePage() {
                           color: s.color ?? undefined,
                         }}
                       >
-                        {s.label}: {count}
+                        {catalog.displayLabel(s)}: {count}
                       </span>
                     ) : null;
                   })}

@@ -126,12 +126,25 @@ interface BrandingForm {
                     <p class="m-0 font-medium">{{ asset.labelKey | transloco }}</p>
                     <p class="m-0 text-xs text-muted">{{ asset.hintKey | transloco }}</p>
                   </div>
-                  @if (assetUrl(asset.kind)) {
-                    <img [src]="assetUrl(asset.kind)!" [alt]="asset.kind"
-                      class="max-h-[48px] max-w-[96px] rounded border border-app-border object-contain bg-gray-100 dark:bg-gray-800" />
-                  } @else {
-                    <span class="text-xs text-muted italic">{{ 'branding.usingDefault' | transloco }}</span>
-                  }
+                  <!-- Always preview what is currently in use: the uploaded asset when
+                       there is one, otherwise the built-in mark the app falls back to
+                       (same pin glyph as the header) — so the tile is never empty. -->
+                  <div class="flex flex-col items-center gap-1">
+                    <div class="flex h-[48px] w-[96px] items-center justify-center gap-1 overflow-hidden rounded border border-app-border bg-gray-100 px-1.5 dark:bg-gray-800">
+                      @if (assetUrl(asset.kind)) {
+                        <img [src]="assetUrl(asset.kind)!" [alt]="asset.kind"
+                          class="max-h-full max-w-full object-contain" />
+                      } @else {
+                        <mat-icon class="rotate-45 text-brand">push_pin</mat-icon>
+                        @if (asset.kind === 'logo') {
+                          <span class="truncate text-[11px] font-bold">{{ branding.productName() }}</span>
+                        }
+                      }
+                    </div>
+                    @if (!assetUrl(asset.kind)) {
+                      <span class="text-[11px] italic text-muted">{{ 'branding.usingDefault' | transloco }}</span>
+                    }
+                  </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <input #fileInput type="file" [accept]="asset.accept" class="hidden"
@@ -163,7 +176,9 @@ export class BrandingComponent {
   private apiBranding = inject(ApiBrandingService);
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
-  private brandingService = inject(BrandingService);
+  // Public: the template previews the built-in mark (product name) for assets
+  // that have no upload yet.
+  readonly branding = inject(BrandingService);
 
   readonly assetKinds = ASSET_KINDS;
 
@@ -219,7 +234,7 @@ export class BrandingComponent {
       next: () => {
         this.saving.set(false);
         this.snack.open(this.transloco.translate('branding.saved'), 'OK', { duration: 3000 });
-        this.brandingService.refresh();
+        this.branding.refresh();
         this.brandingResource.reload();
       },
       error: (err: unknown) => {
@@ -244,7 +259,7 @@ export class BrandingComponent {
         this.uploadingKind.set(null);
         input.value = '';
         this.snack.open(this.transloco.translate('branding.uploaded'), 'OK', { duration: 3000 });
-        this.brandingService.refresh();
+        this.branding.refresh();
         this.brandingResource.reload();
       },
       error: (err: unknown) => {
@@ -261,7 +276,7 @@ export class BrandingComponent {
       next: () => {
         this.deletingKind.set(null);
         this.snack.open(this.transloco.translate('branding.resetDone'), 'OK', { duration: 3000 });
-        this.brandingService.refresh();
+        this.branding.refresh();
         this.brandingResource.reload();
       },
       error: (err: unknown) => {

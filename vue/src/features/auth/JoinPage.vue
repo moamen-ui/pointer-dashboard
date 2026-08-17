@@ -11,6 +11,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/composables/useAuth';
 import { extractMessage } from '@/lib/error';
@@ -138,10 +139,9 @@ async function onSubmit() {
             <!-- Password -->
             <div class="flex flex-col gap-2">
               <Label for="join-password">{{ t('invite.password') }}</Label>
-              <Input
+              <PasswordInput
                 id="join-password"
                 v-model="password"
-                type="password"
                 autocomplete="new-password"
                 minlength="8"
                 required
@@ -151,10 +151,9 @@ async function onSubmit() {
             <!-- Confirm password -->
             <div class="flex flex-col gap-2">
               <Label for="join-confirm">{{ t('invite.confirmPassword') }}</Label>
-              <Input
+              <PasswordInput
                 id="join-confirm"
                 v-model="confirmPassword"
-                type="password"
                 autocomplete="new-password"
                 minlength="8"
                 required

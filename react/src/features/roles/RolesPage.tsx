@@ -13,7 +13,7 @@ import {
   getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Pencil, Ban, CheckCircle2, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,10 +40,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
+
+// Compact switch for table cells — a full-size switch overpowers the row, so
+// the track runs at ~2/3 scale (28×16px track, 12px thumb). Scoped to this
+// page; switches elsewhere keep the default size.
+function SmallSwitch({
+  checked,
+  disabled,
+  onCheckedChange,
+  label,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onCheckedChange(!checked)}
+      className={cn(
+        'inline-flex h-4 w-7 items-center rounded-full p-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
+        checked ? 'bg-primary' : 'bg-input',
+      )}
+    >
+      <span
+        className={cn(
+          'block h-3 w-3 rounded-full bg-background shadow-sm transition-transform',
+          checked
+            ? 'translate-x-[14px] rtl:-translate-x-[14px]'
+            : 'translate-x-0.5 rtl:-translate-x-0.5',
+        )}
+      />
+    </button>
+  );
+}
 
 export function RolesPage() {
   const { t } = useTranslation();
@@ -208,12 +253,11 @@ export function RolesPage() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-[var(--brand,currentColor)] disabled:opacity-50"
+                  <SmallSwitch
                     checked={!!role.grantsAdmin}
                     disabled={role.isSystem}
-                    onChange={(e) => toggleGrantsAdmin(role, e.target.checked)}
+                    onCheckedChange={(checked) => toggleGrantsAdmin(role, checked)}
+                    label={t('roles.grantsAdmin')}
                   />
                 </TableCell>
                 <TableCell>
@@ -223,24 +267,39 @@ export function RolesPage() {
                 </TableCell>
                 <TableCell>
                   {!role.isSystem && (
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openRename(role)}>
-                        <Pencil className="h-4 w-4" />
-                        {t('common.rename')}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleActive(role)}
-                      >
-                        {role.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                        {t(role.isActive ? 'common.disable' : 'common.enable')}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openDelete(role)}>
-                        <Trash2 className="h-4 w-4" />
-                        {t('roles.delete')}
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <EllipsisVertical className="h-4 w-4" />
+                          <span className="sr-only">{t('roles.actions')}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      {/* Compact row menu — slightly wider panel, shorter items. */}
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => openRename(role)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {t('common.rename')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => toggleActive(role)}
+                          className={cn(
+                            role.isActive && 'text-destructive focus:text-destructive',
+                          )}
+                        >
+                          {role.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                          {t(role.isActive ? 'common.disable' : 'common.enable')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() => openDelete(role)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {t('roles.delete')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </TableCell>
               </TableRow>

@@ -11,6 +11,7 @@ import {
   getGetApiStatusesQueryKey,
   type StatusAdminItem,
 } from '@moamen-ui/pointer-react';
+import { EllipsisVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
@@ -168,32 +175,36 @@ export function StatusesPage() {
                   </TableCell>
                   <TableCell>
                     <Input
-                      className="w-36"
+                      className="w-[132px]"
                       value={row.label}
                       maxLength={64}
                       onChange={(e) => setField(val, 'label', e.target.value)}
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    {/* Swatch + hex are one control: a single bordered box that
+                        lights up on focus, with the native picker inside it. */}
+                    <div className="inline-flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
                       <input
                         type="color"
+                        aria-label={t('statuses.colColor')}
                         value={row.color}
                         onChange={(e) => setField(val, 'color', e.target.value)}
-                        className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                        className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0"
                       />
-                      <Input
-                        className="w-28 font-mono text-xs"
+                      <input
                         value={row.color}
+                        maxLength={7}
                         pattern="^#[0-9a-fA-F]{6}$"
                         onChange={(e) => setField(val, 'color', e.target.value)}
+                        className="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-xs outline-none"
                       />
                     </div>
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
-                      className="w-20"
+                      className="w-16"
                       min={0}
                       value={row.order}
                       onChange={(e) =>
@@ -202,25 +213,31 @@ export function StatusesPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        disabled={isBusy || !row.label.trim()}
-                        onClick={() => save(val)}
-                      >
-                        {t('statuses.save')}
-                      </Button>
-                      {status.isOverridden && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isBusy}
-                          onClick={() => setResetTarget(status)}
-                        >
-                          {t('statuses.reset')}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <EllipsisVertical className="h-4 w-4" />
+                          <span className="sr-only">{t('statuses.colActions')}</span>
                         </Button>
-                      )}
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          disabled={isBusy || !row.label.trim()}
+                          onSelect={() => save(val)}
+                        >
+                          {t('statuses.save')}
+                        </DropdownMenuItem>
+                        {status.isOverridden && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            disabled={isBusy}
+                            onSelect={() => setResetTarget(status)}
+                          >
+                            {t('statuses.reset')}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );

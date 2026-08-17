@@ -8,7 +8,7 @@ import {
   postApiAdminBrandingAssetKind,
   deleteApiAdminBrandingAssetKind,
 } from '@moamen-ui/pointer-react';
-import { Upload, RotateCcw, ImageIcon, Palette } from 'lucide-react';
+import { Upload, RotateCcw, Pin, Palette } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,13 +113,14 @@ function dataToForm(d: BrandingData): FormState {
 interface AssetWidgetProps {
   meta: AssetMeta;
   currentUrl: string | null;
+  productName: string;
   onUpload: (kind: AssetKind, file: File) => Promise<void>;
   onReset: (kind: AssetKind) => Promise<void>;
   uploading: boolean;
   resetting: boolean;
 }
 
-function AssetWidget({ meta, currentUrl, onUpload, onReset, uploading, resetting }: AssetWidgetProps) {
+function AssetWidget({ meta, currentUrl, productName, onUpload, onReset, uploading, resetting }: AssetWidgetProps) {
   const { t } = useTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -162,7 +163,8 @@ function AssetWidget({ meta, currentUrl, onUpload, onReset, uploading, resetting
         </div>
       </div>
 
-      {/* Preview */}
+      {/* Preview — always shows the current image: the uploaded asset when
+          there is one, otherwise the built-in mark the header falls back to. */}
       {currentUrl ? (
         <div className="flex h-16 w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30 p-2">
           <img
@@ -172,9 +174,16 @@ function AssetWidget({ meta, currentUrl, onUpload, onReset, uploading, resetting
           />
         </div>
       ) : (
-        <div className="flex h-16 items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/30 text-xs text-muted-foreground">
-          <ImageIcon className="h-4 w-4" />
-          {t('branding.usingDefault')}
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 items-center justify-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-2">
+            <Pin className="h-5 w-5 rotate-45 text-brand" />
+            {meta.kind === 'logo' && (
+              <span className="truncate text-[11px] font-bold">{productName}</span>
+            )}
+          </div>
+          <span className="text-xs italic text-muted-foreground">
+            {t('branding.usingDefault')}
+          </span>
         </div>
       )}
 
@@ -194,7 +203,7 @@ function AssetWidget({ meta, currentUrl, onUpload, onReset, uploading, resetting
 export function BrandingPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { refresh } = useBranding();
+  const { branding, refresh } = useBranding();
 
   // Local admin branding state (separate from public branding store)
   const [adminData, setAdminData] = useState<BrandingData | null>(null);
@@ -394,6 +403,7 @@ export function BrandingPage() {
               key={meta.kind}
               meta={meta}
               currentUrl={adminData?.assets?.[meta.kind] ?? null}
+              productName={branding?.productName ?? 'Pointer'}
               onUpload={handleUpload}
               onReset={handleReset}
               uploading={uploadingKind === meta.kind}

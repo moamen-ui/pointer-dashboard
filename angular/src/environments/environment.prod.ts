@@ -4,4 +4,10 @@
 export const environment = {
   production: true,
   apiBase: 'https://api.pointer.moamen.work',
+  // Dogfoods the Pointer widget on the dashboard itself, pointed at the same API (apiBase).
+  pointerFeedback: {
+    enabled: true,
+    project: 'pointer-dashboard',
+    environment: 'production',
+  },
 };

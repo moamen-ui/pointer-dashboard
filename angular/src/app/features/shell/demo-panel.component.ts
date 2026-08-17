@@ -10,6 +10,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { DemoService, UpgradeDemoResponse } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 interface DemoSession {
   email?: string | null;
@@ -49,6 +50,7 @@ const DEMO_SESSION_KEY = 'pointer_demo';
     MatFormFieldModule,
     MatInputModule,
     TranslocoModule,
+    PasswordToggleComponent,
   ],
   template: `
     @if (session(); as s) {
@@ -131,11 +133,13 @@ const DEMO_SESSION_KEY = 'pointer_demo';
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'demo.password' | transloco }}</mat-label>
-            <input matInput type="password" formControlName="password" />
+            <input matInput [type]="pwToggle.type()" formControlName="password" />
+            <app-password-toggle matSuffix #pwToggle />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'demo.confirmPassword' | transloco }}</mat-label>
-            <input matInput type="password" formControlName="confirmPassword" />
+            <input matInput [type]="confirmPwToggle.type()" formControlName="confirmPassword" />
+            <app-password-toggle matSuffix #confirmPwToggle />
           </mat-form-field>
           @if (upgradeForm.errors?.['passwordMismatch'] && upgradeForm.get('confirmPassword')?.dirty) {
             <p class="m-0 text-[0.85rem] text-red-600">{{ 'demo.passwordMismatch' | transloco }}</p>

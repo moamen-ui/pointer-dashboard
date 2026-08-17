@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { usePostApiAuthResetPassword } from '@moamen-ui/pointer-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { extractMessage } from '@/lib/error';
 
@@ -82,9 +82,8 @@ export function ResetPasswordPage() {
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="new-password">{t('auth.newPassword')}</Label>
-              <Input
+              <PasswordInput
                 id="new-password"
-                type="password"
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => {
@@ -97,9 +96,8 @@ export function ResetPasswordPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
-              <Input
+              <PasswordInput
                 id="confirm-password"
-                type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => {

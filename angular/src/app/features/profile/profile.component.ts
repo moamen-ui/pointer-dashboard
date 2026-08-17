@@ -77,7 +77,7 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
               </div>
               <div>
                 <div class="text-[1.5rem] font-bold leading-[1.1]" [style.color]="st.color">{{ totalForStatus(p, st.value) }}</div>
-                <div class="text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ st.label }}</div>
+                <div class="text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ statusCatalog.displayLabel(st) }}</div>
               </div>
             </mat-card-content>
           </mat-card>
@@ -103,7 +103,7 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
                     @for (st of statusCatalog.ordered(); track st.value) {
                       <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.78rem] font-semibold"
                         [style.background-color]="st.color + '22'" [style.color]="st.color">
-                        {{ st.label }}: {{ projStatusValue(proj, st.value) }}
+                        {{ statusCatalog.displayLabel(st) }}: {{ projStatusValue(proj, st.value) }}
                       </span>
                     }
                     <!-- Replies always separate -->
@@ -136,7 +136,7 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
                             @for (st of statusCatalog.ordered(); track st.value) {
                               <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
                                 [style.background-color]="st.color + '22'" [style.color]="st.color">
-                                {{ st.label }}: {{ envStatusValue(env, st.value) }}
+                                {{ statusCatalog.displayLabel(st) }}: {{ envStatusValue(env, st.value) }}
                               </span>
                             }
                             <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[0.75rem] font-semibold text-muted dark:bg-slate-800">

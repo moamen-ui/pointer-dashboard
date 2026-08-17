@@ -9,7 +9,7 @@ import {
   deleteApiAdminBrandingAssetKind,
   type PostApiAdminBrandingAssetKindBody,
 } from '@moamen-ui/pointer-vue';
-import { Upload, RotateCcw, ImageOff } from 'lucide-vue-next';
+import { Upload, RotateCcw, Pin } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -294,19 +294,25 @@ async function deleteAsset(kind: AssetKind) {
             <p class="text-xs text-muted-foreground">{{ t(meta.hintKey) }}</p>
           </div>
 
-          <!-- Preview -->
-          <div class="flex h-20 items-center justify-center rounded-md border border-dashed border-border bg-muted/30">
+          <!-- Preview — always shows the current image (uploaded asset or bundled default) -->
+          <div class="flex h-12 items-center justify-center rounded-md border border-border bg-muted/30 px-3">
             <img
               v-if="assetUrls[meta.kind]"
               :src="assetUrls[meta.kind]!"
               :alt="t(meta.labelKey)"
-              class="max-h-16 max-w-full object-contain"
+              class="max-h-10 max-w-full object-contain"
             />
-            <div v-else class="flex flex-col items-center gap-1 text-muted-foreground">
-              <ImageOff class="h-6 w-6" />
-              <span class="text-xs">{{ t('branding.usingDefault') }}</span>
+            <!-- Bundled default: the header's fallback brand mark -->
+            <div v-else class="flex items-center gap-2">
+              <Pin class="h-5 w-5 rotate-45 text-brand" />
+              <span v-if="meta.kind === 'logo'" class="text-sm font-bold">
+                {{ form.productName || 'Pointer' }}
+              </span>
             </div>
           </div>
+          <p v-if="!assetUrls[meta.kind]" class="text-xs text-muted-foreground">
+            {{ t('branding.usingDefault') }}
+          </p>
 
           <!-- Actions -->
           <div class="flex gap-2">

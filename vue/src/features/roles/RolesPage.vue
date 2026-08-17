@@ -10,7 +10,7 @@ import {
   getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Pencil, Ban, CheckCircle2, Trash2 } from 'lucide-vue-next';
+import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
@@ -211,9 +217,11 @@ async function deleteRole() {
               </span>
             </TableCell>
             <TableCell>
+              <!-- Compact switch for the table cell (~28×16 track, 12px thumb) -->
               <Switch
                 :model-value="role.grantsAdmin"
                 :disabled="role.isSystem"
+                class="h-4 w-7 [&_span]:h-3 [&_span]:w-3 [&_span[data-state=checked]]:translate-x-3 rtl:[&_span[data-state=checked]]:-translate-x-3"
                 @update:model-value="(v: boolean) => toggleGrantsAdmin(role, v)"
               />
             </TableCell>
@@ -223,22 +231,34 @@ async function deleteRole() {
               </span>
             </TableCell>
             <TableCell>
-              <div v-if="!role.isSystem" class="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" @click="renameRole(role)">
-                  <Pencil class="h-4 w-4" /> {{ t('common.rename') }}
-                </Button>
-                <Button
-                  :variant="role.isActive ? 'destructive' : 'default'"
-                  size="sm"
-                  @click="toggleActive(role)"
-                >
-                  <component :is="role.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
-                  {{ role.isActive ? t('common.disable') : t('common.enable') }}
-                </Button>
-                <Button variant="destructive" size="sm" @click="openDelete(role)">
-                  <Trash2 class="h-4 w-4" /> {{ t('roles.delete') }}
-                </Button>
-              </div>
+              <DropdownMenu v-if="!role.isSystem">
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <span class="sr-only">{{ t('roles.actions') }}</span>
+                    <EllipsisVertical class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @select="renameRole(role)">
+                    <Pencil class="h-4 w-4" /> {{ t('common.rename') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    :class="cn(
+                      role.isActive ? 'text-destructive focus:text-destructive' : undefined,
+                    )"
+                    @select="toggleActive(role)"
+                  >
+                    <component :is="role.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
+                    {{ role.isActive ? t('common.disable') : t('common.enable') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    class="text-destructive focus:text-destructive"
+                    @select="openDelete(role)"
+                  >
+                    <Trash2 class="h-4 w-4" /> {{ t('roles.delete') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         </TableBody>

@@ -96,8 +96,17 @@ export function Shell() {
         <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
-        <Button variant="ghost" size="sm" onClick={toggleLanguage}>
-          {language === 'ar' ? 'EN' : 'ع'}
+        {/* Icon-button footprint: a text button pads a 1–2 character label out
+            with dead space, so this runs square like its neighbours. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleLanguage}
+          aria-label={t('header.language')}
+        >
+          <span className="text-[0.85rem] font-semibold leading-none">
+            {language === 'ar' ? 'EN' : 'ع'}
+          </span>
         </Button>
         <Button variant="outline" size="sm" onClick={signOut}>
           <LogOut className="h-4 w-4" />

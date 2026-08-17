@@ -10,6 +10,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { PlansService, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
@@ -77,6 +78,7 @@ function emptyEntitlementsForm(): EntitlementsForm {
     MatCheckboxModule,
     MatSlideToggleModule,
     MatIconModule,
+    MatMenuModule,
     MatDialogModule,
     MatTooltipModule,
     TranslocoModule,
@@ -138,14 +140,18 @@ function emptyEntitlementsForm(): EntitlementsForm {
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'plans.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let p">
-              <div class="flex flex-wrap gap-2">
-                <button mat-stroked-button (click)="openEdit(p)">
+              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'plans.actions' | transloco">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu">
+                <button mat-menu-item (click)="openEdit(p)">
                   <mat-icon>edit</mat-icon> {{ 'plans.edit' | transloco }}
                 </button>
-                <button mat-stroked-button color="warn" (click)="confirmDelete(p)">
-                  <mat-icon>delete</mat-icon> {{ 'plans.delete' | transloco }}
+                <button mat-menu-item class="!text-red-600" (click)="confirmDelete(p)">
+                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'plans.delete' | transloco }}
                 </button>
-              </div>
+              </mat-menu>
             </td>
           </ng-container>
 

@@ -33,7 +33,13 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, Copy, Link2Off } from 'lucide-vue-next';
+import { PlusCircle, Trash2, Copy, Link2Off, EllipsisVertical } from 'lucide-vue-next';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { toast } from '@/composables/useToast';
 
@@ -532,25 +538,25 @@ async function onRejectSuggestion(s: SuggestionResponse) {
                   <td class="py-2 pr-4">{{ formatDate(inv.expiresAt) }}</td>
                   <td class="py-2 pr-4">{{ inv.uses ?? 0 }} / {{ inv.maxUses ?? '∞' }}</td>
                   <td class="py-2">
-                    <div class="flex items-center gap-1">
-                      <Button
-                        v-if="inv.url"
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        @click="copyUrl(inv.url!)"
-                      >
-                        <Copy class="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        @click="onRevoke(inv.id!)"
-                      >
-                        <Link2Off class="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger as-child>
+                        <Button type="button" variant="ghost" size="icon">
+                          <span class="sr-only">{{ t('users.actions') }}</span>
+                          <EllipsisVertical class="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem v-if="inv.url" @select="copyUrl(inv.url!)">
+                          <Copy class="h-4 w-4" /> {{ t('invite.copy') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          class="text-destructive focus:text-destructive"
+                          @select="onRevoke(inv.id!)"
+                        >
+                          <Link2Off class="h-4 w-4" /> {{ t('invite.revoke') }}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               </tbody>

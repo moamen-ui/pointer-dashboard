@@ -30,7 +30,7 @@ import {
   usePostApiAdminPredefinedActionSuggestionsIdReject,
   type SuggestionResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle, EllipsisVertical } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
 
@@ -150,30 +156,32 @@ function SuggestionsCard() {
                     {s.prompt ?? '—'}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-green-600 dark:text-green-400"
-                        onClick={() => approveMut.mutate({ id: s.id! })}
-                        disabled={approveMut.isPending}
-                        type="button"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        {t('suggestions.approve')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive"
-                        onClick={() => rejectMut.mutate({ id: s.id! })}
-                        disabled={rejectMut.isPending}
-                        type="button"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        {t('suggestions.reject')}
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" type="button">
+                          <EllipsisVertical className="h-4 w-4" />
+                          <span className="sr-only">{t('users.actions')}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          className="text-green-600 focus:text-green-600 dark:text-green-400 dark:focus:text-green-400"
+                          onSelect={() => approveMut.mutate({ id: s.id! })}
+                          disabled={approveMut.isPending}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          {t('suggestions.approve')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => rejectMut.mutate({ id: s.id! })}
+                          disabled={rejectMut.isPending}
+                        >
+                          <XCircle className="h-4 w-4" />
+                          {t('suggestions.reject')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
@@ -386,27 +394,31 @@ function InviteCard() {
                   <TableCell>
                     {inv.uses ?? 0}/{inv.maxUses ?? '∞'}
                   </TableCell>
-                  <TableCell className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyUrl(inv.url ?? '')}
-                      disabled={!inv.url}
-                      type="button"
-                    >
-                      <Copy className="h-4 w-4" />
-                      {t('invite.copy')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => revokeMut.mutate({ id: inv.id! })}
-                      disabled={revokeMut.isPending}
-                      type="button"
-                    >
-                      {t('invite.revoke')}
-                    </Button>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" type="button">
+                          <EllipsisVertical className="h-4 w-4" />
+                          <span className="sr-only">{t('users.actions')}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => copyUrl(inv.url ?? '')}
+                          disabled={!inv.url}
+                        >
+                          <Copy className="h-4 w-4" />
+                          {t('invite.copy')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => revokeMut.mutate({ id: inv.id! })}
+                          disabled={revokeMut.isPending}
+                        >
+                          {t('invite.revoke')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

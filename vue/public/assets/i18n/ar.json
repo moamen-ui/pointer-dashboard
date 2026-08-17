@@ -16,7 +16,9 @@
     "confirm": "تأكيد",
     "or": "أو",
     "edit": "تعديل",
-    "loading": "جارٍ التحميل"
+    "loading": "جارٍ التحميل",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور"
   },
   "demo": {
     "tryDemo": "جرّب العرض التوضيحي",
@@ -74,7 +76,8 @@
   "header": {
     "brand": "Pointer لوحة الإدارة",
     "signOut": "تسجيل الخروج",
-    "menu": "القائمة"
+    "menu": "القائمة",
+    "language": "اللغة"
   },
   "login": {
     "title": "Pointer لوحة الإدارة",
@@ -215,7 +218,13 @@
     "savedError": "فشل حفظ الحالة.",
     "resetOk": "تمت إعادة تعيين الحالة إلى الافتراضي.",
     "resetError": "فشلت إعادة تعيين الحالة.",
-    "loadError": "فشل تحميل الحالات."
+    "loadError": "فشل تحميل الحالات.",
+    "builtin": {
+      "Open": "مفتوح",
+      "ReadyToApply": "جاهز للتطبيق",
+      "Applied": "مكتمل",
+      "Archived": "مؤرشف"
+    }
   },
   "profile": {
     "projects": "المشاريع",

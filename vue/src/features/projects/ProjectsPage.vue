@@ -16,7 +16,7 @@ import {
   type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
@@ -355,71 +361,71 @@ function openViewPrompts(project: ProjectResponse) {
                 {{ t(project.isActive ? 'common.active' : 'common.disabled') }}
               </span>
             </TableCell>
-            <TableCell class="flex flex-wrap items-center gap-2">
-              <Button
-                :variant="project.isActive ? 'destructive' : 'default'"
-                size="sm"
-                :disabled="loading"
-                @click="toggleActive(project)"
-              >
-                <component :is="project.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
-                {{ project.isActive ? t('common.disable') : t('common.enable') }}
-              </Button>
-              <!-- Edit: only when canEdit -->
-              <Button
-                v-if="project.canEdit"
-                variant="outline"
-                size="sm"
-                :disabled="loading"
-                @click="openEdit(project)"
-              >
-                <Pencil class="h-4 w-4" /> {{ t('projects.edit') }}
-              </Button>
-              <!-- View prompts (read-only): when !canEdit -->
-              <Button
-                v-if="!project.canEdit"
-                variant="outline"
-                size="sm"
-                :disabled="loading"
-                @click="openViewPrompts(project)"
-              >
-                <Pencil class="h-4 w-4" /> {{ t('projects.viewPrompts') }}
-              </Button>
-              <!-- Suggest prompt: when !canEdit -->
-              <Button
-                v-if="!project.canEdit"
-                variant="outline"
-                size="sm"
-                :disabled="loading"
-                @click="openSuggest(project)"
-              >
-                <PlusCircle class="h-4 w-4" /> {{ t('projects.suggest') }}
-              </Button>
-              <!-- Delete: when canDelete (enabled), or disabled with tooltip when !canDelete -->
-              <Button
-                v-if="project.canDelete"
-                variant="destructive"
-                size="sm"
-                :disabled="loading"
-                @click="confirmDelete(project)"
-              >
-                <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
-              </Button>
-              <Button
-                v-else
-                variant="outline"
-                size="sm"
-                disabled
-                :title="t('projects.deleteBlockedComments')"
-              >
-                <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
-              </Button>
-              <Button variant="outline" size="sm" :disabled="loading" @click="exportProject(project)">
-                <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
-              </Button>
-              <Button v-if="isSuperAdmin" variant="outline" size="sm" :disabled="loading" @click="openImport(project)">
-                <Upload class="h-4 w-4" /> {{ t('exportImport.import') }}
-              </Button>
+            <TableCell>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <span class="sr-only">{{ t('projects.actions') }}</span>
+                    <EllipsisVertical class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    :disabled="loading"
+                    :class="project.isActive ? 'text-destructive focus:text-destructive' : undefined"
+                    @select="toggleActive(project)"
+                  >
+                    <component :is="project.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
+                    {{ project.isActive ? t('common.disable') : t('common.enable') }}
+                  </DropdownMenuItem>
+                  <!-- Edit: only when canEdit -->
+                  <DropdownMenuItem
+                    v-if="project.canEdit"
+                    :disabled="loading"
+                    @select="openEdit(project)"
+                  >
+                    <Pencil class="h-4 w-4" /> {{ t('projects.edit') }}
+                  </DropdownMenuItem>
+                  <!-- View prompts (read-only): when !canEdit -->
+                  <DropdownMenuItem
+                    v-if="!project.canEdit"
+                    :disabled="loading"
+                    @select="openViewPrompts(project)"
+                  >
+                    <Pencil class="h-4 w-4" /> {{ t('projects.viewPrompts') }}
+                  </DropdownMenuItem>
+                  <!-- Suggest prompt: when !canEdit -->
+                  <DropdownMenuItem
+                    v-if="!project.canEdit"
+                    :disabled="loading"
+                    @select="openSuggest(project)"
+                  >
+                    <PlusCircle class="h-4 w-4" /> {{ t('projects.suggest') }}
+                  </DropdownMenuItem>
+                  <!-- Delete: when canDelete (enabled), or disabled with tooltip when !canDelete -->
+                  <DropdownMenuItem
+                    v-if="project.canDelete"
+                    :disabled="loading"
+                    class="text-destructive focus:text-destructive"
+                    @select="confirmDelete(project)"
+                  >
+                    <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem v-else disabled :title="t('projects.deleteBlockedComments')">
+                    <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem :disabled="loading" @select="exportProject(project)">
+                    <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="isSuperAdmin"
+                    :disabled="loading"
+                    @select="openImport(project)"
+                  >
+                    <Upload class="h-4 w-4" /> {{ t('exportImport.import') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         </TableBody>

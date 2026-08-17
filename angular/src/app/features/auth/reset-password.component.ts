@@ -9,6 +9,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService as ApiAuthService, ResetPasswordRequest } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const newPwd = control.get('newPassword');
@@ -20,7 +21,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
 @Component({
   selector: 'app-reset-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
+  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -35,14 +36,16 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
             <mat-form-field appearance="outline">
               <mat-label>{{ 'auth.newPassword' | transloco }}</mat-label>
-              <input matInput type="password" formControlName="newPassword" />
+              <input matInput [type]="newPwToggle.type()" formControlName="newPassword" />
+              <app-password-toggle matSuffix #newPwToggle />
               @if (form.get('newPassword')?.hasError('minlength')) {
                 <mat-error>{{ 'auth.newPassword' | transloco }} (min 8)</mat-error>
               }
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>{{ 'auth.confirmPassword' | transloco }}</mat-label>
-              <input matInput type="password" formControlName="confirmPassword" />
+              <input matInput [type]="confirmPwToggle.type()" formControlName="confirmPassword" />
+              <app-password-toggle matSuffix #confirmPwToggle />
               @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
                 <mat-error>{{ 'auth.confirmPassword' | transloco }}</mat-error>
               }

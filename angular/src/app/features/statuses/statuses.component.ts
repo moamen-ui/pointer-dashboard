@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { StatusesService, getApiAdminStatusesResource } from '@moamen-ui/pointer-angular';
@@ -34,6 +35,7 @@ interface StatusRow {
     MatInputModule,
     MatFormFieldModule,
     MatIconModule,
+    MatMenuModule,
     MatTooltipModule,
     TranslocoModule,
   ],
@@ -65,7 +67,7 @@ interface StatusRow {
           <ng-container matColumnDef="label">
             <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colLabel' | transloco }}</th>
             <td mat-cell *matCellDef="let row; let i = index">
-              <mat-form-field appearance="outline" class="dense-field w-44">
+              <mat-form-field appearance="outline" class="dense-field w-[132px]">
                 <input
                   matInput
                   [(ngModel)]="rows()[i].label"
@@ -80,22 +82,25 @@ interface StatusRow {
           <ng-container matColumnDef="color">
             <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colColor' | transloco }}</th>
             <td mat-cell *matCellDef="let row; let i = index">
-              <div class="flex items-center gap-2">
+              <!-- Swatch + hex are one control: a single bordered box that lights up
+                   on focus, with the native picker sitting inside it. -->
+              <div
+                class="inline-flex h-10 w-[124px] items-center gap-1.5 rounded border border-app-border ps-1.5 pe-2 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand"
+              >
                 <input
                   type="color"
+                  class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
                   [value]="rows()[i].color"
                   (input)="onColorPicker(i, $event)"
-                  class="h-9 w-10 cursor-pointer rounded border border-app-border bg-transparent p-0.5"
+                  [attr.aria-label]="'statuses.colColor' | transloco"
                 />
-                <mat-form-field appearance="outline" class="dense-field w-28">
-                  <input
-                    matInput
-                    [(ngModel)]="rows()[i].color"
-                    placeholder="#rrggbb"
-                    pattern="^#[0-9a-fA-F]{6}$"
-                    maxlength="7"
-                  />
-                </mat-form-field>
+                <input
+                  class="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-xs text-ink outline-none"
+                  [(ngModel)]="rows()[i].color"
+                  placeholder="#rrggbb"
+                  pattern="^#[0-9a-fA-F]{6}$"
+                  maxlength="7"
+                />
               </div>
             </td>
           </ng-container>
@@ -104,7 +109,7 @@ interface StatusRow {
           <ng-container matColumnDef="order">
             <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colOrder' | transloco }}</th>
             <td mat-cell *matCellDef="let row; let i = index">
-              <mat-form-field appearance="outline" class="dense-field w-24">
+              <mat-form-field appearance="outline" class="dense-field w-16">
                 <input
                   matInput
                   type="number"
@@ -120,10 +125,13 @@ interface StatusRow {
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colActions' | transloco }}</th>
             <td mat-cell *matCellDef="let row; let i = index">
-              <div class="flex flex-wrap gap-2">
+              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'statuses.colActions' | transloco">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu">
                 <button
-                  mat-flat-button
-                  color="primary"
+                  mat-menu-item
                   [disabled]="row.saving || row.resetting || !isRowValid(row)"
                   (click)="save(i)"
                 >
@@ -131,16 +139,16 @@ interface StatusRow {
                   {{ row.saving ? ('statuses.saving' | transloco) : ('statuses.save' | transloco) }}
                 </button>
                 <button
-                  mat-stroked-button
-                  color="warn"
+                  mat-menu-item
+                  class="!text-red-600"
                   [disabled]="row.saving || row.resetting || !row.item.isOverridden"
                   [matTooltip]="!row.item.isOverridden ? ('statuses.noOverrides' | transloco) : ''"
                   (click)="confirmReset(i)"
                 >
-                  <mat-icon>restart_alt</mat-icon>
+                  <mat-icon class="!text-red-600">restart_alt</mat-icon>
                   {{ row.resetting ? ('statuses.resetting' | transloco) : ('statuses.reset' | transloco) }}
                 </button>
-              </div>
+              </mat-menu>
             </td>
           </ng-container>
 
@@ -155,6 +163,13 @@ interface StatusRow {
       --mdc-outlined-text-field-container-height: 40px;
     }
     .dense-field .mat-mdc-form-field-subscript-wrapper { display: none; }
+
+    /* Native colour input: drop the browser's chrome so it reads as a plain
+       swatch inside the merged colour control. */
+    .color-swatch { appearance: none; -webkit-appearance: none; }
+    .color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+    .color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+    .color-swatch::-moz-color-swatch { border: none; border-radius: 3px; }
   `],
 })
 export class StatusesComponent {

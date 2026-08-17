@@ -22,7 +22,7 @@ import {
   type PredefinedActionInput,
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, EllipsisVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -380,103 +386,82 @@ export function ProjectsPage() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Edit — only when canEdit */}
-                    {project.canEdit && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEdit(project, false)}
-                      >
-                        {t('projects.edit')}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <EllipsisVertical className="h-4 w-4" />
+                        <span className="sr-only">{t('projects.actions')}</span>
                       </Button>
-                    )}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {/* Edit — only when canEdit */}
+                      {project.canEdit && (
+                        <DropdownMenuItem onSelect={() => openEdit(project, false)}>
+                          {t('projects.edit')}
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* View predefined prompts — read-only when !canEdit */}
-                    {!project.canEdit && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEdit(project, true)}
-                      >
-                        <Eye className="h-4 w-4" />
-                        {t('projects.viewPrompts')}
-                      </Button>
-                    )}
+                      {/* View predefined prompts — read-only when !canEdit */}
+                      {!project.canEdit && (
+                        <DropdownMenuItem onSelect={() => openEdit(project, true)}>
+                          <Eye className="h-4 w-4" />
+                          {t('projects.viewPrompts')}
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Suggest prompt — only when !canEdit */}
-                    {!project.canEdit && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openSuggest(project)}
-                      >
-                        <MessageSquarePlus className="h-4 w-4" />
-                        {t('projects.suggest')}
-                      </Button>
-                    )}
+                      {/* Suggest prompt — only when !canEdit */}
+                      {!project.canEdit && (
+                        <DropdownMenuItem onSelect={() => openSuggest(project)}>
+                          <MessageSquarePlus className="h-4 w-4" />
+                          {t('projects.suggest')}
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Enable / disable — admin only */}
-                    {isAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleActive(project)}
-                        disabled={toggleMut.isPending}
-                      >
-                        {project.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                        {t(project.isActive ? 'common.disable' : 'common.enable')}
-                      </Button>
-                    )}
+                      {/* Enable / disable — admin only */}
+                      {isAdmin && (
+                        <DropdownMenuItem
+                          onSelect={() => toggleActive(project)}
+                          disabled={toggleMut.isPending}
+                          className={cn(
+                            project.isActive && 'text-destructive focus:text-destructive',
+                          )}
+                        >
+                          {project.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                          {t(project.isActive ? 'common.disable' : 'common.enable')}
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Export */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExport(project)}
-                    >
-                      <Download className="h-4 w-4" />
-                      {t('exportImport.export')}
-                    </Button>
+                      {/* Export */}
+                      <DropdownMenuItem onSelect={() => handleExport(project)}>
+                        <Download className="h-4 w-4" />
+                        {t('exportImport.export')}
+                      </DropdownMenuItem>
 
-                    {/* Import — super-admin only */}
-                    {isSuperAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openImport(project)}
-                      >
-                        <Upload className="h-4 w-4" />
-                        {t('exportImport.import')}
-                      </Button>
-                    )}
+                      {/* Import — super-admin only */}
+                      {isSuperAdmin && (
+                        <DropdownMenuItem onSelect={() => openImport(project)}>
+                          <Upload className="h-4 w-4" />
+                          {t('exportImport.import')}
+                        </DropdownMenuItem>
+                      )}
 
-                    {/* Delete — canDelete shows enabled; !canDelete shows disabled with tooltip */}
-                    {project.canDelete ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleteProject(project)}
-                        disabled={deleteMut.isPending}
+                      {/* Delete — canDelete shows enabled; !canDelete shows disabled with tooltip */}
+                      <DropdownMenuItem
+                        onSelect={() => setDeleteProject(project)}
+                        disabled={!project.canDelete || deleteMut.isPending}
+                        title={!project.canDelete ? t('projects.deleteBlockedComments') : undefined}
+                        className={cn(
+                          'text-destructive focus:text-destructive',
+                          // Radix still blocks selection when disabled; keep pointer
+                          // events so the blocked-delete tooltip remains visible.
+                          !project.canDelete && 'data-[disabled]:pointer-events-auto',
+                        )}
                       >
                         <Trash2 className="h-4 w-4" />
                         {t('projects.delete')}
-                      </Button>
-                    ) : (
-                      <span title={t('projects.deleteBlockedComments')}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive opacity-50 cursor-not-allowed"
-                          disabled
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {t('projects.delete')}
-                        </Button>
-                      </span>
-                    )}
-                  </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

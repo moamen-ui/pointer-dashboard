@@ -10,6 +10,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
@@ -159,10 +160,9 @@ async function onSubmit() {
           </div>
           <div class="flex flex-col gap-2">
             <Label for="signup-password">{{ t('signup.password') }}</Label>
-            <Input
+            <PasswordInput
               id="signup-password"
               v-model="password"
-              type="password"
               autocomplete="new-password"
               required
             />

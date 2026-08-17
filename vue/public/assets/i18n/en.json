@@ -16,7 +16,9 @@
     "confirm": "Confirm",
     "or": "or",
     "edit": "Edit",
-    "loading": "Loading"
+    "loading": "Loading",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "demo": {
     "tryDemo": "Try the demo",
@@ -74,7 +76,8 @@
   "header": {
     "brand": "Pointer Admin",
     "signOut": "Sign out",
-    "menu": "Menu"
+    "menu": "Menu",
+    "language": "Language"
   },
   "login": {
     "title": "Pointer Admin",
@@ -215,7 +218,13 @@
     "savedError": "Failed to save status.",
     "resetOk": "Status reset to defaults.",
     "resetError": "Failed to reset status.",
-    "loadError": "Failed to load statuses."
+    "loadError": "Failed to load statuses.",
+    "builtin": {
+      "Open": "Open",
+      "ReadyToApply": "Ready",
+      "Applied": "Completed",
+      "Archived": "Archived"
+    }
   },
   "profile": {
     "projects": "Projects",

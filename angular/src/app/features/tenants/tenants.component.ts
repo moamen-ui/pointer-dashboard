@@ -9,12 +9,14 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { TenantsService, getApiAdminTenantsResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
 import type { TenantResponse, PlanAdminResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 @Component({
   selector: 'app-tenants',
@@ -28,9 +30,11 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
+    MatMenuModule,
     MatDialogModule,
     MatTooltipModule,
     TranslocoModule,
+    PasswordToggleComponent,
   ],
   template: `
     <div class="p-6">
@@ -115,39 +119,43 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'tenants.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let t">
-              <div class="flex flex-wrap gap-2">
+              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'tenants.actions' | transloco">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu">
                 @if (t.approvalStatus !== 'approved') {
-                  <button mat-stroked-button color="primary" (click)="setStatus(t, 'approve')">
+                  <button mat-menu-item (click)="setStatus(t, 'approve')">
                     <mat-icon>check_circle</mat-icon> {{ 'tenants.approve' | transloco }}
                   </button>
                 }
                 @if (t.isActive) {
-                  <button mat-stroked-button color="warn" (click)="setStatus(t, 'disable')">
-                    <mat-icon>block</mat-icon> {{ 'common.disable' | transloco }}
+                  <button mat-menu-item class="!text-red-600" (click)="setStatus(t, 'disable')">
+                    <mat-icon class="!text-red-600">block</mat-icon> {{ 'common.disable' | transloco }}
                   </button>
                 } @else {
-                  <button mat-stroked-button color="primary" (click)="setStatus(t, 'enable')">
+                  <button mat-menu-item (click)="setStatus(t, 'enable')">
                     <mat-icon>check_circle</mat-icon> {{ 'common.enable' | transloco }}
                   </button>
                 }
-                <button mat-stroked-button color="warn" (click)="openDelete(t)">
-                  <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                <button mat-menu-item class="!text-red-600" (click)="openDelete(t)">
+                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
                 </button>
-                <button mat-stroked-button (click)="openChangePlan(t)">
+                <button mat-menu-item (click)="openChangePlan(t)">
                   <mat-icon>swap_horiz</mat-icon> {{ 'tenants.changePlan' | transloco }}
                 </button>
                 @if (t.isDemo) {
-                  <button mat-stroked-button
+                  <button mat-menu-item
                     [disabled]="t.demoExtended"
                     [matTooltip]="t.demoExtended ? ('tenants.extendOnce' | transloco) : ''"
                     (click)="extendDemo(t)">
                     <mat-icon>schedule</mat-icon> {{ 'tenants.extend' | transloco }}
                   </button>
-                  <button mat-stroked-button (click)="openDemoConfig(t)">
+                  <button mat-menu-item (click)="openDemoConfig(t)">
                     <mat-icon>tune</mat-icon> {{ 'tenants.editDemoConfig' | transloco }}
                   </button>
                 }
-              </div>
+              </mat-menu>
             </td>
           </ng-container>
 
@@ -172,7 +180,8 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'tenants.password' | transloco }}</mat-label>
-            <input matInput type="password" [(ngModel)]="newPassword" />
+            <input matInput [type]="pwToggle.type()" [(ngModel)]="newPassword" />
+            <app-password-toggle matSuffix #pwToggle />
           </mat-form-field>
         </div>
       </mat-dialog-content>

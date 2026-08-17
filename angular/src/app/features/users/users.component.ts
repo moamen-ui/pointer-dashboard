@@ -18,6 +18,7 @@ import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angul
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import type { UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
@@ -40,6 +41,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     MatMenuModule,
     MatDialogModule,
     TranslocoModule,
+    PasswordToggleComponent,
   ],
   template: `
     <div class="p-6">
@@ -101,7 +103,9 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
           <ng-container matColumnDef="requested">
             <th mat-header-cell *matHeaderCellDef>{{ 'overview.requested' | transloco }}</th>
-            <td mat-cell *matCellDef="let user">{{ $any(user).createdAt ? ($any(user).createdAt | date:'mediumDate') : '—' }}</td>
+            <!-- createdAt = when access was requested. The API returns it; the generated
+                 client only declares it from the next publish on, hence the cast. -->
+            <td mat-cell *matCellDef="let user">{{ $any(user).createdAt ? ($any(user).createdAt | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
           </ng-container>
 
           <ng-container matColumnDef="status">
@@ -116,47 +120,49 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let user">
-              @if (filter() === 'Approved') {
-                <div class="flex items-center gap-2">
-                  <button mat-stroked-button [color]="user.isActive ? 'warn' : 'primary'"
-                    (click)="toggleActive(user)" [disabled]="loading()">
-                    <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'users.actions' | transloco">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu">
+                @if (filter() === 'Approved') {
+                  <button mat-menu-item (click)="toggleActive(user)" [disabled]="loading()"
+                    [class.!text-red-600]="user.isActive">
+                    <mat-icon [class.!text-red-600]="user.isActive">{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
                     {{ user.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
                   </button>
-                  <a mat-stroked-button [routerLink]="['/users', user.id, 'profile']">
+                  <a mat-menu-item [routerLink]="['/users', user.id, 'profile']">
                     <mat-icon>person</mat-icon>
                     {{ 'profile.viewProfile' | transloco }}
                   </a>
-                </div>
-              } @else {
-                <div class="flex items-center gap-2">
-                  <button mat-flat-button color="primary" [matMenuTriggerFor]="approveMenu"
+                } @else {
+                  <button mat-menu-item [matMenuTriggerFor]="approveMenu"
                     (menuOpened)="approveSelection[user.id!] = user.roleId" [disabled]="loading()">
                     <mat-icon>how_to_reg</mat-icon> {{ 'users.approve' | transloco }}
                   </button>
-                  <mat-menu #approveMenu="matMenu">
-                    <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                        <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
-                        <mat-select [(value)]="approveSelection[user.id!]">
-                          @for (r of activeRoles(); track r.id) {
-                            <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
-                      <button mat-flat-button color="primary" class="w-full"
-                        (click)="approve(user)" [disabled]="loading()">
-                        {{ 'users.confirm' | transloco }}
-                      </button>
-                    </div>
-                  </mat-menu>
                   @if (filter() === 'Pending') {
-                    <button mat-stroked-button color="warn" (click)="reject(user)" [disabled]="loading()">
-                      <mat-icon>block</mat-icon> {{ 'users.reject' | transloco }}
+                    <button mat-menu-item class="!text-red-600" (click)="reject(user)" [disabled]="loading()">
+                      <mat-icon class="!text-red-600">block</mat-icon> {{ 'users.reject' | transloco }}
                     </button>
                   }
+                }
+              </mat-menu>
+              <mat-menu #approveMenu="matMenu">
+                <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                    <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
+                    <mat-select [(value)]="approveSelection[user.id!]">
+                      @for (r of activeRoles(); track r.id) {
+                        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <button mat-flat-button color="primary" class="w-full"
+                    (click)="approve(user)" [disabled]="loading()">
+                    {{ 'users.confirm' | transloco }}
+                  </button>
                 </div>
-              }
+              </mat-menu>
             </td>
           </ng-container>
 
@@ -181,7 +187,8 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'users.password' | transloco }}</mat-label>
-            <input matInput type="password" formControlName="password" />
+            <input matInput [type]="pwToggle.type()" formControlName="password" />
+            <app-password-toggle matSuffix #pwToggle />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'users.role' | transloco }}</mat-label>

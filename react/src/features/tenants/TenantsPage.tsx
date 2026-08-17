@@ -18,10 +18,11 @@ import {
   type TenantResponse,
   type PlanAdminResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, EllipsisVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -45,6 +46,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -323,79 +330,76 @@ export function TenantsPage() {
                   {tenant.isDemo ? formatExpiry(tenant.expiresAt) : '—'}
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-2">
-                    {tenant.approvalStatus === 'pending' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={patchMut.isPending}
-                        onClick={() => setStatus(tenant, 'approve')}
-                      >
-                        <ShieldCheck className="h-4 w-4" />
-                        {t('tenants.approve')}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <EllipsisVertical className="h-4 w-4" />
+                        <span className="sr-only">{t('tenants.actions')}</span>
                       </Button>
-                    )}
-                    {tenant.isActive ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={patchMut.isPending}
-                        onClick={() => setStatus(tenant, 'disable')}
-                      >
-                        <Ban className="h-4 w-4" />
-                        {t('common.disable')}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={patchMut.isPending}
-                        onClick={() => setStatus(tenant, 'enable')}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        {t('common.enable')}
-                      </Button>
-                    )}
-                    {tenant.isDemo && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={extendMut.isPending || tenant.demoExtended === true}
-                          title={tenant.demoExtended ? t('tenants.extendOnce') : undefined}
-                          onClick={() => extendMut.mutate({ id: tenant.id! })}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {tenant.approvalStatus === 'pending' && (
+                        <DropdownMenuItem
+                          disabled={patchMut.isPending}
+                          onSelect={() => setStatus(tenant, 'approve')}
                         >
-                          <Clock className="h-4 w-4" />
-                          {t('tenants.extend')}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDemoConfig(tenant)}
+                          <ShieldCheck className="h-4 w-4" />
+                          {t('tenants.approve')}
+                        </DropdownMenuItem>
+                      )}
+                      {tenant.isActive ? (
+                        <DropdownMenuItem
+                          disabled={patchMut.isPending}
+                          onSelect={() => setStatus(tenant, 'disable')}
+                          className="text-destructive focus:text-destructive"
                         >
-                          <Settings2 className="h-4 w-4" />
-                          {t('tenants.editDemoConfig')}
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openChangePlan(tenant)}
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      {t('tenants.changePlan')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={deleteMut.isPending}
-                      onClick={() => setDeleteTarget(tenant)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {t('tenants.delete')}
-                    </Button>
-                  </div>
+                          <Ban className="h-4 w-4" />
+                          {t('common.disable')}
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          disabled={patchMut.isPending}
+                          onSelect={() => setStatus(tenant, 'enable')}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          {t('common.enable')}
+                        </DropdownMenuItem>
+                      )}
+                      {tenant.isDemo && (
+                        <>
+                          <DropdownMenuItem
+                            disabled={extendMut.isPending || tenant.demoExtended === true}
+                            title={tenant.demoExtended ? t('tenants.extendOnce') : undefined}
+                            className={cn(
+                              // Radix still blocks selection when disabled; keep pointer
+                              // events so the extend-once tooltip remains visible.
+                              tenant.demoExtended === true && 'data-[disabled]:pointer-events-auto',
+                            )}
+                            onSelect={() => extendMut.mutate({ id: tenant.id! })}
+                          >
+                            <Clock className="h-4 w-4" />
+                            {t('tenants.extend')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openDemoConfig(tenant)}>
+                            <Settings2 className="h-4 w-4" />
+                            {t('tenants.editDemoConfig')}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuItem onSelect={() => openChangePlan(tenant)}>
+                        <CreditCard className="h-4 w-4" />
+                        {t('tenants.changePlan')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={deleteMut.isPending}
+                        onSelect={() => setDeleteTarget(tenant)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('tenants.delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -469,9 +473,8 @@ export function TenantsPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="tenant-password">{t('tenants.password')}</Label>
-              <Input
+              <PasswordInput
                 id="tenant-password"
-                type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />

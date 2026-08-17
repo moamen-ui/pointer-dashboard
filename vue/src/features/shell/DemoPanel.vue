@@ -7,6 +7,7 @@ import { clearDemoSession, getDemoSession } from '@/lib/demoSession';
 import { usePostApiDemoUpgrade } from '@moamen-ui/pointer-vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/composables/useAuth';
 import { toast } from '@/composables/useToast';
@@ -297,11 +298,11 @@ async function submitUpgrade() {
         </div>
         <div class="flex flex-col gap-2">
           <Label for="upg-pw">{{ t('demo.password') }}</Label>
-          <Input id="upg-pw" v-model="upgradeForm.password" type="password" autocomplete="new-password" />
+          <PasswordInput id="upg-pw" v-model="upgradeForm.password" autocomplete="new-password" />
         </div>
         <div class="flex flex-col gap-2">
           <Label for="upg-cpw">{{ t('demo.confirmPassword') }}</Label>
-          <Input id="upg-cpw" v-model="upgradeForm.confirmPassword" type="password" autocomplete="new-password" />
+          <PasswordInput id="upg-cpw" v-model="upgradeForm.confirmPassword" autocomplete="new-password" />
         </div>
         <div class="flex flex-col gap-2">
           <Label for="upg-dn">{{ t('demo.displayName') }}</Label>

@@ -22,7 +22,7 @@ import { useStatusCatalog } from '@/composables/useStatusCatalog';
 const { t } = useI18n();
 const route = useRoute();
 const { isAdmin } = useAuth();
-const { color: statusColor, label: statusLabel } = useStatusCatalog();
+const { color: statusColor, displayLabelFor: statusLabel } = useStatusCatalog();
 
 // Determine if this is an admin viewing another user's profile.
 const routeId = computed(() => {

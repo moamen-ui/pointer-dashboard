@@ -1,7 +1,8 @@
 // Status catalog hook — wraps useGetApiStatuses and exposes ordered items
-// plus label() / color() helpers.  Falls back to hardcoded values while the
-// network request is in flight or if the server returns nothing.
+// plus label() / color() / displayLabel() helpers.  Falls back to hardcoded
+// values while the network request is in flight or if the server returns nothing.
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGetApiStatuses, type StatusItem } from '@moamen-ui/pointer-react';
 
 export const STATUS_FALLBACK: StatusItem[] = [
@@ -11,6 +12,9 @@ export const STATUS_FALLBACK: StatusItem[] = [
   { value: 4, name: 'Archived', label: 'Archived', color: '#6b7280', order: 4 },
 ];
 
+/** Built-in English default labels, keyed by status name. */
+const BUILTIN_LABELS = new Map(STATUS_FALLBACK.map((s) => [s.name ?? '', s.label ?? '']));
+
 export interface StatusCatalog {
   /** Statuses sorted by `order`. */
   items: StatusItem[];
@@ -18,9 +22,13 @@ export interface StatusCatalog {
   label: (value: number | undefined) => string;
   /** CSS hex color for a numeric status value. */
   color: (value: number | undefined) => string;
+  /** Localized label for readers: admin-overridden labels pass through verbatim,
+   *  built-ins translate via statuses.builtin.<name>, others fall back to label/name. */
+  displayLabel: (status: StatusItem) => string;
 }
 
 export function useStatusCatalog(): StatusCatalog {
+  const { t } = useTranslation();
   const { data } = useGetApiStatuses();
 
   return useMemo<StatusCatalog>(() => {
@@ -39,6 +47,14 @@ export function useStatusCatalog(): StatusCatalog {
       return byValue.get(value)?.color ?? '#6b7280';
     }
 
-    return { items, label, color };
-  }, [data]);
+    function displayLabel(status: StatusItem): string {
+      const name = status.name ?? '';
+      const label = status.label || name;
+      if (!label) return '—';
+      if (BUILTIN_LABELS.get(name) !== label) return label;
+      return t(`statuses.builtin.${name}`, { defaultValue: label });
+    }
+
+    return { items, label, color, displayLabel };
+  }, [data, t]);
 }

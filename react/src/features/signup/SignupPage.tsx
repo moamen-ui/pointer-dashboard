@@ -17,6 +17,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
@@ -207,9 +208,8 @@ export function SignupPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="signup-password">{t('signup.password')}</Label>
-                <Input
+                <PasswordInput
                   id="signup-password"
-                  type="password"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

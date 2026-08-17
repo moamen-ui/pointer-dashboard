@@ -15,7 +15,7 @@ import {
   BillingInterval,
   PlanDisplayState,
 } from '@moamen-ui/pointer-react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, EllipsisVertical } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -417,21 +423,28 @@ export function PlansPage() {
                 </TableCell>
                 <TableCell>{plan.activeSubscriptions ?? 0}</TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEdit(plan)}>
-                      <Pencil className="h-4 w-4" />
-                      {t('common.rename')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={deleteMut.isPending}
-                      onClick={() => setDeleteTarget(plan)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {t('plans.delete')}
-                    </Button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <EllipsisVertical className="h-4 w-4" />
+                        <span className="sr-only">{t('tenants.actions')}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => openEdit(plan)}>
+                        <Pencil className="h-4 w-4" />
+                        {t('common.rename')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={deleteMut.isPending}
+                        onSelect={() => setDeleteTarget(plan)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('plans.delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

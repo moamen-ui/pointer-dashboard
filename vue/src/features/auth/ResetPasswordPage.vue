@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n';
 import { usePostApiAuthResetPassword } from '@moamen-ui/pointer-vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { extractMessage } from '@/lib/error';
 
@@ -70,10 +70,9 @@ async function onSubmit() {
         <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
           <div class="flex flex-col gap-2">
             <Label for="new-password">{{ t('auth.newPassword') }}</Label>
-            <Input
+            <PasswordInput
               id="new-password"
               v-model="newPassword"
-              type="password"
               autocomplete="new-password"
               minlength="8"
               required
@@ -81,10 +80,9 @@ async function onSubmit() {
           </div>
           <div class="flex flex-col gap-2">
             <Label for="confirm-password">{{ t('auth.confirmPassword') }}</Label>
-            <Input
+            <PasswordInput
               id="confirm-password"
               v-model="confirmPassword"
-              type="password"
               autocomplete="new-password"
               minlength="8"
               required

@@ -16,10 +16,11 @@ import {
   useGetApiAdminPlans,
   usePatchApiAdminTenantsIdPlan,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard } from 'lucide-vue-next';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Table,
@@ -43,6 +44,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
@@ -320,57 +327,54 @@ async function saveChangePlan() {
               </div>
             </TableCell>
             <TableCell>
-              <div class="flex flex-wrap gap-2">
-                <Button
-                  v-if="tenant.approvalStatus !== 'approved'"
-                  variant="default"
-                  size="sm"
-                  @click="approveTenant(tenant)"
-                >
-                  <ShieldCheck class="h-4 w-4" /> {{ t('tenants.approve') }}
-                </Button>
-                <Button
-                  v-if="tenant.isActive"
-                  variant="destructive"
-                  size="sm"
-                  @click="disableTenant(tenant)"
-                >
-                  <Ban class="h-4 w-4" /> {{ t('common.disable') }}
-                </Button>
-                <Button
-                  v-else
-                  variant="default"
-                  size="sm"
-                  @click="enableTenant(tenant)"
-                >
-                  <CheckCircle2 class="h-4 w-4" /> {{ t('common.enable') }}
-                </Button>
-                <Button variant="destructive" size="sm" @click="doDelete(tenant)">
-                  <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
-                </Button>
-                <Button variant="outline" size="sm" @click="openChangePlan(tenant)">
-                  <CreditCard class="h-4 w-4" /> {{ t('tenants.changePlan') }}
-                </Button>
-                <!-- Demo-only actions -->
-                <template v-if="(tenant as any).isDemo">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="(tenant as any).demoExtended"
-                    :title="(tenant as any).demoExtended ? t('tenants.extendOnce') : undefined"
-                    @click="doExtend(tenant)"
-                  >
-                    <Clock class="h-4 w-4" /> {{ t('tenants.extend') }}
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <span class="sr-only">{{ t('tenants.actions') }}</span>
+                    <EllipsisVertical class="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    @click="openDemoConfig(tenant)"
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    v-if="tenant.approvalStatus !== 'approved'"
+                    @select="approveTenant(tenant)"
                   >
-                    <Settings2 class="h-4 w-4" /> {{ t('tenants.editDemoConfig') }}
-                  </Button>
-                </template>
-              </div>
+                    <ShieldCheck class="h-4 w-4" /> {{ t('tenants.approve') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="tenant.isActive"
+                    class="text-destructive focus:text-destructive"
+                    @select="disableTenant(tenant)"
+                  >
+                    <Ban class="h-4 w-4" /> {{ t('common.disable') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem v-else @select="enableTenant(tenant)">
+                    <CheckCircle2 class="h-4 w-4" /> {{ t('common.enable') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    class="text-destructive focus:text-destructive"
+                    @select="doDelete(tenant)"
+                  >
+                    <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @select="openChangePlan(tenant)">
+                    <CreditCard class="h-4 w-4" /> {{ t('tenants.changePlan') }}
+                  </DropdownMenuItem>
+                  <!-- Demo-only actions -->
+                  <template v-if="(tenant as any).isDemo">
+                    <DropdownMenuItem
+                      :disabled="(tenant as any).demoExtended"
+                      :title="(tenant as any).demoExtended ? t('tenants.extendOnce') : undefined"
+                      @select="doExtend(tenant)"
+                    >
+                      <Clock class="h-4 w-4" /> {{ t('tenants.extend') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem @select="openDemoConfig(tenant)">
+                      <Settings2 class="h-4 w-4" /> {{ t('tenants.editDemoConfig') }}
+                    </DropdownMenuItem>
+                  </template>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         </TableBody>
@@ -399,7 +403,7 @@ async function saveChangePlan() {
         </div>
         <div class="flex flex-col gap-2">
           <Label for="tenant-password">{{ t('tenants.password') }}</Label>
-          <Input id="tenant-password" v-model="newPassword" type="password" />
+          <PasswordInput id="tenant-password" v-model="newPassword" />
         </div>
       </div>
       <DialogFooter>

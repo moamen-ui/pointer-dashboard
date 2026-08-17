@@ -10,7 +10,7 @@ import {
   getGetApiAdminPlansQueryKey,
   type PlanWriteDto as ApiPlanWriteDto,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Pencil, Trash2 } from 'lucide-vue-next';
+import { Plus, Pencil, Trash2, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
@@ -326,19 +332,26 @@ watch(bulletsRef, (v) => {
             </TableCell>
             <TableCell>{{ plan.activeSubscriptions ?? 0 }}</TableCell>
             <TableCell>
-              <div class="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" @click="openEdit(plan)">
-                  <Pencil class="h-4 w-4" /> {{ t('common.edit') }}
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  :disabled="deletePlan.isPending.value"
-                  @click="doDelete(plan)"
-                >
-                  <Trash2 class="h-4 w-4" /> {{ t('plans.delete') }}
-                </Button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="ghost" size="icon">
+                    <span class="sr-only">{{ t('tenants.actions') }}</span>
+                    <EllipsisVertical class="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @select="openEdit(plan)">
+                    <Pencil class="h-4 w-4" /> {{ t('common.edit') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    :disabled="deletePlan.isPending.value"
+                    class="text-destructive focus:text-destructive"
+                    @select="doDelete(plan)"
+                  >
+                    <Trash2 class="h-4 w-4" /> {{ t('plans.delete') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </TableCell>
           </TableRow>
         </TableBody>

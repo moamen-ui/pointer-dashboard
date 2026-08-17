@@ -13,7 +13,9 @@
     "yes": "نعم",
     "no": "لا",
     "confirmDisable": "تعطيل {{ name }}؟",
-    "confirm": "تأكيد"
+    "confirm": "تأكيد",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور"
   },
   "nav": {
     "overview": "نظرة عامة",
@@ -30,7 +32,8 @@
   "header": {
     "brand": "Pointer لوحة الإدارة",
     "signOut": "تسجيل الخروج",
-    "menu": "القائمة"
+    "menu": "القائمة",
+    "language": "اللغة"
   },
   "login": {
     "title": "Pointer لوحة الإدارة",
@@ -229,7 +232,13 @@
     "saveSuccess": "تم حفظ الحالة.",
     "saveError": "فشل حفظ الحالة.",
     "resetSuccess": "تمت إعادة ضبط الحالة إلى الإعدادات الافتراضية.",
-    "resetError": "فشل إعادة ضبط الحالة."
+    "resetError": "فشل إعادة ضبط الحالة.",
+    "builtin": {
+      "Open": "مفتوح",
+      "ReadyToApply": "جاهز للتطبيق",
+      "Applied": "مكتمل",
+      "Archived": "مؤرشف"
+    }
   },
   "tenants": {
     "title": "المستأجرون",

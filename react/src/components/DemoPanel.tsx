@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
@@ -362,9 +363,8 @@ export function DemoPanel() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="upgrade-password">{t('demo.password')}</Label>
-              <Input
+              <PasswordInput
                 id="upgrade-password"
-                type="password"
                 autoComplete="new-password"
                 value={upgradePassword}
                 onChange={(e) => setUpgradePassword(e.target.value)}
@@ -372,9 +372,8 @@ export function DemoPanel() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="upgrade-confirm-password">{t('demo.confirmPassword')}</Label>
-              <Input
+              <PasswordInput
                 id="upgrade-confirm-password"
-                type="password"
                 autoComplete="new-password"
                 value={upgradeConfirmPassword}
                 onChange={(e) => setUpgradeConfirmPassword(e.target.value)}

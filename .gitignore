@@ -29,3 +29,7 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Pointer apply-tool credentials (AI agent login for the feedback queue) — keep the example
+.pointer/
+!.pointer/credentials.env.example

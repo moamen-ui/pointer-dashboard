@@ -6,6 +6,7 @@ import { usePostApiDemo, type DemoSessionResponse } from '@moamen-ui/pointer-vue
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/composables/useAuth';
 import { setDemoSession } from '@/lib/demoSession';
@@ -102,10 +103,9 @@ async function onTryDemo() {
           </div>
           <div class="flex flex-col gap-2">
             <Label for="password">{{ t('login.password') }}</Label>
-            <Input
+            <PasswordInput
               id="password"
               v-model="password"
-              type="password"
               autocomplete="current-password"
               required
             />

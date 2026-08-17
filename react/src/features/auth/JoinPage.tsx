@@ -12,6 +12,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { setAuthHeader } from '@/lib/api';
 import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
@@ -174,9 +175,8 @@ function JoinForm({ code }: { code: string }) {
             {/* Password */}
             <div className="flex flex-col gap-2">
               <Label htmlFor="join-password">{t('invite.password')}</Label>
-              <Input
+              <PasswordInput
                 id="join-password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => {
@@ -190,9 +190,8 @@ function JoinForm({ code }: { code: string }) {
             {/* Confirm password */}
             <div className="flex flex-col gap-2">
               <Label htmlFor="join-confirm-password">{t('invite.confirmPassword')}</Label>
-              <Input
+              <PasswordInput
                 id="join-confirm-password"
-                type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => {

@@ -77,7 +77,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
               </div>
               <div class="flex flex-col">
                 <div class="text-[1.7rem] font-bold leading-[1.1]" [style.color]="st.color">{{ statusTotal(s, st.value) }}</div>
-                <div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ st.label }}</div>
+                <div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ statusCatalog.displayLabel(st) }}</div>
               </div>
             </mat-card-content>
           </mat-card>
@@ -105,7 +105,10 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
                       <span>{{ u.email }}</span>
                       <span class="chip chip-neutral">{{ u.roleName }}</span>
                       @if ($any(u).createdAt) {
-                        <span class="text-[0.8rem]">{{ $any(u).createdAt | date:'mediumDate' }}</span>
+                        <span class="text-[0.8rem]">
+                          {{ 'overview.requested' | transloco }}:
+                          {{ $any(u).createdAt | date:'dd-MM-yyyy HH:mm' }}
+                        </span>
                       }
                     </div>
                   </div>
@@ -177,7 +180,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
           <!-- Status columns driven by catalog -->
           @for (st of statusCatalog.ordered(); track st.value) {
             <ng-container [matColumnDef]="'status_' + st.value">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header [style.color]="st.color">{{ st.label }}</th>
+              <th mat-header-cell *matHeaderCellDef mat-sort-header [style.color]="st.color">{{ statusCatalog.displayLabel(st) }}</th>
               <td mat-cell *matCellDef="let row" [style.color]="st.color" class="font-medium">{{ statusCellValue(row, st.value) }}</td>
             </ng-container>
           }

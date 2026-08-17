@@ -91,6 +91,7 @@ html {
   --chip-off-fg: #c62828;
   --chip-neutral-bg: #eef2f7;
   --chip-neutral-fg: #475569;
+  --table-header-bg: #f1f5f9; // filled <thead> so it separates from the body rows
 }
 
 body {
@@ -129,6 +130,7 @@ html.dark {
   --chip-off-fg: #fca5a5;
   --chip-neutral-bg: rgba(148, 163, 184, 0.18);
   --chip-neutral-fg: #cbd5e1;
+  --table-header-bg: #1b2431;
 }
 
 html.dark body {
@@ -150,5 +152,36 @@ html.dark body {
 .chip-active { background: var(--chip-ok-bg); color: var(--chip-ok-fg); }
 .chip-disabled { background: var(--chip-off-bg); color: var(--chip-off-fg); }
 .chip-neutral { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
+
+/* Data-table headers get a filled background so they read as a header band and
+   not as another body row. Material renders the background on the cells, so the
+   row + cells are both painted (the row alone is covered by the cells). */
+.mat-mdc-table .mat-mdc-header-row {
+  background: var(--table-header-bg);
+}
+.mat-mdc-table .mat-mdc-header-cell {
+  background: var(--table-header-bg);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Compact overlay menus — every mat-menu panel app-wide: slightly wider panel,
+   shorter and smaller items. Menu panels render in the CDK overlay, outside any
+   component's view encapsulation, so this has to be a global rule. */
+.mat-mdc-menu-panel {
+  min-width: 200px;
+}
+.mat-mdc-menu-panel .mat-mdc-menu-item {
+  min-height: 34px;
+  padding-block: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.mat-mdc-menu-panel .mat-mdc-menu-item .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  margin-inline-end: 8px;
+}
 
 /* You can add global styles to this file, and also import other style files */

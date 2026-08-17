@@ -10,6 +10,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
@@ -28,6 +29,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     MatFormFieldModule,
     MatCheckboxModule,
     MatIconModule,
+    MatMenuModule,
     MatDialogModule,
     MatSelectModule,
     TranslocoModule,
@@ -57,6 +59,8 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.grantsAdmin' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
               <mat-slide-toggle
+                class="dense-toggle"
+                hideIcon
                 [checked]="role.grantsAdmin"
                 [disabled]="role.isSystem"
                 (change)="toggleGrantsAdmin(role, $event.checked)"
@@ -77,22 +81,23 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
               @if (!role.isSystem) {
-                <div class="flex flex-wrap gap-2">
-                  <button mat-stroked-button (click)="renameRole(role)">
+                <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                  [attr.aria-label]="'roles.actions' | transloco">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #rowMenu="matMenu">
+                  <button mat-menu-item (click)="renameRole(role)">
                     <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
                   </button>
-                  <button
-                    mat-stroked-button
-                    [color]="role.isActive ? 'warn' : 'primary'"
-                    (click)="toggleActive(role)"
-                  >
-                    <mat-icon>{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  <button mat-menu-item (click)="toggleActive(role)"
+                    [class.!text-red-600]="role.isActive">
+                    <mat-icon [class.!text-red-600]="role.isActive">{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
                     {{ role.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
                   </button>
-                  <button mat-stroked-button color="warn" (click)="openDelete(role)">
-                    <mat-icon>delete</mat-icon> {{ 'roles.delete' | transloco }}
+                  <button mat-menu-item class="!text-red-600" (click)="openDelete(role)">
+                    <mat-icon class="!text-red-600">delete</mat-icon> {{ 'roles.delete' | transloco }}
                   </button>
-                </div>
+                </mat-menu>
               }
             </td>
           </ng-container>
@@ -175,6 +180,27 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
       </mat-dialog-actions>
     </ng-template>
   `,
+  // A full-size M3 switch overpowers a table cell, so the in-table toggle runs at
+  // ~2/3 scale. Every size token is scaled by the same factor (52px track → 36px)
+  // so the handle keeps its travel and stays centred in both states; these are
+  // host-level CSS variables, which scoped styles can set (the element is ours).
+  styles: [`
+    .dense-toggle {
+      --mat-slide-toggle-track-width: 36px;
+      --mat-slide-toggle-track-height: 20px;
+      --mat-slide-toggle-state-layer-size: 28px;
+      --mat-slide-toggle-unselected-handle-size: 12px;
+      --mat-slide-toggle-selected-handle-size: 16px;
+      --mat-slide-toggle-with-icon-handle-size: 16px;
+      --mat-slide-toggle-pressed-handle-size: 18px;
+      --mat-slide-toggle-unselected-handle-horizontal-margin: 0 5px;
+      --mat-slide-toggle-selected-handle-horizontal-margin: 0 17px;
+      --mat-slide-toggle-selected-with-icon-handle-horizontal-margin: 0 17px;
+      --mat-slide-toggle-unselected-with-icon-handle-horizontal-margin: 0 3px;
+      --mat-slide-toggle-unselected-pressed-handle-horizontal-margin: 0 1px;
+      --mat-slide-toggle-selected-pressed-handle-horizontal-margin: 0 15px;
+    }
+  `],
 })
 export class RolesComponent {
   private rolesService = inject(RolesService);

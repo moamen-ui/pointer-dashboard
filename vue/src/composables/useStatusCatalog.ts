@@ -1,7 +1,9 @@
 // Wraps the generated useGetApiStatuses() vue-query composable and exposes
-// ordered catalog items plus label(value) / color(value) helpers.
-// Falls back to STATUS_FALLBACK on empty or error so the UI never shows blanks.
+// ordered catalog items plus label(value) / color(value) / displayLabel(status)
+// helpers. Falls back to STATUS_FALLBACK on empty or error so the UI never
+// shows blanks.
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useGetApiStatuses, type StatusItem } from '@moamen-ui/pointer-vue';
 
 // CommentStatus enum values (verbatim from global constraints):
@@ -13,7 +15,13 @@ export const STATUS_FALLBACK: StatusItem[] = [
   { value: 4, name: 'Archived',     label: 'Archived',  color: '#6b7280', order: 4 },
 ];
 
+/** Built-in English default labels, keyed by status name. */
+const BUILTIN_LABELS: Record<string, string> = Object.fromEntries(
+  STATUS_FALLBACK.map((s) => [s.name ?? '', s.label ?? '']),
+);
+
 export function useStatusCatalog() {
+  const { t, te } = useI18n();
   const { data } = useGetApiStatuses();
 
   // Use server data when it returns items; fall back otherwise.
@@ -33,5 +41,23 @@ export function useStatusCatalog() {
     return items.value.find((s) => s.value === value)?.color ?? '#6b7280';
   }
 
-  return { items, label, color };
+  /** Localized label for readers: admin-overridden labels pass through
+   *  verbatim, built-ins translate via statuses.builtin.<name>, others fall
+   *  back to label/name. Never returns a raw key or undefined. */
+  function displayLabel(status: StatusItem): string {
+    const name = status.name ?? '';
+    const label = status.label || name;
+    if (!label) return '—';
+    if (BUILTIN_LABELS[name] !== label) return label;
+    const key = `statuses.builtin.${name}`;
+    return te(key) ? t(key) : label;
+  }
+
+  /** displayLabel(status) resolved by numeric status value. */
+  function displayLabelFor(value: number | undefined): string {
+    const status = items.value.find((s) => s.value === value);
+    return status ? displayLabel(status) : '—';
+  }
+
+  return { items, label, color, displayLabel, displayLabelFor };
 }

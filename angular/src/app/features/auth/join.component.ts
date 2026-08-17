@@ -24,6 +24,7 @@ import type {
 } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const pwd = control.get('password');
@@ -44,6 +45,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     MatButtonModule,
     MatProgressBarModule,
     TranslocoModule,
+    PasswordToggleComponent,
   ],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
@@ -91,7 +93,8 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
 
             <mat-form-field appearance="outline">
               <mat-label>{{ 'invite.password' | transloco }}</mat-label>
-              <input matInput type="password" formControlName="password" />
+              <input matInput [type]="pwToggle.type()" formControlName="password" />
+              <app-password-toggle matSuffix #pwToggle />
               @if (form.get('password')?.hasError('minlength')) {
                 <mat-error>{{ 'invite.password' | transloco }} (min 8)</mat-error>
               }
@@ -99,7 +102,8 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
 
             <mat-form-field appearance="outline">
               <mat-label>{{ 'invite.confirmPassword' | transloco }}</mat-label>
-              <input matInput type="password" formControlName="confirmPassword" />
+              <input matInput [type]="confirmPwToggle.type()" formControlName="confirmPassword" />
+              <app-password-toggle matSuffix #confirmPwToggle />
               @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
                 <mat-error>{{ 'invite.passwordMismatch' | transloco }}</mat-error>
               }

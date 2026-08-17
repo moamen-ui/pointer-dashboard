@@ -13,7 +13,9 @@
     "yes": "Yes",
     "no": "No",
     "confirmDisable": "Disable {{ name }}?",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "nav": {
     "overview": "Overview",
@@ -30,7 +32,8 @@
   "header": {
     "brand": "Pointer Admin",
     "signOut": "Sign out",
-    "menu": "Menu"
+    "menu": "Menu",
+    "language": "Language"
   },
   "login": {
     "title": "Pointer Admin",
@@ -229,7 +232,13 @@
     "saveSuccess": "Status saved.",
     "saveError": "Failed to save status.",
     "resetSuccess": "Status reset to defaults.",
-    "resetError": "Failed to reset status."
+    "resetError": "Failed to reset status.",
+    "builtin": {
+      "Open": "Open",
+      "ReadyToApply": "Ready",
+      "Applied": "Completed",
+      "Archived": "Archived"
+    }
   },
   "tenants": {
     "title": "Tenants",

@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useQueryClient } from '@tanstack/vue-query';
 import {
   useGetApiAdminStats,
+  useGetApiAdminUsers,
+  useGetApiAdminRoles,
+  usePostApiAdminUsersIdApprove,
+  usePostApiAdminUsersIdReject,
+  getGetApiAdminUsersQueryKey,
+  getGetApiAdminStatsQueryKey,
   type ProjectStats,
+  type UserResponse,
+  type RoleResponse,
 } from '@moamen-ui/pointer-vue';
 import {
   Folder,
@@ -15,6 +24,8 @@ import {
   Archive,
   RefreshCw,
   Lock,
+  UserCheck,
+  Ban,
 } from 'lucide-vue-next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,15 +38,94 @@ import {
   TableRow,
   TableEmpty,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { extractMessage } from '@/lib/error';
+import { formatRequestedAt } from '@/lib/formatRequestedAt';
+import { confirm } from '@/composables/useConfirm';
+import { toast } from '@/composables/useToast';
 import { useStatusCatalog } from '@/composables/useStatusCatalog';
 
 const { t } = useI18n();
+const queryClient = useQueryClient();
 
 // Generated TanStack query hook (GET → useQuery). The package's customInstance
 // already unwraps Result<T>, so data resolves to StatsResponse.
 const { data: stats, isFetching, refetch } = useGetApiAdminStats();
-const { color: statusColor } = useStatusCatalog();
+const { color: statusColor, displayLabelFor: statusLabel } = useStatusCatalog();
+
+// Pending approvals — same admin-users endpoint as the Users page, filtered to pending.
+const pendingQuery = useGetApiAdminUsers({ status: 'pending' });
+const rolesQuery = useGetApiAdminRoles();
+const approveUser = usePostApiAdminUsersIdApprove();
+const rejectUser = usePostApiAdminUsersIdReject();
+
+const pendingUsers = computed<UserResponse[]>(() => pendingQuery.data.value ?? []);
+const activeRoles = computed<RoleResponse[]>(() =>
+  (rolesQuery.data.value ?? []).filter((r) => r.isActive),
+);
+const busy = ref(false);
+
+function requestedAt(user: UserResponse): string | null {
+  // createdAt lands in UserResponse with the next client publish; narrow cast until then
+  return (user as { createdAt?: string | null }).createdAt ?? null;
+}
+
+// ── Approve (with role selection) ─────────────────────────────────────
+const approveSelection = reactive<Record<number, number>>({});
+const approveOpenFor = ref<number | null>(null);
+
+function openApprove(user: UserResponse) {
+  approveSelection[user.id!] = user.roleId ?? activeRoles.value[0]?.id ?? 0;
+  approveOpenFor.value = user.id!;
+}
+
+async function approve(user: UserResponse) {
+  const roleId = approveSelection[user.id!] ?? user.roleId;
+  busy.value = true;
+  try {
+    await approveUser.mutateAsync({ id: user.id!, data: { roleId } });
+    approveOpenFor.value = null;
+    busy.value = false;
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminUsersQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminStatsQueryKey() });
+  } catch (e) {
+    busy.value = false;
+    toast(extractMessage(e));
+  }
+}
+
+// ── Reject ────────────────────────────────────────────────────────────
+async function reject(user: UserResponse) {
+  const ok = await confirm({
+    message: t('overview.confirmReject', { name: user.email }),
+    confirmLabel: t('overview.reject'),
+    confirmVariant: 'destructive',
+  });
+  if (!ok) return;
+  busy.value = true;
+  try {
+    await rejectUser.mutateAsync({ id: user.id! });
+    busy.value = false;
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminUsersQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminStatsQueryKey() });
+  } catch (e) {
+    busy.value = false;
+    toast(extractMessage(e));
+  }
+}
 
 const totals = computed(() => stats.value?.totals);
 const projects = computed<ProjectStats[]>(() => stats.value?.projects ?? []);
@@ -83,7 +173,7 @@ const cards = computed(() => [
               {{ card.value ?? 0 }}
             </div>
             <div class="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-              {{ t(card.key) }}
+              {{ card.statusValue != null ? statusLabel(card.statusValue) : t(card.key) }}
             </div>
             <div
               v-if="card.key === 'overview.comments' && (totals?.privateComments ?? 0) > 0"
@@ -95,6 +185,56 @@ const cards = computed(() => [
         </CardContent>
       </Card>
     </div>
+
+    <!-- Pending approvals -->
+    <Card class="p-6">
+      <h3 class="flex items-center gap-2 text-base font-semibold">
+        <Clock class="h-5 w-5 text-amber-500" />
+        {{ t('overview.pendingApprovals') }}
+        <span
+          class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-xs font-bold text-amber-600 dark:text-amber-400"
+        >
+          {{ pendingUsers.length }}
+        </span>
+      </h3>
+
+      <p v-if="pendingUsers.length === 0" class="mt-2 text-sm text-muted-foreground">
+        {{ t('overview.noPending') }}
+      </p>
+
+      <div v-else class="mt-2 flex flex-col">
+        <div
+          v-for="u in pendingUsers"
+          :key="u.id"
+          class="flex flex-wrap items-center justify-between gap-4 border-t border-border py-3"
+        >
+          <div>
+            <div class="font-semibold">{{ u.displayName }}</div>
+            <div class="mt-0.5 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
+              <span>{{ u.email }}</span>
+              <span class="chip chip-neutral">{{ u.roleName }}</span>
+              <span v-if="requestedAt(u)" class="text-xs">
+                {{ t('overview.requested') }}: {{ formatRequestedAt(requestedAt(u)) }}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button size="sm" :disabled="busy" @click="openApprove(u)">
+              <UserCheck class="h-4 w-4" /> {{ t('overview.approve') }}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              class="text-destructive hover:text-destructive"
+              :disabled="busy"
+              @click="reject(u)"
+            >
+              <Ban class="h-4 w-4" /> {{ t('overview.reject') }}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
 
     <!-- Projects breakdown -->
     <div>
@@ -114,10 +254,10 @@ const cards = computed(() => [
               <TableHead>{{ t('overview.name') }}</TableHead>
               <TableHead>{{ t('overview.comments') }}</TableHead>
               <TableHead>{{ t('overview.private') }}</TableHead>
-              <TableHead>{{ t('overview.open') }}</TableHead>
-              <TableHead>{{ t('overview.pending') }}</TableHead>
-              <TableHead>{{ t('overview.completed') }}</TableHead>
-              <TableHead>{{ t('overview.archived') }}</TableHead>
+              <TableHead :style="{ color: statusColor(STATUS_OPEN) }">{{ statusLabel(STATUS_OPEN) }}</TableHead>
+              <TableHead :style="{ color: statusColor(STATUS_READY) }">{{ statusLabel(STATUS_READY) }}</TableHead>
+              <TableHead :style="{ color: statusColor(STATUS_APPLIED) }">{{ statusLabel(STATUS_APPLIED) }}</TableHead>
+              <TableHead :style="{ color: statusColor(STATUS_ARCHIVED) }">{{ statusLabel(STATUS_ARCHIVED) }}</TableHead>
               <TableHead>{{ t('overview.status') }}</TableHead>
             </TableRow>
           </TableHeader>
@@ -157,4 +297,36 @@ const cards = computed(() => [
       </Card>
     </div>
   </div>
+
+  <!-- Approve-as dialog -->
+  <Dialog
+    :open="approveOpenFor !== null"
+    @update:open="(o: boolean) => { if (!o) approveOpenFor = null; }"
+  >
+    <DialogContent class="max-w-[360px]">
+      <DialogHeader>
+        <DialogTitle>{{ t('overview.approveAs') }}</DialogTitle>
+      </DialogHeader>
+      <template v-for="u in pendingUsers" :key="'ov-ap-' + u.id">
+        <div v-if="approveOpenFor === u.id" class="flex flex-col gap-3 pt-2">
+          <Select
+            :model-value="approveSelection[u.id!] ? String(approveSelection[u.id!]) : undefined"
+            @update:model-value="(v: any) => v != null && (approveSelection[u.id!] = Number(v))"
+          >
+            <SelectTrigger>
+              <SelectValue :placeholder="t('overview.approveAs')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="r in activeRoles" :key="r.id" :value="String(r.id)">
+                {{ r.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button :disabled="busy" @click="approve(u)">
+            {{ t('overview.confirm') }}
+          </Button>
+        </div>
+      </template>
+    </DialogContent>
+  </Dialog>
 </template>

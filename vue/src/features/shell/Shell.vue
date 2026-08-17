@@ -97,7 +97,13 @@ function signOut() {
         <Sun v-if="theme === 'dark'" class="h-4 w-4" />
         <Moon v-else class="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="sm" @click="toggleLanguage">
+      <Button
+        variant="ghost"
+        size="icon"
+        class="text-xs font-semibold"
+        :aria-label="t('header.language')"
+        @click="toggleLanguage"
+      >
         {{ language === 'ar' ? 'EN' : 'ع' }}
       </Button>
       <Button variant="outline" size="sm" @click="signOut">

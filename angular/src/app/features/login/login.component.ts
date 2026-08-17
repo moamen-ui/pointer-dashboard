@@ -10,13 +10,14 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { DemoService, DemoRequest, DemoSessionResponse } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -25,7 +26,8 @@ const DEMO_SESSION_KEY = 'pointer_demo';
           <mat-form-field appearance="outline"><mat-label>{{ 'login.email' | transloco }}</mat-label>
             <input matInput type="email" formControlName="email" /></mat-form-field>
           <mat-form-field appearance="outline"><mat-label>{{ 'login.password' | transloco }}</mat-label>
-            <input matInput type="password" formControlName="password" /></mat-form-field>
+            <input matInput [type]="pwToggle.type()" formControlName="password" />
+            <app-password-toggle matSuffix #pwToggle /></mat-form-field>
           <a mat-button routerLink="/forgot" class="self-end text-[0.85rem]">
             {{ 'login.forgot' | transloco }}
           </a>

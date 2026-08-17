@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
@@ -34,6 +35,7 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
     MatInputModule,
     MatProgressBarModule,
     MatIconModule,
+    MatMenuModule,
     MatDialogModule,
     MatTooltipModule,
     TranslocoModule,
@@ -84,46 +86,50 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef>{{ 'projects.actions' | transloco }}</th>
           <td mat-cell *matCellDef="let project">
-            <div class="flex items-center gap-2 flex-wrap">
+            <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+              [attr.aria-label]="'projects.actions' | transloco">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #rowMenu="matMenu">
               @if (project.canEdit) {
-                <button mat-stroked-button color="primary" (click)="openEdit(project)" [disabled]="loading()">
+                <button mat-menu-item (click)="openEdit(project)" [disabled]="loading()">
                   <mat-icon>edit</mat-icon> {{ 'projects.edit' | transloco }}
                 </button>
               }
               @if (!project.canEdit) {
-                <button mat-stroked-button color="primary" (click)="openViewPrompts(project)" [disabled]="loading()">
+                <button mat-menu-item (click)="openViewPrompts(project)" [disabled]="loading()">
                   <mat-icon>visibility</mat-icon> {{ 'projects.viewPrompts' | transloco }}
                 </button>
-                <button mat-stroked-button color="accent" (click)="openSuggest(project)" [disabled]="loading()">
+                <button mat-menu-item (click)="openSuggest(project)" [disabled]="loading()">
                   <mat-icon>lightbulb</mat-icon> {{ 'projects.suggest' | transloco }}
                 </button>
               }
               @if (project.canDelete) {
-                <button mat-stroked-button color="warn" (click)="deleteProject(project)" [disabled]="loading()">
-                  <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
+                <button mat-menu-item class="!text-red-600" (click)="deleteProject(project)" [disabled]="loading()">
+                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'projects.delete' | transloco }}
                 </button>
               } @else {
-                <button mat-stroked-button color="warn" disabled
+                <button mat-menu-item disabled
                   [matTooltip]="'projects.deleteBlockedComments' | transloco">
                   <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
                 </button>
               }
               @if (project.canEdit) {
-                <button mat-stroked-button [color]="project.isActive ? 'warn' : 'primary'"
-                  (click)="toggleActive(project)" [disabled]="loading()">
-                  <mat-icon>{{ project.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                <button mat-menu-item (click)="toggleActive(project)" [disabled]="loading()"
+                  [class.!text-red-600]="project.isActive">
+                  <mat-icon [class.!text-red-600]="project.isActive">{{ project.isActive ? 'block' : 'check_circle' }}</mat-icon>
                   {{ project.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
                 </button>
-                <button mat-stroked-button (click)="exportProject(project)" [disabled]="loading()">
+                <button mat-menu-item (click)="exportProject(project)" [disabled]="loading()">
                   <mat-icon>download</mat-icon> {{ 'exportImport.export' | transloco }}
                 </button>
                 @if (auth.isSuperAdmin()) {
-                  <button mat-stroked-button (click)="openImport(project)" [disabled]="loading()">
+                  <button mat-menu-item (click)="openImport(project)" [disabled]="loading()">
                     <mat-icon>upload</mat-icon> {{ 'exportImport.import' | transloco }}
                   </button>
                 }
               }
-            </div>
+            </mat-menu>
           </td>
         </ng-container>
 
