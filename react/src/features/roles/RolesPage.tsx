@@ -91,6 +91,17 @@ function SmallSwitch({
   );
 }
 
+/**
+ * Whether the signed-in user may act on this role. The API computes it
+ * (RoleResponse.CanManage) from the same guards Update/Delete enforce: system roles are
+ * immutable, and a scoped admin may only touch roles its own tenant owns — the query
+ * filter deliberately lets it SEE global roles it cannot manage. Falls back to !isSystem
+ * so an older API still behaves as before. Typed from the next client publish.
+ */
+function canManage(role: RoleResponse): boolean {
+  return (role as { canManage?: boolean }).canManage ?? !role.isSystem;
+}
+
 export function RolesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -102,7 +113,7 @@ export function RolesPage() {
   // any rename/disable/delete — and they belong to the platform, not the workspace, so
   // listing them to a workspace admin is noise they cannot act on. Super-admins see them.
   const roles = useMemo(
-    () => (isSuperAdmin ? allRoles : allRoles.filter((r) => !r.isSystem)),
+    () => (isSuperAdmin ? allRoles : allRoles.filter(canManage)),
     [allRoles, isSuperAdmin],
   );
 
@@ -198,7 +209,9 @@ export function RolesPage() {
   const targetRoles = useMemo(
     () =>
       roles.filter(
-        (r) => r.isActive && !r.isSystem && r.id !== deletingRole?.id,
+        // The API resolves the reassignment target with its own ownership/escalation
+        // guard, so offer only roles this caller may actually manage.
+        (r) => r.isActive && canManage(r) && r.id !== deletingRole?.id,
       ),
     [roles, deletingRole],
   );
@@ -275,7 +288,7 @@ export function RolesPage() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  {!role.isSystem && (
+                  {canManage(role) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">

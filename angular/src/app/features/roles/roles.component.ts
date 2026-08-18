@@ -81,7 +81,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
-              @if (!role.isSystem) {
+              @if (canManage(role)) {
                 <button mat-icon-button [matMenuTriggerFor]="rowMenu"
                   [attr.aria-label]="'roles.actions' | transloco">
                   <mat-icon>more_vert</mat-icon>
@@ -225,8 +225,19 @@ export class RolesComponent {
    */
   roles = computed(() => {
     const all = this.rolesResource.value() ?? [];
-    return this.auth.isSuperAdmin() ? all : all.filter((r) => !r.isSystem);
+    return this.auth.isSuperAdmin() ? all : all.filter((r) => this.canManage(r));
   });
+
+  /**
+   * Whether the signed-in user may act on this role. The API computes it
+   * (RoleResponse.CanManage) from the same guards Update/Delete enforce: system roles
+   * are immutable, and a scoped admin may only touch roles its own tenant owns — the
+   * query filter deliberately lets it SEE global roles it cannot manage. Falls back to
+   * !isSystem so an older API still behaves as before. Typed from the next client publish.
+   */
+  canManage(role: RoleResponse): boolean {
+    return (role as { canManage?: boolean }).canManage ?? !role.isSystem;
+  }
 
   displayedColumns = ['name', 'grantsAdmin', 'status', 'actions'];
 
@@ -241,8 +252,13 @@ export class RolesComponent {
   deletingRole = signal<RoleResponse | null>(null);
   reassignTargetId: number | null = null;
   // Valid reassignment targets: active, non-system roles other than the one being deleted.
+  // Reassignment targets: the API resolves the target with its own ownership/escalation
+  // guard, so offer only roles this caller may actually manage — otherwise the delete
+  // fails after the user has already picked a target.
   targetRoles = computed(() =>
-    this.roles().filter((r) => r.isActive && !r.isSystem && r.id !== this.deletingRole()?.id),
+    this.roles().filter(
+      (r) => r.isActive && this.canManage(r) && r.id !== this.deletingRole()?.id,
+    ),
   );
 
   openAdd() {

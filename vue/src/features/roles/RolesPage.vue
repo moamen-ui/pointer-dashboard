@@ -55,6 +55,17 @@ const { t } = useI18n();
 
 const queryClient = useQueryClient();
 
+/**
+ * Whether the signed-in user may act on this role. The API computes it
+ * (RoleResponse.CanManage) from the same guards Update/Delete enforce: system roles are
+ * immutable, and a scoped admin may only touch roles its own tenant owns — the query
+ * filter deliberately lets it SEE global roles it cannot manage. Falls back to !isSystem
+ * so an older API still behaves as before. Typed from the next client publish.
+ */
+function canManage(role: RoleResponse): boolean {
+  return (role as { canManage?: boolean }).canManage ?? !role.isSystem;
+}
+
 const { isSuperAdmin } = useAuth();
 const { data } = useGetApiAdminRoles();
 // System roles (e.g. Admin) are immutable — the API answers 409 SystemImmutable on any
@@ -62,7 +73,7 @@ const { data } = useGetApiAdminRoles();
 // them to a workspace admin is noise they cannot act on. Super-admins still see them.
 const roles = computed<RoleResponse[]>(() => {
   const all = data.value ?? [];
-  return isSuperAdmin.value ? all : all.filter((r) => !r.isSystem);
+  return isSuperAdmin.value ? all : all.filter(canManage);
 });
 
 const createRole = usePostApiAdminRoles();
@@ -167,7 +178,9 @@ const reassignTargetId = ref<number | null>(null);
 // Valid reassignment targets: active, non-system roles other than the one being deleted.
 const targetRoles = computed(() =>
   roles.value.filter(
-    (r) => r.isActive && !r.isSystem && r.id !== deletingRole.value?.id,
+    // The API resolves the reassignment target with its own ownership/escalation guard,
+    // so offer only roles this caller may actually manage.
+    (r) => r.isActive && canManage(r) && r.id !== deletingRole.value?.id,
   ),
 );
 
@@ -239,7 +252,7 @@ async function deleteRole() {
               </span>
             </TableCell>
             <TableCell>
-              <DropdownMenu v-if="!role.isSystem">
+              <DropdownMenu v-if="canManage(role)">
                 <DropdownMenuTrigger as-child>
                   <Button variant="ghost" size="icon">
                     <span class="sr-only">{{ t('roles.actions') }}</span>
