@@ -32,7 +32,7 @@ import {
 } from '@moamen-ui/pointer-react';
 import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle, EllipsisVertical, MailCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Card, CardContent } from '@/components/ui/card';
+import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -105,16 +105,19 @@ function SuggestionsCard() {
     : t('suggestions.section');
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-4 p-6">
-        <h3 className="text-sm font-semibold">
+    <AccordionSection
+      title={
+        <>
           {sectionTitle}
+          {/* Count stays in the header so it is visible while collapsed. */}
           {pendingCount > 0 && (
-            <span className="ms-2 inline-flex items-center justify-center rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+            <span className="inline-flex items-center justify-center rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
               {pendingCount}
             </span>
           )}
-        </h3>
+        </>
+      }
+    >
 
         {isLoading && (
           <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
@@ -188,8 +191,7 @@ function SuggestionsCard() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
-    </Card>
+    </AccordionSection>
   );
 }
 
@@ -273,9 +275,7 @@ function InviteCard() {
   }
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-4 p-6">
-        <h3 className="text-sm font-semibold">{t('invite.section')}</h3>
+    <AccordionSection title={t('invite.section')}>
         <p className="text-xs text-muted-foreground">{t('invite.sectionHint')}</p>
 
         {/* Create form */}
@@ -435,10 +435,12 @@ function InviteCard() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
-    </Card>
+    </AccordionSection>
   );
 }
+
+/** One shared empty array, so an unloaded query does not change identity per render. */
+const EMPTY_ACTIONS: PredefinedActionResponse[] = [];
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -490,20 +492,29 @@ export function SettingsPage() {
   const reloadPredefined = () =>
     void qc.invalidateQueries({ queryKey: getGetApiAdminPredefinedActionsQueryKey() });
 
-  const { data: rawPredefined = [], isLoading: predefinedLoading } =
+  // `= []` as a default mints a NEW array on every render while data is undefined,
+  // which re-fires the seeding effect below — one stable empty array instead. That,
+  // together with an effect that always wrote a new object, pinned this page in a
+  // "Maximum update depth exceeded" render loop.
+  const { data: predefinedData, isLoading: predefinedLoading } =
     useGetApiAdminPredefinedActions();
+  const rawPredefined = predefinedData ?? EMPTY_ACTIONS;
   const predefinedActions = rawPredefined.filter((a) => a.projectId == null);
 
   // Seed local edit state when server data arrives (only for items not already edited)
   useEffect(() => {
     setLocalEdits((prev) => {
+      let added = false;
       const next = { ...prev };
       for (const a of predefinedActions) {
         if (a.id != null && !(a.id in next)) {
           next[a.id] = { text: a.text ?? '', prompt: a.prompt ?? '', dirty: false };
+          added = true;
         }
       }
-      return next;
+      // Returning `prev` unchanged lets React bail out instead of re-rendering, so a
+      // no-op seed cannot feed itself another pass.
+      return added ? next : prev;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawPredefined]);
@@ -627,9 +638,7 @@ export function SettingsPage() {
       <h2 className="text-lg font-semibold">{t('settings.title')}</h2>
 
       {/* ── Section 1: Access ── */}
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-6">
-          <h3 className="text-sm font-semibold">{t('settings.accessSection')}</h3>
+      <AccordionSection title={t('settings.accessSection')} defaultOpen>
 
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
@@ -646,13 +655,10 @@ export function SettingsPage() {
               className="h-4 w-4 cursor-pointer"
             />
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       {/* ── Section 2: Email ── */}
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-6">
-          <h3 className="text-sm font-semibold">{t('settings.emailSection')}</h3>
+      <AccordionSection title={t('settings.emailSection')}>
 
           {/* emailEnabled */}
           <div className="flex items-center justify-between gap-4">
@@ -730,13 +736,10 @@ export function SettingsPage() {
               )}
             </p>
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       {/* ── Section 3: Demo ── */}
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-6">
-          <h3 className="text-sm font-semibold">{t('settings.demoSection')}</h3>
+      <AccordionSection title={t('settings.demoSection')}>
 
           {/* demoMaxActive */}
           <div className="flex flex-col gap-1">
@@ -801,8 +804,7 @@ export function SettingsPage() {
               className="max-w-[12rem]"
             />
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       {/* ── Save button ── */}
       <div className="flex justify-end">
@@ -812,9 +814,7 @@ export function SettingsPage() {
       </div>
 
       {/* ── Section 4: Predefined actions (tenant-wide) ── */}
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-6">
-          <h3 className="text-sm font-semibold">{t('predefined.section')}</h3>
+      <AccordionSection title={t('predefined.section')}>
           <p className="text-xs text-muted-foreground">{t('predefined.tenantHelp')}</p>
 
           {predefinedLoading && (
@@ -915,8 +915,7 @@ export function SettingsPage() {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       {/* ── Section 5: Invite teammates ── */}
       <InviteCard />

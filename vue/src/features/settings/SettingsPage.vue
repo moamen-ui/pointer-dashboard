@@ -28,7 +28,7 @@ import {
   type SuggestionResponse,
 } from '@moamen-ui/pointer-vue';
 import { useAuth } from '@/composables/useAuth';
-import { Card, CardContent } from '@/components/ui/card';
+import { AccordionSection } from '@/components/ui/accordion-section';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -296,9 +296,7 @@ async function onRejectSuggestion(s: SuggestionResponse) {
 
     <template v-if="settings || !isError">
       <!-- Section: Access -->
-      <Card>
-        <CardContent class="flex flex-col gap-6 p-6">
-          <h3 class="text-sm font-semibold">{{ t('settings.accessSection') }}</h3>
+      <AccordionSection :title="t('settings.accessSection')" default-open>
           <!-- Signup toggle -->
           <div class="flex items-center justify-between gap-4">
             <div class="flex flex-col gap-1">
@@ -311,13 +309,10 @@ async function onRejectSuggestion(s: SuggestionResponse) {
               @update:model-value="(v: boolean) => { signupEnabled = v; }"
             />
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       <!-- Section: Email -->
-      <Card>
-        <CardContent class="flex flex-col gap-6 p-6">
-          <h3 class="text-sm font-semibold">{{ t('settings.emailSection') }}</h3>
+      <AccordionSection :title="t('settings.emailSection')">
 
           <!-- emailEnabled -->
           <div class="flex items-center justify-between gap-4">
@@ -366,13 +361,10 @@ async function onRejectSuggestion(s: SuggestionResponse) {
               </span>
             </p>
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       <!-- Section: Demo -->
-      <Card>
-        <CardContent class="flex flex-col gap-6 p-6">
-          <h3 class="text-sm font-semibold">{{ t('settings.demoSection') }}</h3>
+      <AccordionSection :title="t('settings.demoSection')">
 
           <!-- demoMaxActive -->
           <div class="flex flex-col gap-2">
@@ -401,18 +393,16 @@ async function onRejectSuggestion(s: SuggestionResponse) {
             <p class="text-xs text-muted-foreground">{{ t('settings.demoCommentCapHint') }}</p>
             <Input id="demo-comment-cap" v-model.number="demoCommentCap" type="number" :min="1" />
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       <!-- Section: Predefined actions -->
-      <Card>
-        <CardContent class="flex flex-col gap-4 p-6">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold">{{ t('predefined.section') }}</h3>
-            <Button type="button" variant="outline" size="sm" @click="addTenantAction">
-              <PlusCircle class="h-4 w-4" /> {{ t('predefined.add') }}
-            </Button>
-          </div>
+      <AccordionSection>
+        <template #title>{{ t('predefined.section') }}</template>
+        <div class="flex justify-end">
+          <Button type="button" variant="outline" size="sm" @click="addTenantAction">
+            <PlusCircle class="h-4 w-4" /> {{ t('predefined.add') }}
+          </Button>
+        </div>
           <p class="text-xs text-muted-foreground">{{ t('predefined.tenantHelp') }}</p>
           <p v-if="editableActions.length === 0" class="text-sm text-muted-foreground italic">
             {{ t('predefined.empty') }}
@@ -454,16 +444,11 @@ async function onRejectSuggestion(s: SuggestionResponse) {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       <!-- Section: Invite teammates -->
-      <Card>
-        <CardContent class="flex flex-col gap-4 p-6">
-          <div class="flex flex-col gap-1">
-            <h3 class="text-sm font-semibold">{{ t('invite.section') }}</h3>
-            <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
-          </div>
+      <AccordionSection :title="t('invite.section')">
+        <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
 
           <!-- Create form -->
           <div class="flex flex-col gap-3 rounded-md border p-4">
@@ -570,21 +555,20 @@ async function onRejectSuggestion(s: SuggestionResponse) {
               </tbody>
             </table>
           </div>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       <!-- Section: Prompt suggestions review (admin-only) -->
-      <Card v-if="isAdmin">
-        <CardContent class="flex flex-col gap-4 p-6">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold">{{ t('suggestions.section') }}</h3>
-            <span
-              v-if="pendingSuggestions.length > 0"
-              class="rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white"
-            >
-              {{ t('suggestions.pending', { count: pendingSuggestions.length }) }}
-            </span>
-          </div>
+      <AccordionSection v-if="isAdmin">
+        <!-- Pending count stays in the header so it is visible while collapsed. -->
+        <template #title>
+          {{ t('suggestions.section') }}
+          <span
+            v-if="pendingSuggestions.length > 0"
+            class="rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white"
+          >
+            {{ t('suggestions.pending', { count: pendingSuggestions.length }) }}
+          </span>
+        </template>
           <p v-if="suggestionsQuery.isLoading.value" class="text-sm text-muted-foreground">…</p>
           <p v-else-if="pendingSuggestions.length === 0" class="text-sm text-muted-foreground italic">
             {{ t('suggestions.empty') }}
@@ -625,8 +609,7 @@ async function onRejectSuggestion(s: SuggestionResponse) {
               </div>
             </div>
           </template>
-        </CardContent>
-      </Card>
+      </AccordionSection>
 
       <!-- Save button -->
       <div class="flex justify-end">
