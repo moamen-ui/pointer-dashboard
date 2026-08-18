@@ -12,6 +12,8 @@ import {
   Moon,
   LogOut,
   CircleUserRound,
+  UserRound,
+  Languages,
   Building2,
   Settings,
   Menu,
@@ -20,6 +22,13 @@ import {
   Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
@@ -98,46 +107,67 @@ function ShellLayout() {
           )}
         </span>
         <span className="flex-1" />
-        {user && (
-          <span className="me-2 hidden items-center gap-1.5 text-sm text-muted-foreground sm:inline-flex">
-            <CircleUserRound className="h-4 w-4" />
-            {user.displayName} · {user.roleName}
-          </span>
-        )}
-        {/* Installation steps: always reachable, with a dot while no feedback has
-            landed yet (that dot is the nudge for a workspace that isn't wired up). */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          onClick={installGuide.open}
-          title={t('install.title')}
-          aria-label={t('install.title')}
-        >
-          <Rocket className="h-4 w-4" />
-          {installGuide.nothingCollectedYet && (
-            <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" />
-          )}
-        </Button>
-        <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-        {/* Icon-button footprint: a text button pads a 1–2 character label out
-            with dead space, so this runs square like its neighbours. */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleLanguage}
-          aria-label={t('header.language')}
-        >
-          <span className="text-[0.85rem] font-semibold leading-none">
-            {language === 'ar' ? 'EN' : 'ع'}
-          </span>
-        </Button>
-        <Button variant="outline" size="sm" onClick={signOut}>
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">{t('header.signOut')}</span>
-        </Button>
+
+        {/* One profile menu instead of a row of loose header buttons: identity, the
+            install guide, theme, language and sign-out all live in here. The
+            install-guide dot rides on the trigger so the nudge is still visible
+            while the menu is closed. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label={t('header.account')}
+            >
+              <CircleUserRound className="h-5 w-5" />
+              {installGuide.nothingCollectedYet && (
+                <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {user && (
+              <>
+                <div className="px-2 py-1.5 leading-tight">
+                  <div className="text-sm font-semibold">{user.displayName}</div>
+                  <div className="text-xs text-muted-foreground">{user.roleName}</div>
+                </div>
+                <DropdownMenuSeparator />
+              </>
+            )}
+
+            <DropdownMenuItem onSelect={() => navigate('/profile')}>
+              <UserRound className="h-4 w-4" />
+              {t('nav.myProfile')}
+            </DropdownMenuItem>
+
+            <DropdownMenuItem onSelect={installGuide.open}>
+              <Rocket className="h-4 w-4" />
+              {t('install.title')}
+              {installGuide.nothingCollectedYet && (
+                <span className="ms-2 inline-block h-2 w-2 rounded-full bg-brand" />
+              )}
+            </DropdownMenuItem>
+
+            <DropdownMenuItem onSelect={toggleTheme}>
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {t('header.theme')}: {theme === 'dark' ? t('header.themeLight') : t('header.themeDark')}
+            </DropdownMenuItem>
+
+            <DropdownMenuItem onSelect={toggleLanguage}>
+              <Languages className="h-4 w-4" />
+              {t('header.language')}: {language === 'ar' ? 'English' : 'العربية'}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onSelect={signOut}>
+              <LogOut className="h-4 w-4" />
+              {t('header.signOut')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {/* Body: sidebar + content */}

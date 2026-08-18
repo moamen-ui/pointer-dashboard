@@ -8,7 +8,8 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
@@ -29,7 +30,8 @@ import { DemoPanelComponent } from './demo-panel.component';
     MatListModule,
     MatIconModule,
     MatButtonModule,
-    MatTooltipModule,
+    MatMenuModule,
+    MatDividerModule,
     BidiModule,
     TranslocoModule,
     DemoPanelComponent,
@@ -50,33 +52,57 @@ import { DemoPanelComponent } from './demo-panel.component';
         {{ branding.productName() }} Admin
       </span>
       <span class="flex-1"></span>
-      @if (auth.user()) {
-        <span class="me-3.5 hidden items-center gap-1.5 text-[0.9rem] text-muted sm:inline-flex">
-          <mat-icon class="text-muted">account_circle</mat-icon>
-          {{ auth.user()!.displayName }} · {{ auth.user()!.roleName }}
-        </span>
-      }
-      <!-- Installation steps: always reachable, with a dot while no feedback has
-           landed yet (that dot is the nudge for a workspace that isn't wired up). -->
-      <button mat-icon-button class="relative" (click)="installGuide.open()"
-        [matTooltip]="'install.title' | transloco">
-        <mat-icon>rocket_launch</mat-icon>
+
+      <!-- One profile menu instead of a row of loose header buttons: identity,
+           the install guide, theme, language and sign-out all live in here. The
+           install-guide dot rides on the trigger so the nudge is still visible
+           while the menu is closed. -->
+      <button mat-icon-button class="relative" [matMenuTriggerFor]="profileMenu"
+        [attr.aria-label]="'header.account' | transloco">
+        <mat-icon>account_circle</mat-icon>
         @if (installGuide.nothingCollectedYet()) {
           <span class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"></span>
         }
       </button>
-      <button mat-icon-button (click)="toggleTheme()">
-        <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
-      </button>
-      <!-- Icon-button footprint: a text button pads a 2-character label out to a
-           64px min-width, which left dead space around the glyph. -->
-      <button mat-icon-button (click)="togglePrefsLang()"
-        [attr.aria-label]="'header.language' | transloco">
-        <span class="text-[0.85rem] font-semibold">{{ prefs.language() === 'ar' ? 'EN' : 'ع' }}</span>
-      </button>
-      <button mat-stroked-button class="border-app-border text-ink" (click)="auth.logout()">
-        <mat-icon>logout</mat-icon> <span class="hidden sm:inline">{{ 'header.signOut' | transloco }}</span>
-      </button>
+
+      <mat-menu #profileMenu="matMenu">
+        @if (auth.user()) {
+          <div class="px-4 py-2 leading-tight" (click)="$event.stopPropagation()">
+            <div class="text-[0.9rem] font-semibold">{{ auth.user()!.displayName }}</div>
+            <div class="text-[0.78rem] text-muted">{{ auth.user()!.roleName }}</div>
+          </div>
+          <mat-divider />
+        }
+
+        <a mat-menu-item routerLink="/profile">
+          <mat-icon>person</mat-icon> {{ 'nav.myProfile' | transloco }}
+        </a>
+
+        <button mat-menu-item (click)="installGuide.open()">
+          <mat-icon>rocket_launch</mat-icon>
+          {{ 'install.title' | transloco }}
+          @if (installGuide.nothingCollectedYet()) {
+            <span class="ms-2 inline-block h-2 w-2 rounded-full bg-brand"></span>
+          }
+        </button>
+
+        <button mat-menu-item (click)="toggleTheme()">
+          <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+          {{ 'header.theme' | transloco }}:
+          {{ (prefs.theme() === 'dark' ? 'header.themeLight' : 'header.themeDark') | transloco }}
+        </button>
+
+        <button mat-menu-item (click)="togglePrefsLang()">
+          <mat-icon>translate</mat-icon>
+          {{ 'header.language' | transloco }}: {{ prefs.language() === 'ar' ? 'English' : 'العربية' }}
+        </button>
+
+        <mat-divider />
+
+        <button mat-menu-item (click)="auth.logout()">
+          <mat-icon>logout</mat-icon> {{ 'header.signOut' | transloco }}
+        </button>
+      </mat-menu>
     </mat-toolbar>
 
     <mat-sidenav-container class="flex-1 overflow-hidden bg-app" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">

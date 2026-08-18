@@ -46,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
+import { useAuth } from '@/composables/useAuth';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -54,8 +55,15 @@ const { t } = useI18n();
 
 const queryClient = useQueryClient();
 
+const { isSuperAdmin } = useAuth();
 const { data } = useGetApiAdminRoles();
-const roles = computed<RoleResponse[]>(() => data.value ?? []);
+// System roles (e.g. Admin) are immutable — the API answers 409 SystemImmutable on any
+// rename/disable/delete — and they belong to the platform, not the workspace, so listing
+// them to a workspace admin is noise they cannot act on. Super-admins still see them.
+const roles = computed<RoleResponse[]>(() => {
+  const all = data.value ?? [];
+  return isSuperAdmin.value ? all : all.filter((r) => !r.isSystem);
+});
 
 const createRole = usePostApiAdminRoles();
 const updateRole = usePatchApiAdminRolesId();

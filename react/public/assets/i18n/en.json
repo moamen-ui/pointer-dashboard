@@ -32,7 +32,11 @@
     "brand": "Pointer Admin",
     "signOut": "Sign out",
     "menu": "Menu",
-    "language": "Language"
+    "language": "Language",
+    "account": "Account",
+    "theme": "Theme",
+    "themeDark": "Dark",
+    "themeLight": "Light"
   },
   "login": {
     "title": "Pointer Admin",
@@ -293,8 +297,8 @@
     "step1Hint": "In your app's index.html, add this inside <head> (or just before </body>) — it loads the Pointer widget.",
     "step2Title": "Mount the widget",
     "step2Hint": "Then add this inside <body>, where you want feedback enabled.",
-    "step3Title": "Install skills + credentials",
-    "step3Hint": "Open a terminal, cd into your project root, and run this — it installs the AI skills and creates .pointer/credentials.env.",
+    "step3Title": "Install the skills + credentials",
+    "step3Hint": "Open a terminal, cd into your project root, and run this — it installs both AI skills (pointer-init to add the widget, pointer-feedback to apply comments) and creates a gitignored .pointer/credentials.env.",
     "step4Title": "Add your login",
     "step4Hint": "Open the generated .pointer/credentials.env and paste your widget login (shown above).",
     "back": "Back",
@@ -466,6 +470,10 @@
     "project": "Project",
     "noProjects": "Create a project first, then come back for the snippet —",
     "dontShowAgain": "Don't show this again",
-    "done": "Got it"
+    "done": "Got it",
+    "stepAgentTitle": "Let your AI agent wire it in",
+    "stepAgentHint": "Paste this to your agent (Claude Code, Cursor, …). It runs the pointer-init skill that step 1 installed: it detects your stack — Vite, Angular, Next, CRA, static HTML, Swagger — and wires the loader and env vars the way that stack expects.",
+    "manualTitle": "Manual setup (optional)",
+    "manualHint": "Only if you would rather not use the prompt above: add these two to your app yourself. The prompt does this per-stack, including the env wiring."
   }
 }

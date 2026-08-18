@@ -119,17 +119,19 @@ async function copy(text: string): Promise<void> {
         </RouterLink>
       </p>
 
-      <!-- Steps, all of them, in order -->
+      <!-- The recommended path: install the skills, then let the agent wire the widget -->
       <ol class="m-0 flex list-none flex-col gap-3 p-0">
         <li
-          v-for="(st, i) in steps"
+          v-for="(st, i) in steps.primary"
           :key="st.titleKey"
           class="rounded-lg border border-border bg-app/40 p-3"
         >
           <div class="text-sm font-semibold">{{ i + 1 }}. {{ t(st.titleKey) }}</div>
           <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
           <div v-if="st.code" class="mt-2 flex items-start gap-2">
-            <pre class="m-0 flex-1 overflow-x-auto rounded-md bg-background/70 px-3 py-2 font-mono text-xs">{{ st.code }}</pre>
+            <pre
+              class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+            >{{ st.code }}</pre>
             <Button
               variant="outline"
               size="sm"
@@ -143,6 +145,34 @@ async function copy(text: string): Promise<void> {
           </div>
         </li>
       </ol>
+
+      <!-- Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
+           does this per-stack, so these snippets are the fallback, not the path. -->
+      <details class="rounded-lg border border-border p-3">
+        <summary class="cursor-pointer text-sm font-semibold">{{ t('install.manualTitle') }}</summary>
+        <p class="mb-2 mt-1 text-xs text-muted-foreground">{{ t('install.manualHint') }}</p>
+        <div class="flex flex-col gap-3">
+          <div v-for="st in steps.manual" :key="st.titleKey">
+            <div class="text-xs font-medium">{{ t(st.titleKey) }}</div>
+            <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
+            <div v-if="st.code" class="mt-1.5 flex items-start gap-2">
+              <pre
+                class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+              >{{ st.code }}</pre>
+              <Button
+                variant="outline"
+                size="sm"
+                class="flex-shrink-0"
+                type="button"
+                @click="copy(st.code!)"
+              >
+                <Copy class="h-4 w-4" />
+                {{ t('demo.copy') }}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <div class="flex flex-wrap items-center justify-between gap-3">
         <label class="flex cursor-pointer items-center gap-2 text-xs">

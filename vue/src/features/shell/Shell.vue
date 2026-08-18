@@ -20,8 +20,16 @@ import {
   CreditCard,
   Palette,
   Rocket,
+  Languages,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/composables/useAuth';
 import { usePreferences } from '@/composables/usePreferences';
 import { useBranding } from '@/composables/useBranding';
@@ -113,46 +121,62 @@ function signOut() {
         </template>
       </span>
       <span class="flex-1" />
-      <span
-        v-if="user"
-        class="me-2 hidden items-center gap-1.5 text-sm text-muted-foreground sm:inline-flex"
-      >
-        <CircleUserRound class="h-4 w-4" />
-        {{ user.displayName }} · {{ user.roleName }}
-      </span>
-      <!-- Installation steps: always reachable, with a dot while no feedback has
-           landed yet (that dot is the nudge for a workspace that isn't wired up). -->
-      <Button
-        variant="ghost"
-        size="icon"
-        class="relative"
-        :title="t('install.title')"
-        :aria-label="t('install.title')"
-        @click="guideOpen = true"
-      >
-        <Rocket class="h-4 w-4" />
-        <span
-          v-if="nothingCollectedYet"
-          class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"
-        />
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="toggleTheme">
-        <Sun v-if="theme === 'dark'" class="h-4 w-4" />
-        <Moon v-else class="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        class="text-xs font-semibold"
-        :aria-label="t('header.language')"
-        @click="toggleLanguage"
-      >
-        {{ language === 'ar' ? 'EN' : 'ع' }}
-      </Button>
-      <Button variant="outline" size="sm" @click="signOut">
-        <LogOut class="h-4 w-4" />
-        <span class="hidden sm:inline">{{ t('header.signOut') }}</span>
-      </Button>
+
+      <!-- One profile menu instead of a row of loose header buttons: identity, the
+           install guide, theme, language and sign-out all live in here. The
+           install-guide dot rides on the trigger so the nudge is still visible
+           while the menu is closed. -->
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button variant="ghost" size="icon" class="relative" :aria-label="t('header.account')">
+            <CircleUserRound class="h-5 w-5" />
+            <span
+              v-if="nothingCollectedYet"
+              class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"
+            />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <div v-if="user" class="px-2 py-1.5 leading-tight">
+            <div class="text-sm font-semibold">{{ user.displayName }}</div>
+            <div class="text-xs text-muted-foreground">{{ user.roleName }}</div>
+          </div>
+          <DropdownMenuSeparator v-if="user" />
+
+          <DropdownMenuItem @select="router.push('/profile')">
+            <UserRound class="h-4 w-4" />
+            {{ t('nav.myProfile') }}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem @select="guideOpen = true">
+            <Rocket class="h-4 w-4" />
+            {{ t('install.title') }}
+            <span
+              v-if="nothingCollectedYet"
+              class="ms-2 inline-block h-2 w-2 rounded-full bg-brand"
+            />
+          </DropdownMenuItem>
+
+          <DropdownMenuItem @select="toggleTheme">
+            <Sun v-if="theme === 'dark'" class="h-4 w-4" />
+            <Moon v-else class="h-4 w-4" />
+            {{ t('header.theme') }}:
+            {{ theme === 'dark' ? t('header.themeLight') : t('header.themeDark') }}
+          </DropdownMenuItem>
+
+          <DropdownMenuItem @select="toggleLanguage">
+            <Languages class="h-4 w-4" />
+            {{ t('header.language') }}: {{ language === 'ar' ? 'English' : 'العربية' }}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem @select="signOut">
+            <LogOut class="h-4 w-4" />
+            {{ t('header.signOut') }}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
 
     <!-- Demo banner (only when a demo session is active) -->

@@ -49,6 +49,7 @@ import {
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 import { extractMessage } from '@/lib/error';
 
 // Compact switch for table cells — a full-size switch overpowers the row, so
@@ -95,7 +96,15 @@ export function RolesPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: roles = [] } = useGetApiAdminRoles();
+  const { isSuperAdmin } = useAuth();
+  const { data: allRoles = [] } = useGetApiAdminRoles();
+  // System roles (e.g. Admin) are immutable — the API answers 409 SystemImmutable on
+  // any rename/disable/delete — and they belong to the platform, not the workspace, so
+  // listing them to a workspace admin is noise they cannot act on. Super-admins see them.
+  const roles = useMemo(
+    () => (isSuperAdmin ? allRoles : allRoles.filter((r) => !r.isSystem)),
+    [allRoles, isSuperAdmin],
+  );
 
   const reload = () =>
     qc.invalidateQueries({ queryKey: getGetApiAdminRolesQueryKey() });

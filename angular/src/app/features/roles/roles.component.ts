@@ -14,6 +14,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { AuthService } from '../../core/auth/auth.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import type { RoleResponse } from '@moamen-ui/pointer-angular';
 
@@ -207,6 +208,7 @@ export class RolesComponent {
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
+  private auth = inject(AuthService);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly deleteDialog = viewChild.required<TemplateRef<unknown>>('deleteDialog');
@@ -214,7 +216,17 @@ export class RolesComponent {
   private dialogRef?: MatDialogRef<unknown>;
 
   rolesResource = getApiAdminRolesResource();
-  roles = computed(() => this.rolesResource.value() ?? []);
+
+  /**
+   * Roles this page can actually manage. System roles (e.g. Admin) are immutable —
+   * RoleService answers 409 SystemImmutable on any rename/disable/delete — and they
+   * belong to the platform, not the workspace, so listing them to a workspace admin
+   * is noise they cannot act on. A super-admin still sees them.
+   */
+  roles = computed(() => {
+    const all = this.rolesResource.value() ?? [];
+    return this.auth.isSuperAdmin() ? all : all.filter((r) => !r.isSystem);
+  });
 
   displayedColumns = ['name', 'grantsAdmin', 'status', 'actions'];
 

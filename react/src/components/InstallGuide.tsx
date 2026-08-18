@@ -57,10 +57,25 @@ export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
  *  is pasted into .pointer/credentials.env, where English reads correctly either way. */
 export const PASSWORD_PLACEHOLDER = '<your password>';
 
+/** What the dialog renders: the agent-driven path, plus the hand-wiring fallback. */
+export interface GuideSteps {
+  /** The recommended path, in order. */
+  primary: SetupStep[];
+  /** Hand-wiring the widget — only needed if you skip the agent prompt. */
+  manual: SetupStep[];
+}
+
 /**
  * Builds the install steps. Pure so the branching (demo credentials vs. the
  * signed-in user's own, and the placeholder when there is no project yet) is
  * unit-testable.
+ *
+ * Shape of the flow: install.sh drops in two skills — pointer-init and
+ * pointer-feedback — so wiring the widget is a prompt, not two snippets pasted
+ * into index.html. pointer-init detects the host stack (Vite / Angular / Next /
+ * CRA / static / Swagger) and wires the loader and env vars the way that stack
+ * expects, which the raw snippets cannot do. They stay available as the manual
+ * fallback.
  */
 export function buildSteps(input: {
   server: string;
@@ -68,7 +83,7 @@ export function buildSteps(input: {
   userEmail: string | null;
   demo: DemoSession | null;
   credsEmailedText: string;
-}): SetupStep[] {
+}): GuideSteps {
   const { server, demo } = input;
   const projectKey = input.projectKey || PROJECT_KEY_PLACEHOLDER;
   const credentials = demo
@@ -77,15 +92,27 @@ export function buildSteps(input: {
       : `POINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`
     : `POINTER_EMAIL=${input.userEmail ?? ''}\nPOINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`;
 
-  return [
-    { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/pointer.js" defer></script>` },
-    { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${projectKey}" server="${server}"></pointer-feedback>` },
-    { titleKey: 'demo.step3Title', hintKey: 'demo.step3Hint', code: `curl -fsSL ${server}/install.sh | sh` },
-    { titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: credentials },
-    { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
-    // Kept English on purpose — the pointer-feedback skill triggers on this phrasing.
-    { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' },
-  ];
+  return {
+    primary: [
+      // Installs pointer-init + pointer-feedback and scaffolds .pointer/credentials.env.
+      { titleKey: 'demo.step3Title', hintKey: 'demo.step3Hint', code: `curl -fsSL ${server}/install.sh | sh` },
+      { titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: credentials },
+      // Names the skill and supplies its three variables, so the agent wires the
+      // widget straight away instead of stopping to ask for them.
+      {
+        titleKey: 'install.stepAgentTitle',
+        hintKey: 'install.stepAgentHint',
+        code: `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${projectKey}, Pointer server URL: ${server}, environment: local`,
+      },
+      { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
+      // Kept English on purpose — the pointer-feedback skill triggers on this phrasing.
+      { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' },
+    ],
+    manual: [
+      { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/pointer.js" defer></script>` },
+      { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${projectKey}" server="${server}"></pointer-feedback>` },
+    ],
+  };
 }
 
 interface InstallGuideValue {
@@ -252,9 +279,9 @@ function InstallGuideDialog({
           </p>
         ) : null}
 
-        {/* Steps, all of them, in order */}
+        {/* The recommended path: install the skills, then let the agent wire the widget */}
         <ol className="m-0 flex list-none flex-col gap-3 p-0">
-          {steps.map((st, i) => (
+          {steps.primary.map((st, i) => (
             <li key={st.titleKey} className="rounded-lg border border-border bg-app/40 p-3">
               <div className="text-[0.85rem] font-semibold">
                 {i + 1}. {t(st.titleKey)}
@@ -262,7 +289,7 @@ function InstallGuideDialog({
               <div className="mt-0.5 text-[0.78rem] text-muted-foreground">{t(st.hintKey)}</div>
               {st.code && (
                 <div className="mt-2 flex items-start gap-2">
-                  <pre className="m-0 flex-1 overflow-x-auto rounded bg-app px-2 py-1.5 text-[0.78rem]">
+                  <pre className="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]">
                     <code>{st.code}</code>
                   </pre>
                   <Button
@@ -279,6 +306,39 @@ function InstallGuideDialog({
             </li>
           ))}
         </ol>
+
+        {/* Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
+             does this per-stack, so these snippets are the fallback, not the path. */}
+        <details className="mt-4 rounded-lg border border-border p-3">
+          <summary className="cursor-pointer text-[0.85rem] font-semibold">
+            {t('install.manualTitle')}
+          </summary>
+          <p className="mb-2 mt-1 text-[0.78rem] text-muted-foreground">{t('install.manualHint')}</p>
+          <div className="flex flex-col gap-3">
+            {steps.manual.map((st) => (
+              <div key={st.titleKey}>
+                <div className="text-[0.8rem] font-medium">{t(st.titleKey)}</div>
+                <div className="mt-0.5 text-[0.75rem] text-muted-foreground">{t(st.hintKey)}</div>
+                {st.code && (
+                  <div className="mt-1.5 flex items-start gap-2">
+                    <pre className="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]">
+                      <code>{st.code}</code>
+                    </pre>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => copy(st.code!)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {t('demo.copy')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex cursor-pointer items-center gap-2">
