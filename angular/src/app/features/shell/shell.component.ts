@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs';
@@ -8,11 +8,13 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
 import { PreferencesService } from '../../core/prefs/preferences.service';
 import { BrandingService } from '../../core/branding/branding.service';
+import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
 import { DemoPanelComponent } from './demo-panel.component';
 
 @Component({
@@ -27,6 +29,7 @@ import { DemoPanelComponent } from './demo-panel.component';
     MatListModule,
     MatIconModule,
     MatButtonModule,
+    MatTooltipModule,
     BidiModule,
     TranslocoModule,
     DemoPanelComponent,
@@ -53,6 +56,15 @@ import { DemoPanelComponent } from './demo-panel.component';
           {{ auth.user()!.displayName }} · {{ auth.user()!.roleName }}
         </span>
       }
+      <!-- Installation steps: always reachable, with a dot while no feedback has
+           landed yet (that dot is the nudge for a workspace that isn't wired up). -->
+      <button mat-icon-button class="relative" (click)="installGuide.open()"
+        [matTooltip]="'install.title' | transloco">
+        <mat-icon>rocket_launch</mat-icon>
+        @if (installGuide.nothingCollectedYet()) {
+          <span class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"></span>
+        }
+      </button>
       <button mat-icon-button (click)="toggleTheme()">
         <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
@@ -145,6 +157,24 @@ export class ShellComponent {
   auth = inject(AuthService);
   prefs = inject(PreferencesService);
   branding = inject(BrandingService);
+  installGuide = inject(InstallGuideService);
+
+  constructor() {
+    // A workspace admin who is new here — or whose workspace has collected nothing
+    // yet — gets the guide opened for them, once. The effect waits for the project
+    // list so commentsCount is real rather than a loading 0.
+    effect(() => {
+      if (this.installGuide.projectsResource.isLoading()) return;
+      const user = this.auth.user();
+      if (!user) return;
+      const shouldOpen = this.installGuide.shouldAutoOpen({
+        isAdmin: this.auth.isAdmin(),
+        userId: user.id ?? null,
+        commentsCount: this.installGuide.commentsCount(),
+      });
+      if (shouldOpen) this.installGuide.open();
+    });
+  }
 
   // True below the md breakpoint — drives the off-canvas drawer + hamburger.
   isMobile = toSignal(
