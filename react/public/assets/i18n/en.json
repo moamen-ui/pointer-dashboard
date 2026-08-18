@@ -143,7 +143,12 @@
     "comments": "Comments",
     "createdBy": "Created by",
     "viewPrompts": "Predefined prompts",
-    "suggest": "Suggest prompt"
+    "suggest": "Suggest prompt",
+    "keyHint": "Lowercase letters, numbers, dot, underscore or hyphen",
+    "keyRequired": "A project key is required",
+    "keyPattern": "Only lowercase letters, numbers and . _ - are allowed",
+    "keyMaxLength": "Keep the key to {{ max }} characters or fewer",
+    "keyTaken": "A project with this key already exists"
   },
   "suggestions": {
     "section": "Prompt suggestions",

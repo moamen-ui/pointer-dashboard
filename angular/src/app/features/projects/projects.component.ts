@@ -1,5 +1,13 @@
 import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
+import {
+  AbstractControl,
+  FormArray,
+  FormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,6 +31,12 @@ import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AuthService } from '../../core/auth/auth.service';
 import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular';
+
+/** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
+ *  underscore, hyphen — nothing else. */
+const KEY_PATTERN = /^[a-z0-9._-]+$/;
+/** Mirrors the projects.key column (character varying(64)). */
+const KEY_MAX_LENGTH = 64;
 
 @Component({
   selector: 'app-projects',
@@ -145,7 +159,24 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
         <form [formGroup]="addForm" (ngSubmit)="addProject()" class="flex min-w-80 flex-col gap-3 pt-2">
           <mat-form-field appearance="outline">
             <mat-label>{{ 'projects.key' | transloco }}</mat-label>
-            <input matInput formControlName="key" />
+            <input
+              matInput
+              formControlName="key"
+              maxlength="64"
+              autocapitalize="none"
+              spellcheck="false"
+              (input)="normalizeKey($event)"
+            />
+            <mat-hint>{{ 'projects.keyHint' | transloco }}</mat-hint>
+            @if (keyControl.hasError('required')) {
+              <mat-error>{{ 'projects.keyRequired' | transloco }}</mat-error>
+            } @else if (keyControl.hasError('pattern')) {
+              <mat-error>{{ 'projects.keyPattern' | transloco }}</mat-error>
+            } @else if (keyControl.hasError('maxlength')) {
+              <mat-error>{{ 'projects.keyMaxLength' | transloco: { max: KEY_MAX_LENGTH } }}</mat-error>
+            } @else if (keyControl.hasError('keyTaken')) {
+              <mat-error>{{ 'projects.keyTaken' | transloco }}</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'projects.name' | transloco }}</mat-label>
@@ -337,11 +368,54 @@ export class ProjectsComponent {
 
   displayedColumns = ['key', 'name', 'status', 'createdBy', 'comments', 'actions'];
 
+  // The key must match what the API accepts, or the request comes back as a raw
+  // 400: FluentValidation checks the *unmodified* value (^[a-z0-9._-]+$, max 64)
+  // and only ProjectService lowercases it afterwards — so an uppercase key would
+  // be rejected even though it would have been stored fine. normalizeKey() below
+  // keeps the input in that shape while the user types.
+  readonly KEY_MAX_LENGTH = KEY_MAX_LENGTH;
+
   addForm = this.fb.nonNullable.group({
-    key: ['', Validators.required],
+    key: [
+      '',
+      [
+        Validators.required,
+        Validators.maxLength(KEY_MAX_LENGTH),
+        Validators.pattern(KEY_PATTERN),
+        this.uniqueKeyValidator(),
+      ],
+    ],
     name: ['', Validators.required],
     predefinedActions: this.fb.array([]),
   });
+
+  get keyControl() {
+    return this.addForm.controls.key;
+  }
+
+  /**
+   * Keeps the typed key in the shape the API accepts: lowercased and without
+   * surrounding whitespace. Lowercasing does not change the length, so the caret
+   * stays where the user left it.
+   */
+  normalizeKey(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const normalized = input.value.toLowerCase().trim();
+    if (normalized === input.value) return;
+    input.value = normalized;
+    this.keyControl.setValue(normalized);
+  }
+
+  /** Flags a key that one of the caller's existing projects already uses (the API
+   *  answers 409 for this; catching it here saves the round-trip). */
+  private uniqueKeyValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = String(control.value ?? '').toLowerCase().trim();
+      if (!value) return null;
+      const taken = this.projects().some((p) => (p.key ?? '').toLowerCase() === value);
+      return taken ? { keyTaken: true } : null;
+    };
+  }
 
   editForm = this.fb.nonNullable.group({
     name: ['', Validators.required],

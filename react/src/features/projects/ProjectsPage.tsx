@@ -71,6 +71,33 @@ function emptyRow(): PredefinedActionRow {
   return { _localId: nextLocalId(), text: '', prompt: '' };
 }
 
+/** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
+ *  underscore, hyphen — nothing else. */
+const KEY_PATTERN = /^[a-z0-9._-]+$/;
+/** Mirrors the projects.key column (character varying(64)). */
+const KEY_MAX_LENGTH = 64;
+
+/** Keeps the typed key in the shape the API accepts: lowercased and without
+ *  surrounding whitespace. The API validates the raw value (only lowercasing
+ *  afterwards), so an uppercase key would 400 even though it would have been
+ *  stored fine — normalising avoids that trap. */
+function normalizeKey(value: string): string {
+  return value.toLowerCase().trim();
+}
+
+type KeyError = 'keyRequired' | 'keyPattern' | 'keyMaxLength' | 'keyTaken';
+
+/** One error at a time, in this precedence. The taken-check compares
+ *  case-insensitively on the normalised value, saving a 409 round-trip. */
+function keyErrorFor(value: string, projects: ProjectResponse[]): KeyError | null {
+  const v = normalizeKey(value);
+  if (!v) return 'keyRequired';
+  if (!KEY_PATTERN.test(v)) return 'keyPattern';
+  if (v.length > KEY_MAX_LENGTH) return 'keyMaxLength';
+  if (projects.some((p) => (p.key ?? '').toLowerCase() === v)) return 'keyTaken';
+  return null;
+}
+
 export function ProjectsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -88,6 +115,18 @@ export function ProjectsPage() {
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
   const [addActions, setAddActions] = useState<PredefinedActionRow[]>([]);
+
+  const keyError = keyErrorFor(key, projects);
+  const keyErrorMessage =
+    keyError === 'keyRequired'
+      ? t('projects.keyRequired')
+      : keyError === 'keyPattern'
+        ? t('projects.keyPattern')
+        : keyError === 'keyMaxLength'
+          ? t('projects.keyMaxLength', { max: KEY_MAX_LENGTH })
+          : keyError === 'keyTaken'
+            ? t('projects.keyTaken')
+            : null;
 
   const addMut = usePostApiAdminProjects({
     mutation: {
@@ -110,7 +149,7 @@ export function ProjectsPage() {
   }
 
   function addProject() {
-    if (!key.trim() || !name.trim()) return;
+    if (keyError || !name.trim()) return;
     const predefinedActions: PredefinedActionInput[] = addActions.map((row, idx) => ({
       text: row.text,
       prompt: row.prompt,
@@ -488,9 +527,25 @@ export function ProjectsPage() {
               <Input
                 id="project-key"
                 value={key}
-                onChange={(e) => setKey(e.target.value)}
+                onChange={(e) => {
+                  // Lowercase + trim while typing. Lowercasing does not change
+                  // length, so the caret stays where the user left it; syncing
+                  // the DOM value covers the case where the normalised value
+                  // equals the previous state (React would keep the raw input).
+                  const normalized = normalizeKey(e.target.value);
+                  e.target.value = normalized;
+                  setKey(normalized);
+                }}
+                maxLength={KEY_MAX_LENGTH}
+                autoCapitalize="none"
+                spellCheck={false}
                 autoFocus
+                aria-invalid={keyError ? true : undefined}
               />
+              {keyErrorMessage && (
+                <p className="text-xs text-destructive">{keyErrorMessage}</p>
+              )}
+              <p className="text-xs text-muted-foreground">{t('projects.keyHint')}</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="project-name">{t('projects.name')}</Label>
@@ -559,7 +614,7 @@ export function ProjectsPage() {
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={!key.trim() || !name.trim() || addMut.isPending}
+              disabled={!!keyError || !name.trim() || addMut.isPending}
               onClick={addProject}
             >
               <Plus className="h-4 w-4" />

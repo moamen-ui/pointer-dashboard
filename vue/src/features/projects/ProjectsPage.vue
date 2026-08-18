@@ -50,6 +50,12 @@ import { useAuth } from '@/composables/useAuth';
 
 const { t } = useI18n();
 
+// Mirrors CreateProjectValidator on the API: the server checks the *raw* value
+// against ^[a-z0-9._-]+$ (varchar(64)) before lowercasing it, so the form keeps
+// the input in that shape while the user types.
+const KEY_PATTERN = /^[a-z0-9._-]+$/;
+const KEY_MAX_LENGTH = 64;
+
 const queryClient = useQueryClient();
 
 const { isSuperAdmin } = useAuth();
@@ -73,7 +79,32 @@ function reload() {
 // ── Add project ───────────────────────────────────────────────────────
 const addOpen = ref(false);
 const addForm = reactive({ key: '', name: '' });
-const addInvalid = computed(() => !addForm.key.trim() || !addForm.name.trim());
+
+/** Lowercases + trims while typing; lowercasing keeps the length so the caret
+ *  stays put (clamped after a trim shrank the value). */
+function normalizeKey(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const normalized = input.value.toLowerCase().trim();
+  if (normalized === input.value) return;
+  const caret = input.selectionStart ?? normalized.length;
+  input.value = normalized;
+  input.setSelectionRange(caret, caret);
+  addForm.key = normalized;
+}
+
+/** First failing rule wins: required → pattern → max length → taken. */
+const keyError = computed(() => {
+  const key = addForm.key.toLowerCase().trim();
+  if (!key) return t('projects.keyRequired');
+  if (!KEY_PATTERN.test(key)) return t('projects.keyPattern');
+  if (key.length > KEY_MAX_LENGTH) return t('projects.keyMaxLength', { max: KEY_MAX_LENGTH });
+  if (projects.value.some((p) => (p.key ?? '').toLowerCase() === key)) {
+    return t('projects.keyTaken');
+  }
+  return null;
+});
+
+const addInvalid = computed(() => keyError.value !== null || !addForm.name.trim());
 const addActions = ref<Array<{ text: string; prompt: string }>>([]);
 
 function openAdd() {
@@ -442,7 +473,16 @@ function openViewPrompts(project: ProjectResponse) {
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="addProject">
         <div class="flex flex-col gap-2">
           <Label for="p-key">{{ t('projects.key') }}</Label>
-          <Input id="p-key" v-model="addForm.key" />
+          <Input
+            id="p-key"
+            v-model="addForm.key"
+            :maxlength="KEY_MAX_LENGTH"
+            autocapitalize="none"
+            spellcheck="false"
+            @input="normalizeKey"
+          />
+          <p v-if="keyError" class="text-xs font-medium text-destructive">{{ keyError }}</p>
+          <p v-else class="text-xs text-muted-foreground">{{ t('projects.keyHint') }}</p>
         </div>
         <div class="flex flex-col gap-2">
           <Label for="p-name">{{ t('projects.name') }}</Label>
