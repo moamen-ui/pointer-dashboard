@@ -32,8 +32,7 @@ import {
   MailCheck,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { AccordionSection } from '@/components/ui/accordion-section';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
@@ -127,8 +126,9 @@ function reloadUsers() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminUsersQueryKey() });
 }
 
-// ── Add user ──────────────────────────────────────────────────────────
+// ── Add user: "Send invite" is the default mode, "Create directly" is secondary ──
 const addOpen = ref(false);
+const addMode = ref<'invite' | 'direct'>('invite');
 const addForm = reactive({ email: '', displayName: '', password: '', roleId: 0 });
 
 const addInvalid = computed(
@@ -140,11 +140,29 @@ const addInvalid = computed(
     !addForm.roleId,
 );
 
+const nonAdminActiveRoles = computed<RoleResponse[]>(
+  () => roles.value.filter((r) => !r.grantsAdmin && r.isActive),
+);
+
+const inviteRoleId = ref<number | null>(null);
+const inviteEmail = ref('');
+const inviteExpiresDays = ref<number | undefined>(7);
+const inviteMaxUses = ref<number | undefined>(undefined);
+const createdInvite = ref<{ url: string; emailSent: string | null } | null>(null);
+
+const createInvite = usePostApiAdminInvites();
+
 function openAdd() {
   addForm.email = '';
   addForm.displayName = '';
   addForm.password = '';
   addForm.roleId = activeRoles()[0]?.id ?? 0;
+  inviteRoleId.value = nonAdminActiveRoles.value[0]?.id ?? null;
+  inviteEmail.value = '';
+  inviteExpiresDays.value = 7;
+  inviteMaxUses.value = undefined;
+  createdInvite.value = null;
+  addMode.value = 'invite';
   addOpen.value = true;
 }
 
@@ -158,6 +176,37 @@ async function addUser() {
     reloadUsers();
   } catch (e) {
     fail(e);
+  }
+}
+
+async function sendInvite() {
+  if (!inviteRoleId.value) return;
+  try {
+    const res = (await createInvite.mutateAsync({
+      data: {
+        roleId: inviteRoleId.value ?? undefined,
+        email: inviteEmail.value || undefined,
+        expiresInDays: inviteExpiresDays.value ?? undefined,
+        maxUses: inviteMaxUses.value ?? undefined,
+      },
+    })) as unknown as InviteResponse;
+    createdInvite.value = {
+      url: res.url ?? '',
+      emailSent: res.emailSent && res.email ? res.email : null,
+    };
+    toast(t('invite.created'));
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+async function copyUrl(url: string) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(t('invite.copied'));
+  } catch {
+    toast(url);
   }
 }
 
@@ -250,64 +299,20 @@ function requestedAt(user: UserResponse): string | null {
   return (user as { createdAt?: string | null }).createdAt ?? null;
 }
 
-// ── Invite teammates (reuses roles already loaded above) ───────────────
-const nonAdminActiveRoles = computed<RoleResponse[]>(
-  () => roles.value.filter((r) => !r.grantsAdmin && r.isActive),
-);
-
+// ── Pending invites — created via "Send invite" in the Add User dialog above;
+// this list only manages ones already sent (copy the link again, or revoke).
 const invitesQuery = useGetApiAdminInvites();
 const inviteList = computed<InviteResponse[]>(
   () => (invitesQuery.data.value ?? []) as InviteResponse[],
 );
 
-const inviteRoleId = ref<number | null>(null);
-const inviteEmail = ref('');
-const inviteExpiresDays = ref<number | undefined>(7);
-const inviteMaxUses = ref<number | undefined>(undefined);
-const createdUrl = ref<string | null>(null);
-const createdEmailSent = ref<string | null>(null);
-
-const createInvite = usePostApiAdminInvites();
 const revokeInvite = useDeleteApiAdminInvitesId();
-
-function reloadInvites() {
-  void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
-}
-
-async function onCreateInvite() {
-  if (!inviteRoleId.value) return;
-  try {
-    const res = (await createInvite.mutateAsync({
-      data: {
-        roleId: inviteRoleId.value ?? undefined,
-        email: inviteEmail.value || undefined,
-        expiresInDays: inviteExpiresDays.value ?? undefined,
-        maxUses: inviteMaxUses.value ?? undefined,
-      },
-    })) as unknown as InviteResponse;
-    createdUrl.value = res.url ?? null;
-    createdEmailSent.value = res.emailSent && res.email ? res.email : null;
-    toast(t('invite.created'));
-    reloadInvites();
-  } catch (e) {
-    toast(extractMessage(e));
-  }
-}
-
-async function copyUrl(url: string) {
-  try {
-    await navigator.clipboard.writeText(url);
-    toast(t('invite.copied'));
-  } catch {
-    toast(url);
-  }
-}
 
 async function onRevoke(id: number) {
   try {
     await revokeInvite.mutateAsync({ id });
     toast(t('invite.revoked'));
-    reloadInvites();
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
   } catch (e) {
     toast(extractMessage(e));
   }
@@ -461,125 +466,153 @@ function formatInviteDate(iso: string | undefined): string {
       </Table>
     </Card>
 
-    <!-- Invite teammates -->
-    <AccordionSection :title="t('invite.section')">
-      <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
+    <!-- Pending invites — created via "Send invite" in the Add User dialog above -->
+    <Card v-if="invitesQuery.isLoading.value || invitesQuery.isError.value || inviteList.length > 0">
+      <CardContent class="flex flex-col gap-3 p-6">
+        <h3 class="text-sm font-semibold">{{ t('invite.pendingTitle') }}</h3>
+        <p class="text-xs text-muted-foreground">{{ t('invite.pendingHint') }}</p>
 
-      <!-- Create form -->
-      <div class="flex flex-col gap-3 rounded-md border p-4">
-        <!-- Role select -->
-        <div class="flex flex-col gap-1">
-          <Label for="invite-role">{{ t('invite.role') }}</Label>
-          <select
-            id="invite-role"
-            v-model="inviteRoleId"
-            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-          >
-            <option :value="null" disabled>— {{ t('invite.role') }} —</option>
-            <option v-for="r in nonAdminActiveRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
-          </select>
+        <p v-if="invitesQuery.isLoading.value" class="text-sm text-muted-foreground">
+          {{ t('settings.loading') }}
+        </p>
+        <p v-else-if="invitesQuery.isError.value" class="text-sm text-destructive">
+          {{ t('settings.loadError') }}
+        </p>
+
+        <div v-if="inviteList.length > 0" class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b text-left text-xs text-muted-foreground">
+                <th class="py-2 pr-4 font-medium">{{ t('invite.role') }}</th>
+                <th class="py-2 pr-4 font-medium">{{ t('login.email') }}</th>
+                <th class="py-2 pr-4 font-medium">{{ t('invite.expires') }}</th>
+                <th class="py-2 pr-4 font-medium">{{ t('invite.uses') }}</th>
+                <th class="py-2 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="inv in inviteList" :key="inv.id" class="border-b last:border-0">
+                <td class="py-2 pr-4">{{ inv.roleName ?? '—' }}</td>
+                <td class="py-2 pr-4">{{ inv.email ?? t('invite.anyone') }}</td>
+                <td class="py-2 pr-4">{{ formatInviteDate(inv.expiresAt) }}</td>
+                <td class="py-2 pr-4">{{ inv.uses ?? 0 }} / {{ inv.maxUses ?? '∞' }}</td>
+                <td class="py-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button type="button" variant="ghost" size="icon">
+                        <span class="sr-only">{{ t('users.actions') }}</span>
+                        <EllipsisVertical class="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem v-if="inv.url" @select="copyUrl(inv.url!)">
+                        <Copy class="h-4 w-4" /> {{ t('invite.copy') }}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        class="text-destructive focus:text-destructive"
+                        @select="onRevoke(inv.id!)"
+                      >
+                        <Link2Off class="h-4 w-4" /> {{ t('invite.revoke') }}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-
-        <!-- Optional email -->
-        <div class="flex flex-col gap-1">
-          <Label for="invite-email">{{ t('invite.email') }}</Label>
-          <Input id="invite-email" v-model="inviteEmail" type="email" />
-        </div>
-
-        <!-- Expires in days -->
-        <div class="flex flex-col gap-1">
-          <Label for="invite-expires">{{ t('invite.expiresDays') }}</Label>
-          <Input id="invite-expires" v-model.number="inviteExpiresDays" type="number" :min="1" />
-        </div>
-
-        <!-- Max uses -->
-        <div class="flex flex-col gap-1">
-          <Label for="invite-maxuses">{{ t('invite.maxUses') }}</Label>
-          <Input id="invite-maxuses" v-model.number="inviteMaxUses" type="number" :min="1" />
-        </div>
-
-        <Button
-          type="button"
-          :disabled="!inviteRoleId || createInvite.isPending.value"
-          @click="onCreateInvite"
-        >
-          {{ t('invite.create') }}
-        </Button>
-      </div>
-
-      <!-- Newly created URL -->
-      <template v-if="createdUrl">
-        <div v-if="createdEmailSent" class="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-          <MailCheck class="h-4 w-4 shrink-0" />
-          <span>{{ t('invite.emailSent', { email: createdEmailSent }) }}</span>
-        </div>
-        <div class="flex items-center gap-2 rounded-md bg-muted p-3">
-          <span class="flex-1 truncate text-sm font-mono">{{ createdUrl }}</span>
-          <Button type="button" size="sm" variant="outline" @click="copyUrl(createdUrl!)">
-            <Copy class="h-4 w-4 mr-1" />{{ t('invite.copy') }}
-          </Button>
-        </div>
-      </template>
-
-      <!-- Active invites list -->
-      <div v-if="invitesQuery.isError.value" class="text-sm text-destructive">
-        {{ t('settings.loadError') }}
-      </div>
-      <p v-else-if="inviteList.length === 0" class="text-sm text-muted-foreground italic">
-        {{ t('invite.empty') }}
-      </p>
-      <div v-else class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="border-b text-left text-xs text-muted-foreground">
-              <th class="py-2 pr-4 font-medium">{{ t('invite.role') }}</th>
-              <th class="py-2 pr-4 font-medium">{{ t('login.email') }}</th>
-              <th class="py-2 pr-4 font-medium">{{ t('invite.expires') }}</th>
-              <th class="py-2 pr-4 font-medium">{{ t('invite.uses') }}</th>
-              <th class="py-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="inv in inviteList" :key="inv.id" class="border-b last:border-0">
-              <td class="py-2 pr-4">{{ inv.roleName ?? '—' }}</td>
-              <td class="py-2 pr-4">{{ inv.email ?? t('invite.anyone') }}</td>
-              <td class="py-2 pr-4">{{ formatInviteDate(inv.expiresAt) }}</td>
-              <td class="py-2 pr-4">{{ inv.uses ?? 0 }} / {{ inv.maxUses ?? '∞' }}</td>
-              <td class="py-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger as-child>
-                    <Button type="button" variant="ghost" size="icon">
-                      <span class="sr-only">{{ t('users.actions') }}</span>
-                      <EllipsisVertical class="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem v-if="inv.url" @select="copyUrl(inv.url!)">
-                      <Copy class="h-4 w-4" /> {{ t('invite.copy') }}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      class="text-destructive focus:text-destructive"
-                      @select="onRevoke(inv.id!)"
-                    >
-                      <Link2Off class="h-4 w-4" /> {{ t('invite.revoke') }}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </AccordionSection>
+      </CardContent>
+    </Card>
   </div>
 
-  <!-- Add user dialog -->
+  <!-- Add user dialog — "Send invite" (default) or "Create directly" (secondary) -->
   <Dialog v-model:open="addOpen">
     <DialogContent class="max-w-[440px]">
       <DialogHeader>
         <DialogTitle>{{ t('users.addUser') }}</DialogTitle>
       </DialogHeader>
-      <form class="flex flex-col gap-3 pt-2" @submit.prevent="addUser">
+
+      <div
+        v-if="!createdInvite"
+        class="inline-flex self-start overflow-hidden rounded-md border border-input"
+      >
+        <button
+          type="button"
+          :class="
+            cn(
+              'px-3 py-1.5 text-sm transition-colors',
+              addMode === 'invite'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background hover:bg-accent hover:text-accent-foreground',
+            )
+          "
+          @click="addMode = 'invite'"
+        >
+          {{ t('users.modeInvite') }}
+        </button>
+        <button
+          type="button"
+          :class="
+            cn(
+              'border-s border-input px-3 py-1.5 text-sm transition-colors',
+              addMode === 'direct'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background hover:bg-accent hover:text-accent-foreground',
+            )
+          "
+          @click="addMode = 'direct'"
+        >
+          {{ t('users.modeDirect') }}
+        </button>
+      </div>
+
+      <template v-if="addMode === 'invite'">
+        <div v-if="createdInvite" class="flex flex-col gap-3 pt-2">
+          <div
+            v-if="createdInvite.emailSent"
+            class="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300"
+          >
+            <MailCheck class="h-4 w-4 shrink-0" />
+            <span>{{ t('invite.emailSent', { email: createdInvite.emailSent }) }}</span>
+          </div>
+          <div class="flex items-center gap-2 rounded-md bg-muted p-3">
+            <span class="flex-1 truncate text-sm font-mono">{{ createdInvite.url }}</span>
+            <Button type="button" size="sm" variant="outline" @click="copyUrl(createdInvite.url)">
+              <Copy class="h-4 w-4 mr-1" />{{ t('invite.copy') }}
+            </Button>
+          </div>
+        </div>
+        <form v-else class="flex flex-col gap-3 pt-2" @submit.prevent="sendInvite">
+          <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
+          <div class="flex flex-col gap-1">
+            <Label for="invite-role">{{ t('invite.role') }}</Label>
+            <select
+              id="invite-role"
+              v-model="inviteRoleId"
+              class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            >
+              <option :value="null" disabled>— {{ t('invite.role') }} —</option>
+              <option v-for="r in nonAdminActiveRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <Label for="invite-email">{{ t('invite.email') }}</Label>
+            <Input id="invite-email" v-model="inviteEmail" type="email" placeholder="teammate@example.com" />
+          </div>
+          <div class="flex gap-3">
+            <div class="flex flex-1 flex-col gap-1">
+              <Label for="invite-expires">{{ t('invite.expiresDays') }}</Label>
+              <Input id="invite-expires" v-model.number="inviteExpiresDays" type="number" :min="1" />
+            </div>
+            <div class="flex flex-1 flex-col gap-1">
+              <Label for="invite-maxuses">{{ t('invite.maxUses') }}</Label>
+              <Input id="invite-maxuses" v-model.number="inviteMaxUses" type="number" :min="1" placeholder="∞" />
+            </div>
+          </div>
+        </form>
+      </template>
+
+      <form v-else class="flex flex-col gap-3 pt-2" @submit.prevent="addUser">
         <div class="flex flex-col gap-2">
           <Label for="u-email">{{ t('users.email') }}</Label>
           <Input id="u-email" v-model="addForm.email" type="email" />
@@ -609,11 +642,23 @@ function formatInviteDate(iso: string | undefined): string {
           </Select>
         </div>
       </form>
+
       <DialogFooter>
-        <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
-        <Button :disabled="addInvalid || loading" @click="addUser">
-          <Plus class="h-4 w-4" /> {{ t('users.addUser') }}
-        </Button>
+        <template v-if="addMode === 'invite'">
+          <Button v-if="createdInvite" @click="addOpen = false">{{ t('invite.done') }}</Button>
+          <template v-else>
+            <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
+            <Button :disabled="!inviteRoleId || createInvite.isPending.value" @click="sendInvite">
+              {{ t('invite.create') }}
+            </Button>
+          </template>
+        </template>
+        <template v-else>
+          <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
+          <Button :disabled="addInvalid || loading" @click="addUser">
+            <Plus class="h-4 w-4" /> {{ t('users.addUser') }}
+          </Button>
+        </template>
       </DialogFooter>
     </DialogContent>
   </Dialog>

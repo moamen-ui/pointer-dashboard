@@ -183,77 +183,15 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
         </table>
       }
 
-      <!-- Invite teammates section -->
-      <div class="mt-8 max-w-2xl">
-        <div class="rounded-lg border border-app-border bg-white p-4">
-          <h3 class="m-0 mb-1 text-base font-semibold">{{ 'invite.section' | transloco }}</h3>
-          <p class="mb-4 text-[0.85rem] text-muted">{{ 'invite.sectionHint' | transloco }}</p>
+      <!-- Pending invites — created via "Send invite" in the Add User dialog above -->
+      @if (invitesResource.isLoading() || invites().length > 0) {
+        <div class="mt-8 max-w-2xl">
+          <div class="rounded-lg border border-app-border bg-white p-4">
+            <h3 class="m-0 mb-1 text-base font-semibold">{{ 'invite.pendingTitle' | transloco }}</h3>
+            <p class="mb-4 text-[0.85rem] text-muted">{{ 'invite.pendingHint' | transloco }}</p>
 
-          <!-- Create invite form -->
-          <div class="flex flex-col gap-3 rounded border border-app-border p-3">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>{{ 'invite.role' | transloco }}</mat-label>
-              <mat-select [ngModel]="inviteRoleId()" (ngModelChange)="inviteRoleId.set($event)">
-                @for (r of nonAdminActiveRoles(); track r.id) {
-                  <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>{{ 'invite.email' | transloco }}</mat-label>
-              <input matInput type="email"
-                [ngModel]="inviteEmail()"
-                (ngModelChange)="inviteEmail.set($event)" />
-            </mat-form-field>
-
-            <div class="flex gap-3">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
-                <mat-label>{{ 'invite.expiresDays' | transloco }}</mat-label>
-                <input matInput type="number" min="1"
-                  [ngModel]="inviteExpiresInDays()"
-                  (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
-                <mat-label>{{ 'invite.maxUses' | transloco }}</mat-label>
-                <input matInput type="number" min="1"
-                  [ngModel]="inviteMaxUses()"
-                  (ngModelChange)="inviteMaxUses.set($event ? +$event : null)" />
-              </mat-form-field>
-            </div>
-
-            <div>
-              <button mat-flat-button color="primary"
-                [disabled]="!inviteRoleId() || inviteCreating()"
-                (click)="createInvite()">
-                {{ 'invite.create' | transloco }}
-              </button>
-            </div>
-
-            @if (inviteCreatedUrl()) {
-              @if (inviteCreatedEmailSent(); as sentTo) {
-                <div class="flex items-center gap-2 rounded bg-green-50 p-2 text-[0.85rem] text-green-700">
-                  <mat-icon class="!h-4 !w-4 !text-base">mark_email_read</mat-icon>
-                  <span>{{ 'invite.emailSent' | transloco: { email: sentTo } }}</span>
-                </div>
-              }
-              <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all">
-                <span class="flex-1">{{ inviteCreatedUrl() }}</span>
-                <button mat-stroked-button (click)="copyInviteUrl(inviteCreatedUrl()!)">
-                  {{ 'invite.copy' | transloco }}
-                </button>
-              </div>
-            }
-          </div>
-
-          <!-- Active invites list -->
-          <div class="mt-4">
             @if (invitesResource.isLoading()) {
               <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            }
-
-            @if (!invitesResource.isLoading() && invites().length === 0) {
-              <p class="text-[0.85rem] text-muted">{{ 'invite.empty' | transloco }}</p>
             }
 
             @for (inv of invites(); track inv.id) {
@@ -281,42 +219,120 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
             }
           </div>
         </div>
-      </div>
+      }
     </div>
 
-    <!-- Add user dialog -->
+    <!-- Add user dialog — "Send invite" (default) or "Create directly" (secondary) -->
     <ng-template #addDialog>
       <h2 mat-dialog-title>{{ 'users.addUser' | transloco }}</h2>
       <mat-dialog-content>
-        <form [formGroup]="addForm" (ngSubmit)="addUser()" class="flex min-w-80 flex-col gap-3 pt-2">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'users.email' | transloco }}</mat-label>
-            <input matInput type="email" formControlName="email" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'users.displayName' | transloco }}</mat-label>
-            <input matInput formControlName="displayName" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'users.password' | transloco }}</mat-label>
-            <input matInput [type]="pwToggle.type()" formControlName="password" />
-            <app-password-toggle matSuffix #pwToggle />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'users.role' | transloco }}</mat-label>
-            <mat-select formControlName="roleId">
-              @for (role of activeRoles(); track role.id) {
-                <mat-option [value]="role.id">{{ role.name }}</mat-option>
+        @if (!inviteCreatedUrl()) {
+          <mat-button-toggle-group
+            [value]="addMode()"
+            (change)="addMode.set($event.value)"
+            hideSingleSelectionIndicator
+            class="mb-3"
+          >
+            <mat-button-toggle value="invite">{{ 'users.modeInvite' | transloco }}</mat-button-toggle>
+            <mat-button-toggle value="direct">{{ 'users.modeDirect' | transloco }}</mat-button-toggle>
+          </mat-button-toggle-group>
+        }
+
+        @if (addMode() === 'invite') {
+          @if (inviteCreatedUrl(); as url) {
+            <div class="flex min-w-80 flex-col gap-3 pt-2">
+              @if (inviteCreatedEmailSent(); as sentTo) {
+                <div class="flex items-center gap-2 rounded bg-green-50 p-2 text-[0.85rem] text-green-700 dark:bg-green-500/15 dark:text-green-300">
+                  <mat-icon class="!h-4 !w-4 !text-base">mark_email_read</mat-icon>
+                  <span>{{ 'invite.emailSent' | transloco: { email: sentTo } }}</span>
+                </div>
               }
-            </mat-select>
-          </mat-form-field>
-        </form>
+              <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all dark:bg-white/5">
+                <span class="flex-1">{{ url }}</span>
+                <button mat-stroked-button (click)="copyInviteUrl(url)">
+                  {{ 'invite.copy' | transloco }}
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div class="flex min-w-80 flex-col gap-3 pt-2">
+              <p class="text-[0.85rem] text-muted">{{ 'invite.sectionHint' | transloco }}</p>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ 'invite.role' | transloco }}</mat-label>
+                <mat-select [ngModel]="inviteRoleId()" (ngModelChange)="inviteRoleId.set($event)">
+                  @for (r of nonAdminActiveRoles(); track r.id) {
+                    <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ 'invite.email' | transloco }}</mat-label>
+                <input matInput type="email"
+                  [ngModel]="inviteEmail()"
+                  (ngModelChange)="inviteEmail.set($event)" />
+              </mat-form-field>
+
+              <div class="flex gap-3">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                  <mat-label>{{ 'invite.expiresDays' | transloco }}</mat-label>
+                  <input matInput type="number" min="1"
+                    [ngModel]="inviteExpiresInDays()"
+                    (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                  <mat-label>{{ 'invite.maxUses' | transloco }}</mat-label>
+                  <input matInput type="number" min="1"
+                    [ngModel]="inviteMaxUses()"
+                    (ngModelChange)="inviteMaxUses.set($event ? +$event : null)" />
+                </mat-form-field>
+              </div>
+            </div>
+          }
+        } @else {
+          <form [formGroup]="addForm" (ngSubmit)="addUser()" class="flex min-w-80 flex-col gap-3 pt-2">
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'users.email' | transloco }}</mat-label>
+              <input matInput type="email" formControlName="email" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'users.displayName' | transloco }}</mat-label>
+              <input matInput formControlName="displayName" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'users.password' | transloco }}</mat-label>
+              <input matInput [type]="pwToggle.type()" formControlName="password" />
+              <app-password-toggle matSuffix #pwToggle />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'users.role' | transloco }}</mat-label>
+              <mat-select formControlName="roleId">
+                @for (role of activeRoles(); track role.id) {
+                  <mat-option [value]="role.id">{{ role.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </form>
+        }
       </mat-dialog-content>
       <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary" (click)="addUser()" [disabled]="addForm.invalid || loading()">
-          <mat-icon>add</mat-icon> {{ 'users.addUser' | transloco }}
-        </button>
+        @if (addMode() === 'invite') {
+          @if (inviteCreatedUrl()) {
+            <button mat-flat-button color="primary" mat-dialog-close>{{ 'invite.done' | transloco }}</button>
+          } @else {
+            <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+            <button mat-flat-button color="primary"
+              [disabled]="!inviteRoleId() || inviteCreating()"
+              (click)="createInvite()">
+              {{ 'invite.create' | transloco }}
+            </button>
+          }
+        } @else {
+          <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+          <button mat-flat-button color="primary" (click)="addUser()" [disabled]="addForm.invalid || loading()">
+            <mat-icon>add</mat-icon> {{ 'users.addUser' | transloco }}
+          </button>
+        }
       </mat-dialog-actions>
     </ng-template>
   `,
@@ -360,6 +376,8 @@ export class UsersComponent {
     password: ['', Validators.required],
     roleId: [0 as number, [Validators.required, Validators.min(1)]],
   });
+
+  addMode = signal<'invite' | 'direct'>('invite');
 
   activeRoles() {
     return this.roles().filter(r => r.isActive);
@@ -439,6 +457,13 @@ export class UsersComponent {
   openAdd() {
     const firstRole = this.activeRoles()[0]?.id ?? 0;
     this.addForm.reset({ email: '', displayName: '', password: '', roleId: firstRole });
+    this.addMode.set('invite');
+    this.inviteRoleId.set(this.nonAdminActiveRoles()[0]?.id ?? null);
+    this.inviteEmail.set('');
+    this.inviteExpiresInDays.set(7);
+    this.inviteMaxUses.set(null);
+    this.inviteCreatedUrl.set(null);
+    this.inviteCreatedEmailSent.set(null);
     this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
   }
 

@@ -83,6 +83,10 @@ export function UsersPage() {
   const { data: roles = [] } = useGetApiAdminRoles();
 
   const activeRoles = useMemo(() => roles.filter((r) => r.isActive), [roles]);
+  const nonAdminActiveRoles = useMemo(
+    () => activeRoles.filter((r) => !r.grantsAdmin),
+    [activeRoles],
+  );
   const pendingCount = pending.length;
 
   // Invalidate every users list (any status filter) by matching the shared
@@ -100,8 +104,11 @@ export function UsersPage() {
     return activeRoles;
   }
 
-  // ---- Add user ----
+  // ---- Add user: "Send invite" is the default mode, "Create directly" is secondary ----
   const [addOpen, setAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<'invite' | 'direct'>('invite');
+
+  // Direct-creation fields
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -117,11 +124,38 @@ export function UsersPage() {
     },
   });
 
+  // Invite fields
+  const [inviteRoleId, setInviteRoleId] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteExpiresDays, setInviteExpiresDays] = useState('7');
+  const [inviteMaxUses, setInviteMaxUses] = useState('');
+  const [createdInvite, setCreatedInvite] = useState<{ url: string; emailSent: string | null } | null>(
+    null,
+  );
+
+  const inviteMut = usePostApiAdminInvites({
+    mutation: {
+      onSuccess: (res) => {
+        const inv = res as unknown as InviteResponse;
+        setCreatedInvite({ url: inv.url ?? '', emailSent: inv.emailSent && inv.email ? inv.email : null });
+        toast(t('invite.created'));
+        void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+      },
+      onError,
+    },
+  });
+
   function openAdd() {
     setEmail('');
     setDisplayName('');
     setPassword('');
     setRoleId(activeRoles[0]?.id ?? 0);
+    setInviteRoleId(String(nonAdminActiveRoles[0]?.id ?? ''));
+    setInviteEmail('');
+    setInviteExpiresDays('7');
+    setInviteMaxUses('');
+    setCreatedInvite(null);
+    setAddMode('invite');
     setAddOpen(true);
   }
   const addInvalid =
@@ -136,6 +170,22 @@ export function UsersPage() {
         roleId,
       },
     });
+  }
+
+  function sendInvite() {
+    if (!inviteRoleId) return;
+    inviteMut.mutate({
+      data: {
+        roleId: Number(inviteRoleId),
+        email: inviteEmail.trim() || undefined,
+        expiresInDays: inviteExpiresDays ? Number(inviteExpiresDays) : undefined,
+        maxUses: inviteMaxUses ? Number(inviteMaxUses) : undefined,
+      },
+    });
+  }
+
+  function copyInviteUrl(url: string) {
+    void navigator.clipboard.writeText(url).then(() => toast(t('invite.copied')));
   }
 
   // ---- Change role / enable-disable (patch) ----
@@ -367,68 +417,186 @@ export function UsersPage() {
       </Card>
       )}
 
-      <InviteCard />
+      <PendingInvitesTable />
 
-      {/* Add user dialog */}
+      {/* Add user dialog — "Send invite" (default) or "Create directly" (secondary) */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t('users.addUser')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-3 pt-1">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="u-email">{t('users.email')}</Label>
-              <Input
-                id="u-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="u-name">{t('users.displayName')}</Label>
-              <Input
-                id="u-name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="u-pass">{t('users.password')}</Label>
-              <PasswordInput
-                id="u-pass"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>{t('users.role')}</Label>
-              <Select
-                value={roleId ? String(roleId) : undefined}
-                onValueChange={(v) => setRoleId(Number(v))}
+
+          {!createdInvite && (
+            <div className="inline-flex self-start overflow-hidden rounded-md border border-border">
+              <button
+                type="button"
+                onClick={() => setAddMode('invite')}
+                className={cn(
+                  'px-3 py-1.5 text-sm transition-colors',
+                  addMode === 'invite'
+                    ? 'bg-brand-tint font-semibold text-brand'
+                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                )}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder={t('users.role')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeRoles.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {t('users.modeInvite')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMode('direct')}
+                className={cn(
+                  'border-s border-border px-3 py-1.5 text-sm transition-colors',
+                  addMode === 'direct'
+                    ? 'bg-brand-tint font-semibold text-brand'
+                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                )}
+              >
+                {t('users.modeDirect')}
+              </button>
             </div>
-          </div>
+          )}
+
+          {addMode === 'invite' ? (
+            createdInvite ? (
+              <div className="flex flex-col gap-3 pt-1">
+                {createdInvite.emailSent && (
+                  <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300">
+                    <MailCheck className="h-4 w-4 shrink-0" />
+                    <span>{t('invite.emailSent', { email: createdInvite.emailSent })}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                  <p className="flex-1 truncate text-xs font-mono">{createdInvite.url}</p>
+                  <Button size="sm" variant="ghost" onClick={() => copyInviteUrl(createdInvite.url)} type="button">
+                    <Copy className="h-4 w-4" />
+                    {t('invite.copy')}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 pt-1">
+                <p className="text-xs text-muted-foreground">{t('invite.sectionHint')}</p>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs">{t('invite.role')}</Label>
+                  <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('invite.role')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nonAdminActiveRoles.map((r) => (
+                        <SelectItem key={r.id} value={String(r.id)}>
+                          {r.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-xs">{t('invite.email')}</Label>
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="teammate@example.com"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex flex-1 flex-col gap-2">
+                    <Label className="text-xs">{t('invite.expiresDays')}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={inviteExpiresDays}
+                      onChange={(e) => setInviteExpiresDays(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2">
+                    <Label className="text-xs">{t('invite.maxUses')}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={inviteMaxUses}
+                      onChange={(e) => setInviteMaxUses(e.target.value)}
+                      placeholder="∞"
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col gap-3 pt-1">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="u-email">{t('users.email')}</Label>
+                <Input
+                  id="u-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="u-name">{t('users.displayName')}</Label>
+                <Input
+                  id="u-name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="u-pass">{t('users.password')}</Label>
+                <PasswordInput
+                  id="u-pass"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>{t('users.role')}</Label>
+                <Select
+                  value={roleId ? String(roleId) : undefined}
+                  onValueChange={(v) => setRoleId(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('users.role')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeRoles.map((r) => (
+                      <SelectItem key={r.id} value={String(r.id)}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button disabled={addInvalid || addMut.isPending} onClick={addUser}>
-              <Plus className="h-4 w-4" />
-              {t('users.addUser')}
-            </Button>
+            {addMode === 'invite' ? (
+              createdInvite ? (
+                <Button onClick={() => setAddOpen(false)}>{t('invite.done')}</Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setAddOpen(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button disabled={!inviteRoleId || inviteMut.isPending} onClick={sendInvite}>
+                    <Link className="h-4 w-4" />
+                    {t('invite.create')}
+                  </Button>
+                </>
+              )
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setAddOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button disabled={addInvalid || addMut.isPending} onClick={addUser}>
+                  <Plus className="h-4 w-4" />
+                  {t('users.addUser')}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -491,62 +659,16 @@ export function UsersPage() {
   );
 }
 
-// Invite teammates — any admin (including a Workspace Admin, the primary user of this
-// feature) reaches it here, since /users is not super-admin-gated unlike /settings.
-function InviteCard() {
+// Pending invites — created via "Send invite" in the Add User dialog above; this table
+// only manages ones already sent (copy the link again, or revoke).
+function PendingInvitesTable() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: rolesRaw = [], isLoading: rolesLoading } = useGetApiAdminRoles();
-  const nonAdminRoles: RoleResponse[] = (rolesRaw as RoleResponse[]).filter(
-    (r) => !r.grantsAdmin && r.isActive,
-  );
-
   const { data: invitesRaw, isLoading: invitesLoading, isError: invitesError } =
     useGetApiAdminInvites();
   const invites: InviteResponse[] = (invitesRaw as InviteResponse[] | undefined) ?? [];
-
-  const reloadInvites = () =>
-    void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
-
-  // ---- Create form state ----
-  const [roleId, setRoleId] = useState<string>('');
-  const [email, setEmail] = useState('');
-  const [expiresDays, setExpiresDays] = useState<string>('7');
-  const [maxUses, setMaxUses] = useState<string>('');
-  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
-  const [createdEmailSent, setCreatedEmailSent] = useState<string | null>(null);
-
-  const createMut = usePostApiAdminInvites({
-    mutation: {
-      onSuccess: (res) => {
-        const inv = res as unknown as InviteResponse;
-        setCreatedUrl(inv.url ?? null);
-        setCreatedEmailSent(inv.emailSent && inv.email ? inv.email : null);
-        toast(t('invite.created'));
-        reloadInvites();
-        // Reset form
-        setRoleId('');
-        setEmail('');
-        setExpiresDays('7');
-        setMaxUses('');
-      },
-      onError: (e: unknown) => toast(extractMessage(e), 'error'),
-    },
-  });
-
-  function createInvite() {
-    if (!roleId) return;
-    createMut.mutate({
-      data: {
-        roleId: Number(roleId),
-        email: email.trim() || undefined,
-        expiresInDays: expiresDays ? Number(expiresDays) : undefined,
-        maxUses: maxUses ? Number(maxUses) : undefined,
-      },
-    });
-  }
 
   function copyUrl(url: string) {
     void navigator.clipboard.writeText(url).then(() => toast(t('invite.copied')));
@@ -556,7 +678,7 @@ function InviteCard() {
     mutation: {
       onSuccess: () => {
         toast(t('invite.revoked'));
-        reloadInvites();
+        void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
       },
       onError: (e: unknown) => toast(extractMessage(e), 'error'),
     },
@@ -571,117 +693,19 @@ function InviteCard() {
     }
   }
 
+  if (!invitesLoading && !invitesError && invites.length === 0) return null;
+
   return (
     <Card>
-      <CardContent className="flex flex-col gap-4 p-6">
-        <h3 className="text-sm font-semibold">{t('invite.section')}</h3>
-        <p className="text-xs text-muted-foreground">{t('invite.sectionHint')}</p>
+      <CardContent className="flex flex-col gap-3 p-6">
+        <h3 className="text-sm font-semibold">{t('invite.pendingTitle')}</h3>
+        <p className="text-xs text-muted-foreground">{t('invite.pendingHint')}</p>
 
-        {/* Create form */}
-        <div className="flex flex-col gap-3 rounded-md border border-dashed border-border p-4">
-          {/* Role select */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.role')}</Label>
-            {rolesLoading ? (
-              <p className="text-xs text-muted-foreground">{t('settings.loading')}</p>
-            ) : (
-              <Select value={roleId} onValueChange={setRoleId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('invite.role')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {nonAdminRoles.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Optional email */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.email')}</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="teammate@example.com"
-            />
-          </div>
-
-          {/* Expires in days */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.expiresDays')}</Label>
-            <Input
-              type="number"
-              min={1}
-              value={expiresDays}
-              onChange={(e) => setExpiresDays(e.target.value)}
-              className="max-w-[12rem]"
-            />
-          </div>
-
-          {/* Max uses */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.maxUses')}</Label>
-            <Input
-              type="number"
-              min={1}
-              value={maxUses}
-              onChange={(e) => setMaxUses(e.target.value)}
-              placeholder="∞"
-              className="max-w-[12rem]"
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={!roleId || createMut.isPending}
-              onClick={createInvite}
-              type="button"
-            >
-              <Link className="h-4 w-4" />
-              {t('invite.create')}
-            </Button>
-          </div>
-        </div>
-
-        {/* Newly created invite URL */}
-        {createdUrl && (
-          <>
-            {createdEmailSent && (
-              <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                <MailCheck className="h-4 w-4 shrink-0" />
-                <span>{t('invite.emailSent', { email: createdEmailSent })}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-              <p className="flex-1 truncate text-xs font-mono">{createdUrl}</p>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => copyUrl(createdUrl)}
-                type="button"
-              >
-                <Copy className="h-4 w-4" />
-                {t('invite.copy')}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* Invite list */}
         {invitesLoading && (
           <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
         )}
         {invitesError && (
           <p className="text-sm text-destructive">{t('settings.loadError')}</p>
-        )}
-        {!invitesLoading && !invitesError && invites.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t('invite.empty')}</p>
         )}
         {invites.length > 0 && (
           <Table>

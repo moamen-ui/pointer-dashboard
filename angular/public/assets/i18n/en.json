@@ -170,7 +170,9 @@
     "confirm": "Confirm",
     "confirmReject": "Reject the request from {{ name }}?",
     "empty": "No users to show.",
-    "emptyHint": "Nobody matches this filter yet."
+    "emptyHint": "Nobody matches this filter yet.",
+    "modeInvite": "Send invite",
+    "modeDirect": "Create directly"
   },
   "projects": {
     "title": "Projects",
@@ -457,7 +459,10 @@
     "joined": "Welcome! You're now a member.",
     "invalidLink": "This invite link is missing its code.",
     "invalidOrExpired": "This invite is invalid, expired, or already used.",
-    "passwordMismatch": "Passwords do not match."
+    "passwordMismatch": "Passwords do not match.",
+    "done": "Done",
+    "pendingTitle": "Pending invites",
+    "pendingHint": "Invites waiting to be accepted. Copy the link to resend it, or revoke to cancel it."
   },
   "branding": {
     "title": "Branding",
