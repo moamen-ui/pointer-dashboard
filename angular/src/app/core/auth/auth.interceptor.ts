@@ -6,6 +6,7 @@ import { TranslocoService } from '@jsverse/transloco';
 import { catchError, map, throwError } from 'rxjs';
 import type { PlanLimit } from '@moamen-ui/pointer-angular';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 /** Lever name (server sends PascalCase entitlement names) → friendly i18n key. */
 const LEVER_I18N: Record<string, string> = {
@@ -34,6 +35,7 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
   }
 
   const router = inject(Router);
+  const auth = inject(AuthService);
   const snack = inject(MatSnackBar);
   const transloco = inject(TranslocoService);
 
@@ -83,9 +85,17 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
         showUpgradePrompt(envelope.limit);
       }
       if (err?.status === 401) {
-        localStorage.removeItem('pointer_admin_token');
-        localStorage.removeItem('pointer_admin_user');
-        router.navigateByUrl('/login');
+        // An expired session 401s every request that is already in flight. Firing a
+        // navigation per 401 made them cancel each other (the /login route is lazy,
+        // so its chunk never finished loading before the next navigation superseded
+        // it) — the shell stayed active, refetched, 401'd again, and the loop only
+        // ended when the tab died. Gate on the session instead: the first 401 tears
+        // it down, so the ones behind it fall through without navigating.
+        const hadSession = auth.isAuthenticated();
+        auth.clearSession();
+        if (hadSession && !router.url.startsWith('/login')) {
+          router.navigateByUrl('/login');
+        }
       }
       return throwError(() => err);
     }),
