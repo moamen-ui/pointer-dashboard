@@ -1,4 +1,4 @@
-import { Component, effect, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs';
@@ -57,11 +57,16 @@ import { DemoPanelComponent } from './demo-panel.component';
            the install guide, theme, language and sign-out all live in here. The
            install-guide dot rides on the trigger so the nudge is still visible
            while the menu is closed. -->
-      <button mat-icon-button class="relative" [matMenuTriggerFor]="profileMenu"
+      <button mat-button class="relative !px-2" [matMenuTriggerFor]="profileMenu"
         [attr.aria-label]="'header.account' | transloco">
         <mat-icon>account_circle</mat-icon>
+        <!-- First name only: enough to tell whose session this is without spending
+             header width on the full display name + role (both are in the menu). -->
+        @if (firstName()) {
+          <span class="ms-1 hidden text-[0.9rem] font-medium sm:inline">{{ firstName() }}</span>
+        }
         @if (installGuide.nothingCollectedYet()) {
-          <span class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"></span>
+          <span class="absolute end-1 top-1.5 h-2 w-2 rounded-full bg-brand"></span>
         }
       </button>
 
@@ -184,6 +189,9 @@ export class ShellComponent {
   prefs = inject(PreferencesService);
   branding = inject(BrandingService);
   installGuide = inject(InstallGuideService);
+
+  /** First word of the display name — "Ahmed" out of "Ahmed Omran". */
+  readonly firstName = computed(() => this.auth.user()?.displayName?.trim().split(/\s+/)[0] ?? '');
 
   constructor() {
     // A workspace admin who is new here — or whose workspace has collected nothing

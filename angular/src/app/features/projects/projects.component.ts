@@ -27,6 +27,7 @@ import {
   getApiAdminProjectsResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AuthService } from '../../core/auth/auth.service';
@@ -53,6 +54,7 @@ const KEY_MAX_LENGTH = 64;
     MatDialogModule,
     MatTooltipModule,
     TranslocoModule,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-6">
@@ -67,6 +69,17 @@ const KEY_MAX_LENGTH = 64;
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
       }
 
+      @if (projects().length === 0) {
+        <app-empty-state
+          icon="folder_open"
+          [message]="'projects.empty' | transloco"
+          [hint]="'projects.emptyHint' | transloco"
+        >
+          <button mat-flat-button color="primary" (click)="openAdd()">
+            <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
+          </button>
+        </app-empty-state>
+      } @else {
       <table mat-table [dataSource]="projects()" class="w-full mat-elevation-z2">
         <ng-container matColumnDef="key">
           <th mat-header-cell *matHeaderCellDef>{{ 'projects.key' | transloco }}</th>
@@ -150,6 +163,7 @@ const KEY_MAX_LENGTH = 64;
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
+      }
     </div>
 
     <!-- Add project dialog -->

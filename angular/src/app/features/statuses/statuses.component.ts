@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { StatusesService, getApiAdminStatusesResource } from '@moamen-ui/pointer-angular';
 import type { StatusAdminItem } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
@@ -38,6 +39,7 @@ interface StatusRow {
     MatMenuModule,
     MatTooltipModule,
     TranslocoModule,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-6">
@@ -49,6 +51,12 @@ interface StatusRow {
         <p class="text-red-500">{{ 'statuses.loadError' | transloco }}</p>
       } @else if (statusesResource.isLoading() && rows().length === 0) {
         <p class="text-muted">{{ 'statuses.loading' | transloco }}</p>
+      } @else if (rows().length === 0) {
+        <app-empty-state
+          icon="label"
+          [message]="'statuses.empty' | transloco"
+          [hint]="'statuses.emptyHint' | transloco"
+        />
       } @else {
         <table mat-table [dataSource]="rows()" class="w-full mat-elevation-z2">
 
@@ -67,14 +75,17 @@ interface StatusRow {
           <ng-container matColumnDef="label">
             <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colLabel' | transloco }}</th>
             <td mat-cell *matCellDef="let row; let i = index">
-              <mat-form-field appearance="outline" class="dense-field w-[132px]">
+              <!-- Same slim box as the colour control below, so the row reads as one
+                   set of controls instead of tall Material fields beside a small one. -->
+              <div class="table-field w-[132px]">
                 <input
-                  matInput
+                  class="table-field-input"
                   [(ngModel)]="rows()[i].label"
                   maxlength="64"
                   placeholder="Label"
+                  [attr.aria-label]="'statuses.colLabel' | transloco"
                 />
-              </mat-form-field>
+              </div>
             </td>
           </ng-container>
 
@@ -84,9 +95,7 @@ interface StatusRow {
             <td mat-cell *matCellDef="let row; let i = index">
               <!-- Swatch + hex are one control: a single bordered box that lights up
                    on focus, with the native picker sitting inside it. -->
-              <div
-                class="inline-flex h-10 w-[124px] items-center gap-1.5 rounded border border-app-border ps-1.5 pe-2 focus-within:border-brand focus-within:ring-1 focus-within:ring-brand"
-              >
+              <div class="table-field w-[124px] gap-1.5 ps-1.5">
                 <input
                   type="color"
                   class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
@@ -95,7 +104,7 @@ interface StatusRow {
                   [attr.aria-label]="'statuses.colColor' | transloco"
                 />
                 <input
-                  class="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-xs text-ink outline-none"
+                  class="table-field-input font-mono"
                   [(ngModel)]="rows()[i].color"
                   placeholder="#rrggbb"
                   pattern="^#[0-9a-fA-F]{6}$"
@@ -109,15 +118,16 @@ interface StatusRow {
           <ng-container matColumnDef="order">
             <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colOrder' | transloco }}</th>
             <td mat-cell *matCellDef="let row; let i = index">
-              <mat-form-field appearance="outline" class="dense-field w-16">
+              <div class="table-field w-16">
                 <input
-                  matInput
+                  class="table-field-input"
                   type="number"
                   min="0"
                   [(ngModel)]="rows()[i].order"
                   placeholder="0"
+                  [attr.aria-label]="'statuses.colOrder' | transloco"
                 />
-              </mat-form-field>
+              </div>
             </td>
           </ng-container>
 
@@ -159,10 +169,34 @@ interface StatusRow {
     </div>
   `,
   styles: [`
-    .dense-field {
-      --mdc-outlined-text-field-container-height: 40px;
+    /* Every in-table control — label, colour, order — is the same slim box. Material's
+       outlined form field is much taller than the colour swatch it sat next to, which
+       made the row look mismatched. */
+    .table-field {
+      display: inline-flex;
+      align-items: center;
+      height: 36px;
+      padding-inline: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
     }
-    .dense-field .mat-mdc-form-field-subscript-wrapper { display: none; }
+    .table-field:focus-within {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 1px var(--brand);
+    }
+    .table-field-input {
+      width: 100%;
+      min-width: 0;
+      height: 100%;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 0.8rem;
+      outline: none;
+    }
+    .table-field-input::placeholder { color: var(--muted); }
 
     /* Native colour input: drop the browser's chrome so it reads as a plain
        swatch inside the merged colour control. */

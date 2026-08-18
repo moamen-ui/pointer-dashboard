@@ -14,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { TenantsService, getApiAdminTenantsResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
 import type { TenantResponse, PlanAdminResponse } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
@@ -35,6 +36,7 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
     MatTooltipModule,
     TranslocoModule,
     PasswordToggleComponent,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-6">
@@ -50,7 +52,11 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
       } @else if (tenantsResource.isLoading() && tenants().length === 0) {
         <p class="text-muted">{{ 'tenants.loading' | transloco }}</p>
       } @else if (tenants().length === 0) {
-        <p class="text-muted">{{ 'tenants.empty' | transloco }}</p>
+        <app-empty-state
+          icon="business"
+          [message]="'tenants.empty' | transloco"
+          [hint]="'tenants.emptyHint' | transloco"
+        />
       } @else {
         <table mat-table [dataSource]="tenants()" class="w-full mat-elevation-z2">
 

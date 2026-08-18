@@ -16,6 +16,7 @@ import { UsersService } from '@moamen-ui/pointer-angular';
 import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
 import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
@@ -36,6 +37,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
     FormsModule,
     DatePipe,
     TranslocoModule,
+    EmptyStateComponent,
   ],
   template: `
     @if (loading()) {
@@ -94,7 +96,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
         </mat-card-header>
         <mat-card-content>
           @if (pendingUsers().length === 0) {
-            <p class="mb-0 mt-2 text-muted">{{ 'overview.noPending' | transloco }}</p>
+            <app-empty-state icon="how_to_reg" [message]="'overview.noPending' | transloco" />
           } @else {
             <div class="flex flex-col">
               @for (u of pendingUsers(); track u.id) {
@@ -152,6 +154,13 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
       </div>
 
       <div class="overflow-x-auto">
+        @if (projectRows().length === 0) {
+          <app-empty-state
+            icon="folder_open"
+            [message]="'overview.emptyProjects' | transloco"
+            [hint]="'overview.emptyProjectsHint' | transloco"
+          />
+        } @else {
         <table mat-table [dataSource]="tableDataSource" matSort class="w-full mat-elevation-z1">
           <ng-container matColumnDef="key">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.key' | transloco }}</th>
@@ -196,6 +205,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
         </table>
+        }
       </div>
     } @else if (!loading()) {
       <div class="p-12 text-center">
@@ -215,6 +225,8 @@ export class OverviewComponent {
   rolesResource = getApiAdminRolesResource();
 
   stats = computed(() => this.statsResource.value());
+  /** Rows behind the breakdown table — read as a signal so the empty state reacts. */
+  projectRows = computed<ProjectStats[]>(() => this.statsResource.value()?.projects ?? []);
   pendingUsers = computed(() => this.pendingResource.value() ?? []);
   pendingCount = computed(() => this.pendingResource.value()?.length ?? 0);
   roles = computed(() => this.rolesResource.value() ?? []);

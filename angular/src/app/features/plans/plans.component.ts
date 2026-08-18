@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { PlansService, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
 import type { PlanAdminResponse, PlanEntitlementsDto, PlanWriteDto } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 
@@ -82,6 +83,7 @@ function emptyEntitlementsForm(): EntitlementsForm {
     MatDialogModule,
     MatTooltipModule,
     TranslocoModule,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-6">
@@ -97,7 +99,11 @@ function emptyEntitlementsForm(): EntitlementsForm {
       } @else if (plansResource.isLoading() && plans().length === 0) {
         <p class="text-muted">{{ 'plans.loading' | transloco }}</p>
       } @else if (plans().length === 0) {
-        <p class="text-muted">{{ 'plans.empty' | transloco }}</p>
+        <app-empty-state
+          icon="credit_card"
+          [message]="'plans.empty' | transloco"
+          [hint]="'plans.emptyHint' | transloco"
+        />
       } @else {
         <table mat-table [dataSource]="plans()" class="w-full mat-elevation-z2">
 

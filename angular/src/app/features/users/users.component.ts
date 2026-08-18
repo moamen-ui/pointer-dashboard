@@ -16,6 +16,7 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
@@ -42,6 +43,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     MatDialogModule,
     TranslocoModule,
     PasswordToggleComponent,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-6">
@@ -69,7 +71,15 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
       </div>
 
       @if (users().length === 0 && !loading()) {
-        <p class="py-6 text-muted">{{ 'users.empty' | transloco }}</p>
+        <app-empty-state
+          icon="people"
+          [message]="'users.empty' | transloco"
+          [hint]="'users.emptyHint' | transloco"
+        >
+          <button mat-flat-button color="primary" (click)="openAdd()">
+            <mat-icon>add</mat-icon> {{ 'users.addUser' | transloco }}
+          </button>
+        </app-empty-state>
       } @else {
         <table mat-table [dataSource]="users()" class="w-full mat-elevation-z2">
           <ng-container matColumnDef="email">

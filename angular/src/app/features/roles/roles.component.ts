@@ -13,6 +13,7 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { MatMenuModule } from '@angular/material/menu';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
+import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
@@ -34,6 +35,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
     MatDialogModule,
     MatSelectModule,
     TranslocoModule,
+    EmptyStateComponent,
   ],
   template: `
     <div class="p-6">
@@ -44,7 +46,17 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
         </button>
       </div>
 
-      @if (roles().length > 0) {
+      @if (roles().length === 0) {
+        <app-empty-state
+          icon="manage_accounts"
+          [message]="'roles.empty' | transloco"
+          [hint]="'roles.emptyHint' | transloco"
+        >
+          <button mat-flat-button color="primary" (click)="openAdd()">
+            <mat-icon>add</mat-icon> {{ 'roles.addRole' | transloco }}
+          </button>
+        </app-empty-state>
+      } @else {
         <table mat-table [dataSource]="roles()" class="w-full mat-elevation-z2">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.name' | transloco }}</th>
