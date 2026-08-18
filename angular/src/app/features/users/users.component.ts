@@ -1,5 +1,5 @@
 import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -16,11 +16,12 @@ import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dial
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
+import { InvitesService, getApiAdminInvitesResource } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
-import type { UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
+import type { UserResponse, RoleResponse, InviteResponse } from '@moamen-ui/pointer-angular';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -28,6 +29,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
   selector: 'app-users',
   standalone: true,
   imports: [
+    FormsModule,
     ReactiveFormsModule,
     DatePipe,
     RouterLink,
@@ -180,6 +182,106 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           <tr mat-row *matRowDef="let row; columns: displayedColumns();"></tr>
         </table>
       }
+
+      <!-- Invite teammates section -->
+      <div class="mt-8 max-w-2xl">
+        <div class="rounded-lg border border-app-border bg-white p-4">
+          <h3 class="m-0 mb-1 text-base font-semibold">{{ 'invite.section' | transloco }}</h3>
+          <p class="mb-4 text-[0.85rem] text-muted">{{ 'invite.sectionHint' | transloco }}</p>
+
+          <!-- Create invite form -->
+          <div class="flex flex-col gap-3 rounded border border-app-border p-3">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>{{ 'invite.role' | transloco }}</mat-label>
+              <mat-select [ngModel]="inviteRoleId()" (ngModelChange)="inviteRoleId.set($event)">
+                @for (r of nonAdminActiveRoles(); track r.id) {
+                  <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>{{ 'invite.email' | transloco }}</mat-label>
+              <input matInput type="email"
+                [ngModel]="inviteEmail()"
+                (ngModelChange)="inviteEmail.set($event)" />
+            </mat-form-field>
+
+            <div class="flex gap-3">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                <mat-label>{{ 'invite.expiresDays' | transloco }}</mat-label>
+                <input matInput type="number" min="1"
+                  [ngModel]="inviteExpiresInDays()"
+                  (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                <mat-label>{{ 'invite.maxUses' | transloco }}</mat-label>
+                <input matInput type="number" min="1"
+                  [ngModel]="inviteMaxUses()"
+                  (ngModelChange)="inviteMaxUses.set($event ? +$event : null)" />
+              </mat-form-field>
+            </div>
+
+            <div>
+              <button mat-flat-button color="primary"
+                [disabled]="!inviteRoleId() || inviteCreating()"
+                (click)="createInvite()">
+                {{ 'invite.create' | transloco }}
+              </button>
+            </div>
+
+            @if (inviteCreatedUrl()) {
+              @if (inviteCreatedEmailSent(); as sentTo) {
+                <div class="flex items-center gap-2 rounded bg-green-50 p-2 text-[0.85rem] text-green-700">
+                  <mat-icon class="!h-4 !w-4 !text-base">mark_email_read</mat-icon>
+                  <span>{{ 'invite.emailSent' | transloco: { email: sentTo } }}</span>
+                </div>
+              }
+              <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all">
+                <span class="flex-1">{{ inviteCreatedUrl() }}</span>
+                <button mat-stroked-button (click)="copyInviteUrl(inviteCreatedUrl()!)">
+                  {{ 'invite.copy' | transloco }}
+                </button>
+              </div>
+            }
+          </div>
+
+          <!-- Active invites list -->
+          <div class="mt-4">
+            @if (invitesResource.isLoading()) {
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            }
+
+            @if (!invitesResource.isLoading() && invites().length === 0) {
+              <p class="text-[0.85rem] text-muted">{{ 'invite.empty' | transloco }}</p>
+            }
+
+            @for (inv of invites(); track inv.id) {
+              <div class="mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-app-border p-3 text-[0.85rem]">
+                <div class="flex flex-col gap-0.5">
+                  <div><span class="font-medium">{{ inv.roleName }}</span></div>
+                  <div class="text-muted">
+                    {{ inv.email || ('invite.anyone' | transloco) }}
+                  </div>
+                  <div class="text-muted">
+                    {{ 'invite.expires' | transloco }}: {{ inv.expiresAt | date:'mediumDate' }}
+                    &nbsp;·&nbsp;
+                    {{ 'invite.uses' | transloco }}: {{ inv.uses }}/{{ inv.maxUses ?? '∞' }}
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <button mat-stroked-button (click)="copyInviteUrl(inv.url!)">
+                    {{ 'invite.copy' | transloco }}
+                  </button>
+                  <button mat-stroked-button color="warn" (click)="revokeInvite(inv)">
+                    {{ 'invite.revoke' | transloco }}
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Add user dialog -->
@@ -221,6 +323,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 })
 export class UsersComponent {
   private usersService = inject(UsersService);
+  private invitesService = inject(InvitesService);
   private snack = inject(MatSnackBar);
   private fb = inject(FormBuilder);
   private transloco = inject(TranslocoService);
@@ -269,6 +372,64 @@ export class UsersComponent {
       return [current, ...active];
     }
     return active;
+  }
+
+  // --- Invite teammates (reuses roles() already loaded above) ---
+
+  invitesResource = getApiAdminInvitesResource();
+  invites = computed(() => (this.invitesResource.value() ?? []) as InviteResponse[]);
+  nonAdminActiveRoles = computed(() => this.roles().filter((r) => !r.grantsAdmin && r.isActive));
+
+  inviteRoleId = signal<number | null>(null);
+  inviteEmail = signal('');
+  inviteExpiresInDays = signal<number | null>(7);
+  inviteMaxUses = signal<number | null>(null);
+  inviteCreating = signal(false);
+  inviteCreatedUrl = signal<string | null>(null);
+  inviteCreatedEmailSent = signal<string | null>(null);
+
+  createInvite(): void {
+    const roleId = this.inviteRoleId();
+    if (!roleId) return;
+    this.inviteCreating.set(true);
+    this.inviteCreatedUrl.set(null);
+    this.inviteCreatedEmailSent.set(null);
+    const body = {
+      roleId,
+      email: this.inviteEmail() || null,
+      expiresInDays: this.inviteExpiresInDays(),
+      maxUses: this.inviteMaxUses(),
+    };
+    this.invitesService.postApiAdminInvites(body).subscribe({
+      next: (res: InviteResponse) => {
+        this.inviteCreating.set(false);
+        this.inviteCreatedUrl.set(res.url ?? null);
+        this.inviteCreatedEmailSent.set(res.emailSent && res.email ? res.email : null);
+        this.snack.open(this.transloco.translate('invite.created'), 'OK', { duration: 3000 });
+        this.invitesResource.reload();
+      },
+      error: (e: unknown) => {
+        this.inviteCreating.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  copyInviteUrl(url: string): void {
+    navigator.clipboard.writeText(url).then(() => {
+      this.snack.open(this.transloco.translate('invite.copied'), 'OK', { duration: 2000 });
+    });
+  }
+
+  revokeInvite(invite: InviteResponse): void {
+    if (!invite.id) return;
+    this.invitesService.deleteApiAdminInvitesId(invite.id).subscribe({
+      next: () => {
+        this.snack.open(this.transloco.translate('invite.revoked'), 'OK', { duration: 3000 });
+        this.invitesResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
   }
 
   setFilter(status: FilterStatus) {

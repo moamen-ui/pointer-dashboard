@@ -2,7 +2,6 @@
 // Three-section form: Access, Email, Demo. Loads current settings into local state;
 // one "Save changes" button PUTs the whole UpdateSettingsRequest.
 // Phase B: Predefined actions section at the bottom (tenant-wide, projectId == null).
-// Phase C: Invite teammates section.
 // Phase D: Suggestions review section (admin only).
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,32 +16,18 @@ import {
   usePatchApiAdminPredefinedActionsId,
   useDeleteApiAdminPredefinedActionsId,
   type PredefinedActionResponse,
-  useGetApiAdminInvites,
-  usePostApiAdminInvites,
-  useDeleteApiAdminInvitesId,
-  getGetApiAdminInvitesQueryKey,
-  type InviteResponse,
-  useGetApiAdminRoles,
-  type RoleResponse,
   useGetApiAdminPredefinedActionSuggestions,
   getGetApiAdminPredefinedActionSuggestionsQueryKey,
   usePostApiAdminPredefinedActionSuggestionsIdApprove,
   usePostApiAdminPredefinedActionSuggestionsIdReject,
   type SuggestionResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle, EllipsisVertical, MailCheck } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, XCircle, EllipsisVertical } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -182,250 +167,6 @@ function SuggestionsCard() {
                         >
                           <XCircle className="h-4 w-4" />
                           {t('suggestions.reject')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-    </AccordionSection>
-  );
-}
-
-// ---- Invite teammates card (extracted for readability) ----
-function InviteCard() {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: rolesRaw = [], isLoading: rolesLoading } = useGetApiAdminRoles();
-  const nonAdminRoles: RoleResponse[] = (rolesRaw as RoleResponse[]).filter(
-    (r) => !r.grantsAdmin && r.isActive,
-  );
-
-  const { data: invitesRaw, isLoading: invitesLoading, isError: invitesError } =
-    useGetApiAdminInvites();
-  const invites: InviteResponse[] = (invitesRaw as InviteResponse[] | undefined) ?? [];
-
-  const reloadInvites = () =>
-    void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
-
-  // ---- Create form state ----
-  const [roleId, setRoleId] = useState<string>('');
-  const [email, setEmail] = useState('');
-  const [expiresDays, setExpiresDays] = useState<string>('7');
-  const [maxUses, setMaxUses] = useState<string>('');
-  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
-  const [createdEmailSent, setCreatedEmailSent] = useState<string | null>(null);
-
-  const createMut = usePostApiAdminInvites({
-    mutation: {
-      onSuccess: (res) => {
-        const inv = res as unknown as InviteResponse;
-        setCreatedUrl(inv.url ?? null);
-        setCreatedEmailSent(inv.emailSent && inv.email ? inv.email : null);
-        toast(t('invite.created'));
-        reloadInvites();
-        // Reset form
-        setRoleId('');
-        setEmail('');
-        setExpiresDays('7');
-        setMaxUses('');
-      },
-      onError: (e: unknown) => toast(extractMessage(e), 'error'),
-    },
-  });
-
-  function createInvite() {
-    if (!roleId) return;
-    createMut.mutate({
-      data: {
-        roleId: Number(roleId),
-        email: email.trim() || undefined,
-        expiresInDays: expiresDays ? Number(expiresDays) : undefined,
-        maxUses: maxUses ? Number(maxUses) : undefined,
-      },
-    });
-  }
-
-  function copyUrl(url: string) {
-    void navigator.clipboard.writeText(url).then(() => toast(t('invite.copied')));
-  }
-
-  const revokeMut = useDeleteApiAdminInvitesId({
-    mutation: {
-      onSuccess: () => {
-        toast(t('invite.revoked'));
-        reloadInvites();
-      },
-      onError: (e: unknown) => toast(extractMessage(e), 'error'),
-    },
-  });
-
-  function formatDate(iso: string | undefined) {
-    if (!iso) return '—';
-    try {
-      return new Date(iso).toLocaleDateString();
-    } catch {
-      return iso;
-    }
-  }
-
-  return (
-    <AccordionSection title={t('invite.section')}>
-        <p className="text-xs text-muted-foreground">{t('invite.sectionHint')}</p>
-
-        {/* Create form */}
-        <div className="flex flex-col gap-3 rounded-md border border-dashed border-border p-4">
-          {/* Role select */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.role')}</Label>
-            {rolesLoading ? (
-              <p className="text-xs text-muted-foreground">{t('settings.loading')}</p>
-            ) : (
-              <Select value={roleId} onValueChange={setRoleId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('invite.role')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {nonAdminRoles.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Optional email */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.email')}</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="teammate@example.com"
-            />
-          </div>
-
-          {/* Expires in days */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.expiresDays')}</Label>
-            <Input
-              type="number"
-              min={1}
-              value={expiresDays}
-              onChange={(e) => setExpiresDays(e.target.value)}
-              className="max-w-[12rem]"
-            />
-          </div>
-
-          {/* Max uses */}
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">{t('invite.maxUses')}</Label>
-            <Input
-              type="number"
-              min={1}
-              value={maxUses}
-              onChange={(e) => setMaxUses(e.target.value)}
-              placeholder="∞"
-              className="max-w-[12rem]"
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={!roleId || createMut.isPending}
-              onClick={createInvite}
-              type="button"
-            >
-              <Link className="h-4 w-4" />
-              {t('invite.create')}
-            </Button>
-          </div>
-        </div>
-
-        {/* Newly created invite URL */}
-        {createdUrl && (
-          <>
-            {createdEmailSent && (
-              <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                <MailCheck className="h-4 w-4 shrink-0" />
-                <span>{t('invite.emailSent', { email: createdEmailSent })}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-              <p className="flex-1 truncate text-xs font-mono">{createdUrl}</p>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => copyUrl(createdUrl)}
-                type="button"
-              >
-                <Copy className="h-4 w-4" />
-                {t('invite.copy')}
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* Invite list */}
-        {invitesLoading && (
-          <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
-        )}
-        {invitesError && (
-          <p className="text-sm text-destructive">{t('settings.loadError')}</p>
-        )}
-        {!invitesLoading && !invitesError && invites.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t('invite.empty')}</p>
-        )}
-        {invites.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('invite.role')}</TableHead>
-                <TableHead>{t('invite.email')}</TableHead>
-                <TableHead>{t('invite.expires')}</TableHead>
-                <TableHead>{t('invite.uses')}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invites.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell>{inv.roleName ?? '—'}</TableCell>
-                  <TableCell>{inv.email ?? t('invite.anyone')}</TableCell>
-                  <TableCell>{formatDate(inv.expiresAt)}</TableCell>
-                  <TableCell>
-                    {inv.uses ?? 0}/{inv.maxUses ?? '∞'}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" type="button">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('users.actions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => copyUrl(inv.url ?? '')}
-                          disabled={!inv.url}
-                        >
-                          <Copy className="h-4 w-4" />
-                          {t('invite.copy')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onSelect={() => revokeMut.mutate({ id: inv.id! })}
-                          disabled={revokeMut.isPending}
-                        >
-                          {t('invite.revoke')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -917,10 +658,7 @@ export function SettingsPage() {
           </div>
       </AccordionSection>
 
-      {/* ── Section 5: Invite teammates ── */}
-      <InviteCard />
-
-      {/* ── Section 6: Suggestions review (admin only) ── */}
+      {/* ── Section 5: Suggestions review (admin only) ── */}
       {isAdmin && <SuggestionsCard />}
     </div>
   );
