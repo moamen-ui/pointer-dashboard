@@ -32,7 +32,7 @@ import {
   MailCheck,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
@@ -91,8 +91,16 @@ const rolesQuery = useGetApiAdminRoles();
 
 const users = computed<UserResponse[]>(() => usersQuery.data.value ?? []);
 const roles = computed<RoleResponse[]>(() => rolesQuery.data.value ?? []);
-const pendingCount = computed(() => pendingQuery.data.value?.length ?? 0);
 const loading = computed(() => usersQuery.isLoading.value || busy.value);
+
+// ── Pending invites — rendered as rows in the Pending view, right alongside
+// real pending users; created via "Send invite" in the Add User dialog below.
+// Once accepted, an invite becomes an Approved user directly and drops out here.
+const invitesQuery = useGetApiAdminInvites();
+const inviteList = computed<InviteResponse[]>(
+  () => (invitesQuery.data.value ?? []) as InviteResponse[],
+);
+const pendingCount = computed(() => (pendingQuery.data.value?.length ?? 0) + inviteList.value.length);
 
 const createUser = usePostApiAdminUsers();
 const updateUser = usePatchApiAdminUsersId();
@@ -299,13 +307,6 @@ function requestedAt(user: UserResponse): string | null {
   return (user as { createdAt?: string | null }).createdAt ?? null;
 }
 
-// ── Pending invites — created via "Send invite" in the Add User dialog above;
-// this list only manages ones already sent (copy the link again, or revoke).
-const invitesQuery = useGetApiAdminInvites();
-const inviteList = computed<InviteResponse[]>(
-  () => (invitesQuery.data.value ?? []) as InviteResponse[],
-);
-
 const revokeInvite = useDeleteApiAdminInvitesId();
 
 async function onRevoke(id: number) {
@@ -368,7 +369,7 @@ function formatInviteDate(iso: string | undefined): string {
     </div>
 
     <EmptyState
-      v-if="users.length === 0 && !loading"
+      v-if="(filter === 'Pending' ? users.length + inviteList.length : users.length) === 0 && !loading"
       :icon="Users"
       :message="t('users.empty')"
       :hint="t('users.emptyHint')"
@@ -462,66 +463,40 @@ function formatInviteDate(iso: string | undefined): string {
               </DropdownMenu>
             </TableCell>
           </TableRow>
+          <template v-if="filter === 'Pending'">
+            <TableRow v-for="inv in inviteList" :key="`invite-${inv.id}`" class="bg-muted/20">
+              <TableCell>{{ inv.email ?? t('invite.anyone') }}</TableCell>
+              <TableCell>—</TableCell>
+              <TableCell>{{ inv.roleName ?? '—' }}</TableCell>
+              <TableCell>{{ t('invite.expires') }}: {{ formatInviteDate(inv.expiresAt) }}</TableCell>
+              <TableCell>
+                <span class="chip chip-neutral">{{ t('invite.invited') }}</span>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button type="button" variant="ghost" size="icon">
+                      <span class="sr-only">{{ t('users.actions') }}</span>
+                      <EllipsisVertical class="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem v-if="inv.url" @select="copyUrl(inv.url!)">
+                      <Copy class="h-4 w-4" /> {{ t('invite.copy') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      class="text-destructive focus:text-destructive"
+                      @select="onRevoke(inv.id!)"
+                    >
+                      <Link2Off class="h-4 w-4" /> {{ t('invite.revoke') }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          </template>
         </TableBody>
       </Table>
-    </Card>
-
-    <!-- Pending invites — created via "Send invite" in the Add User dialog above -->
-    <Card v-if="invitesQuery.isLoading.value || invitesQuery.isError.value || inviteList.length > 0">
-      <CardContent class="flex flex-col gap-3 p-6">
-        <h3 class="text-sm font-semibold">{{ t('invite.pendingTitle') }}</h3>
-        <p class="text-xs text-muted-foreground">{{ t('invite.pendingHint') }}</p>
-
-        <p v-if="invitesQuery.isLoading.value" class="text-sm text-muted-foreground">
-          {{ t('settings.loading') }}
-        </p>
-        <p v-else-if="invitesQuery.isError.value" class="text-sm text-destructive">
-          {{ t('settings.loadError') }}
-        </p>
-
-        <div v-if="inviteList.length > 0" class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b text-left text-xs text-muted-foreground">
-                <th class="py-2 pr-4 font-medium">{{ t('invite.role') }}</th>
-                <th class="py-2 pr-4 font-medium">{{ t('login.email') }}</th>
-                <th class="py-2 pr-4 font-medium">{{ t('invite.expires') }}</th>
-                <th class="py-2 pr-4 font-medium">{{ t('invite.uses') }}</th>
-                <th class="py-2 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="inv in inviteList" :key="inv.id" class="border-b last:border-0">
-                <td class="py-2 pr-4">{{ inv.roleName ?? '—' }}</td>
-                <td class="py-2 pr-4">{{ inv.email ?? t('invite.anyone') }}</td>
-                <td class="py-2 pr-4">{{ formatInviteDate(inv.expiresAt) }}</td>
-                <td class="py-2 pr-4">{{ inv.uses ?? 0 }} / {{ inv.maxUses ?? '∞' }}</td>
-                <td class="py-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger as-child>
-                      <Button type="button" variant="ghost" size="icon">
-                        <span class="sr-only">{{ t('users.actions') }}</span>
-                        <EllipsisVertical class="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem v-if="inv.url" @select="copyUrl(inv.url!)">
-                        <Copy class="h-4 w-4" /> {{ t('invite.copy') }}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        class="text-destructive focus:text-destructive"
-                        @select="onRevoke(inv.id!)"
-                      >
-                        <Link2Off class="h-4 w-4" /> {{ t('invite.revoke') }}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
     </Card>
   </div>
 

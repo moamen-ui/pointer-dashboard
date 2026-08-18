@@ -461,8 +461,7 @@
     "invalidOrExpired": "This invite is invalid, expired, or already used.",
     "passwordMismatch": "Passwords do not match.",
     "done": "Done",
-    "pendingTitle": "Pending invites",
-    "pendingHint": "Invites waiting to be accepted. Copy the link to resend it, or revoke to cancel it."
+    "invited": "Invited"
   },
   "branding": {
     "title": "Branding",

@@ -23,7 +23,7 @@ import {
   type InviteResponse,
 } from '@moamen-ui/pointer-react';
 import { Plus, Ban, CheckCircle2, UserCheck, User, EllipsisVertical, Users, Link, Copy, MailCheck } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -82,12 +82,18 @@ export function UsersPage() {
 
   const { data: roles = [] } = useGetApiAdminRoles();
 
+  // Pending invites render as rows in the Pending view too — they're "not a
+  // member yet" just like a pending user, until accepted (then they become an
+  // Approved user directly and drop out of this list).
+  const { data: invitesRaw } = useGetApiAdminInvites();
+  const invites = useMemo(() => (invitesRaw as InviteResponse[] | undefined) ?? [], [invitesRaw]);
+
   const activeRoles = useMemo(() => roles.filter((r) => r.isActive), [roles]);
   const nonAdminActiveRoles = useMemo(
     () => activeRoles.filter((r) => !r.grantsAdmin),
     [activeRoles],
   );
-  const pendingCount = pending.length;
+  const pendingCount = pending.length + invites.length;
 
   // Invalidate every users list (any status filter) by matching the shared
   // prefix the generated key helper produces without params.
@@ -188,6 +194,25 @@ export function UsersPage() {
     void navigator.clipboard.writeText(url).then(() => toast(t('invite.copied')));
   }
 
+  const revokeInviteMut = useDeleteApiAdminInvitesId({
+    mutation: {
+      onSuccess: () => {
+        toast(t('invite.revoked'));
+        void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+      },
+      onError,
+    },
+  });
+
+  function formatInviteExpiry(iso: string | undefined) {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleDateString();
+    } catch {
+      return iso;
+    }
+  }
+
   // ---- Change role / enable-disable (patch) ----
   const patchMut = usePatchApiAdminUsersId({
     mutation: {
@@ -257,6 +282,8 @@ export function UsersPage() {
 
   const isApproved = filter === 'Approved';
   const filters: FilterStatus[] = ['Approved', 'Pending', 'Rejected'];
+  // Under the Pending filter, invite rows are appended after real pending users.
+  const totalRows = filter === 'Pending' ? users.length + invites.length : users.length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -299,7 +326,7 @@ export function UsersPage() {
         </div>
       </div>
 
-      {users.length === 0 && !isFetching ? (
+      {totalRows === 0 && !isFetching ? (
         <EmptyState
           icon={Users}
           message={t('users.empty')}
@@ -412,12 +439,50 @@ export function UsersPage() {
                 </TableRow>
               );
             })}
+            {filter === 'Pending' &&
+              invites.map((inv) => (
+                <TableRow key={`invite-${inv.id}`} className="bg-muted/20">
+                  <TableCell>{inv.email ?? t('invite.anyone')}</TableCell>
+                  <TableCell>—</TableCell>
+                  <TableCell>{inv.roleName ?? '—'}</TableCell>
+                  <TableCell>
+                    {t('invite.expires')}: {formatInviteExpiry(inv.expiresAt)}
+                  </TableCell>
+                  <TableCell>
+                    <span className="chip chip-neutral">{t('invite.invited')}</span>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <EllipsisVertical className="h-4 w-4" />
+                          <span className="sr-only">{t('users.actions')}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => copyInviteUrl(inv.url ?? '')}
+                          disabled={!inv.url}
+                        >
+                          <Copy className="h-4 w-4" />
+                          {t('invite.copy')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => revokeInviteMut.mutate({ id: inv.id! })}
+                          disabled={revokeInviteMut.isPending}
+                        >
+                          {t('invite.revoke')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </Card>
       )}
-
-      <PendingInvitesTable />
 
       {/* Add user dialog — "Send invite" (default) or "Create directly" (secondary) */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -656,109 +721,5 @@ export function UsersPage() {
         onCancel={() => setConfirmUser(null)}
       />
     </div>
-  );
-}
-
-// Pending invites — created via "Send invite" in the Add User dialog above; this table
-// only manages ones already sent (copy the link again, or revoke).
-function PendingInvitesTable() {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: invitesRaw, isLoading: invitesLoading, isError: invitesError } =
-    useGetApiAdminInvites();
-  const invites: InviteResponse[] = (invitesRaw as InviteResponse[] | undefined) ?? [];
-
-  function copyUrl(url: string) {
-    void navigator.clipboard.writeText(url).then(() => toast(t('invite.copied')));
-  }
-
-  const revokeMut = useDeleteApiAdminInvitesId({
-    mutation: {
-      onSuccess: () => {
-        toast(t('invite.revoked'));
-        void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
-      },
-      onError: (e: unknown) => toast(extractMessage(e), 'error'),
-    },
-  });
-
-  function formatDate(iso: string | undefined) {
-    if (!iso) return '—';
-    try {
-      return new Date(iso).toLocaleDateString();
-    } catch {
-      return iso;
-    }
-  }
-
-  if (!invitesLoading && !invitesError && invites.length === 0) return null;
-
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-6">
-        <h3 className="text-sm font-semibold">{t('invite.pendingTitle')}</h3>
-        <p className="text-xs text-muted-foreground">{t('invite.pendingHint')}</p>
-
-        {invitesLoading && (
-          <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
-        )}
-        {invitesError && (
-          <p className="text-sm text-destructive">{t('settings.loadError')}</p>
-        )}
-        {invites.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('invite.role')}</TableHead>
-                <TableHead>{t('invite.email')}</TableHead>
-                <TableHead>{t('invite.expires')}</TableHead>
-                <TableHead>{t('invite.uses')}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invites.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell>{inv.roleName ?? '—'}</TableCell>
-                  <TableCell>{inv.email ?? t('invite.anyone')}</TableCell>
-                  <TableCell>{formatDate(inv.expiresAt)}</TableCell>
-                  <TableCell>
-                    {inv.uses ?? 0}/{inv.maxUses ?? '∞'}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" type="button">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('users.actions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => copyUrl(inv.url ?? '')}
-                          disabled={!inv.url}
-                        >
-                          <Copy className="h-4 w-4" />
-                          {t('invite.copy')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onSelect={() => revokeMut.mutate({ id: inv.id! })}
-                          disabled={revokeMut.isPending}
-                        >
-                          {t('invite.revoke')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
   );
 }

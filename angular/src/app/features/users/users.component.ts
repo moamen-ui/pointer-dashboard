@@ -72,7 +72,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
         </mat-button-toggle-group>
       </div>
 
-      @if (users().length === 0 && !loading()) {
+      @if (displayedRows().length === 0 && !loading()) {
         <app-empty-state
           icon="people"
           [message]="'users.empty' | transloco"
@@ -83,142 +83,141 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           </button>
         </app-empty-state>
       } @else {
-        <table mat-table [dataSource]="users()" class="w-full mat-elevation-z2">
+        <table mat-table [dataSource]="displayedRows()" class="w-full mat-elevation-z2">
           <ng-container matColumnDef="email">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.email' | transloco }}</th>
-            <td mat-cell *matCellDef="let user">{{ user.email }}</td>
+            <td mat-cell *matCellDef="let row">
+              @if (isInvite(row)) {
+                {{ row.email || ('invite.anyone' | transloco) }}
+              } @else {
+                {{ row.email }}
+              }
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="displayName">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.name' | transloco }}</th>
-            <td mat-cell *matCellDef="let user">{{ user.displayName }}</td>
+            <td mat-cell *matCellDef="let row">
+              @if (isInvite(row)) {
+                —
+              } @else {
+                {{ row.displayName }}
+              }
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="role">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.role' | transloco }}</th>
-            <td mat-cell *matCellDef="let user">
-              @if (filter() === 'Approved') {
+            <td mat-cell *matCellDef="let row">
+              @if (isInvite(row)) {
+                <span>{{ row.roleName ?? '—' }}</span>
+              } @else if (filter() === 'Approved') {
                 <mat-select
-                  [value]="user.roleId"
-                  (selectionChange)="changeRole(user, $event.value)"
+                  [value]="row.roleId"
+                  (selectionChange)="changeRole(row, $event.value)"
                   class="min-w-[120px]"
                 >
-                  @for (role of rolesForUser(user); track role.id) {
+                  @for (role of rolesForUser(row); track role.id) {
                     <mat-option [value]="role.id">{{ role.name }}</mat-option>
                   }
                 </mat-select>
               } @else {
-                <span>{{ user.roleName }}</span>
+                <span>{{ row.roleName }}</span>
               }
             </td>
           </ng-container>
 
           <ng-container matColumnDef="requested">
             <th mat-header-cell *matHeaderCellDef>{{ 'overview.requested' | transloco }}</th>
-            <!-- createdAt = when access was requested. The API returns it; the generated
-                 client only declares it from the next publish on, hence the cast. -->
-            <td mat-cell *matCellDef="let user">{{ $any(user).createdAt ? ($any(user).createdAt | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
+            <td mat-cell *matCellDef="let row">
+              @if (isInvite(row)) {
+                {{ 'invite.expires' | transloco }}: {{ row.expiresAt | date:'mediumDate' }}
+              } @else {
+                {{ row.createdAt ? (row.createdAt | date:'dd-MM-yyyy HH:mm') : '—' }}
+              }
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.status' | transloco }}</th>
-            <td mat-cell *matCellDef="let user">
-              <span class="chip" [class.chip-active]="user.isActive" [class.chip-disabled]="!user.isActive">
-                {{ user.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
-              </span>
+            <td mat-cell *matCellDef="let row">
+              @if (isInvite(row)) {
+                <span class="chip chip-neutral">{{ 'invite.invited' | transloco }}</span>
+              } @else {
+                <span class="chip" [class.chip-active]="row.isActive" [class.chip-disabled]="!row.isActive">
+                  {{ row.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
+                </span>
+              }
             </td>
           </ng-container>
 
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.actions' | transloco }}</th>
-            <td mat-cell *matCellDef="let user">
-              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                [attr.aria-label]="'users.actions' | transloco">
-                <mat-icon>more_vert</mat-icon>
-              </button>
-              <mat-menu #rowMenu="matMenu">
-                @if (filter() === 'Approved') {
-                  <button mat-menu-item (click)="toggleActive(user)" [disabled]="loading()"
-                    [class.!text-red-600]="user.isActive">
-                    <mat-icon [class.!text-red-600]="user.isActive">{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                    {{ user.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+            <td mat-cell *matCellDef="let row">
+              @if (isInvite(row)) {
+                <button mat-icon-button [matMenuTriggerFor]="inviteMenu"
+                  [attr.aria-label]="'users.actions' | transloco">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #inviteMenu="matMenu">
+                  <button mat-menu-item [disabled]="!row.url" (click)="copyInviteUrl(row.url!)">
+                    <mat-icon>content_copy</mat-icon> {{ 'invite.copy' | transloco }}
                   </button>
-                  <a mat-menu-item [routerLink]="['/users', user.id, 'profile']">
-                    <mat-icon>person</mat-icon>
-                    {{ 'profile.viewProfile' | transloco }}
-                  </a>
-                } @else {
-                  <button mat-menu-item [matMenuTriggerFor]="approveMenu"
-                    (menuOpened)="approveSelection[user.id!] = user.roleId" [disabled]="loading()">
-                    <mat-icon>how_to_reg</mat-icon> {{ 'users.approve' | transloco }}
+                  <button mat-menu-item class="!text-red-600" (click)="revokeInvite(row)">
+                    <mat-icon class="!text-red-600">link_off</mat-icon> {{ 'invite.revoke' | transloco }}
                   </button>
-                  @if (filter() === 'Pending') {
-                    <button mat-menu-item class="!text-red-600" (click)="reject(user)" [disabled]="loading()">
-                      <mat-icon class="!text-red-600">block</mat-icon> {{ 'users.reject' | transloco }}
+                </mat-menu>
+              } @else {
+                <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                  [attr.aria-label]="'users.actions' | transloco">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #rowMenu="matMenu">
+                  @if (filter() === 'Approved') {
+                    <button mat-menu-item (click)="toggleActive(row)" [disabled]="loading()"
+                      [class.!text-red-600]="row.isActive">
+                      <mat-icon [class.!text-red-600]="row.isActive">{{ row.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                      {{ row.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
                     </button>
+                    <a mat-menu-item [routerLink]="['/users', row.id, 'profile']">
+                      <mat-icon>person</mat-icon>
+                      {{ 'profile.viewProfile' | transloco }}
+                    </a>
+                  } @else {
+                    <button mat-menu-item [matMenuTriggerFor]="approveMenu"
+                      (menuOpened)="approveSelection[row.id!] = row.roleId" [disabled]="loading()">
+                      <mat-icon>how_to_reg</mat-icon> {{ 'users.approve' | transloco }}
+                    </button>
+                    @if (filter() === 'Pending') {
+                      <button mat-menu-item class="!text-red-600" (click)="reject(row)" [disabled]="loading()">
+                        <mat-icon class="!text-red-600">block</mat-icon> {{ 'users.reject' | transloco }}
+                      </button>
+                    }
                   }
-                }
-              </mat-menu>
-              <mat-menu #approveMenu="matMenu">
-                <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                    <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
-                    <mat-select [(value)]="approveSelection[user.id!]">
-                      @for (r of activeRoles(); track r.id) {
-                        <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-                  <button mat-flat-button color="primary" class="w-full"
-                    (click)="approve(user)" [disabled]="loading()">
-                    {{ 'users.confirm' | transloco }}
-                  </button>
-                </div>
-              </mat-menu>
+                </mat-menu>
+                <mat-menu #approveMenu="matMenu">
+                  <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                      <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
+                      <mat-select [(value)]="approveSelection[row.id!]">
+                        @for (r of activeRoles(); track r.id) {
+                          <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    <button mat-flat-button color="primary" class="w-full"
+                      (click)="approve(row)" [disabled]="loading()">
+                      {{ 'users.confirm' | transloco }}
+                    </button>
+                  </div>
+                </mat-menu>
+              }
             </td>
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns();"></tr>
         </table>
-      }
-
-      <!-- Pending invites — created via "Send invite" in the Add User dialog above -->
-      @if (invitesResource.isLoading() || invites().length > 0) {
-        <div class="mt-8 max-w-2xl">
-          <div class="rounded-lg border border-app-border bg-white p-4">
-            <h3 class="m-0 mb-1 text-base font-semibold">{{ 'invite.pendingTitle' | transloco }}</h3>
-            <p class="mb-4 text-[0.85rem] text-muted">{{ 'invite.pendingHint' | transloco }}</p>
-
-            @if (invitesResource.isLoading()) {
-              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            }
-
-            @for (inv of invites(); track inv.id) {
-              <div class="mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-app-border p-3 text-[0.85rem]">
-                <div class="flex flex-col gap-0.5">
-                  <div><span class="font-medium">{{ inv.roleName }}</span></div>
-                  <div class="text-muted">
-                    {{ inv.email || ('invite.anyone' | transloco) }}
-                  </div>
-                  <div class="text-muted">
-                    {{ 'invite.expires' | transloco }}: {{ inv.expiresAt | date:'mediumDate' }}
-                    &nbsp;·&nbsp;
-                    {{ 'invite.uses' | transloco }}: {{ inv.uses }}/{{ inv.maxUses ?? '∞' }}
-                  </div>
-                </div>
-                <div class="flex gap-2">
-                  <button mat-stroked-button (click)="copyInviteUrl(inv.url!)">
-                    {{ 'invite.copy' | transloco }}
-                  </button>
-                  <button mat-stroked-button color="warn" (click)="revokeInvite(inv)">
-                    {{ 'invite.revoke' | transloco }}
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-        </div>
       }
     </div>
 
@@ -358,9 +357,23 @@ export class UsersComponent {
 
   users = computed(() => this.usersResource.value() ?? []);
   roles = computed(() => this.rolesResource.value() ?? []);
-  pendingCount = computed(() => this.pendingResource.value()?.length ?? 0);
   busy = signal(false);
   loading = computed(() => this.usersResource.isLoading() || this.busy());
+
+  // Pending invites render as rows in the Pending view, right alongside real
+  // pending users; created via "Send invite" in the Add User dialog below.
+  // Once accepted, an invite becomes an Approved user directly and drops out here.
+  invitesResource = getApiAdminInvitesResource();
+  invites = computed(() => (this.invitesResource.value() ?? []) as InviteResponse[]);
+  pendingCount = computed(() => (this.pendingResource.value()?.length ?? 0) + this.invites().length);
+
+  displayedRows = computed<(UserResponse | InviteResponse)[]>(() =>
+    this.filter() === 'Pending' ? [...this.users(), ...this.invites()] : this.users(),
+  );
+
+  isInvite(row: UserResponse | InviteResponse): row is InviteResponse {
+    return !('isActive' in row);
+  }
 
   approveSelection: Record<number, number> = {};
 
@@ -394,8 +407,6 @@ export class UsersComponent {
 
   // --- Invite teammates (reuses roles() already loaded above) ---
 
-  invitesResource = getApiAdminInvitesResource();
-  invites = computed(() => (this.invitesResource.value() ?? []) as InviteResponse[]);
   nonAdminActiveRoles = computed(() => this.roles().filter((r) => !r.grantsAdmin && r.isActive));
 
   inviteRoleId = signal<number | null>(null);
