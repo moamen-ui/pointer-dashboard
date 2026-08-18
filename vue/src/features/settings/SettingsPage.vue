@@ -33,7 +33,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, Copy, Link2Off, EllipsisVertical } from 'lucide-vue-next';
+import { PlusCircle, Trash2, Copy, Link2Off, EllipsisVertical, MailCheck } from 'lucide-vue-next';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -197,6 +197,7 @@ const inviteEmail = ref('');
 const inviteExpiresDays = ref<number | undefined>(7);
 const inviteMaxUses = ref<number | undefined>(undefined);
 const createdUrl = ref<string | null>(null);
+const createdEmailSent = ref<string | null>(null);
 
 const createInvite = usePostApiAdminInvites();
 const revokeInvite = useDeleteApiAdminInvitesId();
@@ -217,6 +218,7 @@ async function onCreateInvite() {
       },
     }) as unknown as InviteResponse;
     createdUrl.value = res.url ?? null;
+    createdEmailSent.value = res.emailSent && res.email ? res.email : null;
     toast(t('invite.created'));
     reloadInvites();
   } catch (e) {
@@ -506,12 +508,18 @@ async function onRejectSuggestion(s: SuggestionResponse) {
           </div>
 
           <!-- Newly created URL -->
-          <div v-if="createdUrl" class="flex items-center gap-2 rounded-md bg-muted p-3">
-            <span class="flex-1 truncate text-sm font-mono">{{ createdUrl }}</span>
-            <Button type="button" size="sm" variant="outline" @click="copyUrl(createdUrl!)">
-              <Copy class="h-4 w-4 mr-1" />{{ t('invite.copy') }}
-            </Button>
-          </div>
+          <template v-if="createdUrl">
+            <div v-if="createdEmailSent" class="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+              <MailCheck class="h-4 w-4 shrink-0" />
+              <span>{{ t('invite.emailSent', { email: createdEmailSent }) }}</span>
+            </div>
+            <div class="flex items-center gap-2 rounded-md bg-muted p-3">
+              <span class="flex-1 truncate text-sm font-mono">{{ createdUrl }}</span>
+              <Button type="button" size="sm" variant="outline" @click="copyUrl(createdUrl!)">
+                <Copy class="h-4 w-4 mr-1" />{{ t('invite.copy') }}
+              </Button>
+            </div>
+          </template>
 
           <!-- Active invites list -->
           <div v-if="invitesQuery.isError.value" class="text-sm text-destructive">

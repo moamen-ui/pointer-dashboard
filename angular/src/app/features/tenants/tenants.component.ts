@@ -194,7 +194,7 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
       <mat-dialog-actions align="end">
         <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
         <button mat-flat-button color="primary"
-          [disabled]="!newEmail.trim() || !newPassword.trim()"
+          [disabled]="!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim()"
           (click)="addTenant()">
           <mat-icon>add</mat-icon> {{ 'tenants.addTenant' | transloco }}
         </button>
@@ -300,9 +300,10 @@ export class TenantsComponent {
   addTenant() {
     const email = this.newEmail.trim();
     const password = this.newPassword.trim();
-    if (!email || !password) return;
+    const displayName = this.newDisplayName.trim();
+    if (!email || !password || !displayName) return;
     this.tenantsService
-      .postApiAdminTenants({ email, password, displayName: this.newDisplayName.trim() || undefined })
+      .postApiAdminTenants({ email, password, displayName })
       .subscribe({
         next: () => {
           this.dialogRef?.close();

@@ -30,7 +30,7 @@ import {
   usePostApiAdminPredefinedActionSuggestionsIdReject,
   type SuggestionResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle, EllipsisVertical } from 'lucide-react';
+import { Plus, Trash2, Copy, Link, CheckCircle2, XCircle, EllipsisVertical, MailCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -217,12 +217,14 @@ function InviteCard() {
   const [expiresDays, setExpiresDays] = useState<string>('7');
   const [maxUses, setMaxUses] = useState<string>('');
   const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [createdEmailSent, setCreatedEmailSent] = useState<string | null>(null);
 
   const createMut = usePostApiAdminInvites({
     mutation: {
       onSuccess: (res) => {
         const inv = res as unknown as InviteResponse;
         setCreatedUrl(inv.url ?? null);
+        setCreatedEmailSent(inv.emailSent && inv.email ? inv.email : null);
         toast(t('invite.created'));
         reloadInvites();
         // Reset form
@@ -350,18 +352,26 @@ function InviteCard() {
 
         {/* Newly created invite URL */}
         {createdUrl && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-            <p className="flex-1 truncate text-xs font-mono">{createdUrl}</p>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyUrl(createdUrl)}
-              type="button"
-            >
-              <Copy className="h-4 w-4" />
-              {t('invite.copy')}
-            </Button>
-          </div>
+          <>
+            {createdEmailSent && (
+              <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                <MailCheck className="h-4 w-4 shrink-0" />
+                <span>{t('invite.emailSent', { email: createdEmailSent })}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+              <p className="flex-1 truncate text-xs font-mono">{createdUrl}</p>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyUrl(createdUrl)}
+                type="button"
+              >
+                <Copy className="h-4 w-4" />
+                {t('invite.copy')}
+              </Button>
+            </div>
+          </>
         )}
 
         {/* Invite list */}

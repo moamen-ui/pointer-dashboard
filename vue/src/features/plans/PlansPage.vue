@@ -171,10 +171,10 @@ function planToForm(plan: PlanAdminResponse): PlanFormState {
 
 function formToDto(f: PlanFormState): ApiPlanWriteDto {
   return {
-    name: f.name.trim() || null,
-    slug: f.slug.trim() || null,
+    name: f.name.trim(),
+    slug: f.slug.trim(),
     priceMonthly: f.priceMonthly === '' ? 0 : Number(f.priceMonthly),
-    currency: f.currency.trim() || null,
+    currency: f.currency.trim(),
     // BillingInterval is 0 | 1 — cast the parsed number.
     interval: Number(f.interval) as 0 | 1,
     sortOrder: Number(f.sortOrder) || 0,

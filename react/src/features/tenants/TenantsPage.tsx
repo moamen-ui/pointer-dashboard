@@ -108,12 +108,12 @@ export function TenantsPage() {
     setAddOpen(true);
   }
   function addTenant() {
-    if (!newEmail.trim() || !newPassword.trim()) return;
+    if (!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim()) return;
     createMut.mutate({
       data: {
         email: newEmail.trim(),
         password: newPassword,
-        displayName: newDisplayName.trim() || undefined,
+        displayName: newDisplayName.trim(),
       },
     });
   }
@@ -495,7 +495,7 @@ export function TenantsPage() {
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={!newEmail.trim() || !newPassword.trim() || createMut.isPending}
+              disabled={!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim() || createMut.isPending}
               onClick={addTenant}
             >
               <Plus className="h-4 w-4" />

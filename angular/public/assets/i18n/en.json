@@ -439,6 +439,7 @@
     "maxUses": "Max uses (optional)",
     "create": "Create invite",
     "created": "Invite created",
+    "emailSent": "Invite email sent to {{email}}",
     "copy": "Copy link",
     "copied": "Link copied",
     "revoke": "Revoke",

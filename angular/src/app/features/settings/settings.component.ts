@@ -362,6 +362,12 @@ interface EditableAction {
             </div>
 
             @if (inviteCreatedUrl()) {
+              @if (inviteCreatedEmailSent(); as sentTo) {
+                <div class="flex items-center gap-2 rounded bg-green-50 p-2 text-[0.85rem] text-green-700">
+                  <mat-icon class="!h-4 !w-4 !text-base">mark_email_read</mat-icon>
+                  <span>{{ 'invite.emailSent' | transloco: { email: sentTo } }}</span>
+                </div>
+              }
               <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all">
                 <span class="flex-1">{{ inviteCreatedUrl() }}</span>
                 <button mat-stroked-button (click)="copyInviteUrl(inviteCreatedUrl()!)">
@@ -514,6 +520,7 @@ export class SettingsComponent {
   inviteMaxUses = signal<number | null>(null);
   inviteCreating = signal(false);
   inviteCreatedUrl = signal<string | null>(null);
+  inviteCreatedEmailSent = signal<string | null>(null);
 
   // Mutable local copy for editing existing actions.
   private _editableActions = signal<EditableAction[]>([]);
@@ -622,6 +629,7 @@ export class SettingsComponent {
     if (!roleId) return;
     this.inviteCreating.set(true);
     this.inviteCreatedUrl.set(null);
+    this.inviteCreatedEmailSent.set(null);
     const body = {
       roleId,
       email: this.inviteEmail() || null,
@@ -632,6 +640,7 @@ export class SettingsComponent {
       next: (res: InviteResponse) => {
         this.inviteCreating.set(false);
         this.inviteCreatedUrl.set(res.url ?? null);
+        this.inviteCreatedEmailSent.set(res.emailSent && res.email ? res.email : null);
         this.snack.open(this.transloco.translate('invite.created'), 'OK', { duration: 3000 });
         this.invitesResource.reload();
       },

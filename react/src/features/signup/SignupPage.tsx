@@ -129,7 +129,7 @@ export function SignupPage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!email || !password) return;
+    if (!email || !password || !displayName.trim()) return;
     setError(null);
 
     // INTENTIONAL: planId is always sent as null (undefined) here.
@@ -148,7 +148,7 @@ export function SignupPage() {
       data: {
         email: email.trim(),
         password,
-        displayName: displayName.trim() || undefined,
+        displayName: displayName.trim(),
         // planId: null — intentionally omitted until payment integration
       },
     });
@@ -244,7 +244,7 @@ export function SignupPage() {
               <Button
                 type="submit"
                 className="mt-1"
-                disabled={registerMut.isPending || !email || !password}
+                disabled={registerMut.isPending || !email || !password || !displayName.trim()}
               >
                 {t('signup.submit')}
               </Button>
