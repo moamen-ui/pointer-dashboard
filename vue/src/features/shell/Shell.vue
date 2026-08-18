@@ -132,16 +132,12 @@ function signOut() {
            while the menu is closed. -->
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" class="relative gap-1 px-2" :aria-label="t('header.account')">
+          <Button variant="ghost" class="gap-1 px-2" :aria-label="t('header.account')">
             <CircleUserRound class="h-5 w-5" />
             <span
               v-if="firstName"
               class="hidden text-[0.9rem] font-medium sm:inline"
             >{{ firstName }}</span>
-            <span
-              v-if="nothingCollectedYet"
-              class="absolute end-1 top-1.5 h-2 w-2 rounded-full bg-brand"
-            />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -154,15 +150,6 @@ function signOut() {
           <DropdownMenuItem @select="router.push('/profile')">
             <UserRound class="h-4 w-4" />
             {{ t('nav.myProfile') }}
-          </DropdownMenuItem>
-
-          <DropdownMenuItem @select="guideOpen = true">
-            <Rocket class="h-4 w-4" />
-            {{ t('install.title') }}
-            <span
-              v-if="nothingCollectedYet"
-              class="ms-2 inline-block h-2 w-2 rounded-full bg-brand"
-            />
           </DropdownMenuItem>
 
           <DropdownMenuItem @select="toggleTheme">
@@ -203,10 +190,10 @@ function signOut() {
       />
 
       <aside
-        class="fixed bottom-0 start-0 top-14 z-40 w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2 transition-transform md:static md:top-auto md:z-auto md:translate-x-0"
+        class="fixed bottom-0 start-0 top-14 z-40 flex w-[232px] flex-shrink-0 flex-col border-e border-border bg-sidebar py-2 transition-transform md:static md:top-auto md:z-auto md:translate-x-0"
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'"
       >
-        <nav class="flex flex-col gap-0.5 px-2.5">
+        <nav class="flex flex-1 flex-col gap-0.5 px-2.5">
           <!-- Admin-only nav items -->
           <template v-if="isAdmin">
             <RouterLink
@@ -258,6 +245,22 @@ function signOut() {
             <span>{{ t('nav.myProfile') }}</span>
           </RouterLink>
         </nav>
+
+        <!-- Installation steps sit at the foot of the nav rather than in the account
+             menu: it is a one-off setup task for the workspace, not a personal
+             setting. The hint dot lives here too, so it is visible without opening
+             anything. -->
+        <div class="mt-auto border-t border-border px-2.5 pt-2">
+          <button
+            type="button"
+            class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            @click="sidebarOpen = false; guideOpen = true"
+          >
+            <Rocket class="h-5 w-5" />
+            <span>{{ t('install.title') }}</span>
+            <span v-if="nothingCollectedYet" class="h-2 w-2 rounded-full bg-brand" />
+          </button>
+        </div>
       </aside>
 
       <main class="h-full min-w-0 flex-1 overflow-auto bg-app p-4 sm:p-6">

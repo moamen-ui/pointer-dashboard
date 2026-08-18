@@ -57,16 +57,13 @@ import { DemoPanelComponent } from './demo-panel.component';
            the install guide, theme, language and sign-out all live in here. The
            install-guide dot rides on the trigger so the nudge is still visible
            while the menu is closed. -->
-      <button mat-button class="relative !px-2" [matMenuTriggerFor]="profileMenu"
+      <button mat-button class="!px-2" [matMenuTriggerFor]="profileMenu"
         [attr.aria-label]="'header.account' | transloco">
         <mat-icon>account_circle</mat-icon>
         <!-- First name only: enough to tell whose session this is without spending
              header width on the full display name + role (both are in the menu). -->
         @if (firstName()) {
           <span class="ms-1 hidden text-[0.9rem] font-medium sm:inline">{{ firstName() }}</span>
-        }
-        @if (installGuide.nothingCollectedYet()) {
-          <span class="absolute end-1 top-1.5 h-2 w-2 rounded-full bg-brand"></span>
         }
       </button>
 
@@ -82,14 +79,6 @@ import { DemoPanelComponent } from './demo-panel.component';
         <a mat-menu-item routerLink="/profile">
           <mat-icon>person</mat-icon> {{ 'nav.myProfile' | transloco }}
         </a>
-
-        <button mat-menu-item (click)="installGuide.open()">
-          <mat-icon>rocket_launch</mat-icon>
-          {{ 'install.title' | transloco }}
-          @if (installGuide.nothingCollectedYet()) {
-            <span class="ms-2 inline-block h-2 w-2 rounded-full bg-brand"></span>
-          }
-        </button>
 
         <button mat-menu-item (click)="toggleTheme()">
           <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
@@ -111,8 +100,9 @@ import { DemoPanelComponent } from './demo-panel.component';
     </mat-toolbar>
 
     <mat-sidenav-container class="flex-1 overflow-hidden bg-app" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">
-      <mat-sidenav #snav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="sidenav w-[232px] border-e border-app-border bg-sidebar pt-2">
-        <mat-nav-list (click)="onNavClick(snav)">
+      <mat-sidenav #snav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="sidenav flex w-[232px] flex-col border-e border-app-border bg-sidebar pt-2">
+        <div class="flex h-full flex-col">
+        <mat-nav-list class="flex-1" (click)="onNavClick(snav)">
           <a mat-list-item routerLink="/profile" routerLinkActive="active-link">
             <mat-icon matListItemIcon>person</mat-icon>
             <span matListItemTitle>{{ 'nav.myProfile' | transloco }}</span>
@@ -158,6 +148,24 @@ import { DemoPanelComponent } from './demo-panel.component';
             </a>
           }
         </mat-nav-list>
+
+        <!-- Installation steps sit at the foot of the nav rather than in the account
+             menu: it is a one-off setup task for the workspace, not a personal
+             setting. The hint dot lives here too, so it is visible without opening
+             anything. -->
+        <mat-nav-list class="mt-auto border-t border-app-border pt-2" (click)="onNavClick(snav)">
+          <button mat-list-item type="button" class="w-full cursor-pointer text-start"
+            (click)="installGuide.open()">
+            <mat-icon matListItemIcon>rocket_launch</mat-icon>
+            <span matListItemTitle>
+              {{ 'install.title' | transloco }}
+              @if (installGuide.nothingCollectedYet()) {
+                <span class="ms-1.5 inline-block h-2 w-2 rounded-full bg-brand align-middle"></span>
+              }
+            </span>
+          </button>
+        </mat-nav-list>
+        </div>
       </mat-sidenav>
 
       <mat-sidenav-content class="h-full overflow-auto bg-app p-4 sm:p-6">

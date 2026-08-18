@@ -150,14 +150,6 @@ function ShellLayout() {
               {t('nav.myProfile')}
             </DropdownMenuItem>
 
-            <DropdownMenuItem onSelect={installGuide.open}>
-              <Rocket className="h-4 w-4" />
-              {t('install.title')}
-              {installGuide.nothingCollectedYet && (
-                <span className="ms-2 inline-block h-2 w-2 rounded-full bg-brand" />
-              )}
-            </DropdownMenuItem>
-
             <DropdownMenuItem onSelect={toggleTheme}>
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               {t('header.theme')}: {theme === 'dark' ? t('header.themeLight') : t('header.themeDark')}
@@ -191,7 +183,7 @@ function ShellLayout() {
         <aside
           className={cn(
             // shared
-            'w-[232px] flex-shrink-0 border-e border-border bg-sidebar py-2',
+            'flex w-[232px] flex-shrink-0 flex-col border-e border-border bg-sidebar py-2',
             // mobile: fixed off-canvas drawer below the header
             'fixed top-14 bottom-0 start-0 z-40 transition-transform',
             // desktop: static panel, always visible, reset transforms
@@ -202,7 +194,7 @@ function ShellLayout() {
               : '-translate-x-full rtl:translate-x-full',
           )}
         >
-          <nav className="flex flex-col gap-0.5 px-2.5">
+          <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
             {/* Admin-only nav items */}
             {isAdmin &&
               ADMIN_NAV.map(({ to, key, icon: Icon }) => (
@@ -274,6 +266,27 @@ function ShellLayout() {
               <span>{t('nav.myProfile')}</span>
             </NavLink>
           </nav>
+
+          {/* Installation steps sit at the foot of the nav rather than in the account
+              menu: it is a one-off setup task for the workspace, not a personal
+              setting. The hint dot lives here too, so it is visible without opening
+              anything. */}
+          <div className="mt-auto border-t border-border px-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(false);
+                installGuide.open();
+              }}
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              <Rocket className="h-5 w-5" />
+              <span>{t('install.title')}</span>
+              {installGuide.nothingCollectedYet && (
+                <span className="h-2 w-2 rounded-full bg-brand" />
+              )}
+            </button>
+          </div>
         </aside>
 
         <main className="h-full min-w-0 flex-1 overflow-auto bg-app p-4 sm:p-6">
