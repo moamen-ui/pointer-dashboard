@@ -1,10 +1,12 @@
 // DemoPanel — shown inside the shell whenever a pointer_demo sessionStorage
-// entry exists. Displays project key, widget login, a live countdown to expiry,
-// and a 6-step data-driven setup guide shown one step at a time (Back / Next slider).
-// Dismissible for the current session only.
+// entry exists. Displays project key, widget login, and a live countdown to
+// expiry. The setup steps themselves live in the shared install guide (also
+// reachable from the header icon), opened here via a "View installation steps"
+// button. Dismissal only hides the banner — the session holds credentials the
+// guide still needs.
 import { useEffect, useState, useCallback, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -22,8 +24,11 @@ import { setAuthHeader } from '@/lib/api';
 import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
 import { useToast } from '@/components/ui/toast';
+import { useInstallGuide } from '@/components/InstallGuide';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
+/** Banner-only hide flag — the session itself outlives a dismissal. */
+const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
 
 interface DemoSession {
   email: string | null;
@@ -34,13 +39,6 @@ interface DemoSession {
   emailSent?: boolean;
 }
 
-/** One setup step in the guide slider. `code` is optional — instruction-only steps omit it. */
-interface SetupStep {
-  titleKey: string;
-  hintKey: string;
-  code?: string;
-}
-
 function readDemoSession(): DemoSession | null {
   try {
     const raw = sessionStorage.getItem(DEMO_SESSION_KEY);
@@ -48,6 +46,14 @@ function readDemoSession(): DemoSession | null {
     return JSON.parse(raw) as DemoSession;
   } catch {
     return null;
+  }
+}
+
+function readDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(DEMO_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
   }
 }
 
@@ -61,56 +67,13 @@ function formatCountdown(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function buildSteps(session: DemoSession): SetupStep[] {
-  const srv = session.serverUrl ?? '';
-  const proj = session.projectKey ?? '';
-  const email = session.email ?? '';
-  const password = session.password ?? '';
-  return [
-    {
-      titleKey: 'demo.step1Title',
-      hintKey: 'demo.step1Hint',
-      code: `<script src="${srv}/pointer.js" defer></script>`,
-    },
-    {
-      titleKey: 'demo.step2Title',
-      hintKey: 'demo.step2Hint',
-      code: `<pointer-feedback project="${proj}" server="${srv}"></pointer-feedback>`,
-    },
-    {
-      titleKey: 'demo.step3Title',
-      hintKey: 'demo.step3Hint',
-      code: `curl -fsSL ${srv}/install.sh | sh`,
-    },
-    {
-      titleKey: 'demo.step4Title',
-      hintKey: 'demo.step4Hint',
-      code: password
-        ? `POINTER_EMAIL=${email}\nPOINTER_PASSWORD=${password}`
-        : `POINTER_EMAIL=${email}\nPOINTER_PASSWORD=<check your email>`,
-    },
-    {
-      titleKey: 'demo.step5Title',
-      hintKey: 'demo.step5Hint',
-      // no code — instruction-only step
-    },
-    {
-      titleKey: 'demo.step6Title',
-      hintKey: 'demo.step6Hint',
-      // Fixed English literal — do NOT translate.
-      code: 'What are the new Pointer comments?',
-    },
-  ];
-}
-
 export function DemoPanel() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const installGuide = useInstallGuide();
   const [session, setSession] = useState<DemoSession | null>(() => readDemoSession());
-  const [dismissed, setDismissed] = useState(false);
-  const [copiedStep, setCopiedStep] = useState<number | null>(null);
+  const [dismissed, setDismissed] = useState(() => readDismissed());
   const [countdown, setCountdown] = useState<string>('');
-  const [step, setStep] = useState(1);
 
   // Upgrade dialog state
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -207,17 +170,18 @@ export function DemoPanel() {
     ? new Date(expiresAt).getTime() - Date.now() < 5 * 60 * 1000
     : false;
 
-  const steps = buildSteps(session);
-  const currentStep = steps[step - 1];
-
-  async function copyText(text: string, stepIndex: number) {
+  /**
+   * Hides the banner but keeps the session: it holds the demo project key and
+   * the widget login, which the install guide still needs. Deleting it here
+   * used to throw those credentials away with no way to get them back.
+   */
+  function dismiss() {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedStep(stepIndex);
-      setTimeout(() => setCopiedStep(null), 2000);
+      sessionStorage.setItem(DEMO_DISMISSED_KEY, '1');
     } catch {
-      // clipboard not available — silently ignore
+      // ignore
     }
+    setDismissed(true);
   }
 
   return (
@@ -250,7 +214,7 @@ export function DemoPanel() {
             variant="ghost"
             size="icon"
             className="h-6 w-6 shrink-0"
-            onClick={() => setDismissed(true)}
+            onClick={dismiss}
             aria-label={t('demo.dismiss')}
           >
             <X className="h-4 w-4" />
@@ -277,62 +241,13 @@ export function DemoPanel() {
           </div>
         </div>
 
-        {/* Setup guide slider */}
-        <div className="rounded-lg border border-border bg-background/40 p-3">
-          {/* Current step content */}
-          <div className="mb-3">
-            <div className="text-xs font-semibold">{t(currentStep.titleKey)}</div>
-            <div className="text-xs text-muted-foreground">{t(currentStep.hintKey)}</div>
-            {currentStep.code !== undefined && (
-              <div className="mt-1 flex items-start gap-2">
-                <pre className="m-0 flex-1 overflow-x-auto rounded-md border border-border bg-background px-3 py-1.5 text-xs">
-                  <code>{currentStep.code}</code>
-                </pre>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => copyText(currentStep.code!, step)}
-                  aria-label={t('demo.copy')}
-                >
-                  {copiedStep === step ? (
-                    <Check className="me-1 h-3.5 w-3.5 text-green-500" />
-                  ) : (
-                    <Copy className="me-1 h-3.5 w-3.5" />
-                  )}
-                  {copiedStep === step ? t('demo.copied') : t('demo.copy')}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Navigation row: Back · counter · Next */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setStep((s) => Math.max(1, s - 1))}
-              disabled={step === 1}
-              aria-label={t('demo.back')}
-            >
-              <ChevronLeft className="me-1 h-3.5 w-3.5" />
-              {t('demo.back')}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {step} / {steps.length}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ms-auto"
-              onClick={() => setStep((s) => Math.min(steps.length, s + 1))}
-              disabled={step === steps.length}
-              aria-label={t('demo.next')}
-            >
-              {t('demo.next')}
-              <ChevronRight className="ms-1 h-3.5 w-3.5" />
-            </Button>
-          </div>
+        {/* The steps themselves live in the shared install guide (also on the
+            header icon), so demo and permanent accounts read the same thing. */}
+        <div className="mb-3">
+          <Button variant="outline" size="sm" onClick={installGuide.open}>
+            <Rocket className="h-3.5 w-3.5" />
+            {t('install.open')}
+          </Button>
         </div>
 
         {/* Server URL reference */}

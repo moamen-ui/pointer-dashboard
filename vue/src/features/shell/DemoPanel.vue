@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Copy, Check, X, Sparkles, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { X, Sparkles, Rocket } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { clearDemoSession, getDemoSession } from '@/lib/demoSession';
+import {
+  clearDemoSession,
+  getDemoSession,
+  isDemoDismissed,
+  markDemoDismissed,
+} from '@/lib/demoSession';
 import { usePostApiDemoUpgrade } from '@moamen-ui/pointer-vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,12 +17,14 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/composables/useAuth';
 import { toast } from '@/composables/useToast';
 import { extractMessage } from '@/lib/error';
+import { useInstallGuide } from '@/shared/install-guide/useInstallGuide';
 
 const { t } = useI18n();
 
 const session = ref(getDemoSession());
-const dismissed = ref(false);
-const copiedStep = ref<number | null>(null);
+const dismissed = ref(isDemoDismissed());
+
+const { guideOpen } = useInstallGuide();
 
 const now = ref(Date.now());
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -31,67 +38,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer);
 });
-
-interface SetupStep {
-  titleKey: string;
-  hintKey: string;
-  code?: string;
-}
-
-// Data-driven setup guide — 6 entries derived from the demo session.
-const steps = computed<SetupStep[]>(() => {
-  const s = session.value;
-  if (!s) return [];
-  const srv = s.serverUrl ?? '';
-  return [
-    {
-      titleKey: 'demo.step1Title',
-      hintKey: 'demo.step1Hint',
-      // The closing tag's slash is escaped (\/) so this file's source never
-      // contains a literal closing-script token that would end the SFC block.
-      code: `<script src="${srv}/pointer.js" defer><\/script>`,
-    },
-    {
-      titleKey: 'demo.step2Title',
-      hintKey: 'demo.step2Hint',
-      code: `<pointer-feedback project="${s.projectKey ?? ''}" server="${srv}"></pointer-feedback>`,
-    },
-    {
-      titleKey: 'demo.step3Title',
-      hintKey: 'demo.step3Hint',
-      code: `curl -fsSL ${srv}/install.sh | sh`,
-    },
-    {
-      titleKey: 'demo.step4Title',
-      hintKey: 'demo.step4Hint',
-      code: `POINTER_EMAIL=${s.email ?? ''}\nPOINTER_PASSWORD=${s.password ?? ''}`,
-    },
-    {
-      titleKey: 'demo.step5Title',
-      hintKey: 'demo.step5Hint',
-      // instruction-only step — no code block
-    },
-    {
-      titleKey: 'demo.step6Title',
-      hintKey: 'demo.step6Hint',
-      // Fixed English literal — NOT translated so the AI skill triggers on it.
-      code: 'What are the new Pointer comments?',
-    },
-  ];
-});
-
-// 1-based current step index.
-const step = ref(1);
-
-const current = computed<SetupStep | undefined>(() => steps.value[step.value - 1]);
-
-function prev() {
-  step.value = Math.max(1, step.value - 1);
-}
-
-function next() {
-  step.value = Math.min(steps.value.length, step.value + 1);
-}
 
 const remainingMs = computed(() => {
   if (!session.value?.expiresAt) return 0;
@@ -110,19 +56,14 @@ const countdown = computed(() => {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 });
 
-async function copyCode(index: number, text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    copiedStep.value = index;
-    setTimeout(() => (copiedStep.value = null), 1500);
-  } catch {
-    /* clipboard unavailable — ignore */
-  }
-}
-
+/**
+ * Hides the banner but keeps the session: it holds the demo project key and the
+ * widget login, which the install guide still needs. Deleting it here used to
+ * throw those credentials away with no way to get them back.
+ */
 function dismiss() {
+  markDemoDismissed();
   dismissed.value = true;
-  clearDemoSession();
 }
 
 const { loginWithToken } = useAuth();
@@ -213,54 +154,13 @@ async function submitUpgrade() {
           </span>
         </div>
 
-        <!-- Setup guide slider (one step at a time) -->
-        <div class="rounded-lg border border-border bg-background/40 p-3">
-          <template v-if="current">
-            <div class="text-xs font-semibold">{{ t(current.titleKey) }}</div>
-            <div class="mt-0.5 text-xs text-muted-foreground">{{ t(current.hintKey) }}</div>
-            <div v-if="current.code" class="mt-2 flex items-start gap-2">
-              <pre
-                class="m-0 flex-1 overflow-x-auto rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ current.code }}</pre>
-              <Button
-                variant="outline"
-                size="sm"
-                class="flex-shrink-0"
-                type="button"
-                @click="copyCode(step, current.code!)"
-              >
-                <Check v-if="copiedStep === step" class="h-4 w-4" />
-                <Copy v-else class="h-4 w-4" />
-                {{ copiedStep === step ? t('demo.copied') : t('demo.copy') }}
-              </Button>
-            </div>
-          </template>
-
-          <!-- Nav row: Back — counter — Next -->
-          <div class="mt-3 flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              :disabled="step === 1"
-              @click="prev"
-            >
-              <ChevronLeft class="h-4 w-4" />
-              {{ t('demo.back') }}
-            </Button>
-            <span class="text-xs text-muted-foreground">{{ step }} / {{ steps.length }}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              class="ms-auto"
-              :disabled="step === steps.length"
-              @click="next"
-            >
-              {{ t('demo.next') }}
-              <ChevronRight class="h-4 w-4" />
-            </Button>
-          </div>
+        <!-- The steps themselves live in the shared install guide (also reachable
+             from the header), so demo and permanent accounts read the same thing. -->
+        <div>
+          <Button variant="outline" size="sm" type="button" @click="guideOpen = true">
+            <Rocket class="h-4 w-4" />
+            {{ t('install.open') }}
+          </Button>
         </div>
 
         <!-- Keep this workspace button -->

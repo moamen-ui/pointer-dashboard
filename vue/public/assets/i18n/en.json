@@ -457,5 +457,14 @@
     "assetPwa192Hint": "192×192 PNG",
     "assetPwa512": "PWA Icon 512",
     "assetPwa512Hint": "512×512 PNG"
+  },
+  "install": {
+    "title": "Installation steps",
+    "open": "View installation steps",
+    "intro": "Drop the Pointer widget into your app, then let your AI agent apply the feedback you leave.",
+    "project": "Project",
+    "noProjects": "Create a project first, then come back for the snippet —",
+    "dontShowAgain": "Don't show this again",
+    "done": "Got it"
   }
 }

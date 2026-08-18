@@ -2,6 +2,8 @@
 // localStorage) so it is scoped to the tab and clears when the tab closes — the
 // demo credentials/snippet are only relevant for the lifetime of the demo.
 export const DEMO_KEY = 'pointer_demo';
+/** Banner-only hide flag — the session itself outlives a dismissal. */
+export const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
 
 export interface DemoSession {
   email: string;
@@ -35,4 +37,16 @@ export function setDemoSession(session: DemoSession): void {
 
 export function clearDemoSession(): void {
   safeSession()?.removeItem(DEMO_KEY);
+}
+
+export function isDemoDismissed(): boolean {
+  try {
+    return safeSession()?.getItem(DEMO_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markDemoDismissed(): void {
+  safeSession()?.setItem(DEMO_DISMISSED_KEY, '1');
 }

@@ -453,5 +453,14 @@
       "pwa192": "PNG 192×192",
       "pwa512": "PNG 512×512"
     }
+  },
+  "install": {
+    "title": "Installation steps",
+    "open": "View installation steps",
+    "intro": "Drop the Pointer widget into your app, then let your AI agent apply the feedback you leave.",
+    "project": "Project",
+    "noProjects": "Create a project first, then come back for the snippet —",
+    "dontShowAgain": "Don't show this again",
+    "done": "Got it"
   }
 }

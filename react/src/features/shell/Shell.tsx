@@ -17,6 +17,7 @@ import {
   Menu,
   CreditCard,
   Paintbrush,
+  Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
 import { DemoPanel } from '@/components/DemoPanel';
+import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -45,11 +47,20 @@ const SUPER_ADMIN_NAV = [
 ];
 
 export function Shell() {
+  return (
+    <InstallGuideProvider>
+      <ShellLayout />
+    </InstallGuideProvider>
+  );
+}
+
+function ShellLayout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAdmin, isSuperAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
+  const installGuide = useInstallGuide();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function signOut() {
@@ -93,6 +104,21 @@ export function Shell() {
             {user.displayName} · {user.roleName}
           </span>
         )}
+        {/* Installation steps: always reachable, with a dot while no feedback has
+            landed yet (that dot is the nudge for a workspace that isn't wired up). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          onClick={installGuide.open}
+          title={t('install.title')}
+          aria-label={t('install.title')}
+        >
+          <Rocket className="h-4 w-4" />
+          {installGuide.nothingCollectedYet && (
+            <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" />
+          )}
+        </Button>
         <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>

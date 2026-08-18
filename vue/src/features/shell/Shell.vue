@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watchEffect } from 'vue';
 import { RouterView, RouterLink, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -19,12 +19,15 @@ import {
   Menu,
   CreditCard,
   Palette,
+  Rocket,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
 import { usePreferences } from '@/composables/usePreferences';
 import { useBranding } from '@/composables/useBranding';
 import DemoPanel from '@/features/shell/DemoPanel.vue';
+import InstallGuideDialog from '@/shared/install-guide/InstallGuideDialog.vue';
+import { shouldAutoOpen, useInstallGuide } from '@/shared/install-guide/useInstallGuide';
 
 const sidebarOpen = ref(false);
 
@@ -51,6 +54,30 @@ const router = useRouter();
 const { user, isAdmin, isSuperAdmin, logout } = useAuth();
 const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
 const { branding } = useBranding();
+const {
+  guideOpen,
+  commentsCount,
+  nothingCollectedYet,
+  isLoading: projectsLoading,
+} = useInstallGuide();
+
+// A workspace admin who is new here — or whose workspace has collected nothing
+// yet — gets the guide opened for them, once. Waits for the project list so
+// commentsCount is real rather than a loading 0.
+watchEffect(() => {
+  if (projectsLoading.value) return;
+  const u = user.value;
+  if (!u) return;
+  if (
+    shouldAutoOpen({
+      isAdmin: isAdmin.value,
+      userId: u.id ?? null,
+      commentsCount: commentsCount.value,
+    })
+  ) {
+    guideOpen.value = true;
+  }
+});
 
 function signOut() {
   logout();
@@ -93,6 +120,22 @@ function signOut() {
         <CircleUserRound class="h-4 w-4" />
         {{ user.displayName }} · {{ user.roleName }}
       </span>
+      <!-- Installation steps: always reachable, with a dot while no feedback has
+           landed yet (that dot is the nudge for a workspace that isn't wired up). -->
+      <Button
+        variant="ghost"
+        size="icon"
+        class="relative"
+        :title="t('install.title')"
+        :aria-label="t('install.title')"
+        @click="guideOpen = true"
+      >
+        <Rocket class="h-4 w-4" />
+        <span
+          v-if="nothingCollectedYet"
+          class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"
+        />
+      </Button>
       <Button variant="ghost" size="icon" aria-label="Toggle theme" @click="toggleTheme">
         <Sun v-if="theme === 'dark'" class="h-4 w-4" />
         <Moon v-else class="h-4 w-4" />
@@ -114,6 +157,9 @@ function signOut() {
 
     <!-- Demo banner (only when a demo session is active) -->
     <DemoPanel />
+
+    <!-- Shared installation-steps dialog (header rocket + demo banner + auto-open) -->
+    <InstallGuideDialog />
 
     <!-- Body: sidebar + content -->
     <div class="flex flex-1 overflow-hidden bg-app">
