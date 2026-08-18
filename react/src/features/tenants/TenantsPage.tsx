@@ -18,12 +18,13 @@ import {
   type TenantResponse,
   type PlanAdminResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, EllipsisVertical } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, EllipsisVertical, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -277,8 +278,15 @@ export function TenantsPage() {
         </Button>
       </div>
 
-      <Card>
-        <Table>
+      {tenants.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          message={t('tenants.empty')}
+          hint={t('tenants.emptyHint')}
+        />
+      ) : (
+        <Card>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('tenants.email')}</TableHead>
@@ -403,16 +411,10 @@ export function TenantsPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {tenants.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                  {t('tenants.empty')}
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </Card>
+      )}
 
       {/* Change plan dialog */}
       <Dialog open={!!changePlanTarget} onOpenChange={(open) => { if (!open) setChangePlanTarget(null); }}>

@@ -10,7 +10,7 @@ import {
   getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical, UserCog } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,7 @@ import { useAuth } from '@/composables/useAuth';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
+import EmptyState from '@/shared/EmptyState.vue';
 
 const { t } = useI18n();
 
@@ -67,7 +68,7 @@ function canManage(role: RoleResponse): boolean {
 }
 
 const { isSuperAdmin } = useAuth();
-const { data } = useGetApiAdminRoles();
+const { data, isLoading } = useGetApiAdminRoles();
 // System roles (e.g. Admin) are immutable — the API answers 409 SystemImmutable on any
 // rename/disable/delete — and they belong to the platform, not the workspace, so listing
 // them to a workspace admin is noise they cannot act on. Super-admins still see them.
@@ -285,6 +286,17 @@ async function deleteRole() {
         </TableBody>
       </Table>
     </Card>
+
+    <EmptyState
+      v-else-if="!isLoading"
+      :icon="UserCog"
+      :message="t('roles.empty')"
+      :hint="t('roles.emptyHint')"
+    >
+      <Button @click="openAdd">
+        <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
+      </Button>
+    </EmptyState>
   </div>
 
   <!-- Add role dialog -->

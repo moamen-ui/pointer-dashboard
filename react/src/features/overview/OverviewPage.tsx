@@ -14,6 +14,7 @@ import {
 } from '@moamen-ui/pointer-react';
 import {
   Folder,
+  FolderOpen,
   Users as UsersIcon,
   MessageSquare,
   Circle,
@@ -22,9 +23,11 @@ import {
   Archive,
   RefreshCw,
   Lock,
+  UserCheck,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -188,7 +191,7 @@ export function OverviewPage() {
             </span>
           </h3>
           {pendingUsers.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">{t('overview.noPending')}</p>
+            <EmptyState icon={UserCheck} message={t('overview.noPending')} />
           ) : (
             <div className="flex flex-col">
               {pendingUsers.map((u) => {
@@ -240,8 +243,15 @@ export function OverviewPage() {
           </Button>
         </div>
 
-        <Card>
-          <Table>
+        {projects.length === 0 ? (
+          <EmptyState
+            icon={FolderOpen}
+            message={t('overview.emptyProjects')}
+            hint={t('overview.emptyProjectsHint')}
+          />
+        ) : (
+          <Card>
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{t('overview.key')}</TableHead>
@@ -294,16 +304,10 @@ export function OverviewPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {projects.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5 + catalog.items.length} className="py-10 text-center text-muted-foreground">
-                    {t('overview.noPending')}
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </Card>
+        )}
       </div>
 
       {/* Approve dialog */}

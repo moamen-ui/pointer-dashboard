@@ -22,11 +22,12 @@ import {
   type PredefinedActionInput,
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, EllipsisVertical } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, EllipsisVertical, FolderOpen } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -394,8 +395,20 @@ export function ProjectsPage() {
         </Button>
       </div>
 
-      <Card>
-        <Table>
+      {projects.length === 0 ? (
+        <EmptyState
+          icon={FolderOpen}
+          message={t('projects.empty')}
+          hint={t('projects.emptyHint')}
+        >
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {t('projects.addProject')}
+          </Button>
+        </EmptyState>
+      ) : (
+        <Card>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('projects.key')}</TableHead>
@@ -504,16 +517,10 @@ export function ProjectsPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {projects.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  {t('projects.empty')}
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </Card>
+      )}
 
       {/* Add project dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

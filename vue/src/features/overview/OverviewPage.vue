@@ -16,6 +16,7 @@ import {
 } from '@moamen-ui/pointer-vue';
 import {
   Folder,
+  FolderOpen,
   Users as UsersIcon,
   MessageSquare,
   Circle,
@@ -36,8 +37,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableEmpty,
 } from '@/components/ui/table';
+import EmptyState from '@/shared/EmptyState.vue';
 import {
   Dialog,
   DialogContent,
@@ -198,9 +199,11 @@ const cards = computed(() => [
         </span>
       </h3>
 
-      <p v-if="pendingUsers.length === 0" class="mt-2 text-sm text-muted-foreground">
-        {{ t('overview.noPending') }}
-      </p>
+      <EmptyState
+        v-if="pendingUsers.length === 0 && !pendingQuery.isLoading.value"
+        :icon="UserCheck"
+        :message="t('overview.noPending')"
+      />
 
       <div v-else class="mt-2 flex flex-col">
         <div
@@ -246,7 +249,7 @@ const cards = computed(() => [
         </Button>
       </div>
 
-      <Card>
+      <Card v-if="projects.length > 0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -289,12 +292,16 @@ const cards = computed(() => [
                 </span>
               </TableCell>
             </TableRow>
-            <TableEmpty v-if="projects.length === 0" :colspan="9" class="py-10">
-              {{ t('overview.noPending') }}
-            </TableEmpty>
           </TableBody>
         </Table>
       </Card>
+
+      <EmptyState
+        v-else-if="!isFetching"
+        :icon="FolderOpen"
+        :message="t('overview.emptyProjects')"
+        :hint="t('overview.emptyProjectsHint')"
+      />
     </div>
   </div>
 

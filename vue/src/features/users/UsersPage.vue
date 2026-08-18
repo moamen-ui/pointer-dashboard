@@ -14,7 +14,7 @@ import {
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, UserCheck, UserRound, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, UserCheck, UserRound, Users, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -53,6 +53,7 @@ import { formatRequestedAt } from '@/lib/formatRequestedAt';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
+import EmptyState from '@/shared/EmptyState.vue';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -276,9 +277,16 @@ function requestedAt(user: UserResponse): string | null {
       </div>
     </div>
 
-    <p v-if="users.length === 0 && !loading" class="py-6 text-muted-foreground">
-      {{ t('users.empty') }}
-    </p>
+    <EmptyState
+      v-if="users.length === 0 && !loading"
+      :icon="Users"
+      :message="t('users.empty')"
+      :hint="t('users.emptyHint')"
+    >
+      <Button @click="openAdd">
+        <Plus class="h-4 w-4" /> {{ t('users.addUser') }}
+      </Button>
+    </EmptyState>
 
     <Card v-else>
       <Table>

@@ -16,7 +16,7 @@ import {
   type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
+import EmptyState from '@/shared/EmptyState.vue';
 
 const { t } = useI18n();
 
@@ -367,7 +368,7 @@ function openViewPrompts(project: ProjectResponse) {
       <div class="h-full w-1/3 animate-pulse bg-primary" />
     </div>
 
-    <Card>
+    <Card v-if="projects.length > 0">
       <Table>
         <TableHeader>
           <TableRow>
@@ -462,6 +463,17 @@ function openViewPrompts(project: ProjectResponse) {
         </TableBody>
       </Table>
     </Card>
+
+    <EmptyState
+      v-else-if="!loading"
+      :icon="FolderOpen"
+      :message="t('projects.empty')"
+      :hint="t('projects.emptyHint')"
+    >
+      <Button @click="openAdd">
+        <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
+      </Button>
+    </EmptyState>
   </div>
 
   <!-- Add project dialog -->

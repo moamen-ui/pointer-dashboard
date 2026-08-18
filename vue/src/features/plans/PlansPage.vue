@@ -10,7 +10,7 @@ import {
   getGetApiAdminPlansQueryKey,
   type PlanWriteDto as ApiPlanWriteDto,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Pencil, Trash2, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Pencil, Trash2, CreditCard, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,7 @@ import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
+import EmptyState from '@/shared/EmptyState.vue';
 
 // ─── Types (mirrors react model types; kept local to avoid ts-ignore sprawl) ──
 
@@ -358,9 +359,12 @@ watch(bulletsRef, (v) => {
       </Table>
     </Card>
 
-    <p v-if="!isFetching && plans.length === 0 && !isError" class="text-sm text-muted-foreground">
-      {{ t('plans.empty') }}
-    </p>
+    <EmptyState
+      v-if="!isFetching && plans.length === 0 && !isError"
+      :icon="CreditCard"
+      :message="t('plans.empty')"
+      :hint="t('plans.emptyHint')"
+    />
   </div>
 
   <!-- Create / Edit dialog -->

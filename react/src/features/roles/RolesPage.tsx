@@ -13,11 +13,12 @@ import {
   getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical } from 'lucide-react';
+import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical, UserCog } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -253,8 +254,20 @@ export function RolesPage() {
         </Button>
       </div>
 
-      <Card>
-        <Table>
+      {roles.length === 0 ? (
+        <EmptyState
+          icon={UserCog}
+          message={t('roles.empty')}
+          hint={t('roles.emptyHint')}
+        >
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {t('roles.addRole')}
+          </Button>
+        </EmptyState>
+      ) : (
+        <Card>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('roles.name')}</TableHead>
@@ -326,16 +339,10 @@ export function RolesPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {roles.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                  {t('roles.empty')}
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </Card>
+      )}
 
       {/* Add role dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

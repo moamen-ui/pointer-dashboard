@@ -72,6 +72,10 @@ function ShellLayout() {
   const installGuide = useInstallGuide();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // First name only: enough to tell whose session this is without spending
+  // header width on the full display name + role (both are in the menu).
+  const firstName = user?.displayName?.trim().split(/\s+/)[0] ?? '';
+
   function signOut() {
     logout();
     navigate('/login', { replace: true });
@@ -116,11 +120,15 @@ function ShellLayout() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="relative"
+              className="relative gap-0 px-2"
               aria-label={t('header.account')}
             >
               <CircleUserRound className="h-5 w-5" />
+              {firstName && (
+                <span className="ms-1 hidden text-[0.9rem] font-medium sm:inline">
+                  {firstName}
+                </span>
+              )}
               {installGuide.nothingCollectedYet && (
                 <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" />
               )}

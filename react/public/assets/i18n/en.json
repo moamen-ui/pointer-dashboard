@@ -89,7 +89,9 @@
     "approve": "Approve",
     "reject": "Reject",
     "confirm": "Confirm",
-    "confirmReject": "Reject the request from {{ name }}?"
+    "confirmReject": "Reject the request from {{ name }}?",
+    "emptyProjects": "No projects to break down yet",
+    "emptyProjectsHint": "Once a project collects feedback, its numbers show up here."
   },
   "roles": {
     "title": "Roles",
@@ -105,7 +107,8 @@
     "reassignLabel": "Move users to",
     "noTargets": "No other active role to move users to.",
     "deleted": "Role deleted",
-    "empty": "No roles to show."
+    "empty": "No roles yet",
+    "emptyHint": "Roles label your stakeholders — Developer, PM, Tester. Add one to start assigning people."
   },
   "users": {
     "title": "Users",
@@ -127,7 +130,8 @@
     "reject": "Reject",
     "confirm": "Confirm",
     "confirmReject": "Reject the request from {{ name }}?",
-    "empty": "No users to show."
+    "empty": "No users to show.",
+    "emptyHint": "Nobody matches this filter yet."
   },
   "projects": {
     "title": "Projects",
@@ -136,7 +140,7 @@
     "name": "Name",
     "status": "Status",
     "actions": "Actions",
-    "empty": "No projects to show.",
+    "empty": "No projects yet",
     "edit": "Edit",
     "editTitle": "Edit project",
     "saved": "Project updated.",
@@ -152,7 +156,8 @@
     "keyRequired": "A project key is required",
     "keyPattern": "Only lowercase letters, numbers and . _ - are allowed",
     "keyMaxLength": "Keep the key to {{ max }} characters or fewer",
-    "keyTaken": "A project with this key already exists"
+    "keyTaken": "A project with this key already exists",
+    "emptyHint": "A project groups the feedback from one app. Add one, then wire the widget into it."
   },
   "suggestions": {
     "section": "Prompt suggestions",
@@ -186,7 +191,9 @@
     "loading": "Loading statuses…",
     "saveSuccess": "Status saved.",
     "resetSuccess": "Status reset to defaults.",
-    "loadError": "Failed to load statuses."
+    "loadError": "Failed to load statuses.",
+    "empty": "No statuses to configure",
+    "emptyHint": "Statuses come from the Pointer server; if this stays empty, check the API connection."
   },
   "profile": {
     "title": "My Profile",
@@ -232,7 +239,8 @@
     "changePlan": "Change plan",
     "planChanged": "Plan updated.",
     "selectPlan": "Select plan",
-    "selectPlanPlaceholder": "Choose a plan…"
+    "selectPlanPlaceholder": "Choose a plan…",
+    "emptyHint": "Workspaces appear here once someone signs up or you add them."
   },
   "settings": {
     "title": "Settings",
@@ -417,7 +425,8 @@
       "promptSuggestionsEnabled": "Prompt suggestions",
       "customStatusesEnabled": "Custom statuses",
       "prioritySupport": "Priority support"
-    }
+    },
+    "emptyHint": "Add a plan to define seat, project and comment limits."
   },
   "limit": {
     "title": "Plan limit reached",

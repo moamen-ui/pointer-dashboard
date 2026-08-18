@@ -131,7 +131,9 @@
     "approve": "Approve",
     "reject": "Reject",
     "confirm": "Confirm",
-    "confirmReject": "Reject the request from {{ name }}?"
+    "confirmReject": "Reject the request from {{ name }}?",
+    "emptyProjects": "No projects to break down yet",
+    "emptyProjectsHint": "Once a project collects feedback, its numbers show up here."
   },
   "roles": {
     "title": "Roles",
@@ -146,7 +148,9 @@
     "deleteIntro": "Users assigned to \"{{name}}\" will be moved to the role you choose below.",
     "reassignLabel": "Move users to",
     "noTargets": "No other active role to move users to.",
-    "deleted": "Role deleted"
+    "deleted": "Role deleted",
+    "empty": "No roles yet",
+    "emptyHint": "Roles label your stakeholders — Developer, PM, Tester. Add one to start assigning people."
   },
   "users": {
     "title": "Users",
@@ -168,7 +172,8 @@
     "reject": "Reject",
     "confirm": "Confirm",
     "confirmReject": "Reject the request from {{ name }}?",
-    "empty": "No users to show."
+    "empty": "No users to show.",
+    "emptyHint": "Nobody matches this filter yet."
   },
   "projects": {
     "title": "Projects",
@@ -192,7 +197,9 @@
     "keyRequired": "A project key is required",
     "keyPattern": "Only lowercase letters, numbers and . _ - are allowed",
     "keyMaxLength": "Keep the key to {{ max }} characters or fewer",
-    "keyTaken": "A project with this key already exists"
+    "keyTaken": "A project with this key already exists",
+    "empty": "No projects yet",
+    "emptyHint": "A project groups the feedback from one app. Add one, then wire the widget into it."
   },
   "exportImport": {
     "export": "Export",
@@ -233,7 +240,9 @@
       "ReadyToApply": "Ready",
       "Applied": "Completed",
       "Archived": "Archived"
-    }
+    },
+    "empty": "No statuses to configure",
+    "emptyHint": "Statuses come from the Pointer server; if this stays empty, check the API connection."
   },
   "profile": {
     "projects": "Projects",
@@ -278,7 +287,8 @@
     "changePlan": "Change plan",
     "changePlanFor": "Change plan for {{ name }}",
     "selectPlan": "Select a plan",
-    "planChanged": "Plan updated."
+    "planChanged": "Plan updated.",
+    "emptyHint": "Workspaces appear here once someone signs up or you add them."
   },
   "settings": {
     "title": "Settings",
@@ -424,7 +434,8 @@
       "promptSuggestionsEnabled": "Prompt suggestions",
       "customStatusesEnabled": "Custom statuses",
       "prioritySupport": "Priority support"
-    }
+    },
+    "emptyHint": "Add a plan to define seat, project and comment limits."
   },
   "limit": {
     "reached": "Limit reached for {{ lever }} ({{ current }}/{{ limit }}). Upgrade your plan to continue.",

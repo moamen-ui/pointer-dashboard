@@ -16,7 +16,7 @@ import {
   useGetApiAdminPlans,
   usePatchApiAdminTenantsIdPlan,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, EllipsisVertical } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,7 @@ import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
+import EmptyState from '@/shared/EmptyState.vue';
 
 const { t } = useI18n();
 const queryClient = useQueryClient();
@@ -381,9 +382,12 @@ async function saveChangePlan() {
       </Table>
     </Card>
 
-    <p v-if="!isFetching && tenants.length === 0 && !isError" class="text-sm text-muted-foreground">
-      {{ t('tenants.empty') }}
-    </p>
+    <EmptyState
+      v-if="!isFetching && tenants.length === 0 && !isError"
+      :icon="Building2"
+      :message="t('tenants.empty')"
+      :hint="t('tenants.emptyHint')"
+    />
   </div>
 
   <!-- Create tenant dialog -->

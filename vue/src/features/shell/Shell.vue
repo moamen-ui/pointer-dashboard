@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watchEffect } from 'vue';
+import { computed, ref, watchEffect } from 'vue';
 import { RouterView, RouterLink, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -60,6 +60,10 @@ const SUPER_ADMIN_NAV = [
 const { t } = useI18n();
 const router = useRouter();
 const { user, isAdmin, isSuperAdmin, logout } = useAuth();
+
+// First name only: enough to tell whose session this is without spending
+// header width on the full display name + role (both stay inside the menu).
+const firstName = computed(() => user.value?.displayName?.trim().split(/\s+/)[0] ?? '');
 const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
 const { branding } = useBranding();
 const {
@@ -128,11 +132,15 @@ function signOut() {
            while the menu is closed. -->
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon" class="relative" :aria-label="t('header.account')">
+          <Button variant="ghost" class="relative gap-1 px-2" :aria-label="t('header.account')">
             <CircleUserRound class="h-5 w-5" />
             <span
+              v-if="firstName"
+              class="hidden text-[0.9rem] font-medium sm:inline"
+            >{{ firstName }}</span>
+            <span
               v-if="nothingCollectedYet"
-              class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-brand"
+              class="absolute end-1 top-1.5 h-2 w-2 rounded-full bg-brand"
             />
           </Button>
         </DropdownMenuTrigger>

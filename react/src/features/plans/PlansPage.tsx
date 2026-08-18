@@ -15,11 +15,12 @@ import {
   BillingInterval,
   PlanDisplayState,
 } from '@moamen-ui/pointer-react';
-import { Plus, Pencil, Trash2, EllipsisVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, EllipsisVertical, CreditCard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -383,8 +384,15 @@ export function PlansPage() {
         </Button>
       </div>
 
-      <Card>
-        <Table>
+      {plans.length === 0 ? (
+        <EmptyState
+          icon={CreditCard}
+          message={t('plans.empty')}
+          hint={t('plans.emptyHint')}
+        />
+      ) : (
+        <Card>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('plans.colName')}</TableHead>
@@ -448,16 +456,10 @@ export function PlansPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {plans.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                  {t('plans.empty')}
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </Card>
+      )}
 
       {/* Create / Edit dialog */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

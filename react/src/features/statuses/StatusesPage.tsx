@@ -11,10 +11,11 @@ import {
   getGetApiStatusesQueryKey,
   type StatusAdminItem,
 } from '@moamen-ui/pointer-react';
-import { EllipsisVertical } from 'lucide-react';
+import { EllipsisVertical, Tag } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -152,8 +153,15 @@ export function StatusesPage() {
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">{t('statuses.title')}</h2>
 
-      <Card>
-        <Table>
+      {statuses.length === 0 ? (
+        <EmptyState
+          icon={Tag}
+          message={t('statuses.empty')}
+          hint={t('statuses.emptyHint')}
+        />
+      ) : (
+        <Card>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('statuses.colName')}</TableHead>
@@ -174,8 +182,11 @@ export function StatusesPage() {
                     {status.name ?? String(val)}
                   </TableCell>
                   <TableCell>
+                    {/* Same slim box as the colour control below, so the row
+                        reads as one set of controls. */}
                     <Input
-                      className="w-[132px]"
+                      className="w-[132px] px-2 text-[0.8rem] focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-0"
+                      aria-label={t('statuses.colLabel')}
                       value={row.label}
                       maxLength={64}
                       onChange={(e) => setField(val, 'label', e.target.value)}
@@ -184,7 +195,7 @@ export function StatusesPage() {
                   <TableCell>
                     {/* Swatch + hex are one control: a single bordered box that
                         lights up on focus, with the native picker inside it. */}
-                    <div className="inline-flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                    <div className="inline-flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
                       <input
                         type="color"
                         aria-label={t('statuses.colColor')}
@@ -197,14 +208,15 @@ export function StatusesPage() {
                         maxLength={7}
                         pattern="^#[0-9a-fA-F]{6}$"
                         onChange={(e) => setField(val, 'color', e.target.value)}
-                        className="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-xs outline-none"
+                        className="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-[0.8rem] outline-none"
                       />
                     </div>
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
-                      className="w-16"
+                      className="w-16 px-2 text-[0.8rem] focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-0"
+                      aria-label={t('statuses.colOrder')}
                       min={0}
                       value={row.order}
                       onChange={(e) =>
@@ -245,6 +257,7 @@ export function StatusesPage() {
           </TableBody>
         </Table>
       </Card>
+      )}
 
       {/* Reset confirmation */}
       <ConfirmDialog

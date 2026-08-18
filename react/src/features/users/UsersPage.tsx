@@ -17,12 +17,13 @@ import {
   type UserResponse,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, UserCheck, User, EllipsisVertical } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, UserCheck, User, EllipsisVertical, Users } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Table,
   TableBody,
@@ -243,8 +244,20 @@ export function UsersPage() {
         </div>
       </div>
 
-      <Card>
-        <Table>
+      {users.length === 0 && !isFetching ? (
+        <EmptyState
+          icon={Users}
+          message={t('users.empty')}
+          hint={t('users.emptyHint')}
+        >
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {t('users.addUser')}
+          </Button>
+        </EmptyState>
+      ) : (
+        <Card>
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t('users.email')}</TableHead>
@@ -344,16 +357,10 @@ export function UsersPage() {
                 </TableRow>
               );
             })}
-            {users.length === 0 && !isFetching && (
-              <TableRow>
-                <TableCell colSpan={isApproved ? 5 : 6} className="py-10 text-center text-muted-foreground">
-                  {t('users.empty')}
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </Card>
+      )}
 
       {/* Add user dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

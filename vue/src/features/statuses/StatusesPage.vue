@@ -10,10 +10,10 @@ import {
   getGetApiAdminStatusesQueryKey,
   type StatusAdminItem,
 } from '@moamen-ui/pointer-vue';
-import { Save, RotateCcw, EllipsisVertical } from 'lucide-vue-next';
+import { Save, RotateCcw, EllipsisVertical, Tag } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import EmptyState from '@/shared/EmptyState.vue';
 import {
   Table,
   TableBody,
@@ -102,6 +102,15 @@ async function saveRow(row: EditRow) {
   }
 }
 
+// Every in-table control — label, colour, order — is the same slim box: 36px
+// tall, 1px border, 6px radius, 8px inline padding, brand border + ring on
+// focus, and a borderless transparent inner input at ~0.8rem. Matches the
+// Angular statuses table so the row reads as one set of controls.
+const fieldClass =
+  'flex h-9 items-center gap-1.5 rounded-[6px] border border-input bg-transparent px-2 shadow-sm focus-within:border-brand focus-within:outline-none focus-within:ring-1 focus-within:ring-ring';
+const fieldInputClass =
+  'w-full min-w-0 border-none bg-transparent p-0 text-[0.8rem] outline-none placeholder:text-muted-foreground';
+
 // ── Reset ─────────────────────────────────────────────────────────────
 async function resetRow(row: EditRow) {
   const ok = await confirm({
@@ -140,6 +149,14 @@ async function resetRow(row: EditRow) {
       {{ t('statuses.loadError') }}
     </p>
 
+    <!-- Empty state (not while loading) -->
+    <EmptyState
+      v-else-if="rows.length === 0 && !statusesQuery.isLoading.value"
+      :icon="Tag"
+      :message="t('statuses.empty')"
+      :hint="t('statuses.emptyHint')"
+    />
+
     <!-- Table — kept visible during refetch -->
     <Card v-if="rows.length > 0">
       <Table>
@@ -157,44 +174,51 @@ async function resetRow(row: EditRow) {
             <!-- Name (read-only) -->
             <TableCell class="font-medium">{{ row.name }}</TableCell>
 
-            <!-- Label -->
+            <!-- Label — same slim box as the colour control below -->
             <TableCell>
-              <Input
-                v-model="row.label"
-                class="w-[132px]"
-                :maxlength="64"
-              />
+              <div :class="[fieldClass, 'w-[132px]']">
+                <input
+                  v-model="row.label"
+                  :maxlength="64"
+                  :class="fieldInputClass"
+                  :placeholder="t('statuses.colLabel')"
+                  :aria-label="t('statuses.colLabel')"
+                />
+              </div>
             </TableCell>
 
             <!-- Color: single merged swatch + hex input -->
             <TableCell>
-              <div
-                class="flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent px-2 shadow-sm focus-within:outline-none focus-within:ring-1 focus-within:ring-ring"
-              >
+              <div :class="[fieldClass, 'w-[124px] ps-1.5']">
                 <input
                   v-model="row.color"
                   type="color"
-                  class="h-6 w-6 flex-shrink-0 cursor-pointer border-none bg-transparent p-0"
+                  class="color-swatch h-6 w-6 flex-shrink-0 cursor-pointer rounded border-none bg-transparent p-0"
                   :title="row.color"
+                  :aria-label="t('statuses.colColor')"
                 />
                 <input
                   v-model="row.color"
                   type="text"
                   :maxlength="7"
-                  class="w-full min-w-0 border-none bg-transparent p-0 font-mono text-xs outline-none placeholder:text-muted-foreground"
-                  placeholder="#000000"
+                  :class="[fieldInputClass, 'font-mono']"
+                  placeholder="#rrggbb"
                 />
               </div>
             </TableCell>
 
-            <!-- Order -->
+            <!-- Order — same slim box as the colour control above -->
             <TableCell>
-              <Input
-                v-model.number="row.order"
-                type="number"
-                class="w-16"
-                :min="0"
-              />
+              <div :class="[fieldClass, 'w-16']">
+                <input
+                  v-model.number="row.order"
+                  type="number"
+                  :min="0"
+                  :class="fieldInputClass"
+                  placeholder="0"
+                  :aria-label="t('statuses.colOrder')"
+                />
+              </div>
             </TableCell>
 
             <!-- Actions -->
@@ -229,3 +253,15 @@ async function resetRow(row: EditRow) {
     </Card>
   </div>
 </template>
+
+<style scoped>
+/* Native colour input: drop the browser's chrome so it reads as a plain
+   swatch inside the merged colour control. */
+.color-swatch {
+  appearance: none;
+  -webkit-appearance: none;
+}
+.color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+.color-swatch::-moz-color-swatch { border: none; border-radius: 3px; }
+</style>
