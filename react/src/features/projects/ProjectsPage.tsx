@@ -173,6 +173,7 @@ export function ProjectsPage() {
   const [editActions, setEditActions] = useState<PredefinedActionRow[]>([]);
   // readOnly = true when canEdit is false (view mode)
   const [editReadOnly, setEditReadOnly] = useState(false);
+  const [editPageContextCaptureEnabled, setEditPageContextCaptureEnabled] = useState(false);
 
   const patchMut = usePatchApiAdminProjectsId({
     mutation: {
@@ -189,6 +190,7 @@ export function ProjectsPage() {
     setEditProject(project);
     setEditName(project.name ?? '');
     setEditReadOnly(readOnly);
+    setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
     setEditActions(
       (project.predefinedActions ?? []).map((a) => ({
         _localId: nextLocalId(),
@@ -214,6 +216,7 @@ export function ProjectsPage() {
       data: {
         name: editName.trim(),
         predefinedActions: predefinedActions,
+        pageContextCaptureEnabled: editPageContextCaptureEnabled,
       },
     });
   }
@@ -648,6 +651,24 @@ export function ProjectsPage() {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   autoFocus
+                />
+              </div>
+            )}
+
+            {!editReadOnly && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-project-capture" className="text-sm font-medium">
+                    {t('projects.pageContextCapture')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">{t('projects.pageContextCaptureHint')}</p>
+                </div>
+                <input
+                  id="edit-project-capture"
+                  type="checkbox"
+                  checked={editPageContextCaptureEnabled}
+                  onChange={(e) => setEditPageContextCaptureEnabled(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer"
                 />
               </div>
             )}

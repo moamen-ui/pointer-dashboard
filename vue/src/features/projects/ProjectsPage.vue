@@ -239,6 +239,7 @@ const editOpen = ref(false);
 const editProject = ref<ProjectResponse | null>(null);
 const editName = ref('');
 const editActions = ref<EditableAction[]>([]);
+const editPageContextCaptureEnabled = ref(false);
 const editInvalid = computed(() => !editName.value.trim());
 
 const patchProject = usePatchApiAdminProjectsId();
@@ -246,6 +247,7 @@ const patchProject = usePatchApiAdminProjectsId();
 function openEdit(project: ProjectResponse) {
   editProject.value = project;
   editName.value = project.name ?? '';
+  editPageContextCaptureEnabled.value = !!project.pageContextCaptureEnabled;
   editActions.value = (project.predefinedActions ?? []).map((a: PredefinedActionResponse) => ({
     id: a.id,
     text: a.text ?? '',
@@ -270,6 +272,7 @@ async function saveEdit() {
       id: editProject.value.id!,
       data: {
         name: editName.value,
+        pageContextCaptureEnabled: editPageContextCaptureEnabled.value,
         predefinedActions: editActions.value.map((a, i) => ({
           ...(a.id != null ? { id: a.id } : {}),
           text: a.text,
@@ -549,6 +552,19 @@ function openViewPrompts(project: ProjectResponse) {
         <div class="flex flex-col gap-2">
           <Label for="edit-name">{{ t('projects.name') }}</Label>
           <Input id="edit-name" v-model="editName" />
+        </div>
+
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-1">
+            <Label for="edit-capture" class="text-sm font-medium">{{ t('projects.pageContextCapture') }}</Label>
+            <p class="text-xs text-muted-foreground">{{ t('projects.pageContextCaptureHint') }}</p>
+          </div>
+          <input
+            id="edit-capture"
+            v-model="editPageContextCaptureEnabled"
+            type="checkbox"
+            class="h-4 w-4 cursor-pointer"
+          />
         </div>
 
         <!-- Predefined actions section -->

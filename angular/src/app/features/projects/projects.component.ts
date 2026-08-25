@@ -19,6 +19,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   ProjectsService,
@@ -53,6 +54,7 @@ const KEY_MAX_LENGTH = 64;
     MatMenuModule,
     MatDialogModule,
     MatTooltipModule,
+    MatSlideToggleModule,
     TranslocoModule,
     EmptyStateComponent,
   ],
@@ -245,6 +247,14 @@ const KEY_MAX_LENGTH = 64;
             <input matInput formControlName="name" />
           </mat-form-field>
 
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <div class="font-medium">{{ 'projects.pageContextCapture' | transloco }}</div>
+              <div class="text-xs text-muted-foreground">{{ 'projects.pageContextCaptureHint' | transloco }}</div>
+            </div>
+            <mat-slide-toggle formControlName="pageContextCaptureEnabled" />
+          </div>
+
           <!-- Predefined actions section (reused group) -->
           <div class="mt-2">
             <div class="mb-1 text-[0.95rem] font-semibold">{{ 'predefined.section' | transloco }}</div>
@@ -433,6 +443,7 @@ export class ProjectsComponent {
 
   editForm = this.fb.nonNullable.group({
     name: ['', Validators.required],
+    pageContextCaptureEnabled: [false],
     predefinedActions: this.fb.array([]),
   });
 
@@ -486,7 +497,7 @@ export class ProjectsComponent {
 
   openEdit(project: ProjectResponse): void {
     this.editingProjectId.set(project.id ?? null);
-    this.editForm.reset({ name: project.name ?? '' });
+    this.editForm.reset({ name: project.name ?? '', pageContextCaptureEnabled: !!project.pageContextCaptureEnabled });
     while (this.editPredefinedActionsArray.length) {
       this.editPredefinedActionsArray.removeAt(0);
     }
@@ -595,7 +606,11 @@ export class ProjectsComponent {
         isActive: true,
       })
     );
-    this.projectsService.patchApiAdminProjectsId(id, { name: val.name, predefinedActions } as any).subscribe({
+    this.projectsService.patchApiAdminProjectsId(id, {
+      name: val.name,
+      pageContextCaptureEnabled: val.pageContextCaptureEnabled,
+      predefinedActions,
+    } as any).subscribe({
       next: () => {
         this.busy.set(false);
         this.dialogRef?.close();
