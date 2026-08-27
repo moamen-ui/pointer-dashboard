@@ -2,6 +2,7 @@ import { Component, computed, inject, signal, TemplateRef, viewChild } from '@an
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -13,7 +14,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { TenantsService, getApiAdminTenantsResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
-import type { TenantResponse, PlanAdminResponse } from '@moamen-ui/pointer-angular';
+import { InvitesService } from '@moamen-ui/pointer-angular';
+import type { TenantResponse, PlanAdminResponse, InviteResponse } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
@@ -27,6 +29,7 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
     FormsModule,
     MatTableModule,
     MatButtonModule,
+    MatButtonToggleModule,
     MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
@@ -172,33 +175,104 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
       }
     </div>
 
-    <!-- Add tenant dialog -->
+    <!-- Add tenant dialog — same "Send invite" (default) / "Create directly" (secondary) split as
+         Add User: minting a new workspace is the same flow as adding a user, minus the role picker
+         (a brand-new tenant's admin is always "Workspace Admin"). -->
     <ng-template #addDialog>
       <h2 mat-dialog-title>{{ 'tenants.addTenant' | transloco }}</h2>
       <mat-dialog-content>
-        <div class="flex min-w-80 flex-col gap-4 pt-2">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'tenants.email' | transloco }}</mat-label>
-            <input matInput type="email" [(ngModel)]="newEmail" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'tenants.displayName' | transloco }}</mat-label>
-            <input matInput [(ngModel)]="newDisplayName" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'tenants.password' | transloco }}</mat-label>
-            <input matInput [type]="pwToggle.type()" [(ngModel)]="newPassword" />
-            <app-password-toggle matSuffix #pwToggle />
-          </mat-form-field>
-        </div>
+        @if (!inviteCreatedUrl()) {
+          <mat-button-toggle-group
+            [value]="addMode()"
+            (change)="addMode.set($event.value)"
+            hideSingleSelectionIndicator
+            class="mb-3"
+          >
+            <mat-button-toggle value="invite">{{ 'users.modeInvite' | transloco }}</mat-button-toggle>
+            <mat-button-toggle value="direct">{{ 'users.modeDirect' | transloco }}</mat-button-toggle>
+          </mat-button-toggle-group>
+        }
+
+        @if (addMode() === 'invite') {
+          @if (inviteCreatedUrl(); as url) {
+            <div class="flex min-w-80 flex-col gap-3 pt-2">
+              @if (inviteCreatedEmailSent(); as sentTo) {
+                <div class="flex items-center gap-2 rounded bg-green-50 p-2 text-[0.85rem] text-green-700 dark:bg-green-500/15 dark:text-green-300">
+                  <mat-icon class="!h-4 !w-4 !text-base">mark_email_read</mat-icon>
+                  <span>{{ 'invite.emailSent' | transloco: { email: sentTo } }}</span>
+                </div>
+              }
+              <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all dark:bg-white/5">
+                <span class="flex-1">{{ url }}</span>
+                <button mat-stroked-button (click)="copyInviteUrl(url)">
+                  {{ 'invite.copy' | transloco }}
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div class="flex min-w-80 flex-col gap-3 pt-2">
+              <p class="text-[0.85rem] text-muted">{{ 'tenants.inviteHint' | transloco }}</p>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ 'invite.email' | transloco }}</mat-label>
+                <input matInput type="email"
+                  [ngModel]="inviteEmail()"
+                  (ngModelChange)="inviteEmail.set($event)" />
+              </mat-form-field>
+
+              <div class="flex gap-3">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                  <mat-label>{{ 'invite.expiresDays' | transloco }}</mat-label>
+                  <input matInput type="number" min="1"
+                    [ngModel]="inviteExpiresInDays()"
+                    (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                  <mat-label>{{ 'invite.maxUses' | transloco }}</mat-label>
+                  <input matInput type="number" min="1"
+                    [ngModel]="inviteMaxUses()"
+                    (ngModelChange)="inviteMaxUses.set($event ? +$event : null)" />
+                </mat-form-field>
+              </div>
+            </div>
+          }
+        } @else {
+          <div class="flex min-w-80 flex-col gap-4 pt-2">
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'tenants.email' | transloco }}</mat-label>
+              <input matInput type="email" [(ngModel)]="newEmail" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'tenants.displayName' | transloco }}</mat-label>
+              <input matInput [(ngModel)]="newDisplayName" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>{{ 'tenants.password' | transloco }}</mat-label>
+              <input matInput [type]="pwToggle.type()" [(ngModel)]="newPassword" />
+              <app-password-toggle matSuffix #pwToggle />
+            </mat-form-field>
+          </div>
+        }
       </mat-dialog-content>
       <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary"
-          [disabled]="!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim()"
-          (click)="addTenant()">
-          <mat-icon>add</mat-icon> {{ 'tenants.addTenant' | transloco }}
-        </button>
+        @if (addMode() === 'invite') {
+          @if (inviteCreatedUrl()) {
+            <button mat-flat-button color="primary" mat-dialog-close>{{ 'invite.done' | transloco }}</button>
+          } @else {
+            <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+            <button mat-flat-button color="primary"
+              [disabled]="inviteCreating()"
+              (click)="createTenantInvite()">
+              {{ 'invite.create' | transloco }}
+            </button>
+          }
+        } @else {
+          <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+          <button mat-flat-button color="primary"
+            [disabled]="!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim()"
+            (click)="addTenant()">
+            <mat-icon>add</mat-icon> {{ 'tenants.addTenant' | transloco }}
+          </button>
+        }
       </mat-dialog-actions>
     </ng-template>
 
@@ -257,6 +331,7 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
 })
 export class TenantsComponent {
   private tenantsService = inject(TenantsService);
+  private invitesService = inject(InvitesService);
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
@@ -284,6 +359,14 @@ export class TenantsComponent {
   newDisplayName = '';
   newPassword = '';
 
+  addMode = signal<'invite' | 'direct'>('invite');
+  inviteEmail = signal('');
+  inviteExpiresInDays = signal<number | null>(7);
+  inviteMaxUses = signal<number | null>(null);
+  inviteCreating = signal(false);
+  inviteCreatedUrl = signal<string | null>(null);
+  inviteCreatedEmailSent = signal<string | null>(null);
+
   deletingTenant = signal<TenantResponse | null>(null);
 
   // Demo config dialog state
@@ -295,7 +378,43 @@ export class TenantsComponent {
     this.newEmail = '';
     this.newDisplayName = '';
     this.newPassword = '';
+    this.addMode.set('invite');
+    this.inviteEmail.set('');
+    this.inviteExpiresInDays.set(7);
+    this.inviteMaxUses.set(null);
+    this.inviteCreatedUrl.set(null);
+    this.inviteCreatedEmailSent.set(null);
     this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
+  }
+
+  createTenantInvite(): void {
+    this.inviteCreating.set(true);
+    this.inviteCreatedUrl.set(null);
+    this.inviteCreatedEmailSent.set(null);
+    const body = {
+      createNewWorkspace: true,
+      email: this.inviteEmail() || null,
+      expiresInDays: this.inviteExpiresInDays(),
+      maxUses: this.inviteMaxUses(),
+    };
+    this.invitesService.postApiAdminInvites(body).subscribe({
+      next: (res: InviteResponse) => {
+        this.inviteCreating.set(false);
+        this.inviteCreatedUrl.set(res.url ?? null);
+        this.inviteCreatedEmailSent.set(res.emailSent && res.email ? res.email : null);
+        this.snack.open(this.transloco.translate('invite.created'), 'OK', { duration: 3000 });
+      },
+      error: (e: unknown) => {
+        this.inviteCreating.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  copyInviteUrl(url: string): void {
+    navigator.clipboard.writeText(url).then(() => {
+      this.snack.open(this.transloco.translate('invite.copied'), 'OK', { duration: 2000 });
+    });
   }
 
   addTenant() {

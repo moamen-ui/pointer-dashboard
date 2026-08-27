@@ -65,7 +65,11 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
           </a>
         } @else if (preview()) {
           <h1 class="my-[0.67em] text-[1.8em] font-bold">
-            {{ 'invite.joinTitle' | transloco: { workspace: preview()!.workspaceName ?? '' } }}
+            @if (preview()!.isNewWorkspace) {
+              {{ 'invite.createWorkspaceTitle' | transloco }}
+            } @else {
+              {{ 'invite.joinTitle' | transloco: { workspace: preview()!.workspaceName ?? '' } }}
+            }
           </h1>
           @if (preview()!.roleName) {
             <p class="m-0 text-[0.95rem] text-muted">
@@ -114,7 +118,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
               color="primary"
               class="mt-1"
               [disabled]="form.invalid || joining()">
-              {{ 'invite.join' | transloco }}
+              {{ (preview()!.isNewWorkspace ? 'invite.createWorkspace' : 'invite.join') | transloco }}
             </button>
           </form>
         }

@@ -307,7 +307,8 @@
     "overridePlaceholder": "Global default",
     "demoConfigSaved": "Demo config updated",
     "demoConfigHint": "Override the comment cap and demo period for this one demo tenant. Leave a field blank to use the global default.",
-    "emptyHint": "Workspaces appear here once someone signs up or you add them."
+    "emptyHint": "Workspaces appear here once someone signs up or you add them.",
+    "inviteHint": "Generate a link that lets someone create their own new workspace, pre-approved and active right away."
   },
   "settings": {
     "title": "Global Settings",
@@ -474,6 +475,8 @@
     "uses": "Uses",
     "expires": "Expires",
     "joinTitle": "Join {{workspace}}",
+    "createWorkspaceTitle": "Create your workspace",
+    "createWorkspace": "Create workspace",
     "joinRole": "You'll join as {{role}}.",
     "password": "Password",
     "confirmPassword": "Confirm password",
