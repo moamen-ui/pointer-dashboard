@@ -15,7 +15,7 @@ import {
 } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Rocket, Copy } from 'lucide-react';
+import { Rocket, Copy, Download } from 'lucide-react';
 import { useGetApiAdminProjects, type ProjectResponse } from '@moamen-ui/pointer-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,9 +32,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import {
+  EXTENSION_ZIP_URL,
   isSuppressed,
   markShown,
   readDemoSession,
@@ -49,6 +51,8 @@ export interface SetupStep {
   titleKey: string;
   hintKey: string;
   code?: string;
+  /** Renders the step's action as a download anchor instead of a code block. */
+  download?: boolean;
 }
 
 /** Rendered in the snippet until the user actually has a project to point at. */
@@ -113,6 +117,41 @@ export function buildSteps(input: {
       { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${projectKey}" server="${server}"></pointer-feedback>` },
     ],
   };
+}
+
+/**
+ * Steps for the Chrome-extension install tab. Mirrors buildSteps' credentials
+ * branch: the demo session's email/password when one is active (the emailed
+ * notice once the creds have been sent), otherwise the signed-in user's email
+ * with a password placeholder.
+ */
+export function buildExtensionSteps(input: {
+  server: string;
+  userEmail: string | null;
+  demo: DemoSession | null;
+  credsEmailedText: string;
+}): SetupStep[] {
+  const { server, demo } = input;
+  const credentials = demo
+    ? demo.emailSent
+      ? input.credsEmailedText
+      : `${demo.email ?? ''}\n${demo.password ?? ''}`
+    : `${input.userEmail ?? ''}\n${PASSWORD_PLACEHOLDER}`;
+
+  return [
+    {
+      titleKey: 'install.extDownloadTitle',
+      hintKey: 'install.extDownloadHint',
+      download: true,
+    },
+    { titleKey: 'install.extUnzipTitle', hintKey: 'install.extUnzipHint' },
+    { titleKey: 'install.extLoadTitle', hintKey: 'install.extLoadHint', code: 'chrome://extensions' },
+    {
+      titleKey: 'install.extSignInTitle',
+      hintKey: 'install.extSignInHint',
+      code: `${server}\n${credentials}`,
+    },
+  ];
 }
 
 interface InstallGuideValue {
@@ -186,6 +225,48 @@ export function InstallGuideProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** One ordered list of steps — shared by the code tab and the extension tab. */
+function StepList({ steps, copy }: { steps: SetupStep[]; copy: (text: string) => void }) {
+  const { t } = useTranslation();
+  return (
+    <ol className="m-0 flex list-none flex-col gap-3 p-0">
+      {steps.map((st, i) => (
+        <li key={st.titleKey} className="rounded-lg border border-border bg-app/40 p-3">
+          <div className="text-[0.85rem] font-semibold">
+            {i + 1}. {t(st.titleKey)}
+          </div>
+          <div className="mt-0.5 text-[0.78rem] text-muted-foreground">{t(st.hintKey)}</div>
+          {st.download ? (
+            <Button asChild size="sm" className="mt-2">
+              <a href={EXTENSION_ZIP_URL} download>
+                <Download className="h-3.5 w-3.5" />
+                {t('install.extDownloadButton')}
+              </a>
+            </Button>
+          ) : (
+            st.code && (
+              <div className="mt-2 flex items-start gap-2">
+                <pre className="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]">
+                  <code>{st.code}</code>
+                </pre>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => copy(st.code!)}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  {t('demo.copy')}
+                </Button>
+              </div>
+            )
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function InstallGuideDialog({
   projects,
   onClose,
@@ -214,6 +295,13 @@ function InstallGuideDialog({
   const steps = buildSteps({
     server,
     projectKey: effectiveKey,
+    userEmail: user?.email ?? null,
+    demo,
+    credsEmailedText: t('demo.credsEmailed'),
+  });
+
+  const extensionSteps = buildExtensionSteps({
+    server,
     userEmail: user?.email ?? null,
     demo,
     credsEmailedText: t('demo.credsEmailed'),
@@ -251,6 +339,15 @@ function InstallGuideDialog({
 
         <p className="m-0 text-[0.85rem] text-muted-foreground">{t('install.intro')}</p>
 
+        {/* Two install paths: the code-based guide and the Chrome extension.
+             Tab choice is deliberately not persisted — every open starts on Code. */}
+        <Tabs defaultValue="code" className="mt-3">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="code">{t('install.tabCode')}</TabsTrigger>
+            <TabsTrigger value="extension">{t('install.tabExtension')}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="code">
         {/* Which project the snippet points at */}
         {projects.length > 0 ? (
           <div className="flex flex-col gap-1.5">
@@ -280,32 +377,7 @@ function InstallGuideDialog({
         ) : null}
 
         {/* The recommended path: install the skills, then let the agent wire the widget */}
-        <ol className="m-0 flex list-none flex-col gap-3 p-0">
-          {steps.primary.map((st, i) => (
-            <li key={st.titleKey} className="rounded-lg border border-border bg-app/40 p-3">
-              <div className="text-[0.85rem] font-semibold">
-                {i + 1}. {t(st.titleKey)}
-              </div>
-              <div className="mt-0.5 text-[0.78rem] text-muted-foreground">{t(st.hintKey)}</div>
-              {st.code && (
-                <div className="mt-2 flex items-start gap-2">
-                  <pre className="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]">
-                    <code>{st.code}</code>
-                  </pre>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => copy(st.code!)}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    {t('demo.copy')}
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
+        <StepList steps={steps.primary} copy={copy} />
 
         {/* Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
              does this per-stack, so these snippets are the fallback, not the path. */}
@@ -339,6 +411,12 @@ function InstallGuideDialog({
             ))}
           </div>
         </details>
+          </TabsContent>
+
+          <TabsContent value="extension">
+            <StepList steps={extensionSteps} copy={copy} />
+          </TabsContent>
+        </Tabs>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex cursor-pointer items-center gap-2">

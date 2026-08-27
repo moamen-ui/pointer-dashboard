@@ -2,10 +2,11 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
-import { Copy, Rocket } from 'lucide-vue-next';
+import { Copy, Download, Rocket } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -43,6 +44,9 @@ watch(
 );
 
 const suppressed = ref(isSuppressed(user.value?.id ?? null));
+
+/** Active guide tab. Deliberately not persisted — every open starts on Code. */
+const activeTab = ref<'code' | 'extension'>('code');
 
 const steps = computed(() =>
   buildSteps({
@@ -99,80 +103,124 @@ async function copy(text: string): Promise<void> {
 
       <p class="text-sm text-muted-foreground">{{ t('install.intro') }}</p>
 
-      <!-- Which project the snippet points at -->
-      <div v-if="projects.length > 0" class="flex flex-col gap-1.5">
-        <Select v-model="projectKey">
-          <SelectTrigger :aria-label="t('install.project')">
-            <SelectValue :placeholder="t('install.project')" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="p in projects" :key="p.key" :value="p.key">
-              {{ p.name }} ({{ p.key }})
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <p v-else-if="!demo" class="rounded-lg border border-border bg-app/40 p-3 text-sm">
-        {{ t('install.noProjects') }}
-        <RouterLink to="/projects" class="text-brand underline" @click="guideOpen = false">
-          {{ t('nav.projects') }}
-        </RouterLink>
-      </p>
+      <Tabs v-model="activeTab">
+        <TabsList class="grid w-full grid-cols-2">
+          <TabsTrigger value="code">{{ t('install.tabCode') }}</TabsTrigger>
+          <TabsTrigger value="extension">{{ t('install.tabExtension') }}</TabsTrigger>
+        </TabsList>
 
-      <!-- The recommended path: install the skills, then let the agent wire the widget -->
-      <ol class="m-0 flex list-none flex-col gap-3 p-0">
-        <li
-          v-for="(st, i) in steps.primary"
-          :key="st.titleKey"
-          class="rounded-lg border border-border bg-app/40 p-3"
-        >
-          <div class="text-sm font-semibold">{{ i + 1 }}. {{ t(st.titleKey) }}</div>
-          <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
-          <div v-if="st.code" class="mt-2 flex items-start gap-2">
-            <pre
-              class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-            >{{ st.code }}</pre>
-            <Button
-              variant="outline"
-              size="sm"
-              class="flex-shrink-0"
-              type="button"
-              @click="copy(st.code!)"
+        <TabsContent value="code">
+          <!-- Which project the snippet points at -->
+          <div v-if="projects.length > 0" class="flex flex-col gap-1.5">
+            <Select v-model="projectKey">
+              <SelectTrigger :aria-label="t('install.project')">
+                <SelectValue :placeholder="t('install.project')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="p in projects" :key="p.key" :value="p.key">
+                  {{ p.name }} ({{ p.key }})
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p v-else-if="!demo" class="rounded-lg border border-border bg-app/40 p-3 text-sm">
+            {{ t('install.noProjects') }}
+            <RouterLink to="/projects" class="text-brand underline" @click="guideOpen = false">
+              {{ t('nav.projects') }}
+            </RouterLink>
+          </p>
+
+          <!-- The recommended path: install the skills, then let the agent wire the widget -->
+          <ol class="m-0 flex list-none flex-col gap-3 p-0">
+            <li
+              v-for="(st, i) in steps.primary"
+              :key="st.titleKey"
+              class="rounded-lg border border-border bg-app/40 p-3"
             >
-              <Copy class="h-4 w-4" />
-              {{ t('demo.copy') }}
-            </Button>
-          </div>
-        </li>
-      </ol>
+              <div class="text-sm font-semibold">{{ i + 1 }}. {{ t(st.titleKey) }}</div>
+              <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
+              <div v-if="st.code" class="mt-2 flex items-start gap-2">
+                <pre
+                  class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+                >{{ st.code }}</pre>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="flex-shrink-0"
+                  type="button"
+                  @click="copy(st.code!)"
+                >
+                  <Copy class="h-4 w-4" />
+                  {{ t('demo.copy') }}
+                </Button>
+              </div>
+            </li>
+          </ol>
 
-      <!-- Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
-           does this per-stack, so these snippets are the fallback, not the path. -->
-      <details class="rounded-lg border border-border p-3">
-        <summary class="cursor-pointer text-sm font-semibold">{{ t('install.manualTitle') }}</summary>
-        <p class="mb-2 mt-1 text-xs text-muted-foreground">{{ t('install.manualHint') }}</p>
-        <div class="flex flex-col gap-3">
-          <div v-for="st in steps.manual" :key="st.titleKey">
-            <div class="text-xs font-medium">{{ t(st.titleKey) }}</div>
-            <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
-            <div v-if="st.code" class="mt-1.5 flex items-start gap-2">
-              <pre
-                class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
-              >{{ st.code }}</pre>
-              <Button
-                variant="outline"
-                size="sm"
-                class="flex-shrink-0"
-                type="button"
-                @click="copy(st.code!)"
-              >
-                <Copy class="h-4 w-4" />
-                {{ t('demo.copy') }}
-              </Button>
+          <!-- Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
+               does this per-stack, so these snippets are the fallback, not the path. -->
+          <details class="rounded-lg border border-border p-3">
+            <summary class="cursor-pointer text-sm font-semibold">{{ t('install.manualTitle') }}</summary>
+            <p class="mb-2 mt-1 text-xs text-muted-foreground">{{ t('install.manualHint') }}</p>
+            <div class="flex flex-col gap-3">
+              <div v-for="st in steps.manual" :key="st.titleKey">
+                <div class="text-xs font-medium">{{ t(st.titleKey) }}</div>
+                <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
+                <div v-if="st.code" class="mt-1.5 flex items-start gap-2">
+                  <pre
+                    class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+                  >{{ st.code }}</pre>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="flex-shrink-0"
+                    type="button"
+                    @click="copy(st.code!)"
+                  >
+                    <Copy class="h-4 w-4" />
+                    {{ t('demo.copy') }}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </details>
+          </details>
+        </TabsContent>
+
+        <TabsContent value="extension">
+          <!-- Chrome-extension path: same step rendering, but step 1 is a real download -->
+          <ol class="m-0 flex list-none flex-col gap-3 p-0">
+            <li
+              v-for="(st, i) in steps.extension"
+              :key="st.titleKey"
+              class="rounded-lg border border-border bg-app/40 p-3"
+            >
+              <div class="text-sm font-semibold">{{ i + 1 }}. {{ t(st.titleKey) }}</div>
+              <div class="mt-0.5 text-xs text-muted-foreground">{{ t(st.hintKey) }}</div>
+              <Button v-if="st.downloadUrl" as-child variant="outline" size="sm" class="mt-2">
+                <a :href="st.downloadUrl" download>
+                  <Download class="h-4 w-4" />
+                  {{ t('install.extDownload') }}
+                </a>
+              </Button>
+              <div v-else-if="st.code" class="mt-2 flex items-start gap-2">
+                <pre
+                  class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-background/70 px-3 py-2 font-mono text-xs"
+                >{{ st.code }}</pre>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="flex-shrink-0"
+                  type="button"
+                  @click="copy(st.code!)"
+                >
+                  <Copy class="h-4 w-4" />
+                  {{ t('demo.copy') }}
+                </Button>
+              </div>
+            </li>
+          </ol>
+        </TabsContent>
+      </Tabs>
 
       <div class="flex flex-wrap items-center justify-between gap-3">
         <label class="flex cursor-pointer items-center gap-2 text-xs">

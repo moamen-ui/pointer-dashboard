@@ -1,4 +1,22 @@
-import { buildSteps, PASSWORD_PLACEHOLDER, PROJECT_KEY_PLACEHOLDER } from './install-guide.component';
+import { TestBed } from '@angular/core/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
+import { provideTransloco, TranslocoLoader } from '@jsverse/transloco';
+import { Observable, of } from 'rxjs';
+import { delay } from 'rxjs/operators';
+import { signal } from '@angular/core';
+import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/auth/auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { InstallGuideService } from './install-guide.service';
+import {
+  buildExtensionSteps,
+  buildSteps,
+  EXTENSION_ZIP_URL,
+  InstallGuideComponent,
+  PASSWORD_PLACEHOLDER,
+  PROJECT_KEY_PLACEHOLDER,
+} from './install-guide.component';
 
 const base = {
   server: 'https://api.example.test',
@@ -62,5 +80,124 @@ describe('buildSteps', () => {
     }).primary[1].code!;
     expect(creds).toBe('emailed to you');
     expect(creds).not.toContain('POINTER_PASSWORD');
+  });
+});
+
+describe('buildExtensionSteps', () => {
+  it('leads with a download step pointing at the landing-domain zip, not a code block', () => {
+    const first = buildExtensionSteps(base)[0];
+    expect(first.downloadUrl).toBe(EXTENSION_ZIP_URL);
+    expect(first.code).toBeUndefined();
+  });
+
+  it('makes chrome://extensions copyable in the load step', () => {
+    expect(buildExtensionSteps(base)[2].code).toBe('chrome://extensions');
+  });
+
+  it('signs in with the server URL and the signed-in email outside a demo', () => {
+    const signIn = buildExtensionSteps(base)[3].code!;
+    expect(signIn).toContain(base.server);
+    expect(signIn).toContain(`POINTER_EMAIL=${base.userEmail}`);
+    expect(signIn).toContain(`POINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`);
+  });
+
+  it('uses the demo server URL and widget login during a demo session', () => {
+    const signIn = buildExtensionSteps({
+      ...base,
+      server: 'https://demo.example.test',
+      demo: { email: 'demo@example.test', password: 's3cret', serverUrl: 'https://demo.example.test' },
+    })[3].code!;
+    expect(signIn).toContain('https://demo.example.test');
+    expect(signIn).toContain('POINTER_EMAIL=demo@example.test');
+    expect(signIn).toContain('POINTER_PASSWORD=s3cret');
+  });
+});
+
+describe('InstallGuideComponent extension tab', () => {
+  // Enough translations for the pipe; the component also translates demo.* keys.
+  const translations = {
+    install: {
+      title: 'Installation steps',
+      intro: 'intro',
+      manualTitle: 'manual',
+      manualHint: 'manual hint',
+      project: 'Project',
+      noProjects: 'no projects',
+      dontShowAgain: "don't show again",
+      done: 'done',
+      stepAgentTitle: 'agent',
+      stepAgentHint: 'agent hint',
+      tabCode: 'Code',
+      tabExtension: 'Chrome extension',
+      extDownload: 'Download extension (.zip)',
+      extStep1Title: 'Download the extension',
+      extStep1Hint: 'Grab the Pointer Chrome extension package.',
+      extStep2Title: 'Unzip the file',
+      extStep2Hint: 'Extract the zip anywhere you like.',
+      extStep3Title: 'Load it in Chrome',
+      extStep3Hint: 'Go to chrome://extensions…',
+      extStep4Title: 'Sign in',
+      extStep4Hint: 'Sign in hint',
+    },
+    demo: {
+      copy: 'Copy',
+      copied: 'copied',
+      copyFailed: 'copy failed',
+      credsEmailed: 'emailed to you',
+      step1Title: 's1', step1Hint: 'h1', step2Title: 's2', step2Hint: 'h2',
+      step3Title: 's3', step3Hint: 'h3', step4Title: 's4', step4Hint: 'h4',
+      step5Title: 's5', step5Hint: 'h5', step6Title: 's6', step6Hint: 'h6',
+    },
+    nav: { projects: 'Projects' },
+  };
+
+  class InlineLoader implements TranslocoLoader {
+    getTranslation(): Observable<typeof translations> {
+      // delay(0) keeps the load event (and its toSignal write) out of the
+      // render pass — of() would emit while the template is still building.
+      return of(translations).pipe(delay(0));
+    }
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [InstallGuideComponent],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([]),
+        provideTransloco({
+          config: { availableLangs: ['en'], defaultLang: 'en', reRenderOnLangChange: false, prodMode: true },
+          loader: InlineLoader,
+        }),
+        { provide: AuthService, useValue: { user: signal({ id: 1, email: 'admin@example.test' }) } },
+        { provide: MatSnackBar, useValue: { open: () => ({}) } },
+        { provide: InstallGuideService, useValue: { projects: signal([]), markShown: () => {}, isSuppressed: () => false } },
+      ],
+    }).compileComponents();
+  });
+
+  it('renders the download link and all four steps when the extension tab is selected', async () => {
+    const fixture = TestBed.createComponent(InstallGuideComponent);
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r)); // let the inline lang loader emit
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // The code tab is the default and shows no download link.
+    expect(fixture.nativeElement.querySelector('a[download]')).toBeNull();
+
+    fixture.componentInstance.tab.set('extension');
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const link = el.querySelector<HTMLAnchorElement>('a[download]');
+    expect(link?.getAttribute('href')).toBe(EXTENSION_ZIP_URL);
+    expect(link?.textContent).toContain('Download extension (.zip)');
+
+    const items = el.querySelectorAll('ol li');
+    expect(items.length).toBe(4);
+    expect(el.textContent).toContain('Load it in Chrome');
+    expect(el.textContent).toContain('chrome://extensions');
+    expect(el.textContent).toContain(environment.apiBase);
   });
 });

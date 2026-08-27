@@ -37,7 +37,8 @@
     "account": "Account",
     "theme": "Theme",
     "themeDark": "Dark",
-    "themeLight": "Light"
+    "themeLight": "Light",
+    "changePassword": "Change password"
   },
   "login": {
     "title": "Pointer Admin",
@@ -172,7 +173,14 @@
     "empty": "No users to show.",
     "emptyHint": "Nobody matches this filter yet.",
     "modeInvite": "Send invite",
-    "modeDirect": "Create directly"
+    "modeDirect": "Create directly",
+    "workspace": "Workspace",
+    "deputyHint": "As a super admin, you can only add a deputy to an existing workspace — they'll get full admin access to it except deleting its primary admin.",
+    "confirmDelete": "Permanently delete {{ name }}? This cannot be undone.",
+    "deleted": "User deleted.",
+    "makeAdmin": "Make primary admin",
+    "confirmPromote": "Make {{ name }} the primary workspace admin? The current admin will be moved to deputy.",
+    "promoted": "Ownership transferred."
   },
   "projects": {
     "title": "Projects",
@@ -436,6 +444,17 @@
     "error": "Failed to load profile.",
     "noProjects": "No project activity yet."
   },
+  "changePassword": {
+    "title": "Change password",
+    "current": "Current password",
+    "new": "New password",
+    "confirm": "Confirm new password",
+    "submit": "Change password",
+    "mismatch": "Passwords do not match.",
+    "tooShort": "Password must be at least 8 characters.",
+    "success": "Password changed. Please sign in again.",
+    "wrongCurrent": "Current password is incorrect."
+  },
   "invite": {
     "section": "Invite teammates",
     "sectionHint": "Generate a link that lets a teammate join this workspace with a chosen role. Invited teammates skip the approval queue.",
@@ -505,6 +524,17 @@
   "install": {
     "title": "Installation steps",
     "open": "View installation steps",
+    "tabCode": "Code",
+    "tabExtension": "Chrome extension",
+    "extDownload": "Download extension (.zip)",
+    "extStep1Title": "Download the extension",
+    "extStep1Hint": "Grab the Pointer Chrome extension package.",
+    "extStep2Title": "Unzip the file",
+    "extStep2Hint": "Extract the zip anywhere you like — remember the folder.",
+    "extStep3Title": "Load it in Chrome",
+    "extStep3Hint": "Go to chrome://extensions, enable Developer mode, click 'Load unpacked', and select the unzipped folder.",
+    "extStep4Title": "Sign in",
+    "extStep4Hint": "Click the Pointer icon in the toolbar and sign in with your Pointer server URL and account credentials.",
     "intro": "Drop the Pointer widget into your app, then let your AI agent apply the feedback you leave.",
     "project": "Project",
     "noProjects": "Create a project first, then come back for the snippet —",

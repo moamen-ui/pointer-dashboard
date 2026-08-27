@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -13,11 +14,13 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from './install-guide.service';
 
-/** One step in the guide. `code` is optional — instruction-only steps omit it. */
+/** One step in the guide. `code`/`downloadUrl` are optional — instruction-only steps omit both. */
 export interface SetupStep {
   titleKey: string;
   hintKey: string;
   code?: string;
+  /** Renders the step as a download anchor instead of a code block. */
+  downloadUrl?: string;
 }
 
 /** Demo session written by the demo provisioning flow (sessionStorage). */
@@ -30,6 +33,9 @@ interface DemoSession {
 }
 
 const DEMO_SESSION_KEY = 'pointer_demo';
+/** The extension zip is a landing-domain artifact served by Caddy — deliberately
+ *  not derived from the API base, which points at a different origin. */
+export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
 /** Rendered in the snippet until the user actually has a project to point at. */
 export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
 /** Placeholder inside the credentials snippet. Deliberately not translated — it is
@@ -63,11 +69,7 @@ export function buildSteps(input: {
 }): GuideSteps {
   const { server, demo } = input;
   const projectKey = input.projectKey || PROJECT_KEY_PLACEHOLDER;
-  const credentials = demo
-    ? demo.emailSent
-      ? input.credsEmailedText
-      : `POINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`
-    : `POINTER_EMAIL=${input.userEmail ?? ''}\nPOINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`;
+  const credentials = credentialsSnippet(input);
 
   return {
     primary: [
@@ -92,6 +94,49 @@ export function buildSteps(input: {
   };
 }
 
+/** The credentials snippet, shared by the code guide and the extension sign-in step:
+ *  demo widget login during a demo session, the signed-in user's email otherwise. */
+function credentialsSnippet(input: {
+  server: string;
+  userEmail: string | null;
+  demo: DemoSession | null;
+  credsEmailedText: string;
+}): string {
+  const { demo } = input;
+  return demo
+    ? demo.emailSent
+      ? input.credsEmailedText
+      : `POINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`
+    : `POINTER_EMAIL=${input.userEmail ?? ''}\nPOINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`;
+}
+
+/**
+ * Builds the Chrome-extension install steps. Pure, like buildSteps, so the
+ * credentials branching is unit-testable the same way.
+ */
+export function buildExtensionSteps(input: {
+  server: string;
+  userEmail: string | null;
+  demo: DemoSession | null;
+  credsEmailedText: string;
+}): SetupStep[] {
+  const { server } = input;
+  return [
+    {
+      titleKey: 'install.extStep1Title',
+      hintKey: 'install.extStep1Hint',
+      downloadUrl: EXTENSION_ZIP_URL,
+    },
+    { titleKey: 'install.extStep2Title', hintKey: 'install.extStep2Hint' },
+    { titleKey: 'install.extStep3Title', hintKey: 'install.extStep3Hint', code: 'chrome://extensions' },
+    {
+      titleKey: 'install.extStep4Title',
+      hintKey: 'install.extStep4Hint',
+      code: `${server}\n${credentialsSnippet(input)}`,
+    },
+  ];
+}
+
 /**
  * The installation steps, in a dialog. Opened from the header icon (any signed-in
  * user, any time) and automatically for a workspace admin who is new here or has
@@ -107,6 +152,7 @@ export function buildSteps(input: {
     MatSelectModule,
     MatFormFieldModule,
     MatCheckboxModule,
+    MatButtonToggleModule,
     RouterLink,
     TranslocoModule,
   ],
@@ -117,6 +163,35 @@ export function buildSteps(input: {
     </h2>
 
     <mat-dialog-content>
+      <!-- Top-level install method. Not persisted: "Code" is the default every time. -->
+      <mat-button-toggle-group class="mb-4" [value]="tab()" (change)="tab.set($event.value)">
+        <mat-button-toggle value="code">{{ 'install.tabCode' | transloco }}</mat-button-toggle>
+        <mat-button-toggle value="extension">{{ 'install.tabExtension' | transloco }}</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      @if (tab() === 'extension') {
+        <!-- Chrome extension: download, unzip, load unpacked, sign in -->
+        <ol class="mt-0 mb-0 flex list-none flex-col gap-3 p-0">
+          @for (st of extensionSteps(); track st.titleKey; let i = $index) {
+            <li class="rounded-lg border border-app-border bg-app/40 p-3">
+              <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
+              <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
+              @if (st.downloadUrl; as url) {
+                <a mat-flat-button color="primary" class="mt-2" [href]="url" download>
+                  <mat-icon>download</mat-icon> {{ 'install.extDownload' | transloco }}
+                </a>
+              } @else if (st.code; as code) {
+                <div class="mt-2 flex items-start gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              }
+            </li>
+          }
+        </ol>
+      } @else {
       <p class="mt-0 mb-4 text-[0.85rem] text-muted">{{ 'install.intro' | transloco }}</p>
 
       <!-- Which project the snippet points at -->
@@ -180,6 +255,7 @@ export function buildSteps(input: {
           }
         </div>
       </details>
+      }
     </mat-dialog-content>
 
     <mat-dialog-actions class="justify-between gap-3">
@@ -211,15 +287,24 @@ export class InstallGuideComponent {
 
   readonly suppressed = signal(this.guide.isSuppressed(this.auth.user()?.id ?? null));
 
+  /** Which install method the dialog shows. Component state only — not persisted. */
+  readonly tab = signal<'code' | 'extension'>('code');
+
+  private readonly stepsInput = () => ({
+    server: this.demo()?.serverUrl || environment.apiBase,
+    userEmail: this.auth.user()?.email ?? null,
+    demo: this.demo(),
+    credsEmailedText: this.translatedCredsEmailed(),
+  });
+
   readonly steps = computed(() =>
     buildSteps({
-      server: this.demo()?.serverUrl || environment.apiBase,
+      ...this.stepsInput(),
       projectKey: this.projectKey() ?? this.projects()[0]?.key ?? null,
-      userEmail: this.auth.user()?.email ?? null,
-      demo: this.demo(),
-      credsEmailedText: this.translatedCredsEmailed(),
     }),
   );
+
+  readonly extensionSteps = computed(() => buildExtensionSteps(this.stepsInput()));
 
   /** Re-resolves whenever transloco emits (initial load, language switch). */
   private readonly translatedCredsEmailed = computed(() => {

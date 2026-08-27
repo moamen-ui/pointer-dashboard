@@ -498,6 +498,17 @@
     "stepAgentTitle": "Let your AI agent wire it in",
     "stepAgentHint": "Paste this to your agent (Claude Code, Cursor, …). It runs the pointer-init skill that step 1 installed: it detects your stack — Vite, Angular, Next, CRA, static HTML, Swagger — and wires the loader and env vars the way that stack expects.",
     "manualTitle": "Manual setup (optional)",
-    "manualHint": "Only if you would rather not use the prompt above: add these two to your app yourself. The prompt does this per-stack, including the env wiring."
+    "manualHint": "Only if you would rather not use the prompt above: add these two to your app yourself. The prompt does this per-stack, including the env wiring.",
+    "tabCode": "Code",
+    "tabExtension": "Chrome extension",
+    "extDownload": "Download extension (.zip)",
+    "extStep1Title": "Download the extension",
+    "extStep1Hint": "Grab the Pointer Chrome extension package.",
+    "extStep2Title": "Unzip the file",
+    "extStep2Hint": "Extract the zip anywhere you like — remember the folder.",
+    "extStep3Title": "Load it in Chrome",
+    "extStep3Hint": "Go to chrome://extensions, enable Developer mode, click 'Load unpacked', and select the unzipped folder.",
+    "extStep4Title": "Sign in",
+    "extStep4Hint": "Click the Pointer icon in the toolbar and sign in with your Pointer server URL and account credentials."
   }
 }

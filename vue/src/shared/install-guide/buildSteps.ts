@@ -4,11 +4,19 @@
 // which would terminate an SFC block.
 import type { DemoSession } from '@/lib/demoSession';
 
+/**
+ * The Chrome extension package. Served from the landing domain, deliberately
+ * NOT derived from the API base — it is a static artifact, not an API route.
+ */
+export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
+
 /** One step in the guide. `code` is optional — instruction-only steps omit it. */
 export interface SetupStep {
   titleKey: string;
   hintKey: string;
   code?: string;
+  /** When set, the step renders a download anchor (not a code block) pointing here. */
+  downloadUrl?: string;
 }
 
 /** Rendered in the snippet until the user actually has a project to point at. */
@@ -17,12 +25,15 @@ export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
  *  is pasted into .pointer/credentials.env, where English reads correctly either way. */
 export const PASSWORD_PLACEHOLDER = '<your password>';
 
-/** What the dialog renders: the agent-driven path, plus the hand-wiring fallback. */
+/** What the dialog renders: the agent-driven path, the hand-wiring fallback,
+ *  and the Chrome-extension install steps for the second tab. */
 export interface GuideSteps {
   /** The recommended path, in order. */
   primary: SetupStep[];
   /** Hand-wiring the widget — only needed if you skip the agent prompt. */
   manual: SetupStep[];
+  /** Loading the unpacked extension in Chrome — the no-code-install tab. */
+  extension: SetupStep[];
 }
 
 /**
@@ -69,6 +80,20 @@ export function buildSteps(input: {
     manual: [
       { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/pointer.js" defer></script>` },
       { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${projectKey}" server="${server}"></pointer-feedback>` },
+    ],
+    // Chrome-extension path: same server/credentials branches as the code tab,
+    // but the widget comes from an unpacked zip instead of a script tag.
+    extension: [
+      { titleKey: 'install.extStep1Title', hintKey: 'install.extStep1Hint', downloadUrl: EXTENSION_ZIP_URL },
+      { titleKey: 'install.extStep2Title', hintKey: 'install.extStep2Hint' },
+      { titleKey: 'install.extStep3Title', hintKey: 'install.extStep3Hint', code: 'chrome://extensions' },
+      {
+        titleKey: 'install.extStep4Title',
+        hintKey: 'install.extStep4Hint',
+        code: demo
+          ? `POINTER_SERVER=${server}\nPOINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`
+          : `POINTER_SERVER=${server}\nPOINTER_EMAIL=${input.userEmail ?? ''}\nPOINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`,
+      },
     ],
   };
 }

@@ -3,6 +3,12 @@
 // branching is unit-testable; every storage access is guarded — private mode
 // must not break the guide.
 
+/**
+ * The Chrome extension zip, served from the landing domain — deliberately NOT
+ * derived from the API base (it is a marketing-site artifact, not an API asset).
+ */
+export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
+
 /** Per-user localStorage/sessionStorage keys for the auto-open policy. */
 const SEEN_KEY = (userId: string) => `pointer_install_seen:${userId}`;
 const SUPPRESSED_KEY = (userId: string) => `pointer_install_suppressed:${userId}`;
