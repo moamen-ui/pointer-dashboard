@@ -10,12 +10,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
 import { PreferencesService } from '../../core/prefs/preferences.service';
 import { BrandingService } from '../../core/branding/branding.service';
 import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
+import { ChangePasswordDialogComponent } from '../../shared/change-password-dialog.component';
 import { DemoPanelComponent } from './demo-panel.component';
 
 @Component({
@@ -32,6 +34,7 @@ import { DemoPanelComponent } from './demo-panel.component';
     MatButtonModule,
     MatMenuModule,
     MatDividerModule,
+    MatDialogModule,
     BidiModule,
     TranslocoModule,
     DemoPanelComponent,
@@ -84,6 +87,10 @@ import { DemoPanelComponent } from './demo-panel.component';
         <a mat-menu-item routerLink="/profile">
           <mat-icon>person</mat-icon> {{ 'nav.myProfile' | transloco }}
         </a>
+
+        <button mat-menu-item (click)="openChangePassword()">
+          <mat-icon>lock_reset</mat-icon> {{ 'header.changePassword' | transloco }}
+        </button>
 
         <button mat-menu-item (click)="toggleTheme()">
           <mat-icon>{{ prefs.theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
@@ -202,6 +209,7 @@ export class ShellComponent {
   prefs = inject(PreferencesService);
   branding = inject(BrandingService);
   installGuide = inject(InstallGuideService);
+  private dialog = inject(MatDialog);
 
   /** First word of the display name — "Ahmed" out of "Ahmed Omran". */
   readonly firstName = computed(() => this.auth.user()?.displayName?.trim().split(/\s+/)[0] ?? '');
@@ -234,6 +242,10 @@ export class ShellComponent {
   // On mobile, tapping a nav link closes the drawer (clicks bubble up from the links).
   onNavClick(snav: { close: () => void }): void {
     if (this.isMobile()) snav.close();
+  }
+
+  openChangePassword(): void {
+    this.dialog.open(ChangePasswordDialogComponent, { width: '400px' });
   }
 
   togglePrefsLang(): void {

@@ -17,11 +17,16 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { InvitesService, getApiAdminInvitesResource } from '@moamen-ui/pointer-angular';
+import { getApiAdminTenantsResource } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
+import { AuthService } from '../../core/auth/auth.service';
 import type { UserResponse, RoleResponse, InviteResponse } from '@moamen-ui/pointer-angular';
+
+const DEPUTY_ROLE_NAME = 'Workspace Admin Deputy';
+const WORKSPACE_ADMIN_ROLE_NAME = 'Workspace Admin';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -183,6 +188,16 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
                       <mat-icon>person</mat-icon>
                       {{ 'profile.viewProfile' | transloco }}
                     </a>
+                    @if (canPromote(row)) {
+                      <button mat-menu-item (click)="promote(row)" [disabled]="loading()">
+                        <mat-icon>upgrade</mat-icon> {{ 'users.makeAdmin' | transloco }}
+                      </button>
+                    }
+                    @if (canDelete(row)) {
+                      <button mat-menu-item class="!text-red-600" (click)="deleteUser(row)" [disabled]="loading()">
+                        <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
+                      </button>
+                    }
                   } @else {
                     <button mat-menu-item [matMenuTriggerFor]="approveMenu"
                       (menuOpened)="approveSelection[row.id!] = row.roleId" [disabled]="loading()">
@@ -255,15 +270,26 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
             </div>
           } @else {
             <div class="flex min-w-80 flex-col gap-3 pt-2">
-              <p class="text-[0.85rem] text-muted">{{ 'invite.sectionHint' | transloco }}</p>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>{{ 'invite.role' | transloco }}</mat-label>
-                <mat-select [ngModel]="inviteRoleId()" (ngModelChange)="inviteRoleId.set($event)">
-                  @for (r of nonAdminActiveRoles(); track r.id) {
-                    <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
+              <p class="text-[0.85rem] text-muted">{{ (auth.isSuperAdmin() ? 'users.deputyHint' : 'invite.sectionHint') | transloco }}</p>
+              @if (auth.isSuperAdmin()) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ 'users.workspace' | transloco }}</mat-label>
+                  <mat-select [ngModel]="inviteTargetOwnerId()" (ngModelChange)="inviteTargetOwnerId.set($event)">
+                    @for (t of tenants(); track t.ownerId) {
+                      <mat-option [value]="t.ownerId">{{ t.displayName || t.email }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              } @else {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ 'invite.role' | transloco }}</mat-label>
+                  <mat-select [ngModel]="inviteRoleId()" (ngModelChange)="inviteRoleId.set($event)">
+                    @for (r of assignableInviteRoles(); track r.id) {
+                      <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              }
 
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>{{ 'invite.email' | transloco }}</mat-label>
@@ -290,6 +316,9 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           }
         } @else {
           <form [formGroup]="addForm" (ngSubmit)="addUser()" class="flex min-w-80 flex-col gap-3 pt-2">
+            @if (auth.isSuperAdmin()) {
+              <p class="text-[0.85rem] text-muted">{{ 'users.deputyHint' | transloco }}</p>
+            }
             <mat-form-field appearance="outline">
               <mat-label>{{ 'users.email' | transloco }}</mat-label>
               <input matInput type="email" formControlName="email" />
@@ -303,14 +332,25 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
               <input matInput [type]="pwToggle.type()" formControlName="password" />
               <app-password-toggle matSuffix #pwToggle />
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'users.role' | transloco }}</mat-label>
-              <mat-select formControlName="roleId">
-                @for (role of activeRoles(); track role.id) {
-                  <mat-option [value]="role.id">{{ role.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            @if (auth.isSuperAdmin()) {
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'users.workspace' | transloco }}</mat-label>
+                <mat-select formControlName="targetOwnerId">
+                  @for (t of tenants(); track t.ownerId) {
+                    <mat-option [value]="t.ownerId">{{ t.displayName || t.email }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            } @else {
+              <mat-form-field appearance="outline">
+                <mat-label>{{ 'users.role' | transloco }}</mat-label>
+                <mat-select formControlName="roleId">
+                  @for (role of activeRoles(); track role.id) {
+                    <mat-option [value]="role.id">{{ role.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
           </form>
         }
       </mat-dialog-content>
@@ -321,7 +361,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           } @else {
             <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
             <button mat-flat-button color="primary"
-              [disabled]="!inviteRoleId() || inviteCreating()"
+              [disabled]="(auth.isSuperAdmin() ? !inviteTargetOwnerId() : !inviteRoleId()) || inviteCreating()"
               (click)="createInvite()">
               {{ 'invite.create' | transloco }}
             </button>
@@ -343,6 +383,7 @@ export class UsersComponent {
   private fb = inject(FormBuilder);
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
+  auth = inject(AuthService);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   private dialogRef?: MatDialogRef<unknown>;
@@ -354,9 +395,13 @@ export class UsersComponent {
   );
   pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
   rolesResource = getApiAdminRolesResource();
+  // Only meaningful for a super admin (the workspace picker); harmlessly 403s for anyone else,
+  // whose empty tenants() list is simply never read.
+  tenantsResource = getApiAdminTenantsResource();
 
   users = computed(() => this.usersResource.value() ?? []);
   roles = computed(() => this.rolesResource.value() ?? []);
+  tenants = computed(() => this.tenantsResource.value() ?? []);
   busy = signal(false);
   loading = computed(() => this.usersResource.isLoading() || this.busy());
 
@@ -375,6 +420,23 @@ export class UsersComponent {
     return !('isActive' in row);
   }
 
+  // Client-side hints only — the server is the sole source of truth for both actions and
+  // re-validates the full matrix itself (a stale hint here just means a disabled-looking
+  // action would still 4xx if actually attempted, never a false allow).
+  canDelete(row: UserResponse): boolean {
+    const me = this.auth.user();
+    if (!me || row.publicId === me.id) return false; // never yourself
+    if (row.roleName === WORKSPACE_ADMIN_ROLE_NAME) return false; // never the current admin
+    if (me.roleName === DEPUTY_ROLE_NAME && row.roleName === DEPUTY_ROLE_NAME) return false; // deputy can't delete a peer deputy
+    return true;
+  }
+
+  canPromote(row: UserResponse): boolean {
+    if (row.roleName !== DEPUTY_ROLE_NAME) return false;
+    const me = this.auth.user();
+    return this.auth.isSuperAdmin() || me?.roleName === WORKSPACE_ADMIN_ROLE_NAME;
+  }
+
   approveSelection: Record<number, number> = {};
 
   displayedColumns() {
@@ -387,7 +449,8 @@ export class UsersComponent {
     email: ['', [Validators.required, Validators.email]],
     displayName: ['', Validators.required],
     password: ['', Validators.required],
-    roleId: [0 as number, [Validators.required, Validators.min(1)]],
+    roleId: [0 as number],
+    targetOwnerId: this.fb.control<string | null>(null),
   });
 
   addMode = signal<'invite' | 'direct'>('invite');
@@ -407,9 +470,14 @@ export class UsersComponent {
 
   // --- Invite teammates (reuses roles() already loaded above) ---
 
-  nonAdminActiveRoles = computed(() => this.roles().filter((r) => !r.grantsAdmin && r.isActive));
+  // Deputy is admin-tier (grantsAdmin) but a Workspace Admin (or one of their deputies) may still
+  // delegate it via invite, same as via direct-add — so it isn't filtered out like other admin roles.
+  assignableInviteRoles = computed(() =>
+    this.roles().filter((r) => r.isActive && (!r.grantsAdmin || r.name === DEPUTY_ROLE_NAME)),
+  );
 
   inviteRoleId = signal<number | null>(null);
+  inviteTargetOwnerId = signal<string | null>(null);
   inviteEmail = signal('');
   inviteExpiresInDays = signal<number | null>(7);
   inviteMaxUses = signal<number | null>(null);
@@ -418,17 +486,26 @@ export class UsersComponent {
   inviteCreatedEmailSent = signal<string | null>(null);
 
   createInvite(): void {
+    const isSuper = this.auth.isSuperAdmin();
+    const targetOwnerId = this.inviteTargetOwnerId();
     const roleId = this.inviteRoleId();
-    if (!roleId) return;
+    if (isSuper ? !targetOwnerId : !roleId) return;
     this.inviteCreating.set(true);
     this.inviteCreatedUrl.set(null);
     this.inviteCreatedEmailSent.set(null);
-    const body = {
-      roleId,
-      email: this.inviteEmail() || null,
-      expiresInDays: this.inviteExpiresInDays(),
-      maxUses: this.inviteMaxUses(),
-    };
+    const body = isSuper
+      ? {
+          targetOwnerId,
+          email: this.inviteEmail() || null,
+          expiresInDays: this.inviteExpiresInDays(),
+          maxUses: this.inviteMaxUses(),
+        }
+      : {
+          roleId,
+          email: this.inviteEmail() || null,
+          expiresInDays: this.inviteExpiresInDays(),
+          maxUses: this.inviteMaxUses(),
+        };
     this.invitesService.postApiAdminInvites(body).subscribe({
       next: (res: InviteResponse) => {
         this.inviteCreating.set(false);
@@ -466,10 +543,20 @@ export class UsersComponent {
   }
 
   openAdd() {
+    const isSuper = this.auth.isSuperAdmin();
     const firstRole = this.activeRoles()[0]?.id ?? 0;
-    this.addForm.reset({ email: '', displayName: '', password: '', roleId: firstRole });
+    const firstWorkspace = this.tenants()[0]?.ownerId ?? null;
+    this.addForm.reset({ email: '', displayName: '', password: '', roleId: firstRole, targetOwnerId: firstWorkspace });
+    // A super admin's direct-add is always forced to Deputy on an existing workspace server-side —
+    // roleId is irrelevant for them (targetOwnerId is required instead), and vice versa.
+    this.addForm.controls.roleId.setValidators(isSuper ? [] : [Validators.required, Validators.min(1)]);
+    this.addForm.controls.roleId.updateValueAndValidity();
+    this.addForm.controls.targetOwnerId.setValidators(isSuper ? [Validators.required] : []);
+    this.addForm.controls.targetOwnerId.updateValueAndValidity();
+
     this.addMode.set('invite');
-    this.inviteRoleId.set(this.nonAdminActiveRoles()[0]?.id ?? null);
+    this.inviteRoleId.set(this.assignableInviteRoles()[0]?.id ?? null);
+    this.inviteTargetOwnerId.set(firstWorkspace);
     this.inviteEmail.set('');
     this.inviteExpiresInDays.set(7);
     this.inviteMaxUses.set(null);
@@ -482,7 +569,12 @@ export class UsersComponent {
     if (this.addForm.invalid) return;
     this.busy.set(true);
     const val = this.addForm.getRawValue();
-    this.usersService.postApiAdminUsers(val).subscribe({
+    // Send only the field relevant to this caller — the server ignores roleId for a super admin
+    // anyway, but there's no reason to send a stale/default value it will discard.
+    const body = this.auth.isSuperAdmin()
+      ? { email: val.email, displayName: val.displayName, password: val.password, targetOwnerId: val.targetOwnerId }
+      : { email: val.email, displayName: val.displayName, password: val.password, roleId: val.roleId };
+    this.usersService.postApiAdminUsers(body).subscribe({
       next: () => {
         this.dialogRef?.close();
         this.addForm.reset();
@@ -560,6 +652,54 @@ export class UsersComponent {
             this.busy.set(false);
             this.usersResource.reload();
             this.pendingResource.reload();
+          },
+          error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+        });
+      });
+  }
+
+  deleteUser(user: UserResponse) {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('users.confirmDelete', { name: user.email }),
+          confirmLabel: this.transloco.translate('common.delete'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.busy.set(true);
+        this.usersService.deleteApiAdminUsersId(user.id!).subscribe({
+          next: () => {
+            this.busy.set(false);
+            this.snack.open(this.transloco.translate('users.deleted'), 'OK', { duration: 3000 });
+            this.usersResource.reload();
+          },
+          error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+        });
+      });
+  }
+
+  promote(user: UserResponse) {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          message: this.transloco.translate('users.confirmPromote', { name: user.displayName || user.email }),
+          confirmLabel: this.transloco.translate('users.makeAdmin'),
+          confirmColor: 'warn',
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.busy.set(true);
+        this.usersService.postApiAdminUsersDeputyPublicIdPromote(user.publicId!).subscribe({
+          next: () => {
+            this.busy.set(false);
+            this.snack.open(this.transloco.translate('users.promoted'), 'OK', { duration: 3000 });
+            this.usersResource.reload();
           },
           error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
         });
