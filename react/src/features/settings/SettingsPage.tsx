@@ -1,8 +1,8 @@
-// Settings admin page — super-admin only.
-// Three-section form: Access, Email, Demo. Loads current settings into local state;
-// one "Save changes" button PUTs the whole UpdateSettingsRequest.
-// Phase B: Predefined actions section at the bottom (tenant-wide, projectId == null).
-// Phase D: Suggestions review section (admin only).
+// Settings admin page — reachable by any admin, but the first three sections
+// (Access, Email, Demo — instance-wide settings, one "Save changes" button PUTs the whole
+// UpdateSettingsRequest) are super-admin only, matching the backend's SettingsController policy.
+// Predefined actions (tenant-wide, projectId == null) and the suggestions review section below
+// are available to any admin.
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -187,9 +187,12 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
 
-  const { data, isLoading, isError } = useGetApiAdminSettings();
+  // Instance-wide settings (Access/Email/Demo) are super-admin only on the backend
+  // (SettingsController is Policies.SuperAdmin) — skip the fetch entirely for a tenant admin,
+  // who only reaches this page for the tenant-scoped sections below.
+  const { data, isLoading, isError } = useGetApiAdminSettings({ query: { enabled: isSuperAdmin } });
 
   // Unwrap data — the hook may return { data: SettingsResponse } or SettingsResponse directly
   const settings: AnySettings =
@@ -356,7 +359,7 @@ export function SettingsPage() {
     });
   }
 
-  if (isLoading && !data) {
+  if (isSuperAdmin && isLoading && !data) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
         {t('settings.loading')}
@@ -364,7 +367,7 @@ export function SettingsPage() {
     );
   }
 
-  if (isError) {
+  if (isSuperAdmin && isError) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-destructive">
         {t('settings.loadError')}
@@ -378,6 +381,8 @@ export function SettingsPage() {
     <div className="flex flex-col gap-6">
       <h2 className="text-lg font-semibold">{t('settings.title')}</h2>
 
+      {isSuperAdmin && (
+      <>
       {/* ── Section 1: Access ── */}
       <AccordionSection title={t('settings.accessSection')} defaultOpen>
 
@@ -553,6 +558,8 @@ export function SettingsPage() {
           {t('settings.save')}
         </Button>
       </div>
+      </>
+      )}
 
       {/* ── Section 4: Predefined actions (tenant-wide) ── */}
       <AccordionSection title={t('predefined.section')}>

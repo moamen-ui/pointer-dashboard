@@ -392,22 +392,33 @@ export function ProjectsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t('projects.title')}</h2>
-        <Button onClick={openAdd}>
-          <Plus className="h-4 w-4" />
-          {t('projects.addProject')}
-        </Button>
+        {!isSuperAdmin && (
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {t('projects.addProject')}
+          </Button>
+        )}
       </div>
+
+      {/* Super admins are platform-management only — they can't own a project (backend:
+          ProjectService.CreateAsync forbids it). Point them at a real tenant account instead of
+          showing an Add-Project affordance that would only 403. */}
+      {isSuperAdmin && (
+        <p className="text-sm text-muted-foreground">{t('projects.superAdminNote')}</p>
+      )}
 
       {projects.length === 0 ? (
         <EmptyState
           icon={FolderOpen}
           message={t('projects.empty')}
-          hint={t('projects.emptyHint')}
+          hint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
         >
-          <Button onClick={openAdd}>
-            <Plus className="h-4 w-4" />
-            {t('projects.addProject')}
-          </Button>
+          {!isSuperAdmin && (
+            <Button onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              {t('projects.addProject')}
+            </Button>
+          )}
         </EmptyState>
       ) : (
         <Card>

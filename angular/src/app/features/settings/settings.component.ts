@@ -55,6 +55,10 @@ interface EditableAction {
     <div class="p-6">
       <h2 class="m-0 mb-4 text-[1.5em] font-bold">{{ 'settings.title' | transloco }}</h2>
 
+      <!-- Instance-wide settings (Access/Email/Demo) are super-admin only on the backend
+           (SettingsController is Policies.SuperAdmin) — hidden for a tenant admin, who only
+           reaches this page for the tenant-scoped sections below. -->
+      @if (auth.isSuperAdmin()) {
       @if (settingsResource.error()) {
         <p class="text-red-500">{{ 'settings.loadError' | transloco }}</p>
       } @else if (settingsResource.isLoading()) {
@@ -217,6 +221,7 @@ interface EditableAction {
           </div>
 
         </div>
+      }
       }
 
       <!-- Predefined actions section (tenant-wide) -->

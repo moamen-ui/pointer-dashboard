@@ -362,10 +362,15 @@ function openViewPrompts(project: ProjectResponse) {
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-lg font-semibold">{{ t('projects.title') }}</h2>
-      <Button @click="openAdd">
+      <Button v-if="!isSuperAdmin" @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
       </Button>
     </div>
+
+    <!-- Super admins are platform-management only — they can't own a project (backend:
+         ProjectService.CreateAsync forbids it). Point them at a real tenant account instead of
+         showing an Add-Project affordance that would only 403. -->
+    <p v-if="isSuperAdmin" class="text-sm text-muted-foreground">{{ t('projects.superAdminNote') }}</p>
 
     <div v-if="loading" class="h-0.5 w-full overflow-hidden rounded bg-muted">
       <div class="h-full w-1/3 animate-pulse bg-primary" />
@@ -471,9 +476,9 @@ function openViewPrompts(project: ProjectResponse) {
       v-else-if="!loading"
       :icon="FolderOpen"
       :message="t('projects.empty')"
-      :hint="t('projects.emptyHint')"
+      :hint="t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')"
     >
-      <Button @click="openAdd">
+      <Button v-if="!isSuperAdmin" @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
       </Button>
     </EmptyState>

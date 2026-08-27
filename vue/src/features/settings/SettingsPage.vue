@@ -32,9 +32,12 @@ import { toast } from '@/composables/useToast';
 
 const { t } = useI18n();
 const queryClient = useQueryClient();
-const { isAdmin } = useAuth();
+const { isAdmin, isSuperAdmin } = useAuth();
 
-const { data, isError } = useGetApiAdminSettings();
+// Instance-wide settings (Access/Email/Demo) are super-admin only on the backend
+// (SettingsController is Policies.SuperAdmin) — skip the fetch entirely for a tenant admin,
+// who only reaches this page for the tenant-scoped sections below.
+const { data, isError } = useGetApiAdminSettings({ query: { enabled: isSuperAdmin } });
 // The interceptor unwraps the envelope at runtime; data.value IS SettingsResponse.
 // Bridge the TS type mismatch with a cast (mirrors the React dashboard pattern).
 const settings = computed(() => data.value as unknown as SettingsResponse | undefined);
@@ -210,9 +213,13 @@ async function onRejectSuggestion(s: SuggestionResponse) {
   <div class="flex flex-col gap-4">
     <h2 class="text-lg font-semibold">{{ t('settings.title') }}</h2>
 
-    <p v-if="isError" class="text-sm text-destructive">{{ t('settings.loadError') }}</p>
+    <p v-if="isSuperAdmin && isError" class="text-sm text-destructive">{{ t('settings.loadError') }}</p>
 
     <template v-if="settings || !isError">
+      <!-- Instance-wide settings (Access/Email/Demo) are super-admin only on the backend
+           (SettingsController is Policies.SuperAdmin) — hidden for a tenant admin, who only
+           reaches this page for the tenant-scoped sections below. -->
+    <template v-if="isSuperAdmin">
       <!-- Section: Access -->
       <AccordionSection :title="t('settings.accessSection')" default-open>
           <!-- Signup toggle -->
@@ -312,6 +319,7 @@ async function onRejectSuggestion(s: SuggestionResponse) {
             <Input id="demo-comment-cap" v-model.number="demoCommentCap" type="number" :min="1" />
           </div>
       </AccordionSection>
+    </template>
 
       <!-- Section: Predefined actions -->
       <AccordionSection>
@@ -418,8 +426,8 @@ async function onRejectSuggestion(s: SuggestionResponse) {
           </template>
       </AccordionSection>
 
-      <!-- Save button -->
-      <div class="flex justify-end">
+      <!-- Save button (Access/Email/Demo form only) -->
+      <div v-if="isSuperAdmin" class="flex justify-end">
         <Button :disabled="updateSettings.isPending.value" @click="saveSettings">
           {{ t('settings.save') }}
         </Button>

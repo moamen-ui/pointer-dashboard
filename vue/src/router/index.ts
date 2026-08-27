@@ -56,7 +56,10 @@ export const router = createRouter({
         { path: 'profile', name: 'profile', component: ProfilePage },
         // Super-admin-only children.
         { path: 'tenants', name: 'tenants', component: TenantsPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
-        { path: 'settings', name: 'settings', component: SettingsPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
+        // Mixes super-admin-only instance settings (gated inside the page) with tenant-scoped
+        // predefined actions/suggestions, which any admin can manage (backend:
+        // PredefinedActionsController is Policies.Admin, not SuperAdmin-only).
+        { path: 'settings', name: 'settings', component: SettingsPage, meta: { requiresAdmin: true } },
         { path: 'plans', name: 'plans', component: PlansPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
         { path: 'branding', name: 'branding', component: BrandingPage, meta: { requiresAdmin: true, requiresSuperAdmin: true } },
       ],

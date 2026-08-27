@@ -62,10 +62,19 @@ const KEY_MAX_LENGTH = 64;
     <div class="p-6">
       <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="m-0 text-[1.5em] font-bold">{{ 'projects.title' | transloco }}</h2>
-        <button mat-flat-button color="primary" (click)="openAdd()">
-          <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
-        </button>
+        @if (!auth.isSuperAdmin()) {
+          <button mat-flat-button color="primary" (click)="openAdd()">
+            <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
+          </button>
+        }
       </div>
+
+      <!-- Super admins are platform-management only — they can't own a project (backend:
+           ProjectService.CreateAsync forbids it). Point them at a real tenant account instead of
+           showing an Add-Project affordance that would only 403. -->
+      @if (auth.isSuperAdmin()) {
+        <p class="mb-4 text-sm text-muted-foreground">{{ 'projects.superAdminNote' | transloco }}</p>
+      }
 
       @if (loading()) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -75,11 +84,13 @@ const KEY_MAX_LENGTH = 64;
         <app-empty-state
           icon="folder_open"
           [message]="'projects.empty' | transloco"
-          [hint]="'projects.emptyHint' | transloco"
+          [hint]="(auth.isSuperAdmin() ? 'projects.superAdminEmptyHint' : 'projects.emptyHint') | transloco"
         >
-          <button mat-flat-button color="primary" (click)="openAdd()">
-            <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
-          </button>
+          @if (!auth.isSuperAdmin()) {
+            <button mat-flat-button color="primary" (click)="openAdd()">
+              <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
+            </button>
+          }
         </app-empty-state>
       } @else {
       <table mat-table [dataSource]="projects()" class="w-full mat-elevation-z2">

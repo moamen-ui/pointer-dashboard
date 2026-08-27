@@ -56,12 +56,15 @@ export default function App() {
                     <Route path="/statuses" element={<StatusesPage />} />
                     {/* Admin view of another user's profile */}
                     <Route path="/users/:id/profile" element={<ProfilePage />} />
+                    {/* Mixes super-admin-only instance settings (gated inside the page) with
+                        tenant-scoped predefined actions/suggestions, which any admin can manage
+                        (backend: PredefinedActionsController is Policies.Admin, not SuperAdmin). */}
+                    <Route path="/settings" element={<SettingsPage />} />
 
                     {/* Super-admin-only section */}
                     <Route element={<SuperAdminRoute />}>
                       <Route path="/tenants" element={<TenantsPage />} />
                       <Route path="/plans" element={<PlansPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/branding" element={<BrandingPage />} />
                     </Route>
                   </Route>

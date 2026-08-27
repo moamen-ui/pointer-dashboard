@@ -105,8 +105,11 @@ export const routes: Routes = [
           import('./features/plans/plans.component').then((m) => m.PlansComponent),
       },
       {
+        // Page mixes super-admin-only instance settings (Access/Email/Demo, gated inside the
+        // component template) with tenant-scoped predefined actions/suggestions, which any admin
+        // can manage (backend: PredefinedActionsController is Policies.Admin, not SuperAdmin-only).
         path: 'settings',
-        canActivate: [superAdminGuard],
+        canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
