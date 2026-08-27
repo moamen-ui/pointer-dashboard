@@ -352,12 +352,6 @@ async function saveChangePlan() {
                   <DropdownMenuItem v-else @select="enableTenant(tenant)">
                     <CheckCircle2 class="h-4 w-4" /> {{ t('common.enable') }}
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    class="text-destructive focus:text-destructive"
-                    @select="doDelete(tenant)"
-                  >
-                    <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
-                  </DropdownMenuItem>
                   <DropdownMenuItem @select="openChangePlan(tenant)">
                     <CreditCard class="h-4 w-4" /> {{ t('tenants.changePlan') }}
                   </DropdownMenuItem>
@@ -374,7 +368,14 @@ async function saveChangePlan() {
                       <Settings2 class="h-4 w-4" /> {{ t('tenants.editDemoConfig') }}
                     </DropdownMenuItem>
                   </template>
-                </DropdownMenuContent>
+                                  <!-- Delete stays last in every menu (Pointer feedback #137). -->
+                  <DropdownMenuItem
+                    class="text-destructive focus:text-destructive"
+                    @select="doDelete(tenant)"
+                  >
+                    <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
+                  </DropdownMenuItem>
+</DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
           </TableRow>

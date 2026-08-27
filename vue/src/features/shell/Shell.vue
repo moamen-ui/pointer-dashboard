@@ -132,12 +132,19 @@ function signOut() {
            while the menu is closed. -->
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" class="gap-1 px-2" :aria-label="t('header.account')">
+          <Button variant="ghost" class="h-11 gap-1 px-2" :aria-label="t('header.account')">
             <CircleUserRound class="h-5 w-5" />
+            <!-- Name with the role beneath it, right on the trigger: who you are signed
+                 in as is worth seeing without opening the menu (Pointer feedback #136). -->
             <span
               v-if="firstName"
-              class="hidden text-[0.9rem] font-medium sm:inline"
-            >{{ firstName }}</span>
+              class="ms-1 hidden flex-col items-start leading-tight sm:inline-flex"
+            >
+              <span class="text-[0.9rem] font-medium">{{ firstName }}</span>
+              <span v-if="user?.roleName" class="text-[0.7rem] font-normal text-muted-foreground">
+                {{ user.roleName }}
+              </span>
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

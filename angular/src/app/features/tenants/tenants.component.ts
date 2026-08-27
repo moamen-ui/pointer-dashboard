@@ -144,9 +144,6 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
                     <mat-icon>check_circle</mat-icon> {{ 'common.enable' | transloco }}
                   </button>
                 }
-                <button mat-menu-item class="!text-red-600" (click)="openDelete(t)">
-                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
-                </button>
                 <button mat-menu-item (click)="openChangePlan(t)">
                   <mat-icon>swap_horiz</mat-icon> {{ 'tenants.changePlan' | transloco }}
                 </button>
@@ -161,6 +158,10 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
                     <mat-icon>tune</mat-icon> {{ 'tenants.editDemoConfig' | transloco }}
                   </button>
                 }
+                <!-- Delete stays last in every menu (Pointer feedback #137). -->
+                <button mat-menu-item class="!text-red-600" (click)="openDelete(t)">
+                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
+                </button>
               </mat-menu>
             </td>
           </ng-container>

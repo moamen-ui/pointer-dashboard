@@ -57,13 +57,18 @@ import { DemoPanelComponent } from './demo-panel.component';
            the install guide, theme, language and sign-out all live in here. The
            install-guide dot rides on the trigger so the nudge is still visible
            while the menu is closed. -->
-      <button mat-button class="!px-2" [matMenuTriggerFor]="profileMenu"
+      <!-- Name with the role beneath it, right on the trigger: who you are signed in
+           as is worth seeing without opening the menu (Pointer feedback #136). -->
+      <button mat-button class="!h-11 !px-2" [matMenuTriggerFor]="profileMenu"
         [attr.aria-label]="'header.account' | transloco">
         <mat-icon>account_circle</mat-icon>
-        <!-- First name only: enough to tell whose session this is without spending
-             header width on the full display name + role (both are in the menu). -->
         @if (firstName()) {
-          <span class="ms-1 hidden text-[0.9rem] font-medium sm:inline">{{ firstName() }}</span>
+          <span class="ms-1 hidden flex-col items-start leading-tight sm:inline-flex">
+            <span class="text-[0.9rem] font-medium">{{ firstName() }}</span>
+            @if (auth.user()?.roleName) {
+              <span class="text-[0.7rem] font-normal text-muted">{{ auth.user()!.roleName }}</span>
+            }
+          </span>
         }
       </button>
 

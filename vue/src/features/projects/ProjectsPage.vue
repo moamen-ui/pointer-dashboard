@@ -442,6 +442,17 @@ function openViewPrompts(project: ProjectResponse) {
                   >
                     <PlusCircle class="h-4 w-4" /> {{ t('projects.suggest') }}
                   </DropdownMenuItem>
+                  <DropdownMenuItem :disabled="loading" @select="exportProject(project)">
+                    <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    v-if="isSuperAdmin"
+                    :disabled="loading"
+                    @select="openImport(project)"
+                  >
+                    <Upload class="h-4 w-4" /> {{ t('exportImport.import') }}
+                  </DropdownMenuItem>
+                  <!-- Delete stays last in every menu (Pointer feedback #137). -->
                   <!-- Delete: when canDelete (enabled), or disabled with tooltip when !canDelete -->
                   <DropdownMenuItem
                     v-if="project.canDelete"
@@ -453,16 +464,6 @@ function openViewPrompts(project: ProjectResponse) {
                   </DropdownMenuItem>
                   <DropdownMenuItem v-else disabled :title="t('projects.deleteBlockedComments')">
                     <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem :disabled="loading" @select="exportProject(project)">
-                    <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    v-if="isSuperAdmin"
-                    :disabled="loading"
-                    @select="openImport(project)"
-                  >
-                    <Upload class="h-4 w-4" /> {{ t('exportImport.import') }}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

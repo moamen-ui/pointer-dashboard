@@ -124,9 +124,16 @@ function ShellLayout() {
               aria-label={t('header.account')}
             >
               <CircleUserRound className="h-5 w-5" />
+              {/* Name with the role beneath it, right on the trigger: who you are signed
+                  in as is worth seeing without opening the menu (Pointer feedback #136). */}
               {firstName && (
-                <span className="ms-1 hidden text-[0.9rem] font-medium sm:inline">
-                  {firstName}
+                <span className="ms-1 hidden flex-col items-start leading-tight sm:inline-flex">
+                  <span className="text-[0.9rem] font-medium">{firstName}</span>
+                  {user?.roleName && (
+                    <span className="text-[0.7rem] font-normal text-muted-foreground">
+                      {user.roleName}
+                    </span>
+                  )}
                 </span>
               )}
               {installGuide.nothingCollectedYet && (

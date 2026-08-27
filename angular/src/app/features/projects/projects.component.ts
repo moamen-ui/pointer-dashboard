@@ -144,16 +144,6 @@ const KEY_MAX_LENGTH = 64;
                   <mat-icon>lightbulb</mat-icon> {{ 'projects.suggest' | transloco }}
                 </button>
               }
-              @if (project.canDelete) {
-                <button mat-menu-item class="!text-red-600" (click)="deleteProject(project)" [disabled]="loading()">
-                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'projects.delete' | transloco }}
-                </button>
-              } @else {
-                <button mat-menu-item disabled
-                  [matTooltip]="'projects.deleteBlockedComments' | transloco">
-                  <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
-                </button>
-              }
               @if (project.canEdit) {
                 <button mat-menu-item (click)="toggleActive(project)" [disabled]="loading()"
                   [class.!text-red-600]="project.isActive">
@@ -168,6 +158,17 @@ const KEY_MAX_LENGTH = 64;
                     <mat-icon>upload</mat-icon> {{ 'exportImport.import' | transloco }}
                   </button>
                 }
+              }
+              <!-- Delete stays last in every menu (Pointer feedback #137). -->
+              @if (project.canDelete) {
+                <button mat-menu-item class="!text-red-600" (click)="deleteProject(project)" [disabled]="loading()">
+                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'projects.delete' | transloco }}
+                </button>
+              } @else {
+                <button mat-menu-item disabled
+                  [matTooltip]="'projects.deleteBlockedComments' | transloco">
+                  <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
+                </button>
               }
             </mat-menu>
           </td>
