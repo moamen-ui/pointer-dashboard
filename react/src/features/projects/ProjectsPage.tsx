@@ -86,6 +86,20 @@ function normalizeKey(value: string): string {
   return value.toLowerCase().trim();
 }
 
+/**
+ * Turns a project name into a key the API will accept: lowercase, with anything
+ * outside [a-z0-9._-] collapsed to a single hyphen, trimmed of leading/trailing
+ * separators and capped at the column length.
+ */
+function slugifyKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '')
+    .slice(0, KEY_MAX_LENGTH);
+}
+
 type KeyError = 'keyRequired' | 'keyPattern' | 'keyMaxLength' | 'keyTaken';
 
 /** One error at a time, in this precedence. The taken-check compares
@@ -115,6 +129,8 @@ export function ProjectsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
+  // True once the user edits the key by hand — auto-fill stops deferring to the name.
+  const [keyEdited, setKeyEdited] = useState(false);
   const [addActions, setAddActions] = useState<PredefinedActionRow[]>([]);
 
   const keyError = keyErrorFor(key, projects);
@@ -145,6 +161,7 @@ export function ProjectsPage() {
   function openAdd() {
     setKey('');
     setName('');
+    setKeyEdited(false);
     setAddActions([]);
     setAddOpen(true);
   }
@@ -543,16 +560,35 @@ export function ProjectsPage() {
             <DialogTitle>{t('projects.addProject')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
+            {/* Name first: the key is derived from it (Pointer feedback #138). */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="project-name">{t('projects.name')}</Label>
+              <Input
+                id="project-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  // Derive the key from the name until the user edits the key
+                  // themselves — after that, name edits must not overwrite it.
+                  if (!keyEdited) setKey(slugifyKey(e.target.value));
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && addProject()}
+                autoFocus
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="project-key">{t('projects.key')}</Label>
               <Input
                 id="project-key"
                 value={key}
                 onChange={(e) => {
-                  // Lowercase + trim while typing. Lowercasing does not change
-                  // length, so the caret stays where the user left it; syncing
-                  // the DOM value covers the case where the normalised value
-                  // equals the previous state (React would keep the raw input).
+                  // Typing in the key takes ownership of it: the name stops
+                  // driving it. Lowercase + trim while typing. Lowercasing does
+                  // not change length, so the caret stays where the user left
+                  // it; syncing the DOM value covers the case where the
+                  // normalised value equals the previous state (React would
+                  // keep the raw input).
+                  setKeyEdited(true);
                   const normalized = normalizeKey(e.target.value);
                   e.target.value = normalized;
                   setKey(normalized);
@@ -560,22 +596,14 @@ export function ProjectsPage() {
                 maxLength={KEY_MAX_LENGTH}
                 autoCapitalize="none"
                 spellCheck={false}
-                autoFocus
                 aria-invalid={keyError ? true : undefined}
               />
               {keyErrorMessage && (
                 <p className="text-xs text-destructive">{keyErrorMessage}</p>
               )}
-              <p className="text-xs text-muted-foreground">{t('projects.keyHint')}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-name">{t('projects.name')}</Label>
-              <Input
-                id="project-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addProject()}
-              />
+              <p className="text-xs text-muted-foreground">
+                {t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')}
+              </p>
             </div>
 
             {/* Predefined actions */}

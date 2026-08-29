@@ -80,6 +80,20 @@ function reload() {
 // ── Add project ───────────────────────────────────────────────────────
 const addOpen = ref(false);
 const addForm = reactive({ key: '', name: '' });
+// #138 — once the user edits the key themselves, name edits stop overwriting it.
+const keyEdited = ref(false);
+
+/** Derives the key from the project name: lowercase, runs of characters the
+ *  key doesn't allow become a single "-", no leading/trailing separators,
+ *  capped at the column length. ("My New App" → "my-new-app") */
+function slugifyKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '')
+    .slice(0, KEY_MAX_LENGTH);
+}
 
 /** Lowercases + trims while typing; lowercasing keeps the length so the caret
  *  stays put (clamped after a trim shrank the value). */
@@ -91,6 +105,18 @@ function normalizeKey(event: Event) {
   input.value = normalized;
   input.setSelectionRange(caret, caret);
   addForm.key = normalized;
+}
+
+/** Auto-fills the key from the name until the user edits the key themselves —
+ *  and never fights a key they cleared back to empty on purpose. */
+function syncKeyFromName(event: Event) {
+  if (keyEdited.value) return;
+  addForm.key = slugifyKey((event.target as HTMLInputElement).value);
+}
+
+function onKeyEdited(event: Event) {
+  keyEdited.value = true;
+  normalizeKey(event);
 }
 
 /** First failing rule wins: required → pattern → max length → taken. */
@@ -111,6 +137,7 @@ const addActions = ref<Array<{ text: string; prompt: string }>>([]);
 function openAdd() {
   addForm.key = '';
   addForm.name = '';
+  keyEdited.value = false;
   addActions.value = [];
   addOpen.value = true;
 }
@@ -493,6 +520,10 @@ function openViewPrompts(project: ProjectResponse) {
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="addProject">
         <div class="flex flex-col gap-2">
+          <Label for="p-name">{{ t('projects.name') }}</Label>
+          <Input id="p-name" v-model="addForm.name" @input="syncKeyFromName" />
+        </div>
+        <div class="flex flex-col gap-2">
           <Label for="p-key">{{ t('projects.key') }}</Label>
           <Input
             id="p-key"
@@ -500,14 +531,12 @@ function openViewPrompts(project: ProjectResponse) {
             :maxlength="KEY_MAX_LENGTH"
             autocapitalize="none"
             spellcheck="false"
-            @input="normalizeKey"
+            @input="onKeyEdited"
           />
           <p v-if="keyError" class="text-xs font-medium text-destructive">{{ keyError }}</p>
-          <p v-else class="text-xs text-muted-foreground">{{ t('projects.keyHint') }}</p>
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="p-name">{{ t('projects.name') }}</Label>
-          <Input id="p-name" v-model="addForm.name" />
+          <p v-else class="text-xs text-muted-foreground">
+            {{ t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint') }}
+          </p>
         </div>
 
         <!-- Predefined actions section -->
