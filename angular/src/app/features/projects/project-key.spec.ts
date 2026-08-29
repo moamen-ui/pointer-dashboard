@@ -45,3 +45,44 @@ describe('project key rules', () => {
     expect(isTaken('my-app2')).toBe(false);
   });
 });
+
+// #138 — the key is derived from the project name, so the slug must land inside the
+// same contract the form validates against.
+import { slugifyKey } from './projects.component';
+
+describe('slugifyKey', () => {
+  it('turns a normal project name into a valid key', () => {
+    expect(slugifyKey('My New App')).toBe('my-new-app');
+    expect(KEY_PATTERN.test(slugifyKey('My New App'))).toBe(true);
+  });
+
+  it('collapses punctuation and runs of separators', () => {
+    expect(slugifyKey('Acme  ///  Portal!!')).toBe('acme-portal');
+  });
+
+  it('keeps the characters the API already allows', () => {
+    expect(slugifyKey('web.app_v2-beta')).toBe('web.app_v2-beta');
+  });
+
+  it('trims leading and trailing separators', () => {
+    expect(slugifyKey('  --Hello--  ')).toBe('hello');
+  });
+
+  it('strips non-latin text rather than emitting an invalid key', () => {
+    // Arabic/emoji cannot appear in a key; whatever survives must still validate.
+    const slug = slugifyKey('مشروع 2');
+    expect(slug === '' || KEY_PATTERN.test(slug)).toBe(true);
+  });
+
+  it('never exceeds the column length', () => {
+    expect(slugifyKey('a'.repeat(200)).length).toBeLessThanOrEqual(KEY_MAX_LENGTH);
+  });
+
+  it('produces a key the form accepts for typical names', () => {
+    for (const name of ['Pointer Dashboard', 'clubs-api', 'Tuwaiq Permit 2026']) {
+      const slug = slugifyKey(name);
+      expect(KEY_PATTERN.test(slug)).toBe(true);
+      expect(slug.length).toBeLessThanOrEqual(KEY_MAX_LENGTH);
+    }
+  });
+});

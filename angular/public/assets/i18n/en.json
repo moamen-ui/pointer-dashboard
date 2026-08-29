@@ -210,7 +210,8 @@
     "superAdminNote": "Super admins manage the platform, not individual projects — sign in with a tenant account to create and use one.",
     "superAdminEmptyHint": "No projects exist yet. Sign in with a tenant account to create one — super admins manage the platform, not individual projects.",
     "pageContextCapture": "Capture console/network context",
-    "pageContextCaptureHint": "When a visitor checks \"Report as a bug\", also capture console errors/warnings and failed or slow network requests from that page. No headers or request/response bodies are ever captured."
+    "pageContextCaptureHint": "When a visitor checks \"Report as a bug\", also capture console errors/warnings and failed or slow network requests from that page. No headers or request/response bodies are ever captured.",
+    "keyAutoHint": "Filled in from the name — edit it if you want a different key"
   },
   "suggestions": {
     "section": "Prompt suggestions",
@@ -235,13 +236,13 @@
     "importCounts": "{{comments}} comments and {{replies}} replies imported."
   },
   "predefined": {
-    "section": "Predefined actions",
-    "tenantHelp": "Reusable actions available in every project. Each has a label users pick and a prompt sent to the AI when applying the comment.",
-    "projectHelp": "Actions available only in this project (added to the workspace-wide ones). Label is what users see; prompt is sent to the AI.",
+    "section": "Predefined prompts",
+    "tenantHelp": "Reusable prompts available in every project. Each has a label users pick and the prompt text sent to the AI when applying a comment.",
+    "projectHelp": "Prompts available only in this project (added to the workspace-wide ones). The label is what users pick; the prompt is what the AI receives.",
     "text": "Label",
-    "prompt": "AI prompt",
-    "add": "Add action",
-    "empty": "No predefined actions yet."
+    "prompt": "Prompt sent to the AI",
+    "add": "Add prompt",
+    "empty": "No predefined prompts yet."
   },
   "statuses": {
     "title": "Statuses",

@@ -40,6 +40,20 @@ const KEY_PATTERN = /^[a-z0-9._-]+$/;
 /** Mirrors the projects.key column (character varying(64)). */
 const KEY_MAX_LENGTH = 64;
 
+/**
+ * Turns a project name into a key the API will accept: lowercase, with anything
+ * outside [a-z0-9._-] collapsed to a single hyphen, trimmed of leading/trailing
+ * separators and capped at the column length. Exported for the spec.
+ */
+export function slugifyKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-._]+|[-._]+$/g, '')
+    .slice(0, KEY_MAX_LENGTH);
+}
+
 @Component({
   selector: 'app-projects',
   standalone: true,
@@ -185,6 +199,11 @@ const KEY_MAX_LENGTH = 64;
       <h2 mat-dialog-title>{{ 'projects.addProject' | transloco }}</h2>
       <mat-dialog-content>
         <form [formGroup]="addForm" (ngSubmit)="addProject()" class="flex min-w-80 flex-col gap-3 pt-2">
+          <!-- Name first: the key is derived from it (Pointer feedback #138). -->
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'projects.name' | transloco }}</mat-label>
+            <input matInput formControlName="name" (input)="syncKeyFromName($event)" />
+          </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>{{ 'projects.key' | transloco }}</mat-label>
             <input
@@ -193,9 +212,9 @@ const KEY_MAX_LENGTH = 64;
               maxlength="64"
               autocapitalize="none"
               spellcheck="false"
-              (input)="normalizeKey($event)"
+              (input)="onKeyEdited($event)"
             />
-            <mat-hint>{{ 'projects.keyHint' | transloco }}</mat-hint>
+            <mat-hint>{{ (keyEdited() ? 'projects.keyHint' : 'projects.keyAutoHint') | transloco }}</mat-hint>
             @if (keyControl.hasError('required')) {
               <mat-error>{{ 'projects.keyRequired' | transloco }}</mat-error>
             } @else if (keyControl.hasError('pattern')) {
@@ -205,10 +224,6 @@ const KEY_MAX_LENGTH = 64;
             } @else if (keyControl.hasError('keyTaken')) {
               <mat-error>{{ 'projects.keyTaken' | transloco }}</mat-error>
             }
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'projects.name' | transloco }}</mat-label>
-            <input matInput formControlName="name" />
           </mat-form-field>
 
           <!-- Predefined actions section -->
@@ -429,6 +444,9 @@ export class ProjectsComponent {
     return this.addForm.controls.key;
   }
 
+  /** True once the user edits the key by hand — auto-fill stops deferring to the name. */
+  readonly keyEdited = signal(false);
+
   /**
    * Keeps the typed key in the shape the API accepts: lowercased and without
    * surrounding whitespace. Lowercasing does not change the length, so the caret
@@ -440,6 +458,23 @@ export class ProjectsComponent {
     if (normalized === input.value) return;
     input.value = normalized;
     this.keyControl.setValue(normalized);
+  }
+
+  /** Typing in the key takes ownership of it: the name stops driving it. */
+  onKeyEdited(event: Event): void {
+    this.keyEdited.set(true);
+    this.normalizeKey(event);
+  }
+
+  /**
+   * Derives the key from the project name while the user hasn't touched the key
+   * themselves — "My New App" → "my-new-app". Stops the moment they edit the key,
+   * and never fights a key they cleared back to empty on purpose.
+   */
+  syncKeyFromName(event: Event): void {
+    if (this.keyEdited()) return;
+    const name = (event.target as HTMLInputElement).value;
+    this.keyControl.setValue(slugifyKey(name));
   }
 
   /** Flags a key that one of the caller's existing projects already uses (the API
@@ -500,6 +535,7 @@ export class ProjectsComponent {
   }
 
   openAdd() {
+    this.keyEdited.set(false);
     this.addForm.reset({ key: '', name: '' });
     while (this.predefinedActionsArray.length) {
       this.predefinedActionsArray.removeAt(0);
