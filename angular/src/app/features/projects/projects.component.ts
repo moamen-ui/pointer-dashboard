@@ -36,9 +36,9 @@ import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular'
 
 /** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
  *  underscore, hyphen — nothing else. */
-const KEY_PATTERN = /^[a-z0-9._-]+$/;
+export const KEY_PATTERN = /^[a-z0-9-]+$/;
 /** Mirrors the projects.key column (character varying(64)). */
-const KEY_MAX_LENGTH = 64;
+export const KEY_MAX_LENGTH = 64;
 
 /**
  * Arabic → Latin, so an Arabic project name still yields a usable key rather than an
@@ -62,31 +62,31 @@ function asciiDigits(value: string): string {
 }
 
 /**
- * Turns a project name into a key the API will accept: `^[a-z0-9._-]+$`, at most
+ * Turns a project name into a key the API will accept: `^[a-z0-9-]+$`, at most
  * KEY_MAX_LENGTH characters.
  *
  * - Arabic is transliterated (most of this product's users write Arabic names, and
  *   dropping the letters left them with an empty key).
- * - A run of separators collapses to ONE hyphen, so "name . sdf _more" reads
- *   "name-sdf-more" instead of "name-.-sdf-_more"; a lone . _ or - between
- *   characters is kept, so "web.app_v2-beta" survives intact.
+ * - Only letters, digits and dashes survive: every other run — spaces, dots,
+ *   underscores, punctuation — becomes a single dash, so "web.app_v2 beta" reads
+ *   "web-app-v2-beta".
  * - Edges are trimmed of separators, and trimmed again after the length cut so a
  *   truncated key never ends on one.
  *
  * Exported for the spec.
  */
 export function slugifyKey(name: string): string {
-  const latin = asciiDigits(name.toLowerCase())
+const latin = asciiDigits(name.toLowerCase())
     // harakat + tatweel carry no sound; drop them before mapping letters
     .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
     .replace(/[\u0621-\u06FF]/g, (ch) => ARABIC_MAP[ch] ?? ' ');
 
   return latin
-    .replace(/[^a-z0-9._-]+/g, '-')   // anything else becomes a separator
-    .replace(/[-._]{2,}/g, '-')       // ...and a run of separators becomes one hyphen
-    .replace(/^[-._]+|[-._]+$/g, '')
+    .replace(/[^a-z0-9]+/g, '-')   // the key allows only letters, digits and dashes
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
     .slice(0, KEY_MAX_LENGTH)
-    .replace(/[-._]+$/g, '');         // the cut must not leave a dangling separator
+    .replace(/-+$/g, '');          // the cut must not leave a dangling dash
 }
 
 @Component({
@@ -455,7 +455,7 @@ export class ProjectsComponent {
   displayedColumns = ['key', 'name', 'status', 'createdBy', 'comments', 'actions'];
 
   // The key must match what the API accepts, or the request comes back as a raw
-  // 400: FluentValidation checks the *unmodified* value (^[a-z0-9._-]+$, max 64)
+  // 400: FluentValidation checks the *unmodified* value (^[a-z0-9-]+$, max 64)
   // and only ProjectService lowercases it afterwards — so an uppercase key would
   // be rejected even though it would have been stored fine. normalizeKey() below
   // keeps the input in that shape while the user types.

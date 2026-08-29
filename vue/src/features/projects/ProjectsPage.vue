@@ -54,7 +54,7 @@ const { t } = useI18n();
 // Mirrors CreateProjectValidator on the API: the server checks the *raw* value
 // against ^[a-z0-9._-]+$ (varchar(64)) before lowercasing it, so the form keeps
 // the input in that shape while the user types.
-const KEY_PATTERN = /^[a-z0-9._-]+$/;
+const KEY_PATTERN = /^[a-z0-9-]+$/;
 const KEY_MAX_LENGTH = 64;
 
 const queryClient = useQueryClient();
@@ -103,31 +103,31 @@ function asciiDigits(value: string): string {
 }
 
 /**
- * Turns a project name into a key the API will accept: `^[a-z0-9._-]+$`, at most
+ * Turns a project name into a key the API will accept: `^[a-z0-9-]+$`, at most
  * KEY_MAX_LENGTH characters.
  *
  * - Arabic is transliterated (most of this product's users write Arabic names, and
  *   dropping the letters left them with an empty key).
- * - A run of separators collapses to ONE hyphen, so "name . sdf _more" reads
- *   "name-sdf-more" instead of "name-.-sdf-_more"; a lone . _ or - between
- *   characters is kept, so "web.app_v2-beta" survives intact.
+ * - Only letters, digits and dashes survive: every other run — spaces, dots,
+ *   underscores, punctuation — becomes a single dash, so "web.app_v2 beta" reads
+ *   "web-app-v2-beta".
  * - Edges are trimmed of separators, and trimmed again after the length cut so a
  *   truncated key never ends on one.
  *
  * Exported for the spec.
  */
 function slugifyKey(name: string): string {
-  const latin = asciiDigits(name.toLowerCase())
+const latin = asciiDigits(name.toLowerCase())
     // harakat + tatweel carry no sound; drop them before mapping letters
     .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
     .replace(/[\u0621-\u06FF]/g, (ch) => ARABIC_MAP[ch] ?? ' ');
 
   return latin
-    .replace(/[^a-z0-9._-]+/g, '-')   // anything else becomes a separator
-    .replace(/[-._]{2,}/g, '-')       // ...and a run of separators becomes one hyphen
-    .replace(/^[-._]+|[-._]+$/g, '')
+    .replace(/[^a-z0-9]+/g, '-')   // the key allows only letters, digits and dashes
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
     .slice(0, KEY_MAX_LENGTH)
-    .replace(/[-._]+$/g, '');         // the cut must not leave a dangling separator
+    .replace(/-+$/g, '');          // the cut must not leave a dangling dash
 }
 
 /** Lowercases + trims while typing; lowercasing keeps the length so the caret

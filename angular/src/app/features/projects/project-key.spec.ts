@@ -1,8 +1,9 @@
 // The project key contract, mirrored from the API (CreateProjectValidator +
 // the projects.key column). These assertions are what the form enforces so a
 // bad key is caught before it becomes a raw 400/409 from the server.
-const KEY_PATTERN = /^[a-z0-9._-]+$/;
-const KEY_MAX_LENGTH = 64;
+// Imported, not re-declared: a local copy of the pattern silently drifted from the
+// component when the contract narrowed to letters/digits/dashes.
+import { KEY_MAX_LENGTH, KEY_PATTERN, slugifyKey } from './projects.component';
 
 /** What the form does to the typed value before validating/sending it. */
 function normalize(value: string): string {
@@ -10,14 +11,15 @@ function normalize(value: string): string {
 }
 
 describe('project key rules', () => {
-  it('accepts lowercase letters, digits and . _ -', () => {
-    for (const key of ['app', 'my-app', 'my_app', 'my.app', 'a1', 'a.b_c-d9']) {
+  it('accepts lowercase letters, digits and dashes', () => {
+    for (const key of ['app', 'my-app', 'a1', 'a-b-c-d9', 'pointer-dashboard']) {
       expect(KEY_PATTERN.test(key)).toBe(true);
     }
   });
 
   it('rejects everything the API rejects', () => {
-    for (const key of ['My-App', 'my app', 'my/app', 'app!', 'ünïcode', 'مشروع', '']) {
+    // Dots and underscores are no longer part of the contract.
+    for (const key of ['My-App', 'my app', 'my/app', 'app!', 'my.app', 'my_app', 'ünïcode', 'مشروع', '']) {
       expect(KEY_PATTERN.test(key)).toBe(false);
     }
   });
@@ -48,7 +50,6 @@ describe('project key rules', () => {
 
 // #138 — the key is derived from the project name, so the slug must land inside the
 // same contract the form validates against.
-import { slugifyKey } from './projects.component';
 
 describe('slugifyKey', () => {
   it('turns a normal project name into a valid key', () => {
@@ -59,12 +60,12 @@ describe('slugifyKey', () => {
   it('collapses a run of separators into a single hyphen', () => {
     // Reported: "…name . sdf _fsdfsfsdf…" produced "…name-.-sdf-_fsdfsfsdf…".
     expect(slugifyKey('Moamen new project name . sdf _fsdfsfsdf.dsgdfg'))
-      .toBe('moamen-new-project-name-sdf-fsdfsfsdf.dsgdfg');
+      .toBe('moamen-new-project-name-sdf-fsdfsfsdf-dsgdfg');
     expect(slugifyKey('Acme  ///  Portal!!')).toBe('acme-portal');
   });
 
-  it('keeps a lone . _ or - that sits between characters', () => {
-    expect(slugifyKey('web.app_v2-beta')).toBe('web.app_v2-beta');
+  it('turns dots and underscores into dashes, like every other separator', () => {
+    expect(slugifyKey('web.app_v2-beta')).toBe('web-app-v2-beta');
   });
 
   it('trims leading and trailing separators', () => {
