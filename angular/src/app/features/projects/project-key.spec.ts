@@ -56,11 +56,14 @@ describe('slugifyKey', () => {
     expect(KEY_PATTERN.test(slugifyKey('My New App'))).toBe(true);
   });
 
-  it('collapses punctuation and runs of separators', () => {
+  it('collapses a run of separators into a single hyphen', () => {
+    // Reported: "…name . sdf _fsdfsfsdf…" produced "…name-.-sdf-_fsdfsfsdf…".
+    expect(slugifyKey('Moamen new project name . sdf _fsdfsfsdf.dsgdfg'))
+      .toBe('moamen-new-project-name-sdf-fsdfsfsdf.dsgdfg');
     expect(slugifyKey('Acme  ///  Portal!!')).toBe('acme-portal');
   });
 
-  it('keeps the characters the API already allows', () => {
+  it('keeps a lone . _ or - that sits between characters', () => {
     expect(slugifyKey('web.app_v2-beta')).toBe('web.app_v2-beta');
   });
 
@@ -68,18 +71,31 @@ describe('slugifyKey', () => {
     expect(slugifyKey('  --Hello--  ')).toBe('hello');
   });
 
-  it('strips non-latin text rather than emitting an invalid key', () => {
-    // Arabic/emoji cannot appear in a key; whatever survives must still validate.
-    const slug = slugifyKey('مشروع 2');
-    expect(slug === '' || KEY_PATTERN.test(slug)).toBe(true);
+  it('transliterates Arabic instead of leaving the key empty', () => {
+    // Most of this product's users name projects in Arabic; dropping the letters
+    // left them with nothing to submit.
+    expect(slugifyKey('مشروع جديد')).toBe('mshrwa-jdyd');
+    expect(KEY_PATTERN.test(slugifyKey('مشروع جديد'))).toBe(true);
   });
 
-  it('never exceeds the column length', () => {
-    expect(slugifyKey('a'.repeat(200)).length).toBeLessThanOrEqual(KEY_MAX_LENGTH);
+  it('converts Arabic-Indic digits to ASCII', () => {
+    expect(slugifyKey('مشروع ٢٠٢٦ للتجربة')).toBe('mshrwa-2026-lltjrbh');
+  });
+
+  it('never exceeds the column length, and never ends on a separator', () => {
+    const long = slugifyKey('اسم مشروع طويل جدا جدا جدا جدا جدا جدا جدا جدا جدا جدا جدا جدا جدا');
+    expect(long.length).toBeLessThanOrEqual(KEY_MAX_LENGTH);
+    expect(long.endsWith('-')).toBe(false);
+    expect(slugifyKey('a'.repeat(200)).length).toBe(KEY_MAX_LENGTH);
+  });
+
+  it('returns empty when nothing transliterable is left, rather than junk', () => {
+    // The field is still required, so the user is prompted to type one.
+    expect(slugifyKey('🎉🎉')).toBe('');
   });
 
   it('produces a key the form accepts for typical names', () => {
-    for (const name of ['Pointer Dashboard', 'clubs-api', 'Tuwaiq Permit 2026']) {
+    for (const name of ['Pointer Dashboard', 'clubs-api', 'Tuwaiq Permit 2026', 'مشروع تجريبي']) {
       const slug = slugifyKey(name);
       expect(KEY_PATTERN.test(slug)).toBe(true);
       expect(slug.length).toBeLessThanOrEqual(KEY_MAX_LENGTH);

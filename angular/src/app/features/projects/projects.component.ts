@@ -41,17 +41,52 @@ const KEY_PATTERN = /^[a-z0-9._-]+$/;
 const KEY_MAX_LENGTH = 64;
 
 /**
- * Turns a project name into a key the API will accept: lowercase, with anything
- * outside [a-z0-9._-] collapsed to a single hyphen, trimmed of leading/trailing
- * separators and capped at the column length. Exported for the spec.
+ * Arabic → Latin, so an Arabic project name still yields a usable key rather than an
+ * empty one. Deliberately a plain readable transliteration (م → m, ش → sh, خ → kh);
+ * it only has to be stable and valid, not scholarly.
+ */
+const ARABIC_MAP: Record<string, string> = {
+  'ء': 'a', 'آ': 'a', 'أ': 'a', 'ؤ': 'w', 'إ': 'a', 'ئ': 'y', 'ا': 'a', 'ب': 'b',
+  'ة': 'h', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'dh',
+  'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z',
+  'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
+  'ه': 'h', 'و': 'w', 'ى': 'a', 'ي': 'y',
+  // Persian/Urdu letters that show up in Arabic-script names
+  'پ': 'p', 'چ': 'ch', 'ژ': 'zh', 'ک': 'k', 'گ': 'g', 'ی': 'y',
+};
+
+/** Arabic-Indic and extended Arabic-Indic digits → ASCII. */
+function asciiDigits(value: string): string {
+  return value.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+              .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+}
+
+/**
+ * Turns a project name into a key the API will accept: `^[a-z0-9._-]+$`, at most
+ * KEY_MAX_LENGTH characters.
+ *
+ * - Arabic is transliterated (most of this product's users write Arabic names, and
+ *   dropping the letters left them with an empty key).
+ * - A run of separators collapses to ONE hyphen, so "name . sdf _more" reads
+ *   "name-sdf-more" instead of "name-.-sdf-_more"; a lone . _ or - between
+ *   characters is kept, so "web.app_v2-beta" survives intact.
+ * - Edges are trimmed of separators, and trimmed again after the length cut so a
+ *   truncated key never ends on one.
+ *
+ * Exported for the spec.
  */
 export function slugifyKey(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/-{2,}/g, '-')
+  const latin = asciiDigits(name.toLowerCase())
+    // harakat + tatweel carry no sound; drop them before mapping letters
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+    .replace(/[\u0621-\u06FF]/g, (ch) => ARABIC_MAP[ch] ?? ' ');
+
+  return latin
+    .replace(/[^a-z0-9._-]+/g, '-')   // anything else becomes a separator
+    .replace(/[-._]{2,}/g, '-')       // ...and a run of separators becomes one hyphen
     .replace(/^[-._]+|[-._]+$/g, '')
-    .slice(0, KEY_MAX_LENGTH);
+    .slice(0, KEY_MAX_LENGTH)
+    .replace(/[-._]+$/g, '');         // the cut must not leave a dangling separator
 }
 
 @Component({
