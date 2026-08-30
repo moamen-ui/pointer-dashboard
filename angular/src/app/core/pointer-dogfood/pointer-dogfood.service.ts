@@ -21,8 +21,15 @@ export class PointerDogfoodService {
 
   private readonly hasAccess = computed(() => {
     if (!environment.pointerFeedback.enabled || !this.auth.isAuthenticated()) return false;
-    const projects = this.resource.value() ?? [];
-    return projects.some((p) => p.key === environment.pointerFeedback.project);
+    // httpResource THROWS from .value() while in an error state (unlike a plain signal) — a
+    // transient failure here (network blip, CORS, a 401 racing a fresh login) must not crash the
+    // effect below and take the whole app down with it; just treat it as "no access yet".
+    try {
+      const projects = this.resource.value() ?? [];
+      return projects.some((p) => p.key === environment.pointerFeedback.project);
+    } catch {
+      return false;
+    }
   });
 
   constructor() {

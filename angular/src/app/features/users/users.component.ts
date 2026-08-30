@@ -428,7 +428,9 @@ export class UsersComponent {
   tenants = computed(() => {
     try { return this.tenantsResource.value() ?? []; } catch { return []; }
   });
-  projects = computed(() => this.projectsResource.value() ?? []);
+  projects = computed(() => {
+    try { return this.projectsResource.value() ?? []; } catch { return []; }
+  });
   busy = signal(false);
   loading = computed(() => this.usersResource.isLoading() || this.busy());
 
