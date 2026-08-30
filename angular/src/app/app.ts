@@ -3,6 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth/auth.service';
 import { PreferencesService } from './core/prefs/preferences.service';
 import { BrandingService } from './core/branding/branding.service';
+import { PointerDogfoodService } from './core/pointer-dogfood/pointer-dogfood.service';
 
 @Component({
   selector: 'app-root',
@@ -15,6 +16,8 @@ export class App {
     const auth = inject(AuthService);
     const prefs = inject(PreferencesService);
     const branding = inject(BrandingService);
+    // Constructed for its side-effecting constructor only — see PointerDogfoodService.
+    inject(PointerDogfoodService);
     prefs.init(auth.user() ?? undefined);
     branding.refresh();
   }
