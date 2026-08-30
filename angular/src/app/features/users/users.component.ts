@@ -415,15 +415,19 @@ export class UsersComponent {
   );
   pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
   rolesResource = getApiAdminRolesResource();
-  // Only meaningful for a super admin (the workspace picker); harmlessly 403s for anyone else,
-  // whose empty tenants() list is simply never read.
+  // Only meaningful for a super admin (the workspace picker) — GET /api/admin/tenants is
+  // super-admin-only and 403s for anyone else. httpResource THROWS from .value() while in an
+  // error state (unlike a plain signal), so tenants() below must swallow that itself — it isn't
+  // enough to just never read it, since openAdd() does read it for every caller.
   tenantsResource = getApiAdminTenantsResource();
   // Only meaningful for a quick-access role invite (the project picker below).
   projectsResource = getApiAdminProjectsResource();
 
   users = computed(() => this.usersResource.value() ?? []);
   roles = computed(() => this.rolesResource.value() ?? []);
-  tenants = computed(() => this.tenantsResource.value() ?? []);
+  tenants = computed(() => {
+    try { return this.tenantsResource.value() ?? []; } catch { return []; }
+  });
   projects = computed(() => this.projectsResource.value() ?? []);
   busy = signal(false);
   loading = computed(() => this.usersResource.isLoading() || this.busy());
