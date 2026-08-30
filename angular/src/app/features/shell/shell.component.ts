@@ -119,10 +119,12 @@ import { DemoPanelComponent } from './demo-panel.component';
             <mat-icon matListItemIcon>person</mat-icon>
             <span matListItemTitle>{{ 'nav.myProfile' | transloco }}</span>
           </a>
-          <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
-            <mat-icon matListItemIcon>folder</mat-icon>
-            <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
-          </a>
+          @if (!auth.isQuickAccess()) {
+            <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>folder</mat-icon>
+              <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
+            </a>
+          }
           @if (auth.isAdmin()) {
             <a mat-list-item routerLink="/overview" routerLinkActive="active-link">
               <mat-icon matListItemIcon>dashboard</mat-icon>

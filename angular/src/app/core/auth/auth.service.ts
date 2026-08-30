@@ -27,6 +27,9 @@ export class AuthService {
   isAuthenticated = computed(() => !!this._user() && !!this._token());
   isAdmin = computed(() => !!this._user()?.isAdmin);
   isSuperAdmin = computed(() => !!this._user()?.isSuperAdmin);
+  // Quick-access (e.g. "Client") accounts exist only to leave widget comments on their own
+  // project — they must never reach project management or any other admin-tier dashboard surface.
+  isQuickAccess = computed(() => !!this._user()?.isQuickAccess);
 
   private readUser(): MeResponse | null {
     try {

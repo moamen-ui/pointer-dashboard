@@ -485,13 +485,18 @@ export class UsersComponent {
   addMode = signal<'invite' | 'direct'>('invite');
 
   activeRoles() {
-    return this.roles().filter(r => r.isActive);
+    // Quick-access roles (e.g., Client) must go through the invite flow only, not direct-add
+    return this.roles().filter(r => r.isActive && !r.quickAccess);
   }
 
   rolesForUser(user: UserResponse): RoleResponse[] {
-    const active = this.roles().filter(r => r.isActive);
+    // Quick-access roles must go through the invite flow only, not this inline dropdown
+    const active = this.roles().filter(r => r.isActive && !r.quickAccess);
     const current = this.roles().find(r => r.id === user.roleId);
     if (current && !current.isActive) {
+      return [current, ...active];
+    }
+    if (current && current.quickAccess) {
       return [current, ...active];
     }
     return active;

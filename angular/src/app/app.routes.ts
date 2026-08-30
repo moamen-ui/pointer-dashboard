@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Routes, Router } from '@angular/router';
 import { adminGuard } from './core/auth/auth.guard';
 import { authenticatedGuard } from './core/auth/authenticated.guard';
+import { notQuickAccessGuard } from './core/auth/not-quick-access.guard';
 import { superAdminGuard } from './core/auth/super-admin.guard';
 import { AuthService } from './core/auth/auth.service';
 
@@ -77,7 +78,7 @@ export const routes: Routes = [
       },
       {
         path: 'projects',
-        canActivate: [authenticatedGuard],
+        canActivate: [authenticatedGuard, notQuickAccessGuard],
         loadComponent: () =>
           import('./features/projects/projects.component').then((m) => m.ProjectsComponent),
       },
