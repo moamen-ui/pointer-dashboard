@@ -261,6 +261,12 @@ const latin = asciiDigits(name.toLowerCase())
             }
           </mat-form-field>
 
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
+            <input matInput formControlName="appUrl" placeholder="https://staging.example.com" />
+            <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
+          </mat-form-field>
+
           <!-- Predefined actions section -->
           <div class="mt-2">
             <div class="mb-1 text-[0.95rem] font-semibold">{{ 'predefined.section' | transloco }}</div>
@@ -307,6 +313,12 @@ const latin = asciiDigits(name.toLowerCase())
           <mat-form-field appearance="outline">
             <mat-label>{{ 'projects.name' | transloco }}</mat-label>
             <input matInput formControlName="name" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
+            <input matInput formControlName="appUrl" placeholder="https://staging.example.com" />
+            <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
           </mat-form-field>
 
           <div class="flex items-center justify-between gap-4">
@@ -472,6 +484,7 @@ export class ProjectsComponent {
       ],
     ],
     name: ['', Validators.required],
+    appUrl: [''],
     predefinedActions: this.fb.array([]),
   });
 
@@ -525,6 +538,7 @@ export class ProjectsComponent {
 
   editForm = this.fb.nonNullable.group({
     name: ['', Validators.required],
+    appUrl: [''],
     pageContextCaptureEnabled: [false],
     predefinedActions: this.fb.array([]),
   });
@@ -571,7 +585,7 @@ export class ProjectsComponent {
 
   openAdd() {
     this.keyEdited.set(false);
-    this.addForm.reset({ key: '', name: '' });
+    this.addForm.reset({ key: '', name: '', appUrl: '' });
     while (this.predefinedActionsArray.length) {
       this.predefinedActionsArray.removeAt(0);
     }
@@ -580,7 +594,11 @@ export class ProjectsComponent {
 
   openEdit(project: ProjectResponse): void {
     this.editingProjectId.set(project.id ?? null);
-    this.editForm.reset({ name: project.name ?? '', pageContextCaptureEnabled: !!project.pageContextCaptureEnabled });
+    this.editForm.reset({
+      name: project.name ?? '',
+      appUrl: project.appUrl ?? '',
+      pageContextCaptureEnabled: !!project.pageContextCaptureEnabled,
+    });
     while (this.editPredefinedActionsArray.length) {
       this.editPredefinedActionsArray.removeAt(0);
     }
@@ -663,7 +681,12 @@ export class ProjectsComponent {
       sortOrder: i,
       isActive: true,
     }));
-    this.projectsService.postApiAdminProjects({ key: val.key, name: val.name, predefinedActions } as any).subscribe({
+    this.projectsService.postApiAdminProjects({
+      key: val.key,
+      name: val.name,
+      appUrl: val.appUrl?.trim() || undefined,
+      predefinedActions,
+    } as any).subscribe({
       next: () => {
         this.busy.set(false);
         this.dialogRef?.close();
@@ -691,6 +714,7 @@ export class ProjectsComponent {
     );
     this.projectsService.patchApiAdminProjectsId(id, {
       name: val.name,
+      appUrl: val.appUrl?.trim() ?? '',
       pageContextCaptureEnabled: val.pageContextCaptureEnabled,
       predefinedActions,
     } as any).subscribe({
