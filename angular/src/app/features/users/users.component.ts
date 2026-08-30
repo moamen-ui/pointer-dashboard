@@ -428,7 +428,9 @@ export class UsersComponent {
   tenants = computed(() => {
     try { return this.tenantsResource.value() ?? []; } catch { return []; }
   });
-  projects = computed(() => this.projectsResource.value() ?? []);
+  projects = computed(() => {
+    try { return this.projectsResource.value() ?? []; } catch { return []; }
+  });
   busy = signal(false);
   loading = computed(() => this.usersResource.isLoading() || this.busy());
 
@@ -482,14 +484,25 @@ export class UsersComponent {
 
   addMode = signal<'invite' | 'direct'>('invite');
 
+  // A role a non-super-admin caller may actually assign here: active, not quick-access (that goes
+  // through the invite flow only), and not admin-tier — except Deputy, which a Workspace Admin may
+  // delegate — mirroring assignableInviteRoles below. Anything else (Admin, Workspace Admin) is
+  // always rejected by the server's escalation guard, so offering it here is just a dead end; a
+  // super admin sees everything since they're exempt from that guard.
+  private isAssignableRole = (r: RoleResponse): boolean =>
+    !!r.isActive && !r.quickAccess && (this.auth.isSuperAdmin() || !r.grantsAdmin || r.name === DEPUTY_ROLE_NAME);
+
   activeRoles() {
-    return this.roles().filter(r => r.isActive);
+    return this.roles().filter(this.isAssignableRole);
   }
 
   rolesForUser(user: UserResponse): RoleResponse[] {
-    const active = this.roles().filter(r => r.isActive);
+    const active = this.roles().filter(this.isAssignableRole);
     const current = this.roles().find(r => r.id === user.roleId);
-    if (current && !current.isActive) {
+    // Keep the user's OWN current role visible/selected even if it wouldn't otherwise be
+    // newly-assignable here (inactive, quick-access, or admin-tier) — an empty/blank mat-select
+    // would look broken for that row.
+    if (current && !this.isAssignableRole(current)) {
       return [current, ...active];
     }
     return active;

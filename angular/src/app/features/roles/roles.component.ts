@@ -75,7 +75,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
                 class="dense-toggle"
                 hideIcon
                 [checked]="role.grantsAdmin"
-                [disabled]="role.isSystem"
+                [disabled]="role.isSystem || !canManage(role)"
                 (change)="toggleGrantsAdmin(role, $event.checked)"
               />
             </td>
@@ -106,23 +106,27 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
-              @if (canManage(role)) {
+              @if (canToggleActive(role)) {
                 <button mat-icon-button [matMenuTriggerFor]="rowMenu"
                   [attr.aria-label]="'roles.actions' | transloco">
                   <mat-icon>more_vert</mat-icon>
                 </button>
                 <mat-menu #rowMenu="matMenu">
-                  <button mat-menu-item (click)="renameRole(role)">
-                    <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
-                  </button>
+                  @if (canManage(role)) {
+                    <button mat-menu-item (click)="renameRole(role)">
+                      <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
+                    </button>
+                  }
                   <button mat-menu-item (click)="toggleActive(role)"
                     [class.!text-red-600]="role.isActive">
                     <mat-icon [class.!text-red-600]="role.isActive">{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
                     {{ role.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
                   </button>
-                  <button mat-menu-item class="!text-red-600" (click)="openDelete(role)">
-                    <mat-icon class="!text-red-600">delete</mat-icon> {{ 'roles.delete' | transloco }}
-                  </button>
+                  @if (canManage(role)) {
+                    <button mat-menu-item class="!text-red-600" (click)="openDelete(role)">
+                      <mat-icon class="!text-red-600">delete</mat-icon> {{ 'roles.delete' | transloco }}
+                    </button>
+                  }
                 </mat-menu>
               }
             </td>
@@ -145,7 +149,9 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
           </mat-form-field>
           <mat-checkbox [(ngModel)]="newGrantsAdmin">{{ 'roles.grantsAdmin' | transloco }}</mat-checkbox>
           <mat-checkbox [(ngModel)]="newQuickAccess">{{ 'roles.quickAccess' | transloco }}</mat-checkbox>
-          <p class="m-0 text-[12px] text-muted">{{ 'roles.quickAccessHint' | transloco }}</p>
+          @if (newQuickAccess) {
+            <p class="m-0 text-[0.85rem] text-muted">{{ 'roles.quickAccessHint' | transloco }}</p>
+          }
         </div>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
@@ -245,25 +251,36 @@ export class RolesComponent {
   rolesResource = getApiAdminRolesResource();
 
   /**
-   * Roles this page can actually manage. System roles (e.g. Admin) are immutable —
-   * RoleService answers 409 SystemImmutable on any rename/disable/delete — and they
-   * belong to the platform, not the workspace, so listing them to a workspace admin
-   * is noise they cannot act on. A super-admin still sees them.
+   * Roles this page shows at all. System roles (e.g. Admin, Workspace Admin) are immutable
+   * platform roles, not workspace ones, so listing them to a scoped admin is noise they can
+   * never act on — filtered out via canToggleActive, which is false for every system role. A
+   * GLOBAL, non-system role (e.g. the seeded "Tester") DOES show, though: a scoped admin can
+   * still toggle it on/off for their own workspace via a per-tenant override, even without
+   * fully owning it. A super-admin sees everything, system roles included.
    */
   roles = computed(() => {
     const all = this.rolesResource.value() ?? [];
-    return this.auth.isSuperAdmin() ? all : all.filter((r) => this.canManage(r));
+    return this.auth.isSuperAdmin() ? all : all.filter((r) => this.canToggleActive(r));
   });
 
   /**
-   * Whether the signed-in user may act on this role. The API computes it
-   * (RoleResponse.CanManage) from the same guards Update/Delete enforce: system roles
-   * are immutable, and a scoped admin may only touch roles its own tenant owns — the
-   * query filter deliberately lets it SEE global roles it cannot manage. Falls back to
-   * !isSystem so an older API still behaves as before. Typed from the next client publish.
+   * Whether the signed-in user may fully manage this role (rename/delete/reconfigure). The API
+   * computes it (RoleResponse.CanManage): system roles are immutable for everyone, and a scoped
+   * admin may only fully own roles its own tenant created. Falls back to !isSystem so an older
+   * API still behaves as before.
    */
   canManage(role: RoleResponse): boolean {
     return (role as { canManage?: boolean }).canManage ?? !role.isSystem;
+  }
+
+  /**
+   * Whether the signed-in user may at least flip this role's active status — true for
+   * everything canManage() covers, PLUS a GLOBAL, non-system role a scoped admin doesn't own
+   * (toggled via a per-tenant override server-side, never touching the shared row). False for
+   * every system role, for everyone but a super admin.
+   */
+  canToggleActive(role: RoleResponse): boolean {
+    return (role as { canToggleActive?: boolean }).canToggleActive ?? this.canManage(role);
   }
 
   displayedColumns = ['name', 'grantsAdmin', 'quickAccess', 'status', 'actions'];

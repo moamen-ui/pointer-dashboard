@@ -21,8 +21,21 @@ export class PointerDogfoodService {
 
   private readonly hasAccess = computed(() => {
     if (!environment.pointerFeedback.enabled || !this.auth.isAuthenticated()) return false;
-    const projects = this.resource.value() ?? [];
-    return projects.some((p) => p.key === environment.pointerFeedback.project);
+    // A super admin has no tenant of their own — GET /api/admin/projects returns a cross-tenant,
+    // platform-wide list for them (by design, for platform management), so "does some project
+    // named pointer-dashboard exist ANYWHERE" would trivially match regardless of who owns it.
+    // "my tenant has this project" is a meaningless question for a super admin; the only correct
+    // answer is that they never see the dogfooding widget at all.
+    if (this.auth.isSuperAdmin()) return false;
+    // httpResource THROWS from .value() while in an error state (unlike a plain signal) — a
+    // transient failure here (network blip, CORS, a 401 racing a fresh login) must not crash the
+    // effect below and take the whole app down with it; just treat it as "no access yet".
+    try {
+      const projects = this.resource.value() ?? [];
+      return projects.some((p) => p.key === environment.pointerFeedback.project);
+    } catch {
+      return false;
+    }
   });
 
   constructor() {

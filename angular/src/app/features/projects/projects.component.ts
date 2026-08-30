@@ -261,7 +261,7 @@ const latin = asciiDigits(name.toLowerCase())
             }
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="mb-2">
             <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
             <input matInput formControlName="appUrl" placeholder="https://staging.example.com" />
             <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
@@ -315,7 +315,7 @@ const latin = asciiDigits(name.toLowerCase())
             <input matInput formControlName="name" />
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
+          <mat-form-field appearance="outline" class="mb-2">
             <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
             <input matInput formControlName="appUrl" placeholder="https://staging.example.com" />
             <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
