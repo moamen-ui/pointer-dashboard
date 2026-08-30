@@ -484,19 +484,25 @@ export class UsersComponent {
 
   addMode = signal<'invite' | 'direct'>('invite');
 
+  // A role a non-super-admin caller may actually assign here: active, not quick-access (that goes
+  // through the invite flow only), and not admin-tier — except Deputy, which a Workspace Admin may
+  // delegate — mirroring assignableInviteRoles below. Anything else (Admin, Workspace Admin) is
+  // always rejected by the server's escalation guard, so offering it here is just a dead end; a
+  // super admin sees everything since they're exempt from that guard.
+  private isAssignableRole = (r: RoleResponse): boolean =>
+    !!r.isActive && !r.quickAccess && (this.auth.isSuperAdmin() || !r.grantsAdmin || r.name === DEPUTY_ROLE_NAME);
+
   activeRoles() {
-    // Quick-access roles (e.g., Client) must go through the invite flow only, not direct-add
-    return this.roles().filter(r => r.isActive && !r.quickAccess);
+    return this.roles().filter(this.isAssignableRole);
   }
 
   rolesForUser(user: UserResponse): RoleResponse[] {
-    // Quick-access roles must go through the invite flow only, not this inline dropdown
-    const active = this.roles().filter(r => r.isActive && !r.quickAccess);
+    const active = this.roles().filter(this.isAssignableRole);
     const current = this.roles().find(r => r.id === user.roleId);
-    if (current && !current.isActive) {
-      return [current, ...active];
-    }
-    if (current && current.quickAccess) {
+    // Keep the user's OWN current role visible/selected even if it wouldn't otherwise be
+    // newly-assignable here (inactive, quick-access, or admin-tier) — an empty/blank mat-select
+    // would look broken for that row.
+    if (current && !this.isAssignableRole(current)) {
       return [current, ...active];
     }
     return active;
