@@ -81,6 +81,19 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
             </td>
           </ng-container>
 
+          <ng-container matColumnDef="quickAccess">
+            <th mat-header-cell *matHeaderCellDef>{{ 'roles.quickAccess' | transloco }}</th>
+            <td mat-cell *matCellDef="let role">
+              <mat-slide-toggle
+                class="dense-toggle"
+                hideIcon
+                [checked]="role.quickAccess"
+                [disabled]="role.isSystem || !canManage(role)"
+                (change)="toggleQuickAccess(role, $event.checked)"
+              />
+            </td>
+          </ng-container>
+
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'roles.status' | transloco }}</th>
             <td mat-cell *matCellDef="let role">
@@ -131,6 +144,8 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
             <input matInput [(ngModel)]="newName" (keydown.enter)="addRole()" />
           </mat-form-field>
           <mat-checkbox [(ngModel)]="newGrantsAdmin">{{ 'roles.grantsAdmin' | transloco }}</mat-checkbox>
+          <mat-checkbox [(ngModel)]="newQuickAccess">{{ 'roles.quickAccess' | transloco }}</mat-checkbox>
+          <p class="m-0 text-[12px] text-muted">{{ 'roles.quickAccessHint' | transloco }}</p>
         </div>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
@@ -251,10 +266,11 @@ export class RolesComponent {
     return (role as { canManage?: boolean }).canManage ?? !role.isSystem;
   }
 
-  displayedColumns = ['name', 'grantsAdmin', 'status', 'actions'];
+  displayedColumns = ['name', 'grantsAdmin', 'quickAccess', 'status', 'actions'];
 
   newName = '';
   newGrantsAdmin = false;
+  newQuickAccess = false;
 
   // Rename state.
   editingRole = signal<RoleResponse | null>(null);
@@ -276,25 +292,36 @@ export class RolesComponent {
   openAdd() {
     this.newName = '';
     this.newGrantsAdmin = false;
+    this.newQuickAccess = false;
     this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
   }
 
   addRole() {
     const name = this.newName.trim();
     if (!name) return;
-    this.rolesService.postApiAdminRoles({ name, grantsAdmin: this.newGrantsAdmin }).subscribe({
-      next: () => {
-        this.dialogRef?.close();
-        this.newName = '';
-        this.newGrantsAdmin = false;
-        this.rolesResource.reload();
-      },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
-    });
+    this.rolesService
+      .postApiAdminRoles({ name, grantsAdmin: this.newGrantsAdmin, quickAccess: this.newQuickAccess })
+      .subscribe({
+        next: () => {
+          this.dialogRef?.close();
+          this.newName = '';
+          this.newGrantsAdmin = false;
+          this.newQuickAccess = false;
+          this.rolesResource.reload();
+        },
+        error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      });
   }
 
   toggleGrantsAdmin(role: RoleResponse, grantsAdmin: boolean) {
     this.rolesService.patchApiAdminRolesId(role.id!, { grantsAdmin }).subscribe({
+      next: () => this.rolesResource.reload(),
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  toggleQuickAccess(role: RoleResponse, quickAccess: boolean) {
+    this.rolesService.patchApiAdminRolesId(role.id!, { quickAccess }).subscribe({
       next: () => this.rolesResource.reload(),
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });

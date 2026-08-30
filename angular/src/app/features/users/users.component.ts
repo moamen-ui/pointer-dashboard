@@ -18,6 +18,7 @@ import { UsersService, getApiAdminUsersResource } from '@moamen-ui/pointer-angul
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { InvitesService, getApiAdminInvitesResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminTenantsResource } from '@moamen-ui/pointer-angular';
+import { getApiAdminProjectsResource } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
@@ -258,15 +259,17 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
               @if (inviteCreatedEmailSent(); as sentTo) {
                 <div class="flex items-center gap-2 rounded bg-green-50 p-2 text-[0.85rem] text-green-700 dark:bg-green-500/15 dark:text-green-300">
                   <mat-icon class="!h-4 !w-4 !text-base">mark_email_read</mat-icon>
-                  <span>{{ 'invite.emailSent' | transloco: { email: sentTo } }}</span>
+                  <span>{{ (inviteWasQuickAccess() ? 'invite.credentialsEmailed' : 'invite.emailSent') | transloco: { email: sentTo } }}</span>
                 </div>
               }
-              <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all dark:bg-white/5">
-                <span class="flex-1">{{ url }}</span>
-                <button mat-stroked-button (click)="copyInviteUrl(url)">
-                  {{ 'invite.copy' | transloco }}
-                </button>
-              </div>
+              @if (!inviteWasQuickAccess()) {
+                <div class="flex items-center gap-2 rounded bg-slate-50 p-2 text-[0.85rem] break-all dark:bg-white/5">
+                  <span class="flex-1">{{ url }}</span>
+                  <button mat-stroked-button (click)="copyInviteUrl(url)">
+                    {{ 'invite.copy' | transloco }}
+                  </button>
+                </div>
+              }
             </div>
           } @else {
             <div class="flex min-w-80 flex-col gap-3 pt-2">
@@ -289,6 +292,21 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
                     }
                   </mat-select>
                 </mat-form-field>
+              }
+
+              @if (isQuickAccessInvite()) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ 'invite.project' | transloco }}</mat-label>
+                  <mat-select [ngModel]="inviteProjectId()" (ngModelChange)="inviteProjectId.set($event)">
+                    @for (p of projects(); track p.id) {
+                      <mat-option [value]="p.id">{{ p.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                @if (quickAccessAppUrlMissing()) {
+                  <p class="m-0 text-[0.8rem] text-red-600">{{ 'invite.quickAccessAppUrlMissing' | transloco }}</p>
+                }
+                <p class="m-0 text-[0.85rem] text-muted">{{ 'invite.quickAccessHint' | transloco }}</p>
               }
 
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -361,7 +379,9 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           } @else {
             <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
             <button mat-flat-button color="primary"
-              [disabled]="(auth.isSuperAdmin() ? !inviteTargetOwnerId() : !inviteRoleId()) || inviteCreating()"
+              [disabled]="(auth.isSuperAdmin() ? !inviteTargetOwnerId() : !inviteRoleId())
+                || (isQuickAccessInvite() && (!inviteEmail().trim() || !inviteProjectId() || quickAccessAppUrlMissing()))
+                || inviteCreating()"
               (click)="createInvite()">
               {{ 'invite.create' | transloco }}
             </button>
@@ -398,10 +418,13 @@ export class UsersComponent {
   // Only meaningful for a super admin (the workspace picker); harmlessly 403s for anyone else,
   // whose empty tenants() list is simply never read.
   tenantsResource = getApiAdminTenantsResource();
+  // Only meaningful for a quick-access role invite (the project picker below).
+  projectsResource = getApiAdminProjectsResource();
 
   users = computed(() => this.usersResource.value() ?? []);
   roles = computed(() => this.rolesResource.value() ?? []);
   tenants = computed(() => this.tenantsResource.value() ?? []);
+  projects = computed(() => this.projectsResource.value() ?? []);
   busy = signal(false);
   loading = computed(() => this.usersResource.isLoading() || this.busy());
 
@@ -481,18 +504,35 @@ export class UsersComponent {
   inviteEmail = signal('');
   inviteExpiresInDays = signal<number | null>(7);
   inviteMaxUses = signal<number | null>(null);
+  inviteProjectId = signal<number | null>(null);
   inviteCreating = signal(false);
   inviteCreatedUrl = signal<string | null>(null);
   inviteCreatedEmailSent = signal<string | null>(null);
+  inviteWasQuickAccess = signal(false);
+
+  // A quick-access role (e.g. "Client") skips the accept-link flow entirely — see
+  // Role.QuickAccess. Only meaningful for a non-super-admin caller (the super-admin branch
+  // always forces the Deputy role server-side, which is never QuickAccess).
+  selectedInviteRole = computed(() => this.roles().find((r) => r.id === this.inviteRoleId()) ?? null);
+  isQuickAccessInvite = computed(() => !this.auth.isSuperAdmin() && !!this.selectedInviteRole()?.quickAccess);
+  selectedInviteProject = computed(() => this.projects().find((p) => p.id === this.inviteProjectId()) ?? null);
+  // True once a project is picked but it has no App URL set — the API would reject this too,
+  // but surfacing it inline (with a pointer to the Projects page) beats a round-trip 400.
+  quickAccessAppUrlMissing = computed(
+    () => this.isQuickAccessInvite() && !!this.inviteProjectId() && !this.selectedInviteProject()?.appUrl,
+  );
 
   createInvite(): void {
     const isSuper = this.auth.isSuperAdmin();
     const targetOwnerId = this.inviteTargetOwnerId();
     const roleId = this.inviteRoleId();
     if (isSuper ? !targetOwnerId : !roleId) return;
+    const quickAccess = this.isQuickAccessInvite();
+    if (quickAccess && (!this.inviteEmail().trim() || !this.inviteProjectId())) return;
     this.inviteCreating.set(true);
     this.inviteCreatedUrl.set(null);
     this.inviteCreatedEmailSent.set(null);
+    this.inviteWasQuickAccess.set(quickAccess);
     const body = isSuper
       ? {
           targetOwnerId,
@@ -505,8 +545,9 @@ export class UsersComponent {
           email: this.inviteEmail() || null,
           expiresInDays: this.inviteExpiresInDays(),
           maxUses: this.inviteMaxUses(),
+          ...(quickAccess ? { projectId: this.inviteProjectId() } : {}),
         };
-    this.invitesService.postApiAdminInvites(body).subscribe({
+    this.invitesService.postApiAdminInvites(body as any).subscribe({
       next: (res: InviteResponse) => {
         this.inviteCreating.set(false);
         this.inviteCreatedUrl.set(res.url ?? null);
@@ -560,8 +601,10 @@ export class UsersComponent {
     this.inviteEmail.set('');
     this.inviteExpiresInDays.set(7);
     this.inviteMaxUses.set(null);
+    this.inviteProjectId.set(null);
     this.inviteCreatedUrl.set(null);
     this.inviteCreatedEmailSent.set(null);
+    this.inviteWasQuickAccess.set(false);
     this.dialogRef = this.dialog.open(this.addDialog(), { width: '440px' });
   }
 
