@@ -145,7 +145,9 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
           </mat-form-field>
           <mat-checkbox [(ngModel)]="newGrantsAdmin">{{ 'roles.grantsAdmin' | transloco }}</mat-checkbox>
           <mat-checkbox [(ngModel)]="newQuickAccess">{{ 'roles.quickAccess' | transloco }}</mat-checkbox>
-          <p class="m-0 text-[12px] text-muted">{{ 'roles.quickAccessHint' | transloco }}</p>
+          @if (newQuickAccess) {
+            <p class="m-0 text-[0.85rem] text-muted">{{ 'roles.quickAccessHint' | transloco }}</p>
+          }
         </div>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
