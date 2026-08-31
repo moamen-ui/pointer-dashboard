@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 // @ts-ignore composable ships in the client version published at deploy (>=1.0.8)
@@ -7,7 +7,8 @@ import { usePostApiAuthForgotPassword } from '@moamen-ui/pointer-vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
+import { isValidEmail } from '@/lib/validation';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -18,8 +19,21 @@ const email = ref('');
 const loading = ref(false);
 const submitted = ref(false);
 
+// Angular-parity validation: email required + valid format; error appears only
+// after the field was touched (blurred), like FormControl.invalid && .touched.
+const touched = reactive({ email: false });
+
+const emailError = computed(() => {
+  if (!touched.email) return '';
+  if (!email.value.trim()) return t('common.fieldRequired');
+  if (!isValidEmail(email.value)) return t('common.invalidEmail');
+  return '';
+});
+
+const formInvalid = computed(() => !email.value.trim() || !isValidEmail(email.value));
+
 async function onSubmit() {
-  if (!email.value) return;
+  if (formInvalid.value) return;
   loading.value = true;
   try {
     await forgotMutation.mutateAsync({ data: { email: email.value } });
@@ -48,20 +62,20 @@ async function onSubmit() {
 
         <!-- Request form -->
         <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <div class="flex flex-col gap-2">
-            <Label for="forgot-email">{{ t('login.email') }}</Label>
+          <FormField :label="t('login.email')" html-for="forgot-email" :error="emailError">
             <Input
               id="forgot-email"
               v-model="email"
               type="email"
               autocomplete="email"
               required
+              @blur="touched.email = true"
             />
-          </div>
+          </FormField>
           <Button
             type="submit"
             class="mt-1"
-            :disabled="loading || !email"
+            :disabled="loading || formInvalid"
           >
             {{ t('auth.forgotSubmit') }}
           </Button>

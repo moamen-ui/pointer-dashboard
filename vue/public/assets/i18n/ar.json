@@ -23,7 +23,10 @@
     "search": "بحث…",
     "noResults": "لا توجد نتائج مطابقة",
     "previousPage": "الصفحة السابقة",
-    "nextPage": "الصفحة التالية"
+    "nextPage": "الصفحة التالية",
+    "fieldRequired": "هذا الحقل مطلوب.",
+    "invalidEmail": "أدخل بريدًا إلكترونيًا صحيحًا.",
+    "passwordMinLength": "يجب ألا تقل كلمة المرور عن {{ min }} أحرف."
   },
   "demo": {
     "tryDemo": "جرّب العرض التوضيحي",

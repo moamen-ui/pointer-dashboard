@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 // @ts-ignore composable ships in the client version published at deploy (>=1.0.14)
@@ -12,9 +12,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import { useAuth } from '@/composables/useAuth';
 import { extractMessage } from '@/lib/error';
+import { isValidEmail } from '@/lib/validation';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -36,12 +37,46 @@ const displayName = ref('');
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+// Angular-parity validation: email required + format, displayName required,
+// password required + min length 8, confirmPassword required. Errors appear
+// only after a field was touched (blurred), like FormControl.invalid &&
+// FormControl.touched. Confirm deliberately gets NO per-field error copy
+// (matches the Angular reference) — its feedback is the cross-field mismatch
+// paragraph below both fields.
+const touched = reactive({ email: false, displayName: false, password: false, confirmPassword: false });
+
+const emailError = computed(() => {
+  if (!touched.email) return '';
+  if (!email.value.trim()) return t('common.fieldRequired');
+  if (!isValidEmail(email.value)) return t('common.invalidEmail');
+  return '';
+});
+
+const displayNameError = computed(() =>
+  touched.displayName && !displayName.value.trim() ? t('common.fieldRequired') : '',
+);
+
+const passwordError = computed(() => {
+  if (!touched.password) return '';
+  if (!password.value) return t('common.fieldRequired');
+  if (password.value.length < 8) return t('common.passwordMinLength', { min: 8 });
+  return '';
+});
+
+// Cross-field mismatch: belongs to the field pair, not one field, so it stays
+// OUT of FormField's per-field error slot — a separate paragraph below both
+// fields (mirrors the Angular reference's FormGroup-level validator).
+const passwordsMismatch = computed(
+  () => touched.confirmPassword && password.value !== confirmPassword.value,
+);
+
 const canSubmit = computed(
   () =>
-    !!email.value &&
+    !!email.value.trim() &&
+    isValidEmail(email.value) &&
+    !!displayName.value.trim() &&
     password.value.length >= 8 &&
-    password.value === confirmPassword.value &&
-    !!displayName.value,
+    password.value === confirmPassword.value,
 );
 
 const registerMutation = usePostApiAuthRegisterInvite();
@@ -114,51 +149,55 @@ async function onSubmit() {
 
           <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
             <!-- Email -->
-            <div class="flex flex-col gap-2">
-              <Label for="join-email">{{ t('login.email') }}</Label>
+            <FormField :label="t('login.email')" html-for="join-email" :error="emailError">
               <Input
                 id="join-email"
                 v-model="email"
                 type="email"
                 autocomplete="email"
                 required
+                @blur="touched.email = true"
               />
-            </div>
+            </FormField>
 
             <!-- Display name -->
-            <div class="flex flex-col gap-2">
-              <Label for="join-name">{{ t('invite.displayName') }}</Label>
+            <FormField :label="t('invite.displayName')" html-for="join-name" :error="displayNameError">
               <Input
                 id="join-name"
                 v-model="displayName"
                 autocomplete="name"
                 required
+                @blur="touched.displayName = true"
               />
-            </div>
+            </FormField>
 
             <!-- Password -->
-            <div class="flex flex-col gap-2">
-              <Label for="join-password">{{ t('invite.password') }}</Label>
+            <FormField :label="t('invite.password')" html-for="join-password" :error="passwordError">
               <PasswordInput
                 id="join-password"
                 v-model="password"
                 autocomplete="new-password"
-                minlength="8"
                 required
+                @blur="touched.password = true"
               />
-            </div>
+            </FormField>
 
             <!-- Confirm password -->
-            <div class="flex flex-col gap-2">
-              <Label for="join-confirm">{{ t('invite.confirmPassword') }}</Label>
+            <FormField :label="t('invite.confirmPassword')" html-for="join-confirm">
               <PasswordInput
                 id="join-confirm"
                 v-model="confirmPassword"
                 autocomplete="new-password"
-                minlength="8"
                 required
+                @blur="touched.confirmPassword = true"
               />
-            </div>
+            </FormField>
+
+            <!-- Cross-field check spans both fields, so it can't live in either
+                 FormField's per-field error slot — separate paragraph below them. -->
+            <p v-if="passwordsMismatch" class="text-sm text-destructive">
+              {{ t('invite.passwordMismatch') }}
+            </p>
 
             <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
 

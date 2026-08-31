@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue';
+import { computed, reactive, ref, watchEffect } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import { extractMessage } from '@/lib/error';
+import { isValidEmail } from '@/lib/validation';
 import { cn } from '@/lib/utils';
 
 const { t } = useI18n();
@@ -87,8 +89,40 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const submitted = ref(false);
 
+// Angular-parity validation: displayName required, email required + format,
+// password required + min length 6. Errors appear only after a field was
+// touched (blurred), like FormControl.invalid && FormControl.touched.
+const touched = reactive({ displayName: false, email: false, password: false });
+
+const displayNameError = computed(() =>
+  touched.displayName && !displayName.value.trim() ? t('common.fieldRequired') : '',
+);
+
+const emailError = computed(() => {
+  if (!touched.email) return '';
+  if (!email.value.trim()) return t('common.fieldRequired');
+  if (!isValidEmail(email.value)) return t('common.invalidEmail');
+  return '';
+});
+
+const passwordError = computed(() => {
+  if (!touched.password) return '';
+  if (!password.value) return t('common.fieldRequired');
+  if (password.value.length < 6) return t('common.passwordMinLength', { min: 6 });
+  return '';
+});
+
+const formInvalid = computed(
+  () =>
+    !displayName.value.trim() ||
+    !email.value.trim() ||
+    !isValidEmail(email.value) ||
+    !password.value ||
+    password.value.length < 6,
+);
+
 async function onSubmit() {
-  if (!email.value || !password.value || !displayName.value) return;
+  if (formInvalid.value) return;
   loading.value = true;
   error.value = null;
   try {
@@ -150,23 +184,34 @@ async function onSubmit() {
 
         <!-- Signup form -->
         <form v-else-if="signupOpen" class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <div class="flex flex-col gap-2">
-            <Label for="signup-name">{{ t('signup.displayName') }}</Label>
-            <Input id="signup-name" v-model="displayName" autocomplete="name" required />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="signup-email">{{ t('signup.email') }}</Label>
-            <Input id="signup-email" v-model="email" type="email" autocomplete="email" required />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="signup-password">{{ t('signup.password') }}</Label>
+          <FormField :label="t('signup.displayName')" html-for="signup-name" :error="displayNameError">
+            <Input
+              id="signup-name"
+              v-model="displayName"
+              autocomplete="name"
+              required
+              @blur="touched.displayName = true"
+            />
+          </FormField>
+          <FormField :label="t('signup.email')" html-for="signup-email" :error="emailError">
+            <Input
+              id="signup-email"
+              v-model="email"
+              type="email"
+              autocomplete="email"
+              required
+              @blur="touched.email = true"
+            />
+          </FormField>
+          <FormField :label="t('signup.password')" html-for="signup-password" :error="passwordError">
             <PasswordInput
               id="signup-password"
               v-model="password"
               autocomplete="new-password"
               required
+              @blur="touched.password = true"
             />
-          </div>
+          </FormField>
 
           <!-- Plan selector (marketing display only) -->
           <div v-if="selectablePlans.length > 0" class="flex flex-col gap-2">
@@ -211,7 +256,7 @@ async function onSubmit() {
           <Button
             type="submit"
             class="mt-1"
-            :disabled="loading || !email || !password || !displayName"
+            :disabled="loading || formInvalid"
           >
             {{ t('signup.submit') }}
           </Button>
