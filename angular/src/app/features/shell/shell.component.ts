@@ -142,6 +142,10 @@ import { DemoPanelComponent } from './demo-panel.component';
               <mat-icon matListItemIcon>label</mat-icon>
               <span matListItemTitle>{{ 'nav.statuses' | transloco }}</span>
             </a>
+            <a mat-list-item routerLink="/environments" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>public</mat-icon>
+              <span matListItemTitle>{{ 'nav.environments' | transloco }}</span>
+            </a>
           }
           @if (auth.isSuperAdmin()) {
             <a mat-list-item routerLink="/tenants" routerLinkActive="active-link">

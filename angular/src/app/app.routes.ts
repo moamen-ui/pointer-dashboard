@@ -65,6 +65,12 @@ export const routes: Routes = [
           import('./features/roles/roles.component').then((m) => m.RolesComponent),
       },
       {
+        path: 'environments',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/environments/environments.component').then((m) => m.EnvironmentsComponent),
+      },
+      {
         path: 'users',
         canActivate: [adminGuard],
         loadComponent: () =>

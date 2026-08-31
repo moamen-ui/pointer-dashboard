@@ -3,6 +3,7 @@ import {
   AbstractControl,
   FormArray,
   FormBuilder,
+  FormsModule,
   ReactiveFormsModule,
   ValidationErrors,
   ValidatorFn,
@@ -26,6 +27,8 @@ import {
   ExportImportService,
   SuggestionsService,
   getApiAdminProjectsResource,
+  getApiAdminEnvironmentsResource,
+  getApiAdminProjectsIdAppUrlsResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
@@ -93,6 +96,7 @@ const latin = asciiDigits(name.toLowerCase())
   selector: 'app-projects',
   standalone: true,
   imports: [
+    FormsModule,
     ReactiveFormsModule,
     MatTableModule,
     MatButtonModule,
@@ -321,6 +325,41 @@ const latin = asciiDigits(name.toLowerCase())
             <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
           </mat-form-field>
 
+          @if (otherEnvironments().length > 0) {
+            <div class="mb-2">
+              <div class="mb-1 text-[0.95rem] font-semibold">{{ 'projects.otherEnvironments' | transloco }}</div>
+              <p class="mb-2 text-[0.8rem] text-muted">{{ 'projects.otherEnvironmentsHint' | transloco }}</p>
+              <div class="flex flex-col gap-2">
+                @for (env of otherEnvironments(); track env.id) {
+                  <div class="flex items-center gap-2">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-24 shrink-0">
+                      <mat-label>{{ 'environments.name' | transloco }}</mat-label>
+                      <input matInput [value]="env.name" disabled />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                      <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
+                      <input matInput placeholder="https://..."
+                        [ngModel]="envUrlDrafts()[env.id!] ?? ''"
+                        [ngModelOptions]="{ standalone: true }"
+                        (ngModelChange)="setEnvUrlDraft(env.id!, $event)" />
+                    </mat-form-field>
+                    <button mat-icon-button type="button" [attr.aria-label]="'common.save' | transloco"
+                      (click)="saveEnvironmentUrl(env.id!)">
+                      <mat-icon>check</mat-icon>
+                    </button>
+                    @if (envUrlDrafts()[env.id!]) {
+                      <button mat-icon-button type="button" class="!text-red-600"
+                        [attr.aria-label]="'common.delete' | transloco"
+                        (click)="clearEnvironmentUrl(env.id!)">
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
           <div class="flex items-center justify-between gap-4">
             <div>
               <div class="font-medium">{{ 'projects.pageContextCapture' | transloco }}</div>
@@ -460,6 +499,56 @@ export class ProjectsComponent {
   private importProjectKey = signal<string>('');
 
   private editingProjectId = signal<number | null>(null);
+
+  // Per-environment App URLs (edit dialog only — a project must exist first). "default" is
+  // covered by the ordinary "App URL" field above (ProjectService.SyncDefaultAppUrlAsync keeps
+  // them in sync server-side), so it's excluded here to avoid showing the same value twice.
+  environmentsResource = getApiAdminEnvironmentsResource();
+  private editingProjectIdForUrls = computed(() => this.editingProjectId() ?? 0);
+  projectAppUrlsResource = getApiAdminProjectsIdAppUrlsResource(this.editingProjectIdForUrls);
+  otherEnvironments = computed(() => (this.environmentsResource.value() ?? []).filter((e) => e.name !== 'default'));
+  // The loaded value per AppEnvironmentId, overlaid with whatever the user is actively typing
+  // (envUrlOverrides) — each row saves immediately on its own "check" button, independently of
+  // the reactive `editForm`'s single Save action.
+  private envUrlLoaded = computed(() => {
+    const loaded: Record<number, string> = {};
+    for (const u of this.projectAppUrlsResource.value() ?? []) {
+      if (u.appEnvironmentId != null) loaded[u.appEnvironmentId] = u.url ?? '';
+    }
+    return loaded;
+  });
+  private envUrlOverrides = signal<Record<number, string>>({});
+  envUrlDrafts = computed(() => ({ ...this.envUrlLoaded(), ...this.envUrlOverrides() }));
+
+  setEnvUrlDraft(environmentId: number, value: string): void {
+    this.envUrlOverrides.update((o) => ({ ...o, [environmentId]: value }));
+  }
+
+  saveEnvironmentUrl(environmentId: number): void {
+    const projectId = this.editingProjectId();
+    const url = (this.envUrlDrafts()[environmentId] ?? '').trim();
+    if (!projectId || !url) return;
+    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId, { url }).subscribe({
+      next: () => {
+        this.envUrlOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
+        this.projectAppUrlsResource.reload();
+        this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 2000 });
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  clearEnvironmentUrl(environmentId: number): void {
+    const projectId = this.editingProjectId();
+    if (!projectId) return;
+    this.projectsService.deleteApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId).subscribe({
+      next: () => {
+        this.envUrlOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
+        this.projectAppUrlsResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
   viewingProject = signal<ProjectResponse | null>(null);
   private suggestingProjectId = signal<number | null>(null);
   suggestBusy = signal(false);
@@ -594,6 +683,7 @@ export class ProjectsComponent {
 
   openEdit(project: ProjectResponse): void {
     this.editingProjectId.set(project.id ?? null);
+    this.envUrlOverrides.set({}); // discard any unsaved per-environment draft from a prior project
     this.editForm.reset({
       name: project.name ?? '',
       appUrl: project.appUrl ?? '',
