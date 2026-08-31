@@ -11,23 +11,33 @@ import { DemoService, DemoRequest, DemoSessionResponse } from '@moamen-ui/pointe
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
+import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent, FormFieldComponent],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
         <h1 class="my-[0.67em] text-[2em] font-bold">{{ 'login.title' | transloco }}</h1>
         <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
-          <mat-form-field appearance="outline"><mat-label>{{ 'login.email' | transloco }}</mat-label>
-            <input matInput type="email" formControlName="email" /></mat-form-field>
-          <mat-form-field appearance="outline"><mat-label>{{ 'login.password' | transloco }}</mat-label>
-            <input matInput [type]="pwToggle.type()" formControlName="password" />
-            <app-password-toggle matSuffix #pwToggle /></mat-form-field>
+          <app-form-field
+            [control]="form.controls.email"
+            [label]="'login.email' | transloco"
+            type="email"
+            [errorMessage]="emailError()"
+          />
+          <app-form-field
+            [control]="form.controls.password"
+            [label]="'login.password' | transloco"
+            [type]="pwToggle.type()"
+            [errorMessage]="'common.fieldRequired' | transloco"
+          >
+            <app-password-toggle matSuffix #pwToggle />
+          </app-form-field>
           <a mat-button routerLink="/forgot" class="self-end text-[0.85rem]">
             {{ 'login.forgot' | transloco }}
           </a>
@@ -69,6 +79,13 @@ export class LoginComponent {
     email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
   });
+
+  emailError(): string {
+    const ctrl = this.form.controls.email;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    return '';
+  }
 
   submit() {
     if (this.form.invalid) return;

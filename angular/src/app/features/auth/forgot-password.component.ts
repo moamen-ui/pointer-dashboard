@@ -5,13 +5,14 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService as ApiAuthService, ForgotPasswordRequest } from '@moamen-ui/pointer-angular';
+import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 @Component({
   selector: 'app-forgot-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule],
+  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, FormFieldComponent],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -21,10 +22,12 @@ import { AuthService as ApiAuthService, ForgotPasswordRequest } from '@moamen-ui
           <p class="text-[0.95rem] text-muted">{{ 'auth.forgotSent' | transloco }}</p>
         } @else {
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'login.email' | transloco }}</mat-label>
-              <input matInput type="email" formControlName="email" />
-            </mat-form-field>
+            <app-form-field
+              [control]="form.controls.email"
+              [label]="'login.email' | transloco"
+              type="email"
+              [errorMessage]="emailError()"
+            />
             <button mat-flat-button color="primary" class="mt-2" [disabled]="form.invalid || loading()">
               {{ 'auth.forgotSubmit' | transloco }}
             </button>
@@ -41,12 +44,20 @@ import { AuthService as ApiAuthService, ForgotPasswordRequest } from '@moamen-ui
 export class ForgotPasswordComponent {
   private fb = inject(FormBuilder);
   private apiAuth = inject(ApiAuthService);
+  private transloco = inject(TranslocoService);
   loading = signal(false);
   sent = signal(false);
 
   form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
   });
+
+  emailError(): string {
+    const ctrl = this.form.controls.email;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    return '';
+  }
 
   submit() {
     if (this.form.invalid) return;

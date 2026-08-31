@@ -25,6 +25,7 @@ import type {
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
+import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const pwd = control.get('password');
@@ -46,6 +47,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     MatProgressBarModule,
     TranslocoModule,
     PasswordToggleComponent,
+    FormFieldComponent,
   ],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
@@ -82,36 +84,39 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
           }
 
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'invite.email' | transloco }}</mat-label>
-              <input matInput type="email" formControlName="email" />
-              @if (form.get('email')?.hasError('required')) {
-                <mat-error>{{ 'invite.email' | transloco }}</mat-error>
-              }
-            </mat-form-field>
+            <app-form-field
+              [control]="form.controls.email"
+              [label]="'invite.email' | transloco"
+              type="email"
+              [errorMessage]="emailError()"
+            />
 
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'invite.displayName' | transloco }}</mat-label>
-              <input matInput formControlName="displayName" />
-            </mat-form-field>
+            <app-form-field
+              [control]="form.controls.displayName"
+              [label]="'invite.displayName' | transloco"
+              [errorMessage]="'common.fieldRequired' | transloco"
+            />
 
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'invite.password' | transloco }}</mat-label>
-              <input matInput [type]="pwToggle.type()" formControlName="password" />
+            <app-form-field
+              [control]="form.controls.password"
+              [label]="'invite.password' | transloco"
+              [type]="pwToggle.type()"
+              [errorMessage]="passwordError()"
+            >
               <app-password-toggle matSuffix #pwToggle />
-              @if (form.get('password')?.hasError('minlength')) {
-                <mat-error>{{ 'invite.password' | transloco }} (min 8)</mat-error>
-              }
-            </mat-form-field>
+            </app-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'invite.confirmPassword' | transloco }}</mat-label>
-              <input matInput [type]="confirmPwToggle.type()" formControlName="confirmPassword" />
+            <app-form-field
+              [control]="form.controls.confirmPassword"
+              [label]="'invite.confirmPassword' | transloco"
+              [type]="confirmPwToggle.type()"
+            >
               <app-password-toggle matSuffix #confirmPwToggle />
-              @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
-                <mat-error>{{ 'invite.passwordMismatch' | transloco }}</mat-error>
-              }
-            </mat-form-field>
+            </app-form-field>
+            <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself. -->
+            @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
+              <p class="m-0 -mt-2 text-[0.8rem] text-danger">{{ 'invite.passwordMismatch' | transloco }}</p>
+            }
 
             <button
               mat-flat-button
@@ -156,6 +161,20 @@ export class JoinComponent implements OnInit {
   ngOnInit(): void {
     const c = this.route.snapshot.queryParamMap.get('code');
     if (c) this.code.set(c);
+  }
+
+  emailError(): string {
+    const ctrl = this.form.controls.email;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    return '';
+  }
+
+  passwordError(): string {
+    const ctrl = this.form.controls.password;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 8 });
+    return '';
   }
 
   submit(): void {

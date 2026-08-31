@@ -10,6 +10,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService as ApiAuthService, ResetPasswordRequest } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
+import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const newPwd = control.get('newPassword');
@@ -21,7 +22,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
 @Component({
   selector: 'app-reset-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent],
+  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent, FormFieldComponent],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -34,22 +35,26 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
           </a>
         } @else {
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'auth.newPassword' | transloco }}</mat-label>
-              <input matInput [type]="newPwToggle.type()" formControlName="newPassword" />
+            <app-form-field
+              [control]="form.controls.newPassword"
+              [label]="'auth.newPassword' | transloco"
+              [type]="newPwToggle.type()"
+              [errorMessage]="newPasswordError()"
+            >
               <app-password-toggle matSuffix #newPwToggle />
-              @if (form.get('newPassword')?.hasError('minlength')) {
-                <mat-error>{{ 'auth.newPassword' | transloco }} (min 8)</mat-error>
-              }
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'auth.confirmPassword' | transloco }}</mat-label>
-              <input matInput [type]="confirmPwToggle.type()" formControlName="confirmPassword" />
+            </app-form-field>
+            <app-form-field
+              [control]="form.controls.confirmPassword"
+              [label]="'auth.confirmPassword' | transloco"
+              [type]="confirmPwToggle.type()"
+            >
               <app-password-toggle matSuffix #confirmPwToggle />
-              @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
-                <mat-error>{{ 'auth.confirmPassword' | transloco }}</mat-error>
-              }
-            </mat-form-field>
+            </app-form-field>
+            <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself, so it
+                 can't go through app-form-field's per-control error slot. -->
+            @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
+              <p class="m-0 -mt-1 text-[0.8rem] text-danger">{{ 'auth.confirmPassword' | transloco }}</p>
+            }
             <button mat-flat-button color="primary" class="mt-2" [disabled]="form.invalid || loading()">
               {{ 'auth.resetSubmit' | transloco }}
             </button>
@@ -84,6 +89,13 @@ export class ResetPasswordComponent implements OnInit {
   ngOnInit(): void {
     const t = this.route.snapshot.queryParamMap.get('token');
     this.token.set(t);
+  }
+
+  newPasswordError(): string {
+    const ctrl = this.form.controls.newPassword;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 8 });
+    return '';
   }
 
   submit() {

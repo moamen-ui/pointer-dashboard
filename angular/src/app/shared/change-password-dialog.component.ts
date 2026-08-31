@@ -11,6 +11,7 @@ import { MeService } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../core/auth/auth.service';
 import { extractMessage } from '../core/api/extract-message';
 import { PasswordToggleComponent } from './password-toggle.component';
+import { FormFieldComponent } from './form-field/form-field.component';
 
 /**
  * Self-service change-password, opened from the profile menu. Success rotates the server-side
@@ -28,26 +29,36 @@ import { PasswordToggleComponent } from './password-toggle.component';
     MatInputModule,
     TranslocoModule,
     PasswordToggleComponent,
+    FormFieldComponent,
   ],
   template: `
     <h2 mat-dialog-title>{{ 'changePassword.title' | transloco }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex min-w-80 flex-col gap-3 pt-2">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ 'changePassword.current' | transloco }}</mat-label>
-          <input matInput [type]="currentToggle.type()" formControlName="currentPassword" />
+        <app-form-field
+          [control]="form.controls.currentPassword"
+          [label]="'changePassword.current' | transloco"
+          [type]="currentToggle.type()"
+          [errorMessage]="'common.fieldRequired' | transloco"
+        >
           <app-password-toggle matSuffix #currentToggle />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>{{ 'changePassword.new' | transloco }}</mat-label>
-          <input matInput [type]="newToggle.type()" formControlName="newPassword" />
+        </app-form-field>
+        <app-form-field
+          [control]="form.controls.newPassword"
+          [label]="'changePassword.new' | transloco"
+          [type]="newToggle.type()"
+          [errorMessage]="newPasswordError()"
+        >
           <app-password-toggle matSuffix #newToggle />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>{{ 'changePassword.confirm' | transloco }}</mat-label>
-          <input matInput [type]="confirmToggle.type()" formControlName="confirmPassword" />
+        </app-form-field>
+        <app-form-field
+          [control]="form.controls.confirmPassword"
+          [label]="'changePassword.confirm' | transloco"
+          [type]="confirmToggle.type()"
+          [errorMessage]="'common.fieldRequired' | transloco"
+        >
           <app-password-toggle matSuffix #confirmToggle />
-        </mat-form-field>
+        </app-form-field>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -74,6 +85,13 @@ export class ChangePasswordDialogComponent {
     newPassword: ['', [Validators.required, Validators.minLength(8)]],
     confirmPassword: ['', Validators.required],
   });
+
+  newPasswordError(): string {
+    const ctrl = this.form.controls.newPassword;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 8 });
+    return '';
+  }
 
   submit(): void {
     if (this.form.invalid) return;

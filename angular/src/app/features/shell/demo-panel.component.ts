@@ -12,6 +12,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
 import { extractMessage } from '../../core/api/extract-message';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
+import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 interface DemoSession {
   email?: string | null;
@@ -54,6 +55,7 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
     MatInputModule,
     TranslocoModule,
     PasswordToggleComponent,
+    FormFieldComponent,
   ],
   template: `
     @if (!dismissed() && session(); as s) {
@@ -110,27 +112,35 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
       <mat-dialog-content>
         <p class="mb-4 mt-1 text-[0.9rem] text-muted">{{ 'demo.upgradeIntro' | transloco }}</p>
         <form [formGroup]="upgradeForm" class="flex min-w-80 flex-col gap-3">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'demo.email' | transloco }}</mat-label>
-            <input matInput type="email" formControlName="email" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'demo.password' | transloco }}</mat-label>
-            <input matInput [type]="pwToggle.type()" formControlName="password" />
+          <app-form-field
+            [control]="upgradeForm.controls.email"
+            [label]="'demo.email' | transloco"
+            type="email"
+            [errorMessage]="emailError()"
+          />
+          <app-form-field
+            [control]="upgradeForm.controls.password"
+            [label]="'demo.password' | transloco"
+            [type]="pwToggle.type()"
+            [errorMessage]="passwordError()"
+          >
             <app-password-toggle matSuffix #pwToggle />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'demo.confirmPassword' | transloco }}</mat-label>
-            <input matInput [type]="confirmPwToggle.type()" formControlName="confirmPassword" />
+          </app-form-field>
+          <app-form-field
+            [control]="upgradeForm.controls.confirmPassword"
+            [label]="'demo.confirmPassword' | transloco"
+            [type]="confirmPwToggle.type()"
+          >
             <app-password-toggle matSuffix #confirmPwToggle />
-          </mat-form-field>
+          </app-form-field>
+          <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself. -->
           @if (upgradeForm.errors?.['passwordMismatch'] && upgradeForm.get('confirmPassword')?.dirty) {
-            <p class="m-0 text-[0.85rem] text-red-600">{{ 'demo.passwordMismatch' | transloco }}</p>
+            <p class="m-0 -mt-2 text-[0.85rem] text-danger">{{ 'demo.passwordMismatch' | transloco }}</p>
           }
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'demo.displayName' | transloco }}</mat-label>
-            <input matInput formControlName="displayName" />
-          </mat-form-field>
+          <app-form-field
+            [control]="upgradeForm.controls.displayName"
+            [label]="'demo.displayName' | transloco"
+          />
         </form>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
@@ -185,6 +195,20 @@ export class DemoPanelComponent implements OnDestroy {
     const minutes = totalMinutes % 60;
     return this.transloco.translate('demo.expiresIn', { hours, minutes });
   });
+
+  emailError(): string {
+    const ctrl = this.upgradeForm.controls.email;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    return '';
+  }
+
+  passwordError(): string {
+    const ctrl = this.upgradeForm.controls.password;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 8 });
+    return '';
+  }
 
   private readDismissed(): boolean {
     try {

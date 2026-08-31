@@ -15,7 +15,12 @@
     "confirmDisable": "تعطيل {{ name }}؟",
     "confirm": "تأكيد",
     "showPassword": "إظهار كلمة المرور",
-    "hidePassword": "إخفاء كلمة المرور"
+    "hidePassword": "إخفاء كلمة المرور",
+    "fieldRequired": "هذا الحقل مطلوب.",
+    "invalidEmail": "أدخل بريدًا إلكترونيًا صحيحًا.",
+    "passwordMinLength": "يجب ألا تقل كلمة المرور عن {{ min }} أحرف.",
+    "search": "بحث",
+    "noResults": "لا توجد صفوف مطابقة"
   },
   "nav": {
     "overview": "نظرة عامة",

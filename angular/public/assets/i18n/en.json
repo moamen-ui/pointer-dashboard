@@ -15,7 +15,12 @@
     "confirmDisable": "Disable {{ name }}?",
     "confirm": "Confirm",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "fieldRequired": "This field is required.",
+    "invalidEmail": "Enter a valid email address.",
+    "passwordMinLength": "Password must be at least {{ min }} characters.",
+    "search": "Search",
+    "noResults": "No matching rows"
   },
   "nav": {
     "overview": "Overview",
