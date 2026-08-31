@@ -2,9 +2,6 @@
 // A super-admin-seeded global catalog ("default", "prod", "staging", "testing") every
 // tenant sees, plus each tenant's own custom environments layered on top. First page
 // built on the shared DataTable/Badge/RowActionsMenu library.
-//
-// NOTE: imports below come from './api', a local stand-in that mirrors the generated
-// environments module; flip to '@moamen-ui/pointer-react' once that client publishes.
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -33,7 +30,7 @@ import {
   usePatchApiAdminEnvironmentsId,
   usePostApiAdminEnvironments,
   type AppEnvironmentResponse,
-} from './api';
+} from '@moamen-ui/pointer-react';
 
 export function EnvironmentsPage() {
   const { t } = useTranslation();
