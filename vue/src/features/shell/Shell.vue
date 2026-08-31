@@ -21,6 +21,7 @@ import {
   Palette,
   Rocket,
   Languages,
+  Globe,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,7 @@ const sidebarOpen = ref(false);
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
+  { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/statuses', key: 'nav.statuses', icon: Tag },
 ];

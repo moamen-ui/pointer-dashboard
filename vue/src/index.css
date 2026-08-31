@@ -54,6 +54,12 @@
   --accent-foreground: var(--brand);
   --destructive: #c62828;
   --destructive-foreground: #ffffff;
+  /* Status accents: same shape as --destructive (amber warning, green success —
+     light theme uses the chip-ok green for consistency). */
+  --success: #2e7d32;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
   --border: var(--border-color);
   --input: var(--border-color);
   --ring: var(--brand);
@@ -80,6 +86,10 @@ html.dark {
 
   --destructive: #fca5a5;
   --destructive-foreground: #0f141b;
+  --success: #6ee7a0;
+  --success-foreground: #0f141b;
+  --warning: #fcd34d;
+  --warning-foreground: #0f141b;
 }
 
 /* ── Tailwind v4 theme: expose tokens as utilities (bg-background, etc.) ── */
@@ -102,6 +112,10 @@ html.dark {
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

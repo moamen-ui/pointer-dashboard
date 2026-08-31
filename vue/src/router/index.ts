@@ -12,6 +12,7 @@ import Shell from '@/features/shell/Shell.vue';
 import LoginPage from '@/features/login/LoginPage.vue';
 import OverviewPage from '@/features/overview/OverviewPage.vue';
 import RolesPage from '@/features/roles/RolesPage.vue';
+import EnvironmentsPage from '@/features/environments/EnvironmentsPage.vue';
 import UsersPage from '@/features/users/UsersPage.vue';
 import ProjectsPage from '@/features/projects/ProjectsPage.vue';
 import ProfilePage from '@/features/profile/ProfilePage.vue';
@@ -47,6 +48,7 @@ export const router = createRouter({
         // Admin-only children.
         { path: 'overview', name: 'overview', component: OverviewPage, meta: { requiresAdmin: true } },
         { path: 'roles', name: 'roles', component: RolesPage, meta: { requiresAdmin: true } },
+        { path: 'environments', name: 'environments', component: EnvironmentsPage, meta: { requiresAdmin: true } },
         { path: 'users', name: 'users', component: UsersPage, meta: { requiresAdmin: true } },
         { path: 'projects', name: 'projects', component: ProjectsPage },
         { path: 'statuses', name: 'statuses', component: StatusesPage, meta: { requiresAdmin: true } },

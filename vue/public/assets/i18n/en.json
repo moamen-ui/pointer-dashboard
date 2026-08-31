@@ -18,7 +18,12 @@
     "edit": "Edit",
     "loading": "Loading",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "actions": "Actions",
+    "search": "Search…",
+    "noResults": "No matching results",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   },
   "demo": {
     "tryDemo": "Try the demo",
@@ -64,6 +69,7 @@
   "nav": {
     "overview": "Overview",
     "roles": "Roles",
+    "environments": "Environments",
     "users": "Users",
     "projects": "Projects",
     "statuses": "Statuses",
@@ -151,6 +157,19 @@
     "deleted": "Role deleted",
     "empty": "No roles yet",
     "emptyHint": "Roles label your stakeholders — Developer, PM, Tester. Add one to start assigning people."
+  },
+  "environments": {
+    "title": "Environments",
+    "subtitle": "Deployment stages your projects can have a distinct App URL for — default, prod, staging, etc.",
+    "addEnvironment": "Add Environment",
+    "name": "Name",
+    "scope": "Scope",
+    "global": "Global",
+    "own": "Custom",
+    "confirmDelete": "Delete the \"{{name}}\" environment?",
+    "deleted": "Environment deleted",
+    "empty": "No environments yet",
+    "emptyHint": "Environments let a project have a different App URL per deployment stage. \"default\" is seeded for you — add more like \"prod\" or \"staging\" as needed."
   },
   "users": {
     "title": "Users",
