@@ -14,7 +14,8 @@
     "confirmDisable": "تعطيل {{ name }}؟",
     "confirm": "تأكيد",
     "showPassword": "إظهار كلمة المرور",
-    "hidePassword": "إخفاء كلمة المرور"
+    "hidePassword": "إخفاء كلمة المرور",
+    "delete": "حذف"
   },
   "nav": {
     "overview": "نظرة عامة",
@@ -23,6 +24,7 @@
     "projects": "المشاريع",
     "myProfile": "ملفي الشخصي",
     "statuses": "الحالات",
+    "environments": "البيئات",
     "tenants": "المستأجرون",
     "plans": "الخطط",
     "settings": "الإعدادات",
@@ -505,5 +507,18 @@
     "extLoadHint": "اذهب إلى chrome://extensions، فعّل وضع المطوّر، انقر \"Load unpacked\"، ثم اختر المجلد المستخرج.",
     "extSignInTitle": "سجّل الدخول",
     "extSignInHint": "انقر على أيقونة Pointer في شريط الأدوات وسجّل الدخول باستخدام عنوان خادم Pointer وبيانات حسابك."
+  },
+  "environments": {
+    "title": "البيئات",
+    "subtitle": "مراحل النشر التي يمكن لمشاريعك أن يكون لها رابط تطبيق مختلف لكل منها — افتراضي، إنتاج، تجريبي، إلخ.",
+    "addEnvironment": "إضافة بيئة",
+    "name": "الاسم",
+    "scope": "النطاق",
+    "global": "عام",
+    "own": "خاص",
+    "confirmDelete": "حذف بيئة \"{{name}}\"؟",
+    "deleted": "تم حذف البيئة",
+    "empty": "لا توجد بيئات بعد",
+    "emptyHint": "تتيح البيئات لمشروعك رابط تطبيق مختلف لكل مرحلة نشر. تم تجهيز بيئة \"default\" افتراضيًا — أضف المزيد مثل \"prod\" أو \"staging\" حسب الحاجة."
   }
 }

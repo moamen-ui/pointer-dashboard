@@ -12,6 +12,7 @@ import { UsersPage } from '@/features/users/UsersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { ProfilePage } from '@/features/profile';
 import { StatusesPage } from '@/features/statuses/StatusesPage';
+import { EnvironmentsPage } from '@/features/environments/EnvironmentsPage';
 import { TenantsPage } from '@/features/tenants/TenantsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { PlansPage } from '@/features/plans/PlansPage';
@@ -54,6 +55,7 @@ export default function App() {
                     <Route path="/roles" element={<RolesPage />} />
                     <Route path="/users" element={<UsersPage />} />
                     <Route path="/statuses" element={<StatusesPage />} />
+                    <Route path="/environments" element={<EnvironmentsPage />} />
                     {/* Admin view of another user's profile */}
                     <Route path="/users/:id/profile" element={<ProfilePage />} />
                     {/* Mixes super-admin-only instance settings (gated inside the page) with
