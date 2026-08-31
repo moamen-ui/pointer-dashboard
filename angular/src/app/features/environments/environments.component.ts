@@ -5,35 +5,39 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AppEnvironmentsService, getApiAdminEnvironmentsResource } from '@moamen-ui/pointer-angular';
 import type { AppEnvironmentResponse } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { ConfirmService } from '../../core/confirm.service';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 
 /**
  * A super-admin-seeded global catalog ("default", "prod", "staging", "testing") every tenant
  * sees, plus each tenant's own custom environments layered on top — same own-plus-global shape
  * as the Roles page. A project can have one AppUrl per environment (see the Projects page).
+ *
+ * First page migrated onto the shared DataTable/Badge/ConfirmService — see
+ * /Users/momen/.claude/plans/jolly-moseying-metcalfe.md for the wave-1 proving-ground plan.
  */
 @Component({
   selector: 'app-environments',
   standalone: true,
   imports: [
     FormsModule,
-    MatTableModule,
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
     MatIconModule,
-    MatMenuModule,
     MatDialogModule,
     TranslocoModule,
-    EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
     <div class="p-6">
@@ -47,56 +51,23 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
         </button>
       </div>
 
-      @if (environments().length === 0) {
-        <app-empty-state
-          icon="public"
-          [message]="'environments.empty' | transloco"
-          [hint]="'environments.emptyHint' | transloco"
-        >
-          <button mat-flat-button color="primary" (click)="openAdd()">
-            <mat-icon>add</mat-icon> {{ 'environments.addEnvironment' | transloco }}
-          </button>
-        </app-empty-state>
-      } @else {
-        <table mat-table [dataSource]="environments()" class="w-full mat-elevation-z2">
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>{{ 'environments.name' | transloco }}</th>
-            <td mat-cell *matCellDef="let env">{{ env.name }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="scope">
-            <th mat-header-cell *matHeaderCellDef>{{ 'environments.scope' | transloco }}</th>
-            <td mat-cell *matCellDef="let env">
-              <span class="chip" [class.chip-neutral]="env.isGlobal" [class.chip-active]="!env.isGlobal">
-                {{ (env.isGlobal ? 'environments.global' : 'environments.own') | transloco }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
-            <td mat-cell *matCellDef="let env">
-              @if (env.canManage) {
-                <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                  [attr.aria-label]="'roles.actions' | transloco">
-                  <mat-icon>more_vert</mat-icon>
-                </button>
-                <mat-menu #rowMenu="matMenu">
-                  <button mat-menu-item (click)="renameEnvironment(env)">
-                    <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
-                  </button>
-                  <button mat-menu-item class="!text-red-600" (click)="confirmDelete(env)">
-                    <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
-                  </button>
-                </mat-menu>
-              }
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
-      }
+      <app-data-table
+        [rows]="environments()"
+        [columns]="columns()"
+        [actionsColumn]="{ items: actionsFor }"
+        [emptyIcon]="'public'"
+        [emptyMessage]="'environments.empty' | transloco"
+        [emptyHint]="'environments.emptyHint' | transloco"
+      >
+        <button emptyAction mat-flat-button color="primary" (click)="openAdd()">
+          <mat-icon>add</mat-icon> {{ 'environments.addEnvironment' | transloco }}
+        </button>
+        <ng-template appDataTableCell="scope" let-env>
+          <app-badge [severity]="env.isGlobal ? 'neutral' : 'success'">
+            {{ (env.isGlobal ? 'environments.global' : 'environments.own') | transloco }}
+          </app-badge>
+        </ng-template>
+      </app-data-table>
     </div>
 
     <!-- Add environment dialog -->
@@ -143,6 +114,7 @@ export class EnvironmentsComponent {
   private snack = inject(MatSnackBar);
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
+  private confirmService = inject(ConfirmService);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly renameDialog = viewChild.required<TemplateRef<unknown>>('renameDialog');
@@ -151,7 +123,31 @@ export class EnvironmentsComponent {
   environmentsResource = getApiAdminEnvironmentsResource();
   environments = () => this.environmentsResource.value() ?? [];
 
-  displayedColumns = ['name', 'scope', 'actions'];
+  // A method (not a stored field) so column headers stay live if the app language changes —
+  // matches the same "re-evaluated every change-detection pass" idiom `| transloco` itself uses.
+  columns(): DataTableColumn<AppEnvironmentResponse>[] {
+    return [
+      { key: 'name', header: this.transloco.translate('environments.name'), sortable: true },
+      { key: 'scope', header: this.transloco.translate('environments.scope') },
+    ];
+  }
+
+  readonly actionsFor = (env: AppEnvironmentResponse): RowActionItem[] => {
+    if (!env.canManage) return [];
+    return [
+      {
+        label: this.transloco.translate('common.rename'),
+        icon: 'edit',
+        onClick: () => this.renameEnvironment(env),
+      },
+      {
+        label: this.transloco.translate('common.delete'),
+        icon: 'delete',
+        severity: 'danger',
+        onClick: () => this.confirmDelete(env),
+      },
+    ];
+  };
 
   newName = '';
 
@@ -168,8 +164,9 @@ export class EnvironmentsComponent {
     if (!name) return;
     this.environmentsService.postApiAdminEnvironments({ name }).subscribe({
       next: () => {
+        // openAdd() already resets newName on next open — resetting it here too raced
+        // dialogRef.close()'s CD check (NG0100: ExpressionChangedAfterItHasBeenCheckedError).
         this.dialogRef?.close();
-        this.newName = '';
         this.environmentsResource.reload();
       },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
@@ -199,15 +196,12 @@ export class EnvironmentsComponent {
   }
 
   confirmDelete(env: AppEnvironmentResponse) {
-    this.dialog
-      .open(ConfirmDialogComponent, {
-        data: {
-          message: this.transloco.translate('environments.confirmDelete', { name: env.name }),
-          confirmLabel: this.transloco.translate('common.delete'),
-          confirmColor: 'warn',
-        },
+    this.confirmService
+      .confirm({
+        message: this.transloco.translate('environments.confirmDelete', { name: env.name }),
+        confirmLabel: this.transloco.translate('common.delete'),
+        confirmColor: 'danger',
       })
-      .afterClosed()
       .subscribe((ok) => {
         if (ok) this.deleteEnvironment(env);
       });
