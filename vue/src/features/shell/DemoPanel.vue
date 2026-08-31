@@ -13,10 +13,11 @@ import { usePostApiDemoUpgrade } from '@moamen-ui/pointer-vue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import { useAuth } from '@/composables/useAuth';
 import { toast } from '@/composables/useToast';
 import { extractMessage } from '@/lib/error';
+import { isValidEmail } from '@/lib/validation';
 import { useInstallGuide } from '@/shared/install-guide/useInstallGuide';
 
 const { t } = useI18n();
@@ -70,8 +71,44 @@ const { loginWithToken } = useAuth();
 const upgradeDialogOpen = ref(false);
 const upgradeForm = reactive({ email: '', password: '', confirmPassword: '', displayName: '' });
 const upgradeError = ref('');
+
+// Angular-parity validation: email required + format, password required + min
+// length 8, confirmPassword required, displayName optional. Errors appear only
+// after a field was touched (blurred), like FormControl.invalid && .touched.
+// Confirm deliberately gets NO per-field error copy (matches the Angular
+// reference) — its feedback is the cross-field mismatch paragraph, which the
+// Angular reference gates on confirmPassword *dirty* (typed), not touched.
+const touched = reactive({ email: false, password: false });
+const confirmDirty = ref(false);
+
+const emailError = computed(() => {
+  if (!touched.email) return '';
+  if (!upgradeForm.email.trim()) return t('common.fieldRequired');
+  if (!isValidEmail(upgradeForm.email)) return t('common.invalidEmail');
+  return '';
+});
+
+const passwordError = computed(() => {
+  if (!touched.password) return '';
+  if (!upgradeForm.password) return t('common.fieldRequired');
+  if (upgradeForm.password.length < 8) return t('common.passwordMinLength', { min: 8 });
+  return '';
+});
+
+// Cross-field mismatch: belongs to the field pair, not one field, so it stays
+// OUT of FormField's per-field error slot — a separate paragraph below both
+// fields (mirrors the Angular reference's FormGroup-level validator).
+const passwordsMismatch = computed(
+  () =>
+    !!upgradeForm.password &&
+    !!upgradeForm.confirmPassword &&
+    upgradeForm.password !== upgradeForm.confirmPassword &&
+    confirmDirty.value,
+);
+
 const upgradeInvalid = computed(() => {
-  if (!upgradeForm.email.trim() || !upgradeForm.password) return true;
+  if (!upgradeForm.email.trim() || !isValidEmail(upgradeForm.email)) return true;
+  if (!upgradeForm.password) return true;
   if (upgradeForm.password.length < 8) return true;
   if (upgradeForm.password !== upgradeForm.confirmPassword) return true;
   return false;
@@ -84,6 +121,9 @@ function openUpgrade() {
   upgradeForm.password = '';
   upgradeForm.confirmPassword = '';
   upgradeForm.displayName = '';
+  touched.email = false;
+  touched.password = false;
+  confirmDirty.value = false;
   upgradeError.value = '';
   upgradeDialogOpen.value = true;
 }
@@ -192,22 +232,39 @@ async function submitUpgrade() {
       </DialogHeader>
       <p class="text-sm text-muted-foreground">{{ t('demo.upgradeIntro') }}</p>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitUpgrade">
-        <div class="flex flex-col gap-2">
-          <Label for="upg-email">{{ t('demo.email') }}</Label>
-          <Input id="upg-email" v-model="upgradeForm.email" type="email" autocomplete="email" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="upg-pw">{{ t('demo.password') }}</Label>
-          <PasswordInput id="upg-pw" v-model="upgradeForm.password" autocomplete="new-password" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="upg-cpw">{{ t('demo.confirmPassword') }}</Label>
-          <PasswordInput id="upg-cpw" v-model="upgradeForm.confirmPassword" autocomplete="new-password" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="upg-dn">{{ t('demo.displayName') }}</Label>
+        <FormField :label="t('demo.email')" html-for="upg-email" :error="emailError">
+          <Input
+            id="upg-email"
+            v-model="upgradeForm.email"
+            type="email"
+            autocomplete="email"
+            @blur="touched.email = true"
+          />
+        </FormField>
+        <FormField :label="t('demo.password')" html-for="upg-pw" :error="passwordError">
+          <PasswordInput
+            id="upg-pw"
+            v-model="upgradeForm.password"
+            autocomplete="new-password"
+            @blur="touched.password = true"
+          />
+        </FormField>
+        <FormField :label="t('demo.confirmPassword')" html-for="upg-cpw">
+          <PasswordInput
+            id="upg-cpw"
+            v-model="upgradeForm.confirmPassword"
+            autocomplete="new-password"
+            @input="confirmDirty = true"
+          />
+        </FormField>
+        <FormField :label="t('demo.displayName')" html-for="upg-dn">
           <Input id="upg-dn" v-model="upgradeForm.displayName" autocomplete="name" />
-        </div>
+        </FormField>
+        <!-- Cross-field check spans both fields, so it can't live in either
+             FormField's per-field error slot — separate paragraph below them. -->
+        <p v-if="passwordsMismatch" class="text-sm text-destructive">
+          {{ t('demo.passwordMismatch') }}
+        </p>
         <p v-if="upgradeError" class="text-sm text-destructive">{{ upgradeError }}</p>
       </form>
       <DialogFooter>

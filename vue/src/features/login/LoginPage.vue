@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { usePostApiDemo, type DemoSessionResponse } from '@moamen-ui/pointer-vue';
@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import { useAuth } from '@/composables/useAuth';
 import { setDemoSession } from '@/lib/demoSession';
 import { extractMessage } from '@/lib/error';
+import { isValidEmail } from '@/lib/validation';
 import { toast } from '@/composables/useToast';
 
 const { t } = useI18n();
@@ -27,13 +29,32 @@ const error = ref<string | null>(null);
 const demoEmailError = ref<string | null>(null);
 const demoEmailSent = ref(false);
 
+// Angular-parity validation: errors appear only after a field was touched
+// (blurred), like FormControl.invalid && FormControl.touched.
+const touched = reactive({ email: false, password: false });
+
+const emailError = computed(() => {
+  if (!touched.email) return '';
+  if (!email.value.trim()) return t('common.fieldRequired');
+  if (!isValidEmail(email.value)) return t('common.invalidEmail');
+  return '';
+});
+
+const passwordError = computed(() => {
+  if (!touched.password) return '';
+  if (!password.value) return t('common.fieldRequired');
+  return '';
+});
+
+const formInvalid = computed(() => !email.value.trim() || !isValidEmail(email.value) || !password.value);
+
 // Already authenticated? go straight to the role-appropriate page.
 if (isAuthenticated.value) {
   void router.replace(isAdmin.value ? '/overview' : '/profile');
 }
 
 async function onSubmit() {
-  if (!email.value || !password.value) return;
+  if (formInvalid.value) return;
   loading.value = true;
   error.value = null;
   try {
@@ -44,10 +65,6 @@ async function onSubmit() {
   } finally {
     loading.value = false;
   }
-}
-
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 async function onTryDemo() {
@@ -91,30 +108,30 @@ async function onTryDemo() {
       <CardContent class="flex flex-col gap-5 p-6">
         <h1 class="text-center text-xl font-bold">{{ t('login.title') }}</h1>
         <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <div class="flex flex-col gap-2">
-            <Label for="email">{{ t('login.email') }}</Label>
+          <FormField :label="t('login.email')" html-for="email" :error="emailError">
             <Input
               id="email"
               v-model="email"
               type="email"
               autocomplete="email"
               required
+              @blur="touched.email = true"
             />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="password">{{ t('login.password') }}</Label>
+          </FormField>
+          <FormField :label="t('login.password')" html-for="password" :error="passwordError">
             <PasswordInput
               id="password"
               v-model="password"
               autocomplete="current-password"
               required
+              @blur="touched.password = true"
             />
-          </div>
+          </FormField>
           <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
           <Button
             type="submit"
             class="mt-1"
-            :disabled="loading || !email || !password"
+            :disabled="loading || formInvalid"
           >
             {{ t('login.signIn') }}
           </Button>

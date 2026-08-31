@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 // @ts-ignore composable ships in the client version published at deploy (>=1.0.8)
@@ -7,7 +7,7 @@ import { usePostApiAuthResetPassword } from '@moamen-ui/pointer-vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import { extractMessage } from '@/lib/error';
 
 const { t } = useI18n();
@@ -23,6 +23,27 @@ const confirmPassword = ref('');
 const loading = ref(false);
 const error = ref<string | null>(null);
 const done = ref(false);
+
+// Angular-parity validation: newPassword required + min length 8, confirmPassword
+// required. Errors appear only after a field was touched (blurred), like
+// FormControl.invalid && FormControl.touched. Confirm deliberately gets NO
+// per-field error copy (matches the Angular reference) — its feedback is the
+// cross-field mismatch paragraph below both fields.
+const touched = reactive({ newPassword: false, confirmPassword: false });
+
+const newPasswordError = computed(() => {
+  if (!touched.newPassword) return '';
+  if (!newPassword.value) return t('common.fieldRequired');
+  if (newPassword.value.length < 8) return t('common.passwordMinLength', { min: 8 });
+  return '';
+});
+
+// Cross-field mismatch: belongs to the field pair, not one field, so it stays
+// OUT of FormField's per-field error slot — a separate paragraph below both
+// fields (mirrors the Angular reference's FormGroup-level validator).
+const passwordsMismatch = computed(
+  () => touched.confirmPassword && newPassword.value !== confirmPassword.value,
+);
 
 const canSubmit = computed(
   () =>
@@ -68,26 +89,29 @@ async function onSubmit() {
 
         <!-- Reset form -->
         <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <div class="flex flex-col gap-2">
-            <Label for="new-password">{{ t('auth.newPassword') }}</Label>
+          <FormField :label="t('auth.newPassword')" html-for="new-password" :error="newPasswordError">
             <PasswordInput
               id="new-password"
               v-model="newPassword"
               autocomplete="new-password"
-              minlength="8"
               required
+              @blur="touched.newPassword = true"
             />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="confirm-password">{{ t('auth.confirmPassword') }}</Label>
+          </FormField>
+          <FormField :label="t('auth.confirmPassword')" html-for="confirm-password">
             <PasswordInput
               id="confirm-password"
               v-model="confirmPassword"
               autocomplete="new-password"
-              minlength="8"
               required
+              @blur="touched.confirmPassword = true"
             />
-          </div>
+          </FormField>
+          <!-- Cross-field check spans both fields, so it can't live in either
+               FormField's per-field error slot — separate paragraph below them. -->
+          <p v-if="passwordsMismatch" class="text-sm text-destructive">
+            {{ t('invite.passwordMismatch') }}
+          </p>
           <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
           <Button
             type="submit"

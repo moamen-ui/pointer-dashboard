@@ -23,7 +23,10 @@
     "search": "Search…",
     "noResults": "No matching results",
     "previousPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "fieldRequired": "This field is required.",
+    "invalidEmail": "Enter a valid email address.",
+    "passwordMinLength": "Password must be at least {{ min }} characters."
   },
   "demo": {
     "tryDemo": "Try the demo",
