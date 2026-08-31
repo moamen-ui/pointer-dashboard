@@ -19,8 +19,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
+import { emailError, passwordError, requiredError } from '@/lib/validators';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
+
+const SIGNUP_MIN_PASSWORD_LENGTH = 6;
 
 // Helper: format plan price for display
 function formatPlanPrice(plan: PlanPublicResponse): string {
@@ -113,8 +117,20 @@ export function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [displayNameTouched, setDisplayNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Errors render once a field is touched (or the form was submitted); raw
+  // validity drives the disabled submit button, like Angular's form.invalid.
+  const displayNameErrorMsg = requiredError(displayName, t);
+  const emailErrorMsg = emailError(email, t);
+  const passwordErrorMsg = passwordError(password, SIGNUP_MIN_PASSWORD_LENGTH, t);
+  const formInvalid =
+    !!displayNameErrorMsg || !!emailErrorMsg || !!passwordErrorMsg;
 
   const registerMut = usePostApiAuthRegisterAdmin({
     mutation: {
@@ -129,7 +145,8 @@ export function SignupPage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!email || !password || !displayName.trim()) return;
+    setSubmitted(true);
+    if (formInvalid) return;
     setError(null);
 
     // INTENTIONAL: planId is always sent as null (undefined) here.
@@ -185,37 +202,47 @@ export function SignupPage() {
               </Link>
             </>
           ) : (
-            <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signup-name">{t('signup.displayName')}</Label>
+            <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+              <FormField
+                label={t('signup.displayName')}
+                htmlFor="signup-name"
+                error={displayNameTouched || submitted ? displayNameErrorMsg : undefined}
+              >
                 <Input
                   id="signup-name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
+                  onBlur={() => setDisplayNameTouched(true)}
                   autoFocus
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signup-email">{t('signup.email')}</Label>
+              </FormField>
+              <FormField
+                label={t('signup.email')}
+                htmlFor="signup-email"
+                error={emailTouched || submitted ? emailErrorMsg : undefined}
+              >
                 <Input
                   id="signup-email"
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onBlur={() => setEmailTouched(true)}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="signup-password">{t('signup.password')}</Label>
+              </FormField>
+              <FormField
+                label={t('signup.password')}
+                htmlFor="signup-password"
+                error={passwordTouched || submitted ? passwordErrorMsg : undefined}
+              >
                 <PasswordInput
                   id="signup-password"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onBlur={() => setPasswordTouched(true)}
                 />
-              </div>
+              </FormField>
 
               {/* Plan selector — shown when public plans are available */}
               {selectablePlans.length > 0 && (
@@ -244,7 +271,7 @@ export function SignupPage() {
               <Button
                 type="submit"
                 className="mt-1"
-                disabled={registerMut.isPending || !email || !password || !displayName.trim()}
+                disabled={registerMut.isPending || formInvalid}
               >
                 {t('signup.submit')}
               </Button>

@@ -8,7 +8,8 @@ import { usePostApiAuthResetPassword } from '@moamen-ui/pointer-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
+import { passwordError, requiredError } from '@/lib/validators';
 import { extractMessage } from '@/lib/error';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -21,10 +22,20 @@ export function ResetPasswordPage() {
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const resetMut = usePostApiAuthResetPassword();
+
+  const newPasswordErrorMsg = passwordError(newPassword, MIN_PASSWORD_LENGTH, t);
+  const confirmPasswordErrorMsg = requiredError(confirmPassword, t);
+  // Cross-field check — like the Angular form's group validator, it compares
+  // both values and is not a per-field error.
+  const passwordsMismatch = newPassword !== confirmPassword;
+  const formInvalid =
+    !!newPasswordErrorMsg || !!confirmPasswordErrorMsg || passwordsMismatch;
 
   // If no token in URL, show invalid link message immediately.
   if (!token) {
@@ -45,17 +56,9 @@ export function ResetPasswordPage() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setValidationError(null);
+    setSubmitted(true);
     setApiError(null);
-
-    if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setValidationError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setValidationError('Passwords do not match.');
-      return;
-    }
+    if (formInvalid) return;
 
     resetMut.mutate(
       { data: { token, newPassword } },
@@ -79,42 +82,47 @@ export function ResetPasswordPage() {
         <CardContent className="flex flex-col gap-5 p-6">
           <h1 className="text-center text-xl font-bold">{t('auth.resetTitle')}</h1>
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="new-password">{t('auth.newPassword')}</Label>
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+            <FormField
+              label={t('auth.newPassword')}
+              htmlFor="new-password"
+              error={newPasswordTouched || submitted ? newPasswordErrorMsg : undefined}
+            >
               <PasswordInput
                 id="new-password"
                 autoComplete="new-password"
                 value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  setValidationError(null);
-                }}
-                required
+                onChange={(e) => setNewPassword(e.target.value)}
+                onBlur={() => setNewPasswordTouched(true)}
                 autoFocus
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
+            </FormField>
+            <FormField
+              label={t('auth.confirmPassword')}
+              htmlFor="confirm-password"
+              error={confirmPasswordTouched || submitted ? confirmPasswordErrorMsg : undefined}
+            >
               <PasswordInput
                 id="confirm-password"
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setValidationError(null);
-                }}
-                required
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => setConfirmPasswordTouched(true)}
               />
-            </div>
-            {validationError && (
-              <p className="text-sm text-destructive">{validationError}</p>
-            )}
+            </FormField>
+            {/* Cross-field mismatch compares both passwords, so it isn't a
+                 per-field error and stays OUT of FormField's own error slot —
+                 it renders here, below both fields. */}
+            {confirmPasswordTouched || submitted ? (
+              passwordsMismatch && (
+                <p className="text-sm text-destructive">{t('auth.passwordMismatch')}</p>
+              )
+            ) : null}
             {apiError && <p className="text-sm text-destructive">{apiError}</p>}
             <Button
               type="submit"
               className="mt-1"
-              disabled={resetMut.isPending || !newPassword || !confirmPassword}
+              disabled={resetMut.isPending || formInvalid}
             >
               {t('auth.resetSubmit')}
             </Button>

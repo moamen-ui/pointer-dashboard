@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
+import { emailError, requiredError } from '@/lib/validators';
 import { useAuth } from '@/lib/auth';
 import { setAuthHeader } from '@/lib/api';
 import { removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
@@ -32,6 +34,9 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoEmail, setDemoEmail] = useState('');
@@ -39,6 +44,13 @@ export function LoginPage() {
   const [demoError, setDemoError] = useState<string | null>(null);
 
   const demoMut = usePostApiDemo();
+
+  // Validation state mirrors the Angular form: errors render once a field is
+  // touched (or the form was submitted), while button-disabled uses the raw
+  // validity so an invalid form can never be submitted.
+  const emailErrorMsg = emailError(email, t);
+  const passwordErrorMsg = requiredError(password, t);
+  const formInvalid = !!emailErrorMsg || !!passwordErrorMsg;
 
   // Already authenticated? Bounce to the appropriate landing page. Use <Navigate> (a render
   // result) rather than calling navigate() during render, which triggers React's
@@ -49,7 +61,8 @@ export function LoginPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!email || !password) return;
+    setSubmitted(true);
+    if (formInvalid) return;
     setLoading(true);
     setError(null);
     try {
@@ -140,30 +153,36 @@ export function LoginPage() {
           {locationState?.message && (
             <p className="text-center text-sm text-green-600">{locationState.message}</p>
           )}
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">{t('login.email')}</Label>
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+            <FormField
+              label={t('login.email')}
+              htmlFor="email"
+              error={emailTouched || submitted ? emailErrorMsg : undefined}
+            >
               <Input
                 id="email"
                 type="email"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+                onBlur={() => setEmailTouched(true)}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">{t('login.password')}</Label>
+            </FormField>
+            <FormField
+              label={t('login.password')}
+              htmlFor="password"
+              error={passwordTouched || submitted ? passwordErrorMsg : undefined}
+            >
               <PasswordInput
                 id="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
+                onBlur={() => setPasswordTouched(true)}
               />
-            </div>
+            </FormField>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="mt-1" disabled={loading || !email || !password}>
+            <Button type="submit" className="mt-1" disabled={loading || formInvalid}>
               {t('login.signIn')}
             </Button>
             {signupEnabled && (

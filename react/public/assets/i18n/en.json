@@ -13,6 +13,9 @@
     "no": "No",
     "confirmDisable": "Disable {{ name }}?",
     "confirm": "Confirm",
+    "fieldRequired": "This field is required.",
+    "invalidEmail": "Enter a valid email address.",
+    "passwordMinLength": "Password must be at least {{ min }} characters.",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "delete": "Delete"
@@ -66,7 +69,8 @@
     "resetSubmit": "Update password",
     "resetDone": "Password updated — sign in with your new password.",
     "resetInvalid": "This reset link is invalid or has expired.",
-    "backToLogin": "Back to sign in"
+    "backToLogin": "Back to sign in",
+    "passwordMismatch": "Passwords do not match."
   },
   "overview": {
     "projects": "Projects",

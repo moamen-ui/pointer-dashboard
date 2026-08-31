@@ -13,6 +13,9 @@
     "no": "لا",
     "confirmDisable": "تعطيل {{ name }}؟",
     "confirm": "تأكيد",
+    "fieldRequired": "هذا الحقل مطلوب.",
+    "invalidEmail": "أدخل بريدًا إلكترونيًا صحيحًا.",
+    "passwordMinLength": "يجب ألا تقل كلمة المرور عن {{ min }} أحرف.",
     "showPassword": "إظهار كلمة المرور",
     "hidePassword": "إخفاء كلمة المرور",
     "delete": "حذف"
@@ -66,7 +69,8 @@
     "resetSubmit": "تحديث كلمة المرور",
     "resetDone": "تم تحديث كلمة المرور — سجّل دخولك بكلمة المرور الجديدة.",
     "resetInvalid": "رابط إعادة التعيين غير صالح أو انتهت صلاحيته.",
-    "backToLogin": "العودة إلى تسجيل الدخول"
+    "backToLogin": "العودة إلى تسجيل الدخول",
+    "passwordMismatch": "كلمتا المرور غير متطابقتين."
   },
   "overview": {
     "projects": "المشاريع",

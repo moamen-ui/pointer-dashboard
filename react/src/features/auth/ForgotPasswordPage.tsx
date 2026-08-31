@@ -7,18 +7,24 @@ import { usePostApiAuthForgotPassword } from '@moamen-ui/pointer-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
+import { emailError } from '@/lib/validators';
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [done, setDone] = useState(false);
 
   const forgotMut = usePostApiAuthForgotPassword();
 
+  const emailErrorMsg = emailError(email, t);
+
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!email.trim()) return;
+    setSubmitted(true);
+    if (emailErrorMsg) return;
     forgotMut.mutate(
       { data: { email: email.trim() } },
       {
@@ -44,23 +50,26 @@ export function ForgotPasswordPage() {
               </Link>
             </>
           ) : (
-            <form onSubmit={onSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="forgot-email">{t('login.email')}</Label>
+            <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+              <FormField
+                label={t('login.email')}
+                htmlFor="forgot-email"
+                error={emailTouched || submitted ? emailErrorMsg : undefined}
+              >
                 <Input
                   id="forgot-email"
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onBlur={() => setEmailTouched(true)}
                   autoFocus
                 />
-              </div>
+              </FormField>
               <Button
                 type="submit"
                 className="mt-1"
-                disabled={forgotMut.isPending || !email.trim()}
+                disabled={forgotMut.isPending || !!emailErrorMsg}
               >
                 {t('auth.forgotSubmit')}
               </Button>

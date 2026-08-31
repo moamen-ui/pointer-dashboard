@@ -13,7 +13,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
+import { emailError, passwordError, requiredError } from '@/lib/validators';
 import { setAuthHeader } from '@/lib/api';
 import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
@@ -52,10 +53,28 @@ function JoinForm({ code }: { code: string }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [displayNameTouched, setDisplayNameTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const registerMut = usePostApiAuthRegisterInvite();
+
+  const emailErrorMsg = emailError(email, t);
+  const displayNameErrorMsg = requiredError(displayName, t);
+  const passwordErrorMsg = passwordError(password, MIN_PASSWORD_LENGTH, t);
+  const confirmPasswordErrorMsg = requiredError(confirmPassword, t);
+  // Cross-field check — like the Angular form's group validator, it compares
+  // both values and is not a per-field error.
+  const passwordsMismatch = password !== confirmPassword;
+  const formInvalid =
+    !!emailErrorMsg ||
+    !!displayNameErrorMsg ||
+    !!passwordErrorMsg ||
+    !!confirmPasswordErrorMsg ||
+    passwordsMismatch;
 
   if (previewLoading) {
     return (
@@ -87,17 +106,9 @@ function JoinForm({ code }: { code: string }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setValidationError(null);
+    setSubmitted(true);
     setApiError(null);
-
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setValidationError(t('invite.passwordMismatch'));
-      return;
-    }
-    if (password !== confirmPassword) {
-      setValidationError(t('invite.passwordMismatch'));
-      return;
-    }
+    if (formInvalid) return;
 
     registerMut.mutate(
       {
@@ -144,79 +155,84 @@ function JoinForm({ code }: { code: string }) {
             </p>
           )}
 
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             {/* Email */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="join-email">{t('login.email')}</Label>
+            <FormField
+              label={t('login.email')}
+              htmlFor="join-email"
+              error={emailTouched || submitted ? emailErrorMsg : undefined}
+            >
               <Input
                 id="join-email"
                 type="email"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+                onBlur={() => setEmailTouched(true)}
                 autoFocus
               />
-            </div>
+            </FormField>
 
             {/* Display name */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="join-display-name">{t('invite.displayName')}</Label>
+            <FormField
+              label={t('invite.displayName')}
+              htmlFor="join-display-name"
+              error={displayNameTouched || submitted ? displayNameErrorMsg : undefined}
+            >
               <Input
                 id="join-display-name"
                 type="text"
                 autoComplete="name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                required
+                onBlur={() => setDisplayNameTouched(true)}
               />
-            </div>
+            </FormField>
 
             {/* Password */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="join-password">{t('invite.password')}</Label>
+            <FormField
+              label={t('invite.password')}
+              htmlFor="join-password"
+              error={passwordTouched || submitted ? passwordErrorMsg : undefined}
+            >
               <PasswordInput
                 id="join-password"
                 autoComplete="new-password"
                 value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setValidationError(null);
-                }}
-                required
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setPasswordTouched(true)}
               />
-            </div>
+            </FormField>
 
             {/* Confirm password */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="join-confirm-password">{t('invite.confirmPassword')}</Label>
+            <FormField
+              label={t('invite.confirmPassword')}
+              htmlFor="join-confirm-password"
+              error={confirmPasswordTouched || submitted ? confirmPasswordErrorMsg : undefined}
+            >
               <PasswordInput
                 id="join-confirm-password"
                 autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setValidationError(null);
-                }}
-                required
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => setConfirmPasswordTouched(true)}
               />
-            </div>
+            </FormField>
 
-            {validationError && (
-              <p className="text-sm text-destructive">{validationError}</p>
-            )}
+            {/* Cross-field mismatch compares both passwords, so it isn't a
+                 per-field error and stays OUT of FormField's own error slot —
+                 it renders here, below both fields. */}
+            {confirmPasswordTouched || submitted ? (
+              passwordsMismatch && (
+                <p className="text-sm text-destructive">{t('invite.passwordMismatch')}</p>
+              )
+            ) : null}
             {apiError && <p className="text-sm text-destructive">{apiError}</p>}
 
             <Button
               type="submit"
               className="mt-1"
-              disabled={
-                registerMut.isPending ||
-                !email.trim() ||
-                !password ||
-                !confirmPassword ||
-                !displayName.trim()
-              }
+              disabled={registerMut.isPending || formInvalid}
             >
               {t('invite.join')}
             </Button>

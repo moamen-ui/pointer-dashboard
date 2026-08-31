@@ -10,7 +10,8 @@ import { X, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
+import { emailError, passwordError, requiredError } from '@/lib/validators';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import { useInstallGuide } from '@/components/InstallGuide';
 const DEMO_SESSION_KEY = 'pointer_demo';
 /** Banner-only hide flag — the session itself outlives a dismissal. */
 const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
+const UPGRADE_MIN_PASSWORD_LENGTH = 8;
 
 interface DemoSession {
   email: string | null;
@@ -81,39 +83,49 @@ export function DemoPanel() {
   const [upgradePassword, setUpgradePassword] = useState('');
   const [upgradeConfirmPassword, setUpgradeConfirmPassword] = useState('');
   const [upgradeDisplayName, setUpgradeDisplayName] = useState('');
+  const [upgradeEmailTouched, setUpgradeEmailTouched] = useState(false);
+  const [upgradePasswordTouched, setUpgradePasswordTouched] = useState(false);
+  const [upgradeConfirmTouched, setUpgradeConfirmTouched] = useState(false);
+  const [upgradeSubmitted, setUpgradeSubmitted] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   const upgradeMut = usePostApiDemoUpgrade();
+
+  const upgradeEmailErrorMsg = emailError(upgradeEmail, t);
+  const upgradePasswordErrorMsg = passwordError(
+    upgradePassword,
+    UPGRADE_MIN_PASSWORD_LENGTH,
+    t,
+  );
+  const upgradeConfirmErrorMsg = requiredError(upgradeConfirmPassword, t);
+  // Cross-field check — like the Angular form's group validator, it only fires
+  // when both passwords are non-empty and is not a per-field error.
+  const upgradePasswordsMismatch =
+    !!upgradePassword && !!upgradeConfirmPassword && upgradePassword !== upgradeConfirmPassword;
+  const upgradeFormInvalid =
+    !!upgradeEmailErrorMsg ||
+    !!upgradePasswordErrorMsg ||
+    !!upgradeConfirmErrorMsg ||
+    upgradePasswordsMismatch;
 
   function openUpgradeDialog() {
     setUpgradeEmail(session?.email ?? '');
     setUpgradePassword('');
     setUpgradeConfirmPassword('');
     setUpgradeDisplayName('');
+    setUpgradeEmailTouched(false);
+    setUpgradePasswordTouched(false);
+    setUpgradeConfirmTouched(false);
+    setUpgradeSubmitted(false);
     setUpgradeError(null);
     setUpgradeOpen(true);
   }
 
-  function isValidEmail(value: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-  }
-
   async function onUpgradeSubmit(e: FormEvent) {
     e.preventDefault();
+    setUpgradeSubmitted(true);
     setUpgradeError(null);
-
-    if (!isValidEmail(upgradeEmail)) {
-      setUpgradeError(t('demo.email') + ' is required.');
-      return;
-    }
-    if (upgradePassword.length < 8) {
-      setUpgradeError(t('demo.password') + ' must be at least 8 characters.');
-      return;
-    }
-    if (upgradePassword !== upgradeConfirmPassword) {
-      setUpgradeError(t('demo.passwordMismatch'));
-      return;
-    }
+    if (upgradeFormInvalid) return;
 
     upgradeMut.mutate(
       {
@@ -265,43 +277,62 @@ export function DemoPanel() {
             <DialogTitle>{t('demo.upgradeTitle')}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{t('demo.upgradeIntro')}</p>
-          <form onSubmit={onUpgradeSubmit} className="flex flex-col gap-4 pt-1">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="upgrade-email">{t('demo.email')}</Label>
+          <form onSubmit={onUpgradeSubmit} noValidate className="flex flex-col gap-4 pt-1">
+            <FormField
+              label={t('demo.email')}
+              htmlFor="upgrade-email"
+              error={upgradeEmailTouched || upgradeSubmitted ? upgradeEmailErrorMsg : undefined}
+            >
               <Input
                 id="upgrade-email"
                 type="email"
                 autoComplete="email"
                 value={upgradeEmail}
                 onChange={(e) => setUpgradeEmail(e.target.value)}
+                onBlur={() => setUpgradeEmailTouched(true)}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="upgrade-password">{t('demo.password')}</Label>
+            </FormField>
+            <FormField
+              label={t('demo.password')}
+              htmlFor="upgrade-password"
+              error={upgradePasswordTouched || upgradeSubmitted ? upgradePasswordErrorMsg : undefined}
+            >
               <PasswordInput
                 id="upgrade-password"
                 autoComplete="new-password"
                 value={upgradePassword}
                 onChange={(e) => setUpgradePassword(e.target.value)}
+                onBlur={() => setUpgradePasswordTouched(true)}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="upgrade-confirm-password">{t('demo.confirmPassword')}</Label>
+            </FormField>
+            <FormField
+              label={t('demo.confirmPassword')}
+              htmlFor="upgrade-confirm-password"
+              error={upgradeConfirmTouched || upgradeSubmitted ? upgradeConfirmErrorMsg : undefined}
+            >
               <PasswordInput
                 id="upgrade-confirm-password"
                 autoComplete="new-password"
                 value={upgradeConfirmPassword}
                 onChange={(e) => setUpgradeConfirmPassword(e.target.value)}
+                onBlur={() => setUpgradeConfirmTouched(true)}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="upgrade-display-name">{t('demo.displayName')}</Label>
+            </FormField>
+            {/* Cross-field mismatch compares both passwords, so it isn't a
+                 per-field error and stays OUT of FormField's own error slot —
+                 it renders here, below both fields. */}
+            {upgradeConfirmTouched || upgradeSubmitted ? (
+              upgradePasswordsMismatch && (
+                <p className="text-sm text-destructive">{t('demo.passwordMismatch')}</p>
+              )
+            ) : null}
+            <FormField label={t('demo.displayName')} htmlFor="upgrade-display-name">
               <Input
                 id="upgrade-display-name"
                 value={upgradeDisplayName}
                 onChange={(e) => setUpgradeDisplayName(e.target.value)}
               />
-            </div>
+            </FormField>
             {upgradeError && (
               <p className="text-sm text-destructive">{upgradeError}</p>
             )}
@@ -309,7 +340,7 @@ export function DemoPanel() {
               <Button type="button" variant="outline" onClick={() => setUpgradeOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={upgradeMut.isPending}>
+              <Button type="submit" disabled={upgradeMut.isPending || upgradeFormInvalid}>
                 {t('demo.upgradeSubmit')}
               </Button>
             </DialogFooter>
