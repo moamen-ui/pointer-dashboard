@@ -8,6 +8,7 @@ import {
   Users,
   Folder,
   Tags,
+  Globe,
   Sun,
   Moon,
   LogOut,
@@ -41,6 +42,7 @@ const ADMIN_NAV = [
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/statuses', key: 'nav.statuses', icon: Tags },
+  { to: '/environments', key: 'nav.environments', icon: Globe },
 ];
 
 // Projects is visible to all authenticated users (admin + non-admin)

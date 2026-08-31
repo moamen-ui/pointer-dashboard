@@ -14,7 +14,8 @@
     "confirmDisable": "Disable {{ name }}?",
     "confirm": "Confirm",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "delete": "Delete"
   },
   "nav": {
     "overview": "Overview",
@@ -23,6 +24,7 @@
     "projects": "Projects",
     "myProfile": "My Profile",
     "statuses": "Statuses",
+    "environments": "Environments",
     "tenants": "Tenants",
     "plans": "Plans",
     "settings": "Settings",
@@ -505,5 +507,18 @@
     "extLoadHint": "Go to chrome://extensions, enable Developer mode, click 'Load unpacked', and select the unzipped folder.",
     "extSignInTitle": "Sign in",
     "extSignInHint": "Click the Pointer icon in the toolbar and sign in with your Pointer server URL and account credentials."
+  },
+  "environments": {
+    "title": "Environments",
+    "subtitle": "Deployment stages your projects can have a distinct App URL for — default, prod, staging, etc.",
+    "addEnvironment": "Add Environment",
+    "name": "Name",
+    "scope": "Scope",
+    "global": "Global",
+    "own": "Custom",
+    "confirmDelete": "Delete the \"{{name}}\" environment?",
+    "deleted": "Environment deleted",
+    "empty": "No environments yet",
+    "emptyHint": "Environments let a project have a different App URL per deployment stage. \"default\" is seeded for you — add more like \"prod\" or \"staging\" as needed."
   }
 }

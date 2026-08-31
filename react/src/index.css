@@ -33,6 +33,8 @@
   --chip-ok-fg: #2e7d32;
   --chip-off-bg: #fdecea;
   --chip-off-fg: #c62828;
+  --chip-warn-bg: #fff4e5;
+  --chip-warn-fg: #b45309;
   --chip-neutral-bg: #eef2f7;
   --chip-neutral-fg: #475569;
 
@@ -54,6 +56,11 @@
   --accent-foreground: var(--brand);
   --destructive: #c62828;
   --destructive-foreground: #ffffff;
+  /* Same solid-bg/white-fg pattern as destructive, on the chip hues (green/amber). */
+  --success: #2e7d32;
+  --success-foreground: #ffffff;
+  --warning: #b45309;
+  --warning-foreground: #ffffff;
   --border: var(--border-color);
   --input: var(--border-color);
   --ring: var(--brand);
@@ -75,11 +82,18 @@ html.dark {
   --chip-ok-fg: #6ee7a0;
   --chip-off-bg: rgba(248, 113, 113, 0.16);
   --chip-off-fg: #fca5a5;
+  --chip-warn-bg: rgba(251, 191, 36, 0.18);
+  --chip-warn-fg: #fcd34d;
   --chip-neutral-bg: rgba(148, 163, 184, 0.18);
   --chip-neutral-fg: #cbd5e1;
 
   --destructive: #fca5a5;
   --destructive-foreground: #0f141b;
+  /* Pastel bg + dark fg in dark mode, same as destructive. */
+  --success: #6ee7a0;
+  --success-foreground: #0f141b;
+  --warning: #fcd34d;
+  --warning-foreground: #0f141b;
 }
 
 /* ── Tailwind v4 theme: expose tokens as utilities (bg-background, etc.) ── */
@@ -102,6 +116,10 @@ html.dark {
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -149,5 +167,7 @@ html.dark {
 }
 .chip-active { background: var(--chip-ok-bg); color: var(--chip-ok-fg); }
 .chip-disabled { background: var(--chip-off-bg); color: var(--chip-off-fg); }
+.chip-warn { background: var(--chip-warn-bg); color: var(--chip-warn-fg); }
 .chip-neutral { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
 .chip-private { background: var(--chip-neutral-bg); color: var(--chip-neutral-fg); }
+.chip-primary { background: var(--brand-tint); color: var(--brand); }
