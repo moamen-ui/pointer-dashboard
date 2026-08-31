@@ -184,6 +184,12 @@ html.dark body {
 .severity-warning { color: var(--color-warning) !important; }
 .severity-primary { color: var(--brand) !important; }
 
+/* Filled-button severity tints for ConfirmDialogComponent's success/warning states — plain CSS
+   classes (not Tailwind `!bg-success` utilities: Tailwind v4 moved `!` to a suffix, so the v3-style
+   prefix form silently generates no rule at all). */
+.confirm-btn-success { background-color: var(--color-success) !important; color: #fff !important; }
+.confirm-btn-warning { background-color: var(--color-warning) !important; color: #fff !important; }
+
 /* Data-table headers get a filled background so they read as a header band and
    not as another body row. Material renders the background on the cells, so the
    row + cells are both painted (the row alone is covered by the cells). */

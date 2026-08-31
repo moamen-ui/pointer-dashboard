@@ -21,8 +21,8 @@ import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-me
  * sees, plus each tenant's own custom environments layered on top — same own-plus-global shape
  * as the Roles page. A project can have one AppUrl per environment (see the Projects page).
  *
- * First page migrated onto the shared DataTable/Badge/ConfirmService — see
- * /Users/momen/.claude/plans/jolly-moseying-metcalfe.md for the wave-1 proving-ground plan.
+ * First page migrated onto the shared DataTable/Badge/ConfirmService — the wave-1 proving ground
+ * for the shared-component library (see `src/app/shared/`).
  */
 @Component({
   selector: 'app-environments',
@@ -54,7 +54,11 @@ import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-me
       <app-data-table
         [rows]="environments()"
         [columns]="columns()"
-        [actionsColumn]="{ items: actionsFor }"
+        [actionsColumn]="{
+          items: actionsFor,
+          ariaLabel: 'roles.actions' | transloco,
+          header: 'roles.actions' | transloco,
+        }"
         [emptyIcon]="'public'"
         [emptyMessage]="'environments.empty' | transloco"
         [emptyHint]="'environments.emptyHint' | transloco"

@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, effect, input, signal } from '@angular/core';
 import type { FormControl } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 
@@ -11,10 +11,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
  * (`appearance="outline"`) and defaults `subscriptSizing` to `"dynamic"` so every field gets it
  * for free instead of remembering to set it per file.
  *
- * Deliberately NOT a `computed()`-driven signal component: `FormControl.invalid`/`.touched` are
- * plain mutable properties, not signals, so error visibility is read via a plain method
- * (re-evaluated on every change-detection pass, same as `mat-error`'s own `hasError()` idiom
- * today) rather than memoized, which would go stale after the control's status changes.
+ * `FormControl.invalid`/`.touched` are plain mutable properties, not signals — this app is
+ * zoneless (no zone.js), so there's no periodic change-detection pass to re-read them on. An
+ * `effect()` resubscribes to `control().events` (re-running whenever the `control` input itself
+ * changes) and bumps a signal on every event, so `resolvedError` — a real `computed()` — is
+ * correctly notified on `statusChanges`/`touched` changes driven from anywhere, including an RxJS
+ * subscription's `setErrors(...)` call that never touches a template-bound event handler.
  *
  *   <app-form-field [control]="form.controls.email" label="Email" hint="We'll never share it">
  *     <input matInput formControlName="email" />
@@ -30,8 +32,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
         <mat-label>{{ label() }}</mat-label>
       }
       <ng-content />
-      @if (resolvedError()) {
-        <mat-error>{{ resolvedError() }}</mat-error>
+      @if (control().invalid && control().touched) {
+        @if (resolvedError()) {
+          <mat-error>{{ resolvedError() }}</mat-error>
+        }
       } @else if (hint()) {
         <mat-hint>{{ hint() }}</mat-hint>
       }
@@ -46,10 +50,20 @@ export class FormFieldComponent {
   readonly appearance = input<'outline'>('outline');
   readonly subscriptSizing = input<'dynamic' | 'fixed'>('dynamic');
 
-  protected resolvedError(): string {
+  private readonly statusTick = signal(0);
+
+  constructor() {
+    effect((onCleanup) => {
+      const sub = this.control().events.subscribe(() => this.statusTick.update((v) => v + 1));
+      onCleanup(() => sub.unsubscribe());
+    });
+  }
+
+  protected readonly resolvedError = computed(() => {
+    this.statusTick();
     const ctrl = this.control();
     if (!ctrl.invalid || !ctrl.touched) return '';
     const msg = this.errorMessage();
     return typeof msg === 'function' ? msg(ctrl) : msg;
-  }
+  });
 }

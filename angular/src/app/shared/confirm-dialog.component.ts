@@ -57,8 +57,8 @@ export class ConfirmDialogComponent {
 
   protected readonly tintClass = computed(() => {
     const severity = this.data.confirmColor ?? 'primary';
-    if (severity === 'success') return '!bg-success !text-white';
-    if (severity === 'warning') return '!bg-warning !text-white';
+    if (severity === 'success') return 'confirm-btn-success';
+    if (severity === 'warning') return 'confirm-btn-warning';
     return '';
   });
 }

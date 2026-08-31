@@ -22,7 +22,7 @@ export interface RowActionItem {
  * *already permission/feature-gated* item list — this component only owns menu chrome/styling,
  * never business rules about which items exist:
  *
- *   <app-row-actions-menu [items]="actionsFor(row)" />
+ *   <app-row-actions-menu [items]="actionsFor(row)" [ariaLabel]="'roles.actions' | transloco" />
  */
 @Component({
   selector: 'app-row-actions-menu',
@@ -34,19 +34,26 @@ export interface RowActionItem {
         <mat-icon>more_vert</mat-icon>
       </button>
       <mat-menu #menu="matMenu">
-        @for (item of items(); track item.label) {
-          <button
-            mat-menu-item
-            [appSeverity]="item.severity ?? 'neutral'"
-            [disabled]="!!item.disabled"
-            [matTooltip]="item.disabled ? (item.tooltip ?? '') : ''"
-            (click)="item.onClick()"
+        @for (item of items(); track $index) {
+          <!-- Wrapped in a span: Chromium/Safari send no pointer events to disabled native
+               buttons, so matTooltip on the button itself would never fire — this is Material's
+               own documented workaround for tooltips on disabled controls. -->
+          <span
+            [matTooltip]="item.tooltip ?? ''"
+            [matTooltipDisabled]="!item.disabled || !item.tooltip"
           >
-            @if (item.icon) {
-              <mat-icon [appSeverity]="item.severity ?? 'neutral'">{{ item.icon }}</mat-icon>
-            }
-            {{ item.label }}
-          </button>
+            <button
+              mat-menu-item
+              [appSeverity]="item.severity ?? 'neutral'"
+              [disabled]="!!item.disabled"
+              (click)="item.onClick()"
+            >
+              @if (item.icon) {
+                <mat-icon [appSeverity]="item.severity ?? 'neutral'">{{ item.icon }}</mat-icon>
+              }
+              {{ item.label }}
+            </button>
+          </span>
         }
       </mat-menu>
     }
@@ -54,5 +61,6 @@ export interface RowActionItem {
 })
 export class RowActionsMenuComponent {
   readonly items = input.required<RowActionItem[]>();
-  readonly ariaLabel = input('Actions');
+  /** Required (not defaulted) so a caller can't accidentally ship an untranslated "Actions". */
+  readonly ariaLabel = input.required<string>();
 }

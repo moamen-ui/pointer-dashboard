@@ -27,7 +27,7 @@ export interface DataTableColumn<T> {
  *   <app-data-table
  *     [rows]="roles()"
  *     [columns]="[{ key: 'name', header: 'Name', sortable: true }]"
- *     [actionsColumn]="{ items: actionsFor }"
+ *     [actionsColumn]="{ items: actionsFor, ariaLabel: 'roles.actions' | transloco }"
  *     [search]="true"
  *     emptyIcon="manage_accounts"
  *     [emptyMessage]="'roles.empty' | transloco"
@@ -82,9 +82,9 @@ export interface DataTableColumn<T> {
 
         @if (actionsColumn(); as ac) {
           <ng-container matColumnDef="__actions__">
-            <th mat-header-cell *matHeaderCellDef></th>
+            <th mat-header-cell *matHeaderCellDef>{{ ac.header ?? '' }}</th>
             <td mat-cell *matCellDef="let row">
-              <app-row-actions-menu [items]="ac.items(row)" />
+              <app-row-actions-menu [items]="ac.items(row)" [ariaLabel]="ac.ariaLabel" />
             </td>
           </ng-container>
         }
@@ -107,7 +107,9 @@ export interface DataTableColumn<T> {
 export class DataTableComponent<T> {
   readonly rows = input.required<T[]>();
   readonly columns = input.required<DataTableColumn<T>[]>();
-  readonly actionsColumn = input<{ items: (row: T) => RowActionItem[] } | undefined>(undefined);
+  readonly actionsColumn = input<
+    { items: (row: T) => RowActionItem[]; ariaLabel: string; header?: string } | undefined
+  >(undefined);
   readonly search = input(false);
   readonly searchPlaceholder = input('Search');
   readonly paginated = input(true);
@@ -117,7 +119,10 @@ export class DataTableComponent<T> {
   readonly emptyHint = input('');
   readonly noResultsMessage = input('No matching rows');
 
-  private readonly cellTemplates = contentChildren(DataTableCellDirective);
+  // descendants: true (not the input() default of false) so a template wrapped in an @if/@for/
+  // ng-container — not just a direct child of <app-data-table> — still resolves. CDK's own
+  // matColumnDef content query opts into the same thing for the same reason.
+  private readonly cellTemplates = contentChildren(DataTableCellDirective, { descendants: true });
   private readonly sortRef = viewChild(MatSort);
   private readonly paginatorRef = viewChild(MatPaginator);
 
