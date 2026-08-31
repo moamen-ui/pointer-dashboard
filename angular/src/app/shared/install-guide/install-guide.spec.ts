@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { provideTransloco, TranslocoLoader } from '@jsverse/transloco';
@@ -10,11 +12,11 @@ import { AuthService } from '../../core/auth/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { InstallGuideService } from './install-guide.service';
 import {
+  API_KEY_PLACEHOLDER,
   buildExtensionSteps,
   buildSteps,
   EXTENSION_ZIP_URL,
   InstallGuideComponent,
-  PASSWORD_PLACEHOLDER,
   PROJECT_KEY_PLACEHOLDER,
 } from './install-guide.component';
 
@@ -22,6 +24,7 @@ const base = {
   server: 'https://api.example.test',
   projectKey: 'my-app',
   userEmail: 'admin@example.test',
+  apiKey: 'ptr_abc123',
   demo: null,
   credsEmailedText: 'emailed to you',
 };
@@ -58,10 +61,14 @@ describe('buildSteps', () => {
     expect(manual[1].code).toContain(`project="${PROJECT_KEY_PLACEHOLDER}"`);
   });
 
-  it('uses the signed-in email with a password placeholder outside a demo', () => {
+  it("uses the signed-in user's own API key outside a demo", () => {
     const creds = buildSteps(base).primary[1].code!;
-    expect(creds).toContain('POINTER_EMAIL=admin@example.test');
-    expect(creds).toContain(`POINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`);
+    expect(creds).toBe('POINTER_API_KEY=ptr_abc123');
+  });
+
+  it('falls back to a placeholder when the API key has not loaded yet', () => {
+    const creds = buildSteps({ ...base, apiKey: null }).primary[1].code!;
+    expect(creds).toBe(`POINTER_API_KEY=${API_KEY_PLACEHOLDER}`);
   });
 
   it('uses the demo widget login when a demo session is active', () => {
@@ -94,11 +101,10 @@ describe('buildExtensionSteps', () => {
     expect(buildExtensionSteps(base)[2].code).toBe('chrome://extensions');
   });
 
-  it('signs in with the server URL and the signed-in email outside a demo', () => {
+  it("signs in with the server URL and the signed-in user's own API key outside a demo", () => {
     const signIn = buildExtensionSteps(base)[3].code!;
     expect(signIn).toContain(base.server);
-    expect(signIn).toContain(`POINTER_EMAIL=${base.userEmail}`);
-    expect(signIn).toContain(`POINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`);
+    expect(signIn).toContain(`POINTER_API_KEY=${base.apiKey}`);
   });
 
   it('uses the demo server URL and widget login during a demo session', () => {
@@ -165,6 +171,8 @@ describe('InstallGuideComponent extension tab', () => {
       providers: [
         provideNoopAnimations(),
         provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
         provideTransloco({
           config: { availableLangs: ['en'], defaultLang: 'en', reRenderOnLangChange: false, prodMode: true },
           loader: InlineLoader,
@@ -179,6 +187,12 @@ describe('InstallGuideComponent extension tab', () => {
   it('renders the download link and all four steps when the extension tab is selected', async () => {
     const fixture = TestBed.createComponent(InstallGuideComponent);
     fixture.detectChanges();
+
+    // The component now also fetches the signed-in user's own API key (getApiMeApiKeyResource) —
+    // flush that pending request so whenStable() doesn't hang waiting on it forever.
+    const httpMock = TestBed.inject(HttpTestingController);
+    httpMock.expectOne('/api/me/api-key').flush({ apiKey: 'ptr_test' });
+
     await new Promise((r) => setTimeout(r)); // let the inline lang loader emit
     await fixture.whenStable();
     fixture.detectChanges();

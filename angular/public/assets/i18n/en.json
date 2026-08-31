@@ -464,7 +464,12 @@
     "viewProfile": "View Profile",
     "loading": "Loading profile…",
     "error": "Failed to load profile.",
-    "noProjects": "No project activity yet."
+    "noProjects": "No project activity yet.",
+    "apiKey": "API Key",
+    "apiKeyHint": "Used by AI coding tools (skill.md) to authenticate — paste this into .pointer/credentials.env as POINTER_API_KEY.",
+    "copyApiKey": "Copy",
+    "copied": "Copied to clipboard.",
+    "regenerateApiKey": "Regenerate"
   },
   "changePassword": {
     "title": "Change password",

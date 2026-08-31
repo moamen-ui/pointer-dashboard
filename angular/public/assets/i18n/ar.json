@@ -464,7 +464,12 @@
     "viewProfile": "عرض الملف",
     "loading": "جارٍ تحميل الملف…",
     "error": "فشل تحميل الملف.",
-    "noProjects": "لا نشاط بعد."
+    "noProjects": "لا نشاط بعد.",
+    "apiKey": "مفتاح API",
+    "apiKeyHint": "تستخدمه أدوات الذكاء الاصطناعي البرمجية (skill.md) للمصادقة — الصقه في .pointer/credentials.env باسم POINTER_API_KEY.",
+    "copyApiKey": "نسخ",
+    "copied": "تم النسخ.",
+    "regenerateApiKey": "إعادة توليد"
   },
   "changePassword": {
     "title": "تغيير كلمة المرور",

@@ -4,8 +4,14 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@jsverse/transloco';
-import { getApiMeProfileResource, getApiAdminUsersIdProfileResource } from '@moamen-ui/pointer-angular';
+import {
+  getApiMeProfileResource,
+  getApiAdminUsersIdProfileResource,
+  getApiMeApiKeyResource,
+  MeService,
+} from '@moamen-ui/pointer-angular';
 import { HttpResourceRef } from '@angular/common/http';
 import { AuthService } from '../../core/auth/auth.service';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
@@ -21,6 +27,7 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
     MatProgressBarModule,
     MatIconModule,
     MatButtonModule,
+    MatTooltipModule,
     TranslocoModule,
   ],
   template: `
@@ -38,6 +45,30 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
           <p class="mt-1 text-[0.9rem] text-muted">{{ p.user!.email }} · {{ p.user!.roleName }}</p>
         }
       </div>
+
+      <!-- API key (own profile only — never shown when an admin views someone else's) -->
+      @if (isOwnProfile && apiKey(); as key) {
+        <mat-card class="mb-6 rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-content class="p-4">
+            <div class="mb-2 text-[0.72rem] uppercase tracking-[0.04em] text-muted">
+              {{ 'profile.apiKey' | transloco }}
+            </div>
+            <p class="mb-3 text-[0.85rem] text-muted">{{ 'profile.apiKeyHint' | transloco }}</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <code class="rounded bg-slate-100 px-2.5 py-1.5 text-[0.85rem] dark:bg-slate-800">{{ key.apiKey }}</code>
+              <button mat-icon-button [matTooltip]="'profile.copyApiKey' | transloco" (click)="copyApiKey(key.apiKey!)">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <button mat-stroked-button (click)="regenerateApiKey()" [disabled]="regenerating()">
+                {{ 'profile.regenerateApiKey' | transloco }}
+              </button>
+            </div>
+            @if (copied()) {
+              <p class="mt-2 text-[0.8rem] text-brand">{{ 'profile.copied' | transloco }}</p>
+            }
+          </mat-card-content>
+        </mat-card>
+      }
 
       <!-- Headline stats -->
       <div class="mb-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
@@ -164,10 +195,21 @@ const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Produ
 export class ProfileComponent {
   private route = inject(ActivatedRoute);
   private auth = inject(AuthService);
+  private meService = inject(MeService);
   statusCatalog = inject(StatusCatalogService);
 
   /** The active resource — either the admin endpoint or the /me endpoint, never both. */
   private readonly activeResource: HttpResourceRef<UserProfileResponse | undefined>;
+
+  /** Whether this is the caller's own profile — gates the API key section, which is always
+   * about the current caller (/api/me/api-key), never the viewed user when an admin looks at
+   * someone else's profile. */
+  readonly isOwnProfile: boolean;
+
+  private readonly apiKeyResource = getApiMeApiKeyResource();
+  apiKey = () => this.apiKeyResource.value();
+  regenerating = signal(false);
+  copied = signal(false);
 
   /** Set of expanded project ids — signal so OnPush/zoneless change detection picks up mutations. */
   expandedProjects = signal(new Set<number>());
@@ -183,14 +225,34 @@ export class ProfileComponent {
     if (!isNaN(numericId) && this.auth.isAdmin()) {
       // Admin viewing another user's profile — use admin endpoint only.
       this.activeResource = getApiAdminUsersIdProfileResource(signal(numericId));
+      this.isOwnProfile = false;
     } else {
       // Own profile (or non-admin) — use /me endpoint only.
       this.activeResource = getApiMeProfileResource();
+      this.isOwnProfile = true;
     }
 
     this.profile = () => this.activeResource.value();
     this.loading = () => this.activeResource.isLoading();
     this.hasError = computed(() => this.activeResource.error() != null);
+  }
+
+  copyApiKey(key: string): void {
+    navigator.clipboard.writeText(key).then(() => {
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2000);
+    });
+  }
+
+  regenerateApiKey(): void {
+    this.regenerating.set(true);
+    this.meService.postApiMeApiKeyRegenerate().subscribe({
+      next: () => {
+        this.regenerating.set(false);
+        this.apiKeyResource.reload();
+      },
+      error: () => this.regenerating.set(false),
+    });
   }
 
   toggleProject(projectId: number): void {

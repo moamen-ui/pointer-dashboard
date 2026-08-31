@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { getApiMeApiKeyResource } from '@moamen-ui/pointer-angular';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from './install-guide.service';
@@ -38,9 +39,13 @@ const DEMO_SESSION_KEY = 'pointer_demo';
 export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
 /** Rendered in the snippet until the user actually has a project to point at. */
 export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
-/** Placeholder inside the credentials snippet. Deliberately not translated — it is
- *  pasted into .pointer/credentials.env, where English reads correctly either way. */
+/** Placeholder inside the credentials snippet for a demo session. Deliberately not
+ *  translated — it is pasted into .pointer/credentials.env, where English reads
+ *  correctly either way. */
 export const PASSWORD_PLACEHOLDER = '<your password>';
+/** Placeholder shown for the signed-in user's own API key while it's still loading
+ *  (or failed to load) — see ProfileComponent for the same key, always re-viewable. */
+export const API_KEY_PLACEHOLDER = '<your API key — see your Profile page>';
 
 /** What the dialog renders: the agent-driven path, plus the hand-wiring fallback. */
 export interface GuideSteps {
@@ -64,6 +69,7 @@ export function buildSteps(input: {
   server: string;
   projectKey: string | null;
   userEmail: string | null;
+  apiKey: string | null;
   demo: DemoSession | null;
   credsEmailedText: string;
 }): GuideSteps {
@@ -95,10 +101,14 @@ export function buildSteps(input: {
 }
 
 /** The credentials snippet, shared by the code guide and the extension sign-in step:
- *  demo widget login during a demo session, the signed-in user's email otherwise. */
+ *  demo widget login during a demo session (still email/password — a demo account's
+ *  own API key isn't fetched here, a separate concern from the signed-in user's own),
+ *  the signed-in user's own API key otherwise (fetched by the component, passed in —
+ *  this function stays pure/sync for testability). */
 function credentialsSnippet(input: {
   server: string;
   userEmail: string | null;
+  apiKey: string | null;
   demo: DemoSession | null;
   credsEmailedText: string;
 }): string {
@@ -107,7 +117,7 @@ function credentialsSnippet(input: {
     ? demo.emailSent
       ? input.credsEmailedText
       : `POINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`
-    : `POINTER_EMAIL=${input.userEmail ?? ''}\nPOINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`;
+    : `POINTER_API_KEY=${input.apiKey ?? API_KEY_PLACEHOLDER}`;
 }
 
 /**
@@ -117,6 +127,7 @@ function credentialsSnippet(input: {
 export function buildExtensionSteps(input: {
   server: string;
   userEmail: string | null;
+  apiKey: string | null;
   demo: DemoSession | null;
   credsEmailedText: string;
 }): SetupStep[] {
@@ -272,6 +283,10 @@ export class InstallGuideComponent {
   private auth = inject(AuthService);
   private guide = inject(InstallGuideService);
 
+  // The signed-in user's own API key — same one shown on the Profile page, re-viewable there
+  // any time. Not fetched for a demo session (credentialsSnippet keeps demo email/password).
+  private readonly apiKeyResource = getApiMeApiKeyResource();
+
   // Transloco loads its language file over HTTP, so a translate() call made while
   // building the steps can land before the file arrives and echo the key back. This
   // signal makes the computed below re-run once a load event fires.
@@ -293,6 +308,7 @@ export class InstallGuideComponent {
   private readonly stepsInput = () => ({
     server: this.demo()?.serverUrl || environment.apiBase,
     userEmail: this.auth.user()?.email ?? null,
+    apiKey: this.apiKeyResource.value()?.apiKey ?? null,
     demo: this.demo(),
     credsEmailedText: this.translatedCredsEmailed(),
   });
