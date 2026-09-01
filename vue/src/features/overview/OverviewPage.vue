@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, h, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
+import type { ColumnDef } from '@tanstack/vue-table';
 import {
   useGetApiAdminStats,
   useGetApiAdminUsers,
@@ -30,14 +31,8 @@ import {
 } from 'lucide-vue-next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import EmptyState from '@/shared/EmptyState.vue';
 import {
   Dialog,
@@ -65,7 +60,7 @@ const queryClient = useQueryClient();
 // Generated TanStack query hook (GET → useQuery). The package's customInstance
 // already unwraps Result<T>, so data resolves to StatsResponse.
 const { data: stats, isFetching, refetch } = useGetApiAdminStats();
-const { color: statusColor, displayLabelFor: statusLabel } = useStatusCatalog();
+const { items: statusItems, color: statusColor, displayLabel: statusLabel, displayLabelFor: statusLabelFor } = useStatusCatalog();
 
 // Pending approvals — same admin-users endpoint as the Users page, filtered to pending.
 const pendingQuery = useGetApiAdminUsers({ status: 'pending' });
@@ -131,6 +126,38 @@ async function reject(user: UserResponse) {
 const totals = computed(() => stats.value?.totals);
 const projects = computed<ProjectStats[]>(() => stats.value?.projects ?? []);
 
+/** Map status value → count field on ProjectStats. */
+function statusCellValue(row: ProjectStats, statusValue: number | undefined): number {
+  switch (statusValue) {
+    case 1: return row.open ?? 0;
+    case 2: return row.pending ?? 0;
+    case 3: return row.completed ?? 0;
+    case 4: return row.archived ?? 0;
+    default: return 0;
+  }
+}
+
+// Dynamic columns: key, name, comments, privateComments, status_1..N, status.
+// A computed so headers follow live language/catalog changes. Each per-status
+// header is tinted with that status's configured color (matching the Angular
+// reference's headerColor) via TanStack's header render hook.
+const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(() => [
+  { accessorKey: 'key', header: t('overview.key'), sortingFn: 'alphanumeric' },
+  { accessorKey: 'name', header: t('overview.name'), sortingFn: 'alphanumeric' },
+  { accessorKey: 'comments', header: t('overview.comments') },
+  { accessorKey: 'privateComments', header: t('overview.private') },
+  ...statusItems.value.map(
+    (s): ColumnDef<typeof dataTableFeatures, ProjectStats> => ({
+      id: `status_${s.value}`,
+      accessorFn: (row) => statusCellValue(row, s.value),
+      header: () => h('span', { style: { color: statusColor(s.value) } }, statusLabel(s)),
+      cell: ({ getValue }) =>
+        h('span', { class: 'font-medium', style: { color: statusColor(s.value) } }, String(getValue() ?? 0)),
+    }),
+  ),
+  { id: 'status', accessorFn: (row) => (row.isActive ? 1 : 0), header: t('overview.status') },
+]);
+
 type Tone = 'slate';
 
 const TONE: Record<Tone, { box: string; value: string }> = {
@@ -174,7 +201,7 @@ const cards = computed(() => [
               {{ card.value ?? 0 }}
             </div>
             <div class="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-              {{ card.statusValue != null ? statusLabel(card.statusValue) : t(card.key) }}
+              {{ card.statusValue != null ? statusLabelFor(card.statusValue) : t(card.key) }}
             </div>
             <div
               v-if="card.key === 'overview.comments' && (totals?.privateComments ?? 0) > 0"
@@ -249,59 +276,35 @@ const cards = computed(() => [
         </Button>
       </div>
 
-      <Card v-if="projects.length > 0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{{ t('overview.key') }}</TableHead>
-              <TableHead>{{ t('overview.name') }}</TableHead>
-              <TableHead>{{ t('overview.comments') }}</TableHead>
-              <TableHead>{{ t('overview.private') }}</TableHead>
-              <TableHead :style="{ color: statusColor(STATUS_OPEN) }">{{ statusLabel(STATUS_OPEN) }}</TableHead>
-              <TableHead :style="{ color: statusColor(STATUS_READY) }">{{ statusLabel(STATUS_READY) }}</TableHead>
-              <TableHead :style="{ color: statusColor(STATUS_APPLIED) }">{{ statusLabel(STATUS_APPLIED) }}</TableHead>
-              <TableHead :style="{ color: statusColor(STATUS_ARCHIVED) }">{{ statusLabel(STATUS_ARCHIVED) }}</TableHead>
-              <TableHead>{{ t('overview.status') }}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="row in projects" :key="row.projectId ?? row.key ?? ''">
-              <TableCell>
-                <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ row.key }}</code>
-              </TableCell>
-              <TableCell>{{ row.name }}</TableCell>
-              <TableCell>{{ row.comments }}</TableCell>
-              <TableCell>
-                <span
-                  v-if="(row.privateComments ?? 0) > 0"
-                  class="chip chip-private"
-                  :title="t('overview.privateHiddenTooltip')"
-                >
-                  <Lock class="h-3 w-3" />
-                  {{ row.privateComments }}
-                </span>
-                <span v-else class="text-muted-foreground">—</span>
-              </TableCell>
-              <TableCell class="font-medium" :style="{ color: statusColor(STATUS_OPEN) }">{{ row.open }}</TableCell>
-              <TableCell class="font-medium" :style="{ color: statusColor(STATUS_READY) }">{{ row.pending }}</TableCell>
-              <TableCell class="font-medium" :style="{ color: statusColor(STATUS_APPLIED) }">{{ row.completed }}</TableCell>
-              <TableCell class="font-medium" :style="{ color: statusColor(STATUS_ARCHIVED) }">{{ row.archived }}</TableCell>
-              <TableCell>
-                <span :class="cn('chip', row.isActive ? 'chip-active' : 'chip-disabled')">
-                  {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
-                </span>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </Card>
-
-      <EmptyState
-        v-else-if="!isFetching"
-        :icon="FolderOpen"
-        :message="t('overview.emptyProjects')"
-        :hint="t('overview.emptyProjectsHint')"
-      />
+      <DataTable
+        :data="projects"
+        :columns="columns"
+        paginated
+        :loading="isFetching"
+        :empty-icon="FolderOpen"
+        :empty-message="t('overview.emptyProjects')"
+        :empty-hint="t('overview.emptyProjectsHint')"
+      >
+        <template #cell-key="{ row }">
+          <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ row.key }}</code>
+        </template>
+        <template #cell-privateComments="{ row }">
+          <span
+            v-if="(row.privateComments ?? 0) > 0"
+            class="chip chip-private"
+            :title="t('overview.privateHiddenTooltip')"
+          >
+            <Lock class="h-3 w-3" />
+            {{ row.privateComments }}
+          </span>
+          <span v-else class="text-muted-foreground">—</span>
+        </template>
+        <template #cell-status="{ row }">
+          <Badge :variant="row.isActive ? 'success' : 'destructive'">
+            {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+          </Badge>
+        </template>
+      </DataTable>
     </div>
   </div>
 
