@@ -34,6 +34,15 @@ list/form/dialog UI on top of these instead of hand-rolling table/menu/field mar
 | Form field wrapper (label/hint/error) | `src/app/shared/form-field/` | `src/components/shared/FormField.{tsx,vue}` |
 | Severity badge (`primary\|success\|warning\|danger\|neutral`) | `src/app/shared/badge/` | `src/components/ui/badge.{tsx}` / `ui/badge/` |
 | Confirm dialog | `src/app/shared/confirm-dialog.component.ts` + `core/confirm.service.ts` | `useConfirm` composable (Vue) / `ConfirmDialog` (React) |
+| Tabs | `src/app/shared/tabs/` (`<app-tabs>` + `appTabContent` directive) | `src/components/shared/Tabs.{tsx,vue}` (`AppTabs`, thin wrapper — use the real `<TabsContent>` from `ui/tabs` as children/slot) |
+
+> **Known issue — Vue Tabs don't switch.** `vue/`'s `Tabs`/`TabsTrigger` (`reka-ui`) don't respond to
+> clicks or arrow-key navigation in `install-guide/InstallGuideDialog.vue` — confirmed reproducible
+> with the *original* unwrapped `<Tabs v-model>` markup too (i.e. it predates `AppTabs.vue` and isn't
+> caused by it). `rootContext.changeModelValue()` in `TabsTrigger` never fires on interaction; a
+> `resolve.dedupe: ['@vueuse/core', 'vue']` attempt (reka-ui nests its own newer `@vueuse/core`
+> alongside the app's older one) did not fix it. Root cause still unknown — needs a dedicated look
+> before `AppTabs.vue` gets a second real consumer.
 
 `RowActionItem` (`{ label, icon?, severity?, disabled?, tooltip?, onClick }`) is the shared shape for
 every row's action menu — the callback (`items`/`actions`) always stays page-side so
