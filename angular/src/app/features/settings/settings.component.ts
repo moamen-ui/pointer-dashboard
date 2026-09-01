@@ -213,6 +213,40 @@ interface EditableAction {
             </div>
           </mat-expansion-panel>
 
+          <!-- Extension section -->
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title class="text-base font-semibold">
+                {{ 'settings.extensionSection' | transloco }}
+              </mat-panel-title>
+            </mat-expansion-panel-header>
+            <div class="flex flex-col gap-4">
+
+              <!-- extensionStoreUrl -->
+              <div>
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>{{ 'settings.extensionStoreUrl' | transloco }}</mat-label>
+                  <input matInput
+                    [ngModel]="form().extensionStoreUrl ?? ''"
+                    (ngModelChange)="setField('extensionStoreUrl', $event)" />
+                </mat-form-field>
+                <div class="text-xs text-muted-foreground">{{ 'settings.extensionStoreUrlHint' | transloco }}</div>
+              </div>
+
+              <!-- extensionZipUrl -->
+              <div>
+                <mat-form-field appearance="outline" class="w-full">
+                  <mat-label>{{ 'settings.extensionZipUrl' | transloco }}</mat-label>
+                  <input matInput
+                    [ngModel]="form().extensionZipUrl ?? ''"
+                    (ngModelChange)="setField('extensionZipUrl', $event)" />
+                </mat-form-field>
+                <div class="text-xs text-muted-foreground">{{ 'settings.extensionZipUrlHint' | transloco }}</div>
+              </div>
+
+            </div>
+          </mat-expansion-panel>
+
           <!-- Save button -->
           <div>
             <button mat-flat-button color="primary" (click)="save()">
@@ -404,6 +438,8 @@ export class SettingsComponent {
       demoTtlHours: current.demoTtlHours,
       demoPerEmailPerDay: current.demoPerEmailPerDay,
       demoCommentCap: current.demoCommentCap,
+      extensionStoreUrl: current.extensionStoreUrl,
+      extensionZipUrl: current.extensionZipUrl,
     };
     this.settingsService.putApiAdminSettings(body as any).subscribe({
       next: () => {
