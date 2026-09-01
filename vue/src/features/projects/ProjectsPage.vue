@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
+import type { ColumnDef } from '@tanstack/vue-table';
 import {
   useGetApiAdminProjects,
   usePostApiAdminProjects,
@@ -16,19 +17,13 @@ import {
   type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -36,18 +31,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
-import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
-import EmptyState from '@/shared/EmptyState.vue';
 
 const { t } = useI18n();
 
@@ -418,6 +405,50 @@ function openViewPrompts(project: ProjectResponse) {
   viewPromptsProject.value = project;
   viewPromptsOpen.value = true;
 }
+
+// A computed so headers follow live language switches.
+const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectResponse>[]>(() => [
+  { accessorKey: 'key', header: t('projects.key'), enableSorting: false },
+  { accessorKey: 'name', header: t('projects.name'), enableSorting: false },
+  { accessorKey: 'createdByName', header: t('projects.createdBy'), enableSorting: false },
+  { accessorKey: 'commentsCount', header: t('projects.comments'), enableSorting: false },
+  { accessorKey: 'isActive', header: t('projects.status'), enableSorting: false },
+]);
+
+// Per-row action menu. Enable/Disable stays unconditional (no isAdmin/canEdit
+// gate) -- matches this page's pre-existing convention, kept as-is rather than
+// aligned to the angular/react ports' gating.
+function actionsFor(project: ProjectResponse): RowActionItem[] {
+  const items: RowActionItem[] = [
+    {
+      label: t(project.isActive ? 'common.disable' : 'common.enable'),
+      icon: project.isActive ? Ban : CheckCircle2,
+      severity: project.isActive ? 'danger' : 'neutral',
+      disabled: loading.value,
+      onClick: () => void toggleActive(project),
+    },
+  ];
+  if (project.canEdit) {
+    items.push({ label: t('projects.edit'), icon: Pencil, disabled: loading.value, onClick: () => openEdit(project) });
+  } else {
+    items.push({ label: t('projects.viewPrompts'), icon: Pencil, disabled: loading.value, onClick: () => openViewPrompts(project) });
+    items.push({ label: t('projects.suggest'), icon: PlusCircle, disabled: loading.value, onClick: () => openSuggest(project) });
+  }
+  items.push({ label: t('exportImport.export'), icon: Download, disabled: loading.value, onClick: () => void exportProject(project) });
+  if (isSuperAdmin.value) {
+    items.push({ label: t('exportImport.import'), icon: Upload, disabled: loading.value, onClick: () => openImport(project) });
+  }
+  // Delete stays last in every menu (Pointer feedback #137).
+  items.push({
+    label: t('projects.delete'),
+    icon: Trash2,
+    severity: 'danger',
+    disabled: !project.canDelete || loading.value,
+    tooltip: project.canDelete ? undefined : t('projects.deleteBlockedComments'),
+    onClick: () => void confirmDelete(project),
+  });
+  return items;
+}
 </script>
 
 <template>
@@ -438,113 +469,36 @@ function openViewPrompts(project: ProjectResponse) {
       <div class="h-full w-1/3 animate-pulse bg-primary" />
     </div>
 
-    <Card v-if="projects.length > 0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{{ t('projects.key') }}</TableHead>
-            <TableHead>{{ t('projects.name') }}</TableHead>
-            <TableHead>{{ t('projects.createdBy') }}</TableHead>
-            <TableHead>{{ t('projects.comments') }}</TableHead>
-            <TableHead>{{ t('projects.status') }}</TableHead>
-            <TableHead>{{ t('projects.actions') }}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="project in projects" :key="project.id">
-            <TableCell>
-              <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ project.key }}</code>
-            </TableCell>
-            <TableCell>{{ project.name }}</TableCell>
-            <TableCell class="text-sm text-muted-foreground">{{ project.createdByName ?? '—' }}</TableCell>
-            <TableCell class="text-sm text-muted-foreground">{{ project.commentsCount ?? 0 }}</TableCell>
-            <TableCell>
-              <span :class="cn('chip', project.isActive ? 'chip-active' : 'chip-disabled')">
-                {{ t(project.isActive ? 'common.active' : 'common.disabled') }}
-              </span>
-            </TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon">
-                    <span class="sr-only">{{ t('projects.actions') }}</span>
-                    <EllipsisVertical class="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    :disabled="loading"
-                    :class="project.isActive ? 'text-destructive focus:text-destructive' : undefined"
-                    @select="toggleActive(project)"
-                  >
-                    <component :is="project.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
-                    {{ project.isActive ? t('common.disable') : t('common.enable') }}
-                  </DropdownMenuItem>
-                  <!-- Edit: only when canEdit -->
-                  <DropdownMenuItem
-                    v-if="project.canEdit"
-                    :disabled="loading"
-                    @select="openEdit(project)"
-                  >
-                    <Pencil class="h-4 w-4" /> {{ t('projects.edit') }}
-                  </DropdownMenuItem>
-                  <!-- View prompts (read-only): when !canEdit -->
-                  <DropdownMenuItem
-                    v-if="!project.canEdit"
-                    :disabled="loading"
-                    @select="openViewPrompts(project)"
-                  >
-                    <Pencil class="h-4 w-4" /> {{ t('projects.viewPrompts') }}
-                  </DropdownMenuItem>
-                  <!-- Suggest prompt: when !canEdit -->
-                  <DropdownMenuItem
-                    v-if="!project.canEdit"
-                    :disabled="loading"
-                    @select="openSuggest(project)"
-                  >
-                    <PlusCircle class="h-4 w-4" /> {{ t('projects.suggest') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem :disabled="loading" @select="exportProject(project)">
-                    <Download class="h-4 w-4" /> {{ t('exportImport.export') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    v-if="isSuperAdmin"
-                    :disabled="loading"
-                    @select="openImport(project)"
-                  >
-                    <Upload class="h-4 w-4" /> {{ t('exportImport.import') }}
-                  </DropdownMenuItem>
-                  <!-- Delete stays last in every menu (Pointer feedback #137). -->
-                  <!-- Delete: when canDelete (enabled), or disabled with tooltip when !canDelete -->
-                  <DropdownMenuItem
-                    v-if="project.canDelete"
-                    :disabled="loading"
-                    class="text-destructive focus:text-destructive"
-                    @select="confirmDelete(project)"
-                  >
-                    <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem v-else disabled :title="t('projects.deleteBlockedComments')">
-                    <Trash2 class="h-4 w-4" /> {{ t('projects.delete') }}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </Card>
-
-    <EmptyState
-      v-else-if="!loading"
-      :icon="FolderOpen"
-      :message="t('projects.empty')"
-      :hint="t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')"
+    <DataTable
+      :data="projects"
+      :columns="columns"
+      :actions="actionsFor"
+      :actions-aria-label="t('projects.actions')"
+      paginated
+      :loading="loading"
+      :empty-icon="FolderOpen"
+      :empty-message="t('projects.empty')"
+      :empty-hint="t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')"
     >
+      <template #cell-key="{ row }">
+        <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ row.key }}</code>
+      </template>
+      <template #cell-name="{ row }">{{ row.name }}</template>
+      <template #cell-createdByName="{ row }">
+        <span class="text-sm text-muted-foreground">{{ row.createdByName ?? '—' }}</span>
+      </template>
+      <template #cell-commentsCount="{ row }">
+        <span class="text-sm text-muted-foreground">{{ row.commentsCount ?? 0 }}</span>
+      </template>
+      <template #cell-isActive="{ row }">
+        <Badge :variant="row.isActive ? 'success' : 'destructive'">
+          {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+        </Badge>
+      </template>
       <Button v-if="!isSuperAdmin" @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
       </Button>
-    </EmptyState>
+    </DataTable>
   </div>
 
   <!-- Add project dialog -->
