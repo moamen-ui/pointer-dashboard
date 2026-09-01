@@ -301,7 +301,7 @@ export class StatusesComponent {
         data: {
           message: this.transloco.translate('statuses.resetConfirmMessage', { name: row.item.name }),
           confirmLabel: this.transloco.translate('statuses.reset'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()

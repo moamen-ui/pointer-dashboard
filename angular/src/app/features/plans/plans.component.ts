@@ -508,7 +508,7 @@ export class PlansComponent {
           title: this.transloco.translate('plans.deleteTitle'),
           message: this.transloco.translate('plans.deleteMessage', { name: plan.name }),
           confirmLabel: this.transloco.translate('plans.delete'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()

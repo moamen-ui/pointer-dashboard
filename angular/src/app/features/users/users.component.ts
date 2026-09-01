@@ -664,7 +664,7 @@ export class UsersComponent {
         data: {
           message: this.transloco.translate('common.confirmDisable', { name: user.email }),
           confirmLabel: this.transloco.translate('common.disable'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()
@@ -700,7 +700,7 @@ export class UsersComponent {
         data: {
           message: this.transloco.translate('users.confirmReject', { name: user.email }),
           confirmLabel: this.transloco.translate('users.reject'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()
@@ -724,7 +724,7 @@ export class UsersComponent {
         data: {
           message: this.transloco.translate('users.confirmDelete', { name: user.email }),
           confirmLabel: this.transloco.translate('common.delete'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()
@@ -748,7 +748,7 @@ export class UsersComponent {
         data: {
           message: this.transloco.translate('users.confirmPromote', { name: user.displayName || user.email }),
           confirmLabel: this.transloco.translate('users.makeAdmin'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()

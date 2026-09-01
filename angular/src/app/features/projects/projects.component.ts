@@ -743,7 +743,7 @@ export class ProjectsComponent {
         data: {
           message: this.transloco.translate('projects.deleteConfirm'),
           confirmLabel: this.transloco.translate('projects.delete'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()
@@ -828,7 +828,7 @@ export class ProjectsComponent {
         data: {
           message: this.transloco.translate('common.confirmDisable', { name: project.key }),
           confirmLabel: this.transloco.translate('common.disable'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()
