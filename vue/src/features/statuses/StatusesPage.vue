@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
+import type { ColumnDef } from '@tanstack/vue-table';
 import {
   useGetApiAdminStatuses,
   usePatchApiAdminStatusesValue,
@@ -10,24 +11,9 @@ import {
   getGetApiAdminStatusesQueryKey,
   type StatusAdminItem,
 } from '@moamen-ui/pointer-vue';
-import { Save, RotateCcw, EllipsisVertical, Tag } from 'lucide-vue-next';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import EmptyState from '@/shared/EmptyState.vue';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Save, RotateCcw, Tag } from 'lucide-vue-next';
+import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
+import type { RowActionItem } from '@/components/shared/types';
 import { extractMessage } from '@/lib/error';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -130,6 +116,30 @@ async function resetRow(row: EditRow) {
     row.resetting = false;
   }
 }
+
+// A computed so headers follow live language switches.
+const columns = computed<ColumnDef<typeof dataTableFeatures, EditRow>[]>(() => [
+  { accessorKey: 'name', header: t('statuses.colName'), enableSorting: false },
+  { accessorKey: 'label', header: t('statuses.colLabel'), enableSorting: false },
+  { accessorKey: 'color', header: t('statuses.colColor'), enableSorting: false },
+  { accessorKey: 'order', header: t('statuses.colOrder'), enableSorting: false },
+]);
+
+function actionsFor(row: EditRow): RowActionItem[] {
+  const items: RowActionItem[] = [
+    { label: t('statuses.save'), icon: Save, disabled: row.saving || row.resetting, onClick: () => void saveRow(row) },
+  ];
+  if (row.isOverridden) {
+    items.push({
+      label: t('statuses.reset'),
+      icon: RotateCcw,
+      severity: 'danger',
+      disabled: row.saving || row.resetting,
+      onClick: () => void resetRow(row),
+    });
+  }
+  return items;
+}
 </script>
 
 <template>
@@ -149,108 +159,70 @@ async function resetRow(row: EditRow) {
       {{ t('statuses.loadError') }}
     </p>
 
-    <!-- Empty state (not while loading) -->
-    <EmptyState
-      v-else-if="rows.length === 0 && !statusesQuery.isLoading.value"
-      :icon="Tag"
-      :message="t('statuses.empty')"
-      :hint="t('statuses.emptyHint')"
-    />
+    <!-- Table — kept visible during refetch. Every column but "name" is a live
+         inline-edit control bound to local per-row state -- the escape hatch
+         this page needs instead of DataTable's plain display-only cells. -->
+    <DataTable
+      :data="rows"
+      :columns="columns"
+      :actions="actionsFor"
+      :actions-aria-label="t('statuses.colActions')"
+      :loading="statusesQuery.isLoading.value"
+      :empty-icon="Tag"
+      :empty-message="t('statuses.empty')"
+      :empty-hint="t('statuses.emptyHint')"
+    >
+      <template #cell-name="{ row }">
+        <span class="font-medium">{{ row.name }}</span>
+      </template>
 
-    <!-- Table — kept visible during refetch -->
-    <Card v-if="rows.length > 0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{{ t('statuses.colName') }}</TableHead>
-            <TableHead>{{ t('statuses.colLabel') }}</TableHead>
-            <TableHead>{{ t('statuses.colColor') }}</TableHead>
-            <TableHead>{{ t('statuses.colOrder') }}</TableHead>
-            <TableHead>{{ t('statuses.colActions') }}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="row in rows" :key="row.value">
-            <!-- Name (read-only) -->
-            <TableCell class="font-medium">{{ row.name }}</TableCell>
+      <!-- Label — same slim box as the colour control below -->
+      <template #cell-label="{ row }">
+        <div :class="[fieldClass, 'w-[132px]']">
+          <input
+            v-model="row.label"
+            :maxlength="64"
+            :class="fieldInputClass"
+            :placeholder="t('statuses.colLabel')"
+            :aria-label="t('statuses.colLabel')"
+          />
+        </div>
+      </template>
 
-            <!-- Label — same slim box as the colour control below -->
-            <TableCell>
-              <div :class="[fieldClass, 'w-[132px]']">
-                <input
-                  v-model="row.label"
-                  :maxlength="64"
-                  :class="fieldInputClass"
-                  :placeholder="t('statuses.colLabel')"
-                  :aria-label="t('statuses.colLabel')"
-                />
-              </div>
-            </TableCell>
+      <!-- Color: single merged swatch + hex input -->
+      <template #cell-color="{ row }">
+        <div :class="[fieldClass, 'w-[124px] ps-1.5']">
+          <input
+            v-model="row.color"
+            type="color"
+            class="color-swatch h-6 w-6 flex-shrink-0 cursor-pointer rounded border-none bg-transparent p-0"
+            :title="row.color"
+            :aria-label="t('statuses.colColor')"
+          />
+          <input
+            v-model="row.color"
+            type="text"
+            :maxlength="7"
+            :class="[fieldInputClass, 'font-mono']"
+            placeholder="#rrggbb"
+          />
+        </div>
+      </template>
 
-            <!-- Color: single merged swatch + hex input -->
-            <TableCell>
-              <div :class="[fieldClass, 'w-[124px] ps-1.5']">
-                <input
-                  v-model="row.color"
-                  type="color"
-                  class="color-swatch h-6 w-6 flex-shrink-0 cursor-pointer rounded border-none bg-transparent p-0"
-                  :title="row.color"
-                  :aria-label="t('statuses.colColor')"
-                />
-                <input
-                  v-model="row.color"
-                  type="text"
-                  :maxlength="7"
-                  :class="[fieldInputClass, 'font-mono']"
-                  placeholder="#rrggbb"
-                />
-              </div>
-            </TableCell>
-
-            <!-- Order — same slim box as the colour control above -->
-            <TableCell>
-              <div :class="[fieldClass, 'w-16']">
-                <input
-                  v-model.number="row.order"
-                  type="number"
-                  :min="0"
-                  :class="fieldInputClass"
-                  placeholder="0"
-                  :aria-label="t('statuses.colOrder')"
-                />
-              </div>
-            </TableCell>
-
-            <!-- Actions -->
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon">
-                    <span class="sr-only">{{ t('statuses.colActions') }}</span>
-                    <EllipsisVertical class="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem :disabled="row.saving || row.resetting" @select="saveRow(row)">
-                    <Save class="h-4 w-4" />
-                    {{ t('statuses.save') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    v-if="row.isOverridden"
-                    :disabled="row.saving || row.resetting"
-                    class="text-destructive focus:text-destructive"
-                    @select="resetRow(row)"
-                  >
-                    <RotateCcw class="h-4 w-4" />
-                    {{ t('statuses.reset') }}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </Card>
+      <!-- Order — same slim box as the colour control above -->
+      <template #cell-order="{ row }">
+        <div :class="[fieldClass, 'w-16']">
+          <input
+            v-model.number="row.order"
+            type="number"
+            :min="0"
+            :class="fieldInputClass"
+            placeholder="0"
+            :aria-label="t('statuses.colOrder')"
+          />
+        </div>
+      </template>
+    </DataTable>
   </div>
 </template>
 
