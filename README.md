@@ -27,5 +27,9 @@ npm run build  # production build
 
 - **Agent guidance:** [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md) — note the **multi-client
   parity** rule: a change to one app should be mirrored to the others.
+- **Shared components:** every app builds its list/table/form/dialog pages on a small
+  per-framework `shared/` library (`DataTable`, `RowActionsMenu`, `FormField`, `Badge`, confirm
+  dialog) wrapping that framework's UI kit — see `AGENTS.md`'s "Shared component library" section
+  before hand-rolling a new table or form.
 - **API + deploy:** the backend, the API clients, and deploy steps live in
   [`poitner-api`](https://github.com/moamen-ui/poitner-api) (see its `DEPLOY.md`).

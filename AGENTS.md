@@ -22,6 +22,29 @@ that explicitly and explain why it can't be mirrored.
 parallel — the work is independent. Give each a self-contained brief (the task + that app's stack),
 then review all results and confirm parity (behavior, routes, labels, states) before finishing.
 
+## Shared component library (READ BEFORE BUILDING A NEW TABLE/FORM/DIALOG)
+
+Every app has its own small `shared/` component set wrapping that framework's UI kit — build new
+list/form/dialog UI on top of these instead of hand-rolling table/menu/field markup per page:
+
+| Component | Angular | React / Vue |
+|---|---|---|
+| Data table (sort, paginate, search, custom cells, trailing actions column) | `src/app/shared/data-table/` (`<app-data-table>` + `appDataTableCell` directive) | `src/components/shared/data-table/` (`<DataTable>` / `<DataTable>`, `#cell-<key>` scoped slots in Vue) |
+| Row actions menu | `src/app/shared/row-actions-menu/` | `src/components/shared/RowActionsMenu.{tsx,vue}` |
+| Form field wrapper (label/hint/error) | `src/app/shared/form-field/` | `src/components/shared/FormField.{tsx,vue}` |
+| Severity badge (`primary\|success\|warning\|danger\|neutral`) | `src/app/shared/badge/` | `src/components/ui/badge.{tsx}` / `ui/badge/` |
+| Confirm dialog | `src/app/shared/confirm-dialog.component.ts` + `core/confirm.service.ts` | `useConfirm` composable (Vue) / `ConfirmDialog` (React) |
+
+`RowActionItem` (`{ label, icon?, severity?, disabled?, tooltip?, onClick }`) is the shared shape for
+every row's action menu — the callback (`items`/`actions`) always stays page-side so
+permission/feature-gating logic never leaks into the shared component.
+
+**Escape hatch:** `statuses` (inline-edit-every-row) and `users` (union row type: real users +
+pending invites, dual menus) render every column through the table's custom-cell mechanism
+(`appDataTableCell` in Angular, a column `cell` render fn in React, a `#cell-<key>` slot in Vue)
+instead of the plain display-only path — deliberate, not a shortcut to copy elsewhere. Every other
+list page should use plain columns + the `actions` callback.
+
 ## Layout & commands
 
 Each app folder is self-contained (own `package.json`, `.npmrc`, build). Run from inside it:
