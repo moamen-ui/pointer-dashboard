@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
+import type { ColumnDef } from '@tanstack/vue-table';
 import {
   useGetApiAdminPlans,
   usePostApiAdminPlans,
@@ -10,20 +11,14 @@ import {
   getGetApiAdminPlansQueryKey,
   type PlanWriteDto as ApiPlanWriteDto,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Pencil, Trash2, CreditCard, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Pencil, Trash2, CreditCard } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge, type BadgeVariants } from '@/components/ui/badge';
+import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -38,17 +33,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
-import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
-import EmptyState from '@/shared/EmptyState.vue';
 
 // ─── Types (mirrors react model types; kept local to avoid ts-ignore sprawl) ──
 
@@ -95,10 +82,10 @@ function formatPrice(plan: PlanAdminResponse): string {
   return `${plan.priceMonthly} ${plan.currency ?? 'USD'}${interval}`;
 }
 
-function displayStateClass(state: number | undefined): string {
-  if (state === 0) return 'chip-active';
-  if (state === 1) return 'chip-neutral';
-  return 'chip-disabled';
+function displayStateSeverity(state: number | undefined): BadgeVariants['variant'] {
+  if (state === 1) return 'neutral';
+  if (state === 2) return 'destructive';
+  return 'success';
 }
 
 function displayStateKey(state: number | undefined): string {
@@ -263,6 +250,29 @@ async function doDelete(plan: PlanAdminResponse) {
   }
 }
 
+// A computed so headers follow live language switches.
+const columns = computed<ColumnDef<typeof dataTableFeatures, PlanAdminResponse>[]>(() => [
+  { accessorKey: 'name', header: t('plans.colName'), enableSorting: false },
+  { accessorKey: 'slug', header: t('plans.colSlug'), enableSorting: false },
+  { accessorKey: 'price', header: t('plans.colPrice'), enableSorting: false },
+  { accessorKey: 'isActive', header: t('plans.colActive'), enableSorting: false },
+  { accessorKey: 'displayState', header: t('plans.colDisplay'), enableSorting: false },
+  { accessorKey: 'activeSubscriptions', header: t('plans.colSubs'), enableSorting: false },
+]);
+
+function actionsFor(plan: PlanAdminResponse): RowActionItem[] {
+  return [
+    { label: t('common.rename'), icon: Pencil, onClick: () => openEdit(plan) },
+    {
+      label: t('plans.delete'),
+      icon: Trash2,
+      severity: 'danger',
+      disabled: deletePlan.isPending.value,
+      onClick: () => void doDelete(plan),
+    },
+  ];
+}
+
 // ── Entitlements form helpers (called in template) ────────────────────────────
 function setEntInt(key: keyof PlanEntitlementsDto, raw: string) {
   form.value.entitlements = { ...form.value.entitlements, [key]: strToInt(raw) };
@@ -303,68 +313,37 @@ watch(bulletsRef, (v) => {
 
     <p v-if="isError" class="text-sm text-destructive">{{ t('plans.loadError') }}</p>
 
-    <Card v-if="plans.length > 0 || isFetching">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{{ t('plans.colName') }}</TableHead>
-            <TableHead>{{ t('plans.colSlug') }}</TableHead>
-            <TableHead>{{ t('plans.colPrice') }}</TableHead>
-            <TableHead>{{ t('plans.colActive') }}</TableHead>
-            <TableHead>{{ t('plans.colDisplay') }}</TableHead>
-            <TableHead>{{ t('plans.colSubs') }}</TableHead>
-            <TableHead>{{ t('tenants.actions') }}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="plan in plans" :key="plan.id">
-            <TableCell class="font-medium">{{ plan.name }}</TableCell>
-            <TableCell class="text-muted-foreground">{{ plan.slug }}</TableCell>
-            <TableCell>{{ formatPrice(plan) }}</TableCell>
-            <TableCell>
-              <span :class="cn('chip', plan.isActive ? 'chip-active' : 'chip-disabled')">
-                {{ t(plan.isActive ? 'common.active' : 'common.disabled') }}
-              </span>
-            </TableCell>
-            <TableCell>
-              <span :class="cn('chip', displayStateClass(plan.displayState))">
-                {{ t(displayStateKey(plan.displayState)) }}
-              </span>
-            </TableCell>
-            <TableCell>{{ plan.activeSubscriptions ?? 0 }}</TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon">
-                    <span class="sr-only">{{ t('tenants.actions') }}</span>
-                    <EllipsisVertical class="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem @select="openEdit(plan)">
-                    <Pencil class="h-4 w-4" /> {{ t('common.edit') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    :disabled="deletePlan.isPending.value"
-                    class="text-destructive focus:text-destructive"
-                    @select="doDelete(plan)"
-                  >
-                    <Trash2 class="h-4 w-4" /> {{ t('plans.delete') }}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </Card>
-
-    <EmptyState
-      v-if="!isFetching && plans.length === 0 && !isError"
-      :icon="CreditCard"
-      :message="t('plans.empty')"
-      :hint="t('plans.emptyHint')"
-    />
+    <DataTable
+      v-else
+      :data="plans"
+      :columns="columns"
+      :actions="actionsFor"
+      :actions-aria-label="t('tenants.actions')"
+      paginated
+      :loading="isFetching"
+      :empty-icon="CreditCard"
+      :empty-message="t('plans.empty')"
+      :empty-hint="t('plans.emptyHint')"
+    >
+      <template #cell-name="{ row }">
+        <span class="font-medium">{{ row.name }}</span>
+      </template>
+      <template #cell-slug="{ row }">
+        <span class="text-muted-foreground">{{ row.slug }}</span>
+      </template>
+      <template #cell-price="{ row }">{{ formatPrice(row) }}</template>
+      <template #cell-isActive="{ row }">
+        <Badge :variant="row.isActive ? 'success' : 'destructive'">
+          {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+        </Badge>
+      </template>
+      <template #cell-displayState="{ row }">
+        <Badge :variant="displayStateSeverity(row.displayState)">
+          {{ t(displayStateKey(row.displayState)) }}
+        </Badge>
+      </template>
+      <template #cell-activeSubscriptions="{ row }">{{ row.activeSubscriptions ?? 0 }}</template>
+    </DataTable>
   </div>
 
   <!-- Create / Edit dialog -->
