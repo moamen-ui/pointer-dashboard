@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent } from '@/components/ui/tabs';
+import { AppTabs } from '@/components/shared/Tabs';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import {
@@ -283,6 +284,8 @@ function InstallGuideDialog({
   /** Selected project key; defaults to the demo project, else the first one. */
   const [projectKey, setProjectKey] = useState<string | null>(demo?.projectKey ?? null);
   const [suppressed, setSuppressed] = useState(() => isSuppressed(userId));
+  /** Which install method the dialog shows. Deliberately not persisted — every open starts on Code. */
+  const [tab, setTab] = useState('code');
 
   const server = demo?.serverUrl || import.meta.env.VITE_API_BASE;
   const effectiveKey =
@@ -341,12 +344,15 @@ function InstallGuideDialog({
 
         {/* Two install paths: the code-based guide and the Chrome extension.
              Tab choice is deliberately not persisted — every open starts on Code. */}
-        <Tabs defaultValue="code" className="mt-3">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="code">{t('install.tabCode')}</TabsTrigger>
-            <TabsTrigger value="extension">{t('install.tabExtension')}</TabsTrigger>
-          </TabsList>
-
+        <AppTabs
+          tabs={[
+            { value: 'code', label: t('install.tabCode') },
+            { value: 'extension', label: t('install.tabExtension') },
+          ]}
+          value={tab}
+          onValueChange={setTab}
+          className="mt-3"
+        >
           <TabsContent value="code">
         {/* Which project the snippet points at */}
         {projects.length > 0 ? (
@@ -416,7 +422,7 @@ function InstallGuideDialog({
           <TabsContent value="extension">
             <StepList steps={extensionSteps} copy={copy} />
           </TabsContent>
-        </Tabs>
+        </AppTabs>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex cursor-pointer items-center gap-2">
