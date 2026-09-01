@@ -54,6 +54,8 @@ const demoMaxActive = ref<number>(10);
 const demoTtlHours = ref<number>(48);
 const demoPerEmailPerDay = ref<number>(3);
 const demoCommentCap = ref<number>(20);
+const extensionStoreUrl = ref('');
+const extensionZipUrl = ref('');
 
 watch(
   settings,
@@ -68,6 +70,8 @@ watch(
     demoTtlHours.value = (s as any).demoTtlHours ?? 48;
     demoPerEmailPerDay.value = (s as any).demoPerEmailPerDay ?? 3;
     demoCommentCap.value = (s as any).demoCommentCap ?? 20;
+    extensionStoreUrl.value = (s as any).extensionStoreUrl ?? '';
+    extensionZipUrl.value = (s as any).extensionZipUrl ?? '';
   },
   { immediate: true },
 );
@@ -85,6 +89,8 @@ async function saveSettings() {
         demoTtlHours: demoTtlHours.value,
         demoPerEmailPerDay: demoPerEmailPerDay.value,
         demoCommentCap: demoCommentCap.value,
+        extensionStoreUrl: extensionStoreUrl.value,
+        extensionZipUrl: extensionZipUrl.value,
       } as any,
     });
     toast(t('settings.saved'));
@@ -317,6 +323,24 @@ async function onRejectSuggestion(s: SuggestionResponse) {
             <Label for="demo-comment-cap" class="text-sm font-medium">{{ t('settings.demoCommentCap') }}</Label>
             <p class="text-xs text-muted-foreground">{{ t('settings.demoCommentCapHint') }}</p>
             <Input id="demo-comment-cap" v-model.number="demoCommentCap" type="number" :min="1" />
+          </div>
+      </AccordionSection>
+
+      <!-- Section: Extension -->
+      <AccordionSection :title="t('settings.extensionSection')">
+
+          <!-- extensionStoreUrl -->
+          <div class="flex flex-col gap-2">
+            <Label for="extension-store-url" class="text-sm font-medium">{{ t('settings.extensionStoreUrl') }}</Label>
+            <p class="text-xs text-muted-foreground">{{ t('settings.extensionStoreUrlHint') }}</p>
+            <Input id="extension-store-url" v-model="extensionStoreUrl" />
+          </div>
+
+          <!-- extensionZipUrl -->
+          <div class="flex flex-col gap-2">
+            <Label for="extension-zip-url" class="text-sm font-medium">{{ t('settings.extensionZipUrl') }}</Label>
+            <p class="text-xs text-muted-foreground">{{ t('settings.extensionZipUrlHint') }}</p>
+            <Input id="extension-zip-url" v-model="extensionZipUrl" />
           </div>
       </AccordionSection>
     </template>
