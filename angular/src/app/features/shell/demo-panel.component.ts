@@ -11,7 +11,6 @@ import { DemoService, UpgradeDemoResponse } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
 import { extractMessage } from '../../core/api/extract-message';
-import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 interface DemoSession {
@@ -54,7 +53,6 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
     MatFormFieldModule,
     MatInputModule,
     TranslocoModule,
-    PasswordToggleComponent,
     FormFieldComponent,
   ],
   template: `
@@ -121,18 +119,14 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
           <app-form-field
             [control]="upgradeForm.controls.password"
             [label]="'demo.password' | transloco"
-            [type]="pwToggle.type()"
+            type="password"
             [errorMessage]="passwordError()"
-          >
-            <app-password-toggle matSuffix #pwToggle />
-          </app-form-field>
+          />
           <app-form-field
             [control]="upgradeForm.controls.confirmPassword"
             [label]="'demo.confirmPassword' | transloco"
-            [type]="confirmPwToggle.type()"
-          >
-            <app-password-toggle matSuffix #confirmPwToggle />
-          </app-form-field>
+            type="password"
+          />
           <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself. -->
           @if (upgradeForm.errors?.['passwordMismatch'] && upgradeForm.get('confirmPassword')?.dirty) {
             <p class="m-0 -mt-2 text-[0.85rem] text-danger">{{ 'demo.passwordMismatch' | transloco }}</p>

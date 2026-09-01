@@ -1,8 +1,11 @@
 import { Component, computed, effect, input, signal } from '@angular/core';
 import type { FormControl } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { TranslocoModule } from '@jsverse/transloco';
 
 /**
  * Renders `mat-form-field`'s label/input/hint/error chrome as one unit, reading validation state
@@ -22,6 +25,13 @@ import { MatInputModule } from '@angular/material/input';
  * inputs are supported for now (`type`) — extend with a `controlType` input if a select/textarea
  * variant is needed later, don't force it through this same template.
  *
+ * The same projection problem breaks a `matSuffix`-tagged child projected in from a *page's*
+ * template too: `MatFormField`'s own `@ContentChildren(MAT_SUFFIX)` query never finds it (confirmed
+ * live — no `.mat-mdc-form-field-icon-suffix` slot ever rendered, so the projected node fell
+ * through to the default/infix bucket and rendered below the input instead of inline). So for
+ * `type="password"` the show/hide toggle is rendered internally too, not projected — pass
+ * `type="password"` and the field manages its own masked/revealed state.
+ *
  * `FormControl.invalid`/`.touched` are plain mutable properties, not signals — this app is
  * zoneless (no zone.js). An `effect()` resubscribes to `control().events` and bumps a signal on
  * every event, so `resolvedError` — a real `computed()` — is correctly notified on
@@ -31,21 +41,30 @@ import { MatInputModule } from '@angular/material/input';
  *   <app-form-field [control]="form.controls.email" [label]="'login.email' | transloco" type="email" />
  *
  *   <app-form-field [control]="form.controls.password" [label]="'login.password' | transloco"
- *     [type]="pwToggle.type()" [errorMessage]="'common.fieldRequired' | transloco">
- *     <app-password-toggle matSuffix #pwToggle />
- *   </app-form-field>
+ *     type="password" [errorMessage]="'common.fieldRequired' | transloco" />
  */
 @Component({
   selector: 'app-form-field',
   standalone: true,
-  imports: [MatFormFieldModule, MatInputModule, ReactiveFormsModule],
+  imports: [MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, ReactiveFormsModule, TranslocoModule],
   template: `
     <mat-form-field [appearance]="appearance()" [subscriptSizing]="subscriptSizing()" class="w-full">
       @if (label()) {
         <mat-label>{{ label() }}</mat-label>
       }
-      <input matInput [type]="type()" [formControl]="control()" [placeholder]="placeholder()" />
-      <ng-content select="[matSuffix]" />
+      <input matInput [type]="resolvedType()" [formControl]="control()" [placeholder]="placeholder()" />
+      @if (type() === 'password') {
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="toggleHidden()"
+          [attr.aria-label]="(hidden() ? 'common.showPassword' : 'common.hidePassword') | transloco"
+          [attr.aria-pressed]="!hidden()"
+        >
+          <mat-icon>{{ hidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+        </button>
+      }
       @if (control().invalid && control().touched) {
         @if (resolvedError()) {
           <mat-error>{{ resolvedError() }}</mat-error>
@@ -65,6 +84,14 @@ export class FormFieldComponent {
   readonly subscriptSizing = input<'dynamic' | 'fixed'>('dynamic');
   readonly type = input('text');
   readonly placeholder = input('');
+
+  /** Masked while true — only meaningful when `type() === 'password'`. */
+  readonly hidden = signal(true);
+  readonly resolvedType = computed(() => (this.type() === 'password' && !this.hidden() ? 'text' : this.type()));
+
+  toggleHidden(): void {
+    this.hidden.update((v) => !v);
+  }
 
   private readonly statusTick = signal(0);
 

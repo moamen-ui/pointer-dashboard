@@ -9,7 +9,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService as ApiAuthService, ResetPasswordRequest } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
@@ -22,7 +21,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
 @Component({
   selector: 'app-reset-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, PasswordToggleComponent, FormFieldComponent],
+  imports: [ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, FormFieldComponent],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-slate-100">
       <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
@@ -38,18 +37,14 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
             <app-form-field
               [control]="form.controls.newPassword"
               [label]="'auth.newPassword' | transloco"
-              [type]="newPwToggle.type()"
+              type="password"
               [errorMessage]="newPasswordError()"
-            >
-              <app-password-toggle matSuffix #newPwToggle />
-            </app-form-field>
+            />
             <app-form-field
               [control]="form.controls.confirmPassword"
               [label]="'auth.confirmPassword' | transloco"
-              [type]="confirmPwToggle.type()"
-            >
-              <app-password-toggle matSuffix #confirmPwToggle />
-            </app-form-field>
+              type="password"
+            />
             <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself, so it
                  can't go through app-form-field's per-control error slot. -->
             @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {

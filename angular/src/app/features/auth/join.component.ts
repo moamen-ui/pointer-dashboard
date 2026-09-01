@@ -24,7 +24,6 @@ import type {
 } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
-import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
@@ -46,7 +45,6 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     MatButtonModule,
     MatProgressBarModule,
     TranslocoModule,
-    PasswordToggleComponent,
     FormFieldComponent,
   ],
   template: `
@@ -100,19 +98,15 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
             <app-form-field
               [control]="form.controls.password"
               [label]="'invite.password' | transloco"
-              [type]="pwToggle.type()"
+              type="password"
               [errorMessage]="passwordError()"
-            >
-              <app-password-toggle matSuffix #pwToggle />
-            </app-form-field>
+            />
 
             <app-form-field
               [control]="form.controls.confirmPassword"
               [label]="'invite.confirmPassword' | transloco"
-              [type]="confirmPwToggle.type()"
-            >
-              <app-password-toggle matSuffix #confirmPwToggle />
-            </app-form-field>
+              type="password"
+            />
             <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself. -->
             @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
               <p class="m-0 -mt-2 text-[0.8rem] text-danger">{{ 'invite.passwordMismatch' | transloco }}</p>

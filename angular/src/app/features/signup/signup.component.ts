@@ -10,7 +10,6 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService, getApiAuthSignupEnabledResource, getApiPlansResource } from '@moamen-ui/pointer-angular';
 import type { PlanPublicResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { FormFieldComponent } from '../../shared/form-field/form-field.component';
 
 @Component({
@@ -24,7 +23,6 @@ import { FormFieldComponent } from '../../shared/form-field/form-field.component
     MatInputModule,
     MatButtonModule,
     TranslocoModule,
-    PasswordToggleComponent,
     FormFieldComponent,
   ],
   template: `
@@ -109,11 +107,9 @@ import { FormFieldComponent } from '../../shared/form-field/form-field.component
               <app-form-field
                 [control]="form.controls.password"
                 [label]="'signup.password' | transloco"
-                [type]="pwToggle.type()"
+                type="password"
                 [errorMessage]="passwordError()"
-              >
-                <app-password-toggle matSuffix #pwToggle />
-              </app-form-field>
+              />
               <button mat-flat-button color="primary" class="mt-2"
                 [disabled]="form.invalid || loading()">
                 {{ loading() ? ('signup.submitting' | transloco) : ('signup.submit' | transloco) }}

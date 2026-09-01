@@ -10,7 +10,6 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { MeService } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../core/auth/auth.service';
 import { extractMessage } from '../core/api/extract-message';
-import { PasswordToggleComponent } from './password-toggle.component';
 import { FormFieldComponent } from './form-field/form-field.component';
 
 /**
@@ -28,7 +27,6 @@ import { FormFieldComponent } from './form-field/form-field.component';
     MatFormFieldModule,
     MatInputModule,
     TranslocoModule,
-    PasswordToggleComponent,
     FormFieldComponent,
   ],
   template: `
@@ -38,27 +36,21 @@ import { FormFieldComponent } from './form-field/form-field.component';
         <app-form-field
           [control]="form.controls.currentPassword"
           [label]="'changePassword.current' | transloco"
-          [type]="currentToggle.type()"
+          type="password"
           [errorMessage]="'common.fieldRequired' | transloco"
-        >
-          <app-password-toggle matSuffix #currentToggle />
-        </app-form-field>
+        />
         <app-form-field
           [control]="form.controls.newPassword"
           [label]="'changePassword.new' | transloco"
-          [type]="newToggle.type()"
+          type="password"
           [errorMessage]="newPasswordError()"
-        >
-          <app-password-toggle matSuffix #newToggle />
-        </app-form-field>
+        />
         <app-form-field
           [control]="form.controls.confirmPassword"
           [label]="'changePassword.confirm' | transloco"
-          [type]="confirmToggle.type()"
+          type="password"
           [errorMessage]="'common.fieldRequired' | transloco"
-        >
-          <app-password-toggle matSuffix #confirmToggle />
-        </app-form-field>
+        />
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
