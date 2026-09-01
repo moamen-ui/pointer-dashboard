@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   useGetApiAdminStats,
   useGetApiAdminUsers,
@@ -27,15 +28,9 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/shared/data-table/DataTable';
 import {
   Dialog,
   DialogContent,
@@ -137,6 +132,62 @@ export function OverviewPage() {
     const s = catalog.items.find((x) => x.value === value);
     return s ? catalog.displayLabel(s) : undefined;
   }
+
+  // Breakdown columns: key, name, comments, privateComments, one dynamic column
+  // per catalog status (header + counts tinted with that status's configured
+  // color — TanStack's header render fn applies the color inline, so the shared
+  // DataTable needs no headerColor hook), then the project status badge.
+  const columns: ColumnDef<ProjectStats>[] = [
+    {
+      accessorKey: 'key',
+      header: t('overview.key'),
+      cell: ({ row }) => (
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.original.key}</code>
+      ),
+    },
+    { accessorKey: 'name', header: t('overview.name') },
+    { accessorKey: 'comments', header: t('overview.comments') },
+    {
+      accessorKey: 'privateComments',
+      header: t('overview.private'),
+      cell: ({ row }) => {
+        const count = row.original.privateComments ?? 0;
+        return count > 0 ? (
+          <span className="chip chip-private" title={t('overview.privateHiddenTooltip')}>
+            <Lock className="h-3 w-3" />
+            {count}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
+    },
+    ...catalog.items.map(
+      (s): ColumnDef<ProjectStats> => ({
+        id: `status_${s.value}`,
+        // Sort accessor for the dynamic column — maps to the matching count field.
+        accessorFn: (row) => getProjectStatusCount(row, s.value),
+        header: () => (
+          <span style={{ color: s.color ?? undefined }}>{catalog.displayLabel(s)}</span>
+        ),
+        cell: ({ row }) => (
+          <span className="font-medium" style={{ color: s.color ?? undefined }}>
+            {getProjectStatusCount(row.original, s.value)}
+          </span>
+        ),
+      }),
+    ),
+    {
+      id: 'status',
+      accessorFn: (row: ProjectStats) => row.isActive,
+      header: t('overview.status'),
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+        </Badge>
+      ),
+    },
+  ];
 
   const cards: StatDef[] = [
     { key: 'overview.projects', value: totals?.projects, icon: Folder, tone: 'slate' },
@@ -243,71 +294,16 @@ export function OverviewPage() {
           </Button>
         </div>
 
-        {projects.length === 0 ? (
-          <EmptyState
-            icon={FolderOpen}
-            message={t('overview.emptyProjects')}
-            hint={t('overview.emptyProjectsHint')}
-          />
-        ) : (
-          <Card>
-            <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('overview.key')}</TableHead>
-                <TableHead>{t('overview.name')}</TableHead>
-                <TableHead>{t('overview.comments')}</TableHead>
-                <TableHead>{t('overview.private')}</TableHead>
-                {catalog.items.map((s) => (
-                  <TableHead key={s.value} style={{ color: s.color ?? undefined }}>
-                    {catalog.displayLabel(s)}
-                  </TableHead>
-                ))}
-                <TableHead>{t('overview.status')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {projects.map((row: ProjectStats) => (
-                <TableRow key={row.projectId ?? row.key}>
-                  <TableCell>
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.key}</code>
-                  </TableCell>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell>{row.comments}</TableCell>
-                  <TableCell>
-                    {(row.privateComments ?? 0) > 0 ? (
-                      <span className="chip chip-private" title={t('overview.privateHiddenTooltip')}>
-                        <Lock className="h-3 w-3" />
-                        {row.privateComments}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  {/* Render per-status counts using catalog order */}
-                  {catalog.items.map((s) => {
-                    const count = getProjectStatusCount(row, s.value);
-                    return (
-                      <TableCell
-                        key={s.value}
-                        className="font-medium"
-                        style={{ color: count > 0 ? (s.color ?? undefined) : undefined }}
-                      >
-                        {count}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell>
-                    <span className={cn('chip', row.isActive ? 'chip-active' : 'chip-disabled')}>
-                      {t(row.isActive ? 'common.active' : 'common.disabled')}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-        )}
+        {/* Projects breakdown — sorting + pagination arrive with the shared
+            DataTable (parity with the angular page, which always had real sort). */}
+        <DataTable
+          data={projects}
+          columns={columns}
+          paginated
+          emptyIcon={FolderOpen}
+          emptyMessage={t('overview.emptyProjects')}
+          emptyHint={t('overview.emptyProjectsHint')}
+        />
       </div>
 
       {/* Approve dialog */}

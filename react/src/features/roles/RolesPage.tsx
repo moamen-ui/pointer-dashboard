@@ -1,10 +1,11 @@
 // Roles admin page. React port of angular/.../roles/roles.component.ts.
-// list (name, grants-admin, status) + create/rename/enable-disable + delete
-// with delegation (reassign users to another active, non-system role).
+// list (name, grants-admin, quick-access, status) + create/rename/enable-disable
+// + delete with delegation (reassign users to another active, non-system role).
 //
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   useGetApiAdminRoles,
   usePostApiAdminRoles,
@@ -13,20 +14,13 @@ import {
   getGetApiAdminRolesQueryKey,
   type RoleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Pencil, Ban, CheckCircle2, Trash2, EllipsisVertical, UserCog } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Plus, Pencil, Ban, CheckCircle2, Trash2, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/shared/data-table/DataTable';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -41,12 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -93,14 +81,23 @@ function SmallSwitch({
 }
 
 /**
- * Whether the signed-in user may act on this role. The API computes it
- * (RoleResponse.CanManage) from the same guards Update/Delete enforce: system roles are
- * immutable, and a scoped admin may only touch roles its own tenant owns — the query
- * filter deliberately lets it SEE global roles it cannot manage. Falls back to !isSystem
- * so an older API still behaves as before. Typed from the next client publish.
+ * Whether the signed-in user may fully manage this role (rename/delete/reconfigure).
+ * The API computes it (RoleResponse.canManage): system roles are immutable for
+ * everyone, and a scoped admin may only fully own roles its own tenant created.
+ * Falls back to !isSystem so an older API still behaves as before.
  */
 function canManage(role: RoleResponse): boolean {
-  return (role as { canManage?: boolean }).canManage ?? !role.isSystem;
+  return role.canManage ?? !role.isSystem;
+}
+
+/**
+ * Whether the signed-in user may at least flip this role's active status —
+ * everything canManage() covers, PLUS a GLOBAL, non-system role a scoped admin
+ * doesn't own (toggled via a per-tenant override server-side, never touching the
+ * shared row). False for every system role, for everyone but a super admin.
+ */
+function canToggleActive(role: RoleResponse): boolean {
+  return role.canToggleActive ?? canManage(role);
 }
 
 export function RolesPage() {
@@ -110,11 +107,14 @@ export function RolesPage() {
 
   const { isSuperAdmin } = useAuth();
   const { data: allRoles = [] } = useGetApiAdminRoles();
-  // System roles (e.g. Admin) are immutable — the API answers 409 SystemImmutable on
-  // any rename/disable/delete — and they belong to the platform, not the workspace, so
-  // listing them to a workspace admin is noise they cannot act on. Super-admins see them.
+  // System roles (e.g. Admin, Workspace Admin) are immutable platform roles, not
+  // workspace ones, so listing them to a scoped admin is noise they can never act
+  // on — filtered out via canToggleActive, which is false for every system role. A
+  // GLOBAL, non-system role (e.g. the seeded "Tester") DOES show, though: a scoped
+  // admin can still toggle it on/off for their own workspace via a per-tenant
+  // override, even without fully owning it. A super-admin sees everything.
   const roles = useMemo(
-    () => (isSuperAdmin ? allRoles : allRoles.filter(canManage)),
+    () => (isSuperAdmin ? allRoles : allRoles.filter(canToggleActive)),
     [allRoles, isSuperAdmin],
   );
 
@@ -160,6 +160,10 @@ export function RolesPage() {
 
   function toggleGrantsAdmin(role: RoleResponse, grantsAdmin: boolean) {
     patchMut.mutate({ id: role.id!, data: { grantsAdmin } });
+  }
+
+  function toggleQuickAccess(role: RoleResponse, quickAccess: boolean) {
+    patchMut.mutate({ id: role.id!, data: { quickAccess } });
   }
 
   // ---- Rename ----
@@ -244,6 +248,93 @@ export function RolesPage() {
     });
   }
 
+  // Column set mirrors the angular reference: none of these sort (the angular
+  // DataTableColumn entries leave sortable off); custom cells carry the toggles,
+  // the system chip and the status badge.
+  const columns: ColumnDef<RoleResponse>[] = [
+    {
+      accessorKey: 'name',
+      enableSorting: false,
+      header: t('roles.name'),
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {row.original.name}
+          {row.original.isSystem && (
+            <Badge variant="neutral" className="ms-2 text-[10px]">
+              {t('roles.system')}
+            </Badge>
+          )}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'grantsAdmin',
+      enableSorting: false,
+      header: t('roles.grantsAdmin'),
+      cell: ({ row }) => (
+        <SmallSwitch
+          checked={!!row.original.grantsAdmin}
+          disabled={row.original.isSystem || !canManage(row.original)}
+          onCheckedChange={(checked) => toggleGrantsAdmin(row.original, checked)}
+          label={t('roles.grantsAdmin')}
+        />
+      ),
+    },
+    {
+      accessorKey: 'quickAccess',
+      enableSorting: false,
+      header: t('roles.quickAccess'),
+      cell: ({ row }) => (
+        <SmallSwitch
+          checked={!!row.original.quickAccess}
+          disabled={row.original.isSystem || !canManage(row.original)}
+          onCheckedChange={(checked) => toggleQuickAccess(row.original, checked)}
+          label={t('roles.quickAccess')}
+        />
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      enableSorting: false,
+      header: t('roles.status'),
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+        </Badge>
+      ),
+    },
+  ];
+
+  // Menu contents match the angular reference's gating exactly: canToggleActive
+  // decides whether the row gets a menu at all; Rename/Delete additionally need
+  // canManage; Disable/Enable is always offered (danger severity on Disable only).
+  const actionsFor = (role: RoleResponse): RowActionItem[] => {
+    if (!canToggleActive(role)) return [];
+    const items: RowActionItem[] = [];
+    if (canManage(role)) {
+      items.push({
+        label: t('common.rename'),
+        icon: Pencil,
+        onClick: () => openRename(role),
+      });
+    }
+    items.push({
+      label: t(role.isActive ? 'common.disable' : 'common.enable'),
+      icon: role.isActive ? Ban : CheckCircle2,
+      severity: role.isActive ? 'danger' : 'neutral',
+      onClick: () => toggleActive(role),
+    });
+    if (canManage(role)) {
+      items.push({
+        label: t('roles.delete'),
+        icon: Trash2,
+        severity: 'danger',
+        onClick: () => openDelete(role),
+      });
+    }
+    return items;
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -254,95 +345,23 @@ export function RolesPage() {
         </Button>
       </div>
 
-      {roles.length === 0 ? (
-        <EmptyState
-          icon={UserCog}
-          message={t('roles.empty')}
-          hint={t('roles.emptyHint')}
-        >
+      <DataTable
+        data={roles}
+        columns={columns}
+        actions={actionsFor}
+        actionsAriaLabel={t('roles.actions')}
+        actionsHeader={t('roles.actions')}
+        paginated
+        emptyIcon={UserCog}
+        emptyMessage={t('roles.empty')}
+        emptyHint={t('roles.emptyHint')}
+        emptyAction={
           <Button onClick={openAdd}>
             <Plus className="h-4 w-4" />
             {t('roles.addRole')}
           </Button>
-        </EmptyState>
-      ) : (
-        <Card>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('roles.name')}</TableHead>
-              <TableHead>{t('roles.grantsAdmin')}</TableHead>
-              <TableHead>{t('roles.status')}</TableHead>
-              <TableHead>{t('roles.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {roles.map((role) => (
-              <TableRow key={role.id}>
-                <TableCell className="font-medium">
-                  {role.name}
-                  {role.isSystem && (
-                    <span className="chip chip-neutral ms-2 text-[10px]">
-                      {t('roles.system')}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <SmallSwitch
-                    checked={!!role.grantsAdmin}
-                    disabled={role.isSystem}
-                    onCheckedChange={(checked) => toggleGrantsAdmin(role, checked)}
-                    label={t('roles.grantsAdmin')}
-                  />
-                </TableCell>
-                <TableCell>
-                  <span className={cn('chip', role.isActive ? 'chip-active' : 'chip-disabled')}>
-                    {t(role.isActive ? 'common.active' : 'common.disabled')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {canManage(role) && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('roles.actions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      {/* Compact row menu — slightly wider panel, shorter items. */}
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => openRename(role)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                          {t('common.rename')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => toggleActive(role)}
-                          className={cn(
-                            role.isActive && 'text-destructive focus:text-destructive',
-                          )}
-                        >
-                          {role.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                          {t(role.isActive ? 'common.disable' : 'common.enable')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => openDelete(role)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          {t('roles.delete')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-      )}
+        }
+      />
 
       {/* Add role dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

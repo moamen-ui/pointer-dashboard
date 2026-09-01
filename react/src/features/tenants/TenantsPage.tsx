@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   useGetApiAdminTenants,
   usePostApiAdminTenants,
@@ -18,21 +19,14 @@ import {
   type TenantResponse,
   type PlanAdminResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, EllipsisVertical, Building2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
-import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/shared/data-table/DataTable';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -47,20 +41,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 
 // The new TenantResponse fields are not in ^1.0.7 yet — cast via this helper type.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTenant = TenantResponse & Record<string, any>;
+
+/** Badge variant for a tenant's approval status. */
+function approvalSeverity(status: string | null | undefined): 'success' | 'neutral' | 'destructive' {
+  if (status === 'approved') return 'success';
+  if (status === 'rejected') return 'destructive';
+  return 'neutral';
+}
+
+/** Format a demo expiry timestamp; blank/absent renders as an em-dash. */
+function formatExpiry(expiresAt: string | null | undefined): string {
+  if (!expiresAt) return '—';
+  try {
+    return new Date(expiresAt).toLocaleString();
+  } catch {
+    return expiresAt;
+  }
+}
 
 export function TenantsPage() {
   const { t } = useTranslation();
@@ -234,15 +238,85 @@ export function TenantsPage() {
     });
   }
 
-  // ---- Helpers ----
-  function formatExpiry(expiresAt: string | null | undefined): string {
-    if (!expiresAt) return '—';
-    try {
-      return new Date(expiresAt).toLocaleString();
-    } catch {
-      return expiresAt;
+  // Column set mirrors the angular reference: none of these sort; custom cells
+  // carry the approval/status badges, the plan chip pair, and the demo expiry.
+  const columns: ColumnDef<AnyTenant>[] = [
+    { accessorKey: 'displayName', enableSorting: false, header: t('tenants.displayName'),
+      cell: ({ row }) => row.original.displayName ?? '—' },
+    { accessorKey: 'email', enableSorting: false, header: t('tenants.email') },
+    {
+      accessorKey: 'approvalStatus',
+      enableSorting: false,
+      header: t('tenants.approval'),
+      cell: ({ row }) => (
+        <Badge variant={approvalSeverity(row.original.approvalStatus)}>
+          {row.original.approvalStatus ?? '—'}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      enableSorting: false,
+      header: t('tenants.statusCol'),
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+        </Badge>
+      ),
+    },
+    { accessorKey: 'projects', enableSorting: false, header: t('tenants.projects'),
+      cell: ({ row }) => row.original.projects ?? 0 },
+    { accessorKey: 'comments', enableSorting: false, header: t('tenants.comments'),
+      cell: ({ row }) => row.original.comments ?? 0 },
+    {
+      accessorKey: 'plan',
+      enableSorting: false,
+      header: t('tenants.planCol'),
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium">{row.original.planName ?? t('tenants.freePlan')}</span>
+          {row.original.subscriptionStatus && (
+            <span className="chip chip-neutral text-[10px]">{row.original.subscriptionStatus}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'demoExpiry',
+      enableSorting: false,
+      header: t('tenants.demoExpiry'),
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.isDemo ? formatExpiry(row.original.expiresAt) : '—'}
+        </span>
+      ),
+    },
+  ];
+
+  const actionsFor = (tenant: AnyTenant): RowActionItem[] => {
+    const items: RowActionItem[] = [];
+    if (tenant.approvalStatus === 'pending') {
+      items.push({ label: t('tenants.approve'), icon: ShieldCheck, onClick: () => setStatus(tenant, 'approve') });
     }
-  }
+    if (tenant.isActive) {
+      items.push({ label: t('common.disable'), icon: Ban, severity: 'danger', onClick: () => setStatus(tenant, 'disable') });
+    } else {
+      items.push({ label: t('common.enable'), icon: CheckCircle2, onClick: () => setStatus(tenant, 'enable') });
+    }
+    if (tenant.isDemo) {
+      items.push({
+        label: t('tenants.extend'),
+        icon: Clock,
+        disabled: tenant.demoExtended === true,
+        tooltip: tenant.demoExtended ? t('tenants.extendOnce') : undefined,
+        onClick: () => extendMut.mutate({ id: tenant.id! }),
+      });
+      items.push({ label: t('tenants.editDemoConfig'), icon: Settings2, onClick: () => openDemoConfig(tenant) });
+    }
+    items.push({ label: t('tenants.changePlan'), icon: CreditCard, onClick: () => openChangePlan(tenant) });
+    items.push({ label: t('tenants.delete'), icon: Trash2, severity: 'danger', onClick: () => setDeleteTarget(tenant) });
+    return items;
+  };
 
   // ---- Render ----
   if (isLoading && !data) {
@@ -278,143 +352,23 @@ export function TenantsPage() {
         </Button>
       </div>
 
-      {tenants.length === 0 ? (
-        <EmptyState
-          icon={Building2}
-          message={t('tenants.empty')}
-          hint={t('tenants.emptyHint')}
-        />
-      ) : (
-        <Card>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('tenants.email')}</TableHead>
-              <TableHead>{t('tenants.displayName')}</TableHead>
-              <TableHead>{t('tenants.approval')}</TableHead>
-              <TableHead>{t('tenants.statusCol')}</TableHead>
-              <TableHead>{t('tenants.planCol')}</TableHead>
-              <TableHead>{t('tenants.projects')}</TableHead>
-              <TableHead>{t('tenants.comments')}</TableHead>
-              <TableHead>{t('tenants.demoExpiry')}</TableHead>
-              <TableHead>{t('tenants.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {tenants.map((tenant) => (
-              <TableRow key={tenant.id}>
-                <TableCell className="font-medium">{tenant.email}</TableCell>
-                <TableCell>{tenant.displayName ?? '—'}</TableCell>
-                <TableCell>
-                  <span
-                    className={cn(
-                      'chip',
-                      tenant.approvalStatus === 'approved'
-                        ? 'chip-active'
-                        : tenant.approvalStatus === 'pending'
-                          ? 'chip-neutral'
-                          : 'chip-disabled',
-                    )}
-                  >
-                    {tenant.approvalStatus ?? '—'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className={cn('chip', tenant.isActive ? 'chip-active' : 'chip-disabled')}>
-                    {t(tenant.isActive ? 'common.active' : 'common.disabled')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">{tenant.planName ?? t('tenants.freePlan')}</span>
-                    {tenant.subscriptionStatus && (
-                      <span className="chip chip-neutral text-[10px]">{tenant.subscriptionStatus}</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>{tenant.projects ?? 0}</TableCell>
-                <TableCell>{tenant.comments ?? 0}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {tenant.isDemo ? formatExpiry(tenant.expiresAt) : '—'}
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <EllipsisVertical className="h-4 w-4" />
-                        <span className="sr-only">{t('tenants.actions')}</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {tenant.approvalStatus === 'pending' && (
-                        <DropdownMenuItem
-                          disabled={patchMut.isPending}
-                          onSelect={() => setStatus(tenant, 'approve')}
-                        >
-                          <ShieldCheck className="h-4 w-4" />
-                          {t('tenants.approve')}
-                        </DropdownMenuItem>
-                      )}
-                      {tenant.isActive ? (
-                        <DropdownMenuItem
-                          disabled={patchMut.isPending}
-                          onSelect={() => setStatus(tenant, 'disable')}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Ban className="h-4 w-4" />
-                          {t('common.disable')}
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          disabled={patchMut.isPending}
-                          onSelect={() => setStatus(tenant, 'enable')}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          {t('common.enable')}
-                        </DropdownMenuItem>
-                      )}
-                      {tenant.isDemo && (
-                        <>
-                          <DropdownMenuItem
-                            disabled={extendMut.isPending || tenant.demoExtended === true}
-                            title={tenant.demoExtended ? t('tenants.extendOnce') : undefined}
-                            className={cn(
-                              // Radix still blocks selection when disabled; keep pointer
-                              // events so the extend-once tooltip remains visible.
-                              tenant.demoExtended === true && 'data-[disabled]:pointer-events-auto',
-                            )}
-                            onSelect={() => extendMut.mutate({ id: tenant.id! })}
-                          >
-                            <Clock className="h-4 w-4" />
-                            {t('tenants.extend')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => openDemoConfig(tenant)}>
-                            <Settings2 className="h-4 w-4" />
-                            {t('tenants.editDemoConfig')}
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      <DropdownMenuItem onSelect={() => openChangePlan(tenant)}>
-                        <CreditCard className="h-4 w-4" />
-                        {t('tenants.changePlan')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={deleteMut.isPending}
-                        onSelect={() => setDeleteTarget(tenant)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {t('tenants.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-      )}
+      <DataTable
+        data={tenants}
+        columns={columns}
+        actions={actionsFor}
+        actionsAriaLabel={t('tenants.actions')}
+        actionsHeader={t('tenants.actions')}
+        paginated
+        emptyIcon={Building2}
+        emptyMessage={t('tenants.empty')}
+        emptyHint={t('tenants.emptyHint')}
+        emptyAction={
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {t('tenants.addTenant')}
+          </Button>
+        }
+      />
 
       {/* Change plan dialog */}
       <Dialog open={!!changePlanTarget} onOpenChange={(open) => { if (!open) setChangePlanTarget(null); }}>

@@ -42,6 +42,12 @@ export interface DataTableProps<TData> {
   /** Per-row actions; the callback is fully in charge of permission/feature gating
    *  (return [] to hide the menu for that row). Appended as a trailing column. */
   actions?: (row: TData) => RowActionItem[];
+  /** aria-label for each row's kebab trigger — pass the page's translated actions
+   *  key (e.g. t('roles.actions')), mirroring angular's actionsColumn.ariaLabel. */
+  actionsAriaLabel?: string;
+  /** Header label over the trailing actions column (blank when omitted) —
+   *  angular's actionsColumn.header equivalent. */
+  actionsHeader?: string;
   /** Renders a built-in search input above the table, wired to the global filter. */
   searchable?: boolean;
   /** Renders a small pagination footer under the table. */
@@ -63,6 +69,8 @@ export function DataTable<TData>({
   data,
   columns,
   actions,
+  actionsAriaLabel,
+  actionsHeader,
   searchable = false,
   paginated = false,
   emptyIcon,
@@ -82,15 +90,18 @@ export function DataTable<TData>({
         id: '__actions__',
         enableSorting: false,
         enableGlobalFilter: false,
-        header: () => '',
+        header: () => actionsHeader ?? '',
         cell: ({ row }) => (
           <div className="flex justify-end">
-            <RowActionsMenu items={actions(row.original)} />
+            <RowActionsMenu
+              items={actions(row.original)}
+              ariaLabel={actionsAriaLabel}
+            />
           </div>
         ),
       },
     ];
-  }, [columns, actions]);
+  }, [columns, actions, actionsAriaLabel, actionsHeader]);
 
   const table = useReactTable({
     data,
@@ -146,7 +157,13 @@ export function DataTable<TData>({
                   return (
                     <TableHead
                       key={header.id}
-                      className={header.id === '__actions__' ? 'w-12' : undefined}
+                      className={
+                        header.id === '__actions__'
+                          ? actionsHeader
+                            ? 'text-right'
+                            : 'w-12'
+                          : undefined
+                      }
                       aria-sort={
                         dir === 'asc'
                           ? 'ascending'

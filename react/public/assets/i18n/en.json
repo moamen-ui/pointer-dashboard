@@ -104,6 +104,7 @@
     "addRole": "Add Role",
     "name": "Name",
     "grantsAdmin": "Grants admin",
+    "quickAccess": "Quick-access invite",
     "system": "system",
     "status": "Status",
     "actions": "Actions",
