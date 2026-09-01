@@ -2,7 +2,6 @@ import { Component, inject, signal, TemplateRef, viewChild, computed } from '@an
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,7 +23,11 @@ import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { AuthService } from '../../core/auth/auth.service';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import type { UserResponse, RoleResponse, InviteResponse } from '@moamen-ui/pointer-angular';
+
+type UserRow = UserResponse | InviteResponse;
 
 const DEPUTY_ROLE_NAME = 'Workspace Admin Deputy';
 const WORKSPACE_ADMIN_ROLE_NAME = 'Workspace Admin';
@@ -39,7 +42,6 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     ReactiveFormsModule,
     DatePipe,
     RouterLink,
-    MatTableModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatFormFieldModule,
@@ -52,6 +54,8 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     TranslocoModule,
     PasswordToggleComponent,
     EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
   ],
   template: `
     <div class="p-6">
@@ -89,151 +93,140 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           </button>
         </app-empty-state>
       } @else {
-        <table mat-table [dataSource]="displayedRows()" class="w-full mat-elevation-z2">
-          <ng-container matColumnDef="email">
-            <th mat-header-cell *matHeaderCellDef>{{ 'users.email' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              @if (isInvite(row)) {
-                {{ row.email || ('invite.anyone' | transloco) }}
-              } @else {
-                {{ row.email }}
-              }
-            </td>
-          </ng-container>
+        <!-- Escape hatch: rows are a union type (real users + pending invites) with dual
+             menus and a nested submenu (approve), none of which RowActionsMenu's flat item
+             list can express -- every column, including actions, renders through
+             appDataTableCell so this page keeps its own bespoke menu markup. -->
+        <app-data-table
+          [rows]="displayedRows()"
+          [columns]="columns()"
+          [paginated]="false"
+        >
+          <ng-template appDataTableCell="email" let-row>
+            @if (isInvite(row)) {
+              {{ row.email || ('invite.anyone' | transloco) }}
+            } @else {
+              {{ row.email }}
+            }
+          </ng-template>
 
-          <ng-container matColumnDef="displayName">
-            <th mat-header-cell *matHeaderCellDef>{{ 'users.name' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              @if (isInvite(row)) {
-                —
-              } @else {
-                {{ row.displayName }}
-              }
-            </td>
-          </ng-container>
+          <ng-template appDataTableCell="displayName" let-row>
+            @if (isInvite(row)) {
+              —
+            } @else {
+              {{ row.displayName }}
+            }
+          </ng-template>
 
-          <ng-container matColumnDef="role">
-            <th mat-header-cell *matHeaderCellDef>{{ 'users.role' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              @if (isInvite(row)) {
-                <span>{{ row.roleName ?? '—' }}</span>
-              } @else if (filter() === 'Approved') {
-                <mat-select
-                  [value]="row.roleId"
-                  (selectionChange)="changeRole(row, $event.value)"
-                  class="min-w-[120px]"
-                >
-                  @for (role of rolesForUser(row); track role.id) {
-                    <mat-option [value]="role.id">{{ role.name }}</mat-option>
-                  }
-                </mat-select>
-              } @else {
-                <span>{{ row.roleName }}</span>
-              }
-            </td>
-          </ng-container>
+          <ng-template appDataTableCell="role" let-row>
+            @if (isInvite(row)) {
+              <span>{{ row.roleName ?? '—' }}</span>
+            } @else if (filter() === 'Approved') {
+              <mat-select
+                [value]="row.roleId"
+                (selectionChange)="changeRole(row, $event.value)"
+                class="min-w-[120px]"
+              >
+                @for (role of rolesForUser(row); track role.id) {
+                  <mat-option [value]="role.id">{{ role.name }}</mat-option>
+                }
+              </mat-select>
+            } @else {
+              <span>{{ row.roleName }}</span>
+            }
+          </ng-template>
 
-          <ng-container matColumnDef="requested">
-            <th mat-header-cell *matHeaderCellDef>{{ 'overview.requested' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
+          @if (filter() !== 'Approved') {
+            <ng-template appDataTableCell="requested" let-row>
               @if (isInvite(row)) {
                 {{ 'invite.expires' | transloco }}: {{ row.expiresAt | date:'mediumDate' }}
               } @else {
                 {{ row.createdAt ? (row.createdAt | date:'dd-MM-yyyy HH:mm') : '—' }}
               }
-            </td>
-          </ng-container>
+            </ng-template>
+          }
 
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>{{ 'users.status' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              @if (isInvite(row)) {
-                <span class="chip chip-neutral">{{ 'invite.invited' | transloco }}</span>
-              } @else {
-                <span class="chip" [class.chip-active]="row.isActive" [class.chip-disabled]="!row.isActive">
-                  {{ row.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
-                </span>
-              }
-            </td>
-          </ng-container>
+          <ng-template appDataTableCell="status" let-row>
+            @if (isInvite(row)) {
+              <span class="chip chip-neutral">{{ 'invite.invited' | transloco }}</span>
+            } @else {
+              <span class="chip" [class.chip-active]="row.isActive" [class.chip-disabled]="!row.isActive">
+                {{ row.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
+              </span>
+            }
+          </ng-template>
 
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'users.actions' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              @if (isInvite(row)) {
-                <button mat-icon-button [matMenuTriggerFor]="inviteMenu"
-                  [attr.aria-label]="'users.actions' | transloco">
-                  <mat-icon>more_vert</mat-icon>
+          <ng-template appDataTableCell="actions" let-row>
+            @if (isInvite(row)) {
+              <button mat-icon-button [matMenuTriggerFor]="inviteMenu"
+                [attr.aria-label]="'users.actions' | transloco">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #inviteMenu="matMenu">
+                <button mat-menu-item [disabled]="!row.url" (click)="copyInviteUrl(row.url!)">
+                  <mat-icon>content_copy</mat-icon> {{ 'invite.copy' | transloco }}
                 </button>
-                <mat-menu #inviteMenu="matMenu">
-                  <button mat-menu-item [disabled]="!row.url" (click)="copyInviteUrl(row.url!)">
-                    <mat-icon>content_copy</mat-icon> {{ 'invite.copy' | transloco }}
-                  </button>
-                  <button mat-menu-item class="!text-red-600" (click)="revokeInvite(row)">
-                    <mat-icon class="!text-red-600">link_off</mat-icon> {{ 'invite.revoke' | transloco }}
-                  </button>
-                </mat-menu>
-              } @else {
-                <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                  [attr.aria-label]="'users.actions' | transloco">
-                  <mat-icon>more_vert</mat-icon>
+                <button mat-menu-item class="!text-red-600" (click)="revokeInvite(row)">
+                  <mat-icon class="!text-red-600">link_off</mat-icon> {{ 'invite.revoke' | transloco }}
                 </button>
-                <mat-menu #rowMenu="matMenu">
-                  @if (filter() === 'Approved') {
-                    <button mat-menu-item (click)="toggleActive(row)" [disabled]="loading()"
-                      [class.!text-red-600]="row.isActive">
-                      <mat-icon [class.!text-red-600]="row.isActive">{{ row.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                      {{ row.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+              </mat-menu>
+            } @else {
+              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'users.actions' | transloco">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu">
+                @if (filter() === 'Approved') {
+                  <button mat-menu-item (click)="toggleActive(row)" [disabled]="loading()"
+                    [class.!text-red-600]="row.isActive">
+                    <mat-icon [class.!text-red-600]="row.isActive">{{ row.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    {{ row.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
+                  </button>
+                  <a mat-menu-item [routerLink]="['/users', row.id, 'profile']">
+                    <mat-icon>person</mat-icon>
+                    {{ 'profile.viewProfile' | transloco }}
+                  </a>
+                  @if (canPromote(row)) {
+                    <button mat-menu-item (click)="promote(row)" [disabled]="loading()">
+                      <mat-icon>upgrade</mat-icon> {{ 'users.makeAdmin' | transloco }}
                     </button>
-                    <a mat-menu-item [routerLink]="['/users', row.id, 'profile']">
-                      <mat-icon>person</mat-icon>
-                      {{ 'profile.viewProfile' | transloco }}
-                    </a>
-                    @if (canPromote(row)) {
-                      <button mat-menu-item (click)="promote(row)" [disabled]="loading()">
-                        <mat-icon>upgrade</mat-icon> {{ 'users.makeAdmin' | transloco }}
-                      </button>
-                    }
-                    @if (canDelete(row)) {
-                      <button mat-menu-item class="!text-red-600" (click)="deleteUser(row)" [disabled]="loading()">
-                        <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
-                      </button>
-                    }
-                  } @else {
-                    <button mat-menu-item [matMenuTriggerFor]="approveMenu"
-                      (menuOpened)="approveSelection[row.id!] = row.roleId" [disabled]="loading()">
-                      <mat-icon>how_to_reg</mat-icon> {{ 'users.approve' | transloco }}
-                    </button>
-                    @if (filter() === 'Pending') {
-                      <button mat-menu-item class="!text-red-600" (click)="reject(row)" [disabled]="loading()">
-                        <mat-icon class="!text-red-600">block</mat-icon> {{ 'users.reject' | transloco }}
-                      </button>
-                    }
                   }
-                </mat-menu>
-                <mat-menu #approveMenu="matMenu">
-                  <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                      <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
-                      <mat-select [(value)]="approveSelection[row.id!]">
-                        @for (r of activeRoles(); track r.id) {
-                          <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                        }
-                      </mat-select>
-                    </mat-form-field>
-                    <button mat-flat-button color="primary" class="w-full"
-                      (click)="approve(row)" [disabled]="loading()">
-                      {{ 'users.confirm' | transloco }}
+                  @if (canDelete(row)) {
+                    <button mat-menu-item class="!text-red-600" (click)="deleteUser(row)" [disabled]="loading()">
+                      <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
                     </button>
-                  </div>
-                </mat-menu>
-              }
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns();"></tr>
-        </table>
+                  }
+                } @else {
+                  <button mat-menu-item [matMenuTriggerFor]="approveMenu"
+                    (menuOpened)="approveSelection[row.id!] = row.roleId" [disabled]="loading()">
+                    <mat-icon>how_to_reg</mat-icon> {{ 'users.approve' | transloco }}
+                  </button>
+                  @if (filter() === 'Pending') {
+                    <button mat-menu-item class="!text-red-600" (click)="reject(row)" [disabled]="loading()">
+                      <mat-icon class="!text-red-600">block</mat-icon> {{ 'users.reject' | transloco }}
+                    </button>
+                  }
+                }
+              </mat-menu>
+              <mat-menu #approveMenu="matMenu">
+                <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                    <mat-label>{{ 'users.approveAs' | transloco }}</mat-label>
+                    <mat-select [(value)]="approveSelection[row.id!]">
+                      @for (r of activeRoles(); track r.id) {
+                        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <button mat-flat-button color="primary" class="w-full"
+                    (click)="approve(row)" [disabled]="loading()">
+                    {{ 'users.confirm' | transloco }}
+                  </button>
+                </div>
+              </mat-menu>
+            }
+          </ng-template>
+        </app-data-table>
       }
     </div>
 
@@ -468,10 +461,20 @@ export class UsersComponent {
 
   approveSelection: Record<number, number> = {};
 
-  displayedColumns() {
-    return this.filter() === 'Approved'
-      ? ['email', 'displayName', 'role', 'status', 'actions']
-      : ['email', 'displayName', 'role', 'requested', 'status', 'actions'];
+  // A method (not a stored field) so column headers stay live if the app language changes,
+  // and so the conditional "requested" column follows the active filter.
+  columns(): DataTableColumn<UserRow>[] {
+    const cols: DataTableColumn<UserRow>[] = [
+      { key: 'email', header: this.transloco.translate('users.email') },
+      { key: 'displayName', header: this.transloco.translate('users.name') },
+      { key: 'role', header: this.transloco.translate('users.role') },
+    ];
+    if (this.filter() !== 'Approved') {
+      cols.push({ key: 'requested', header: this.transloco.translate('overview.requested') });
+    }
+    cols.push({ key: 'status', header: this.transloco.translate('users.status') });
+    cols.push({ key: 'actions', header: this.transloco.translate('users.actions') });
+    return cols;
   }
 
   addForm = this.fb.nonNullable.group({
