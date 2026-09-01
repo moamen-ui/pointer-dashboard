@@ -208,6 +208,8 @@ export function SettingsPage() {
   const [demoTtlHours, setDemoTtlHours] = useState(1);
   const [demoPerEmailPerDay, setDemoPerEmailPerDay] = useState(1);
   const [demoCommentCap, setDemoCommentCap] = useState(1);
+  const [extensionStoreUrl, setExtensionStoreUrl] = useState('');
+  const [extensionZipUrl, setExtensionZipUrl] = useState('');
 
   // Seed local state whenever settings loads / refreshes
   useEffect(() => {
@@ -221,6 +223,8 @@ export function SettingsPage() {
     setDemoTtlHours(settings.demoTtlHours ?? 1);
     setDemoPerEmailPerDay(settings.demoPerEmailPerDay ?? 1);
     setDemoCommentCap(settings.demoCommentCap ?? 1);
+    setExtensionStoreUrl(settings.extensionStoreUrl ?? '');
+    setExtensionZipUrl(settings.extensionZipUrl ?? '');
   }, [settings]);
 
   const reload = () =>
@@ -355,6 +359,8 @@ export function SettingsPage() {
         demoTtlHours,
         demoPerEmailPerDay,
         demoCommentCap,
+        extensionStoreUrl,
+        extensionZipUrl,
       },
     });
   }
@@ -548,6 +554,36 @@ export function SettingsPage() {
               value={demoCommentCap}
               onChange={(e) => setDemoCommentCap(Number(e.target.value))}
               className="max-w-[12rem]"
+            />
+          </div>
+      </AccordionSection>
+
+      {/* ── Section 4: Extension ── */}
+      <AccordionSection title={t('settings.extensionSection')}>
+
+          {/* extensionStoreUrl */}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="extension-store-url" className="text-sm font-medium">
+              {t('settings.extensionStoreUrl')}
+            </Label>
+            <p className="text-xs text-muted-foreground">{t('settings.extensionStoreUrlHint')}</p>
+            <Input
+              id="extension-store-url"
+              value={extensionStoreUrl}
+              onChange={(e) => setExtensionStoreUrl(e.target.value)}
+            />
+          </div>
+
+          {/* extensionZipUrl */}
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="extension-zip-url" className="text-sm font-medium">
+              {t('settings.extensionZipUrl')}
+            </Label>
+            <p className="text-xs text-muted-foreground">{t('settings.extensionZipUrlHint')}</p>
+            <Input
+              id="extension-zip-url"
+              value={extensionZipUrl}
+              onChange={(e) => setExtensionZipUrl(e.target.value)}
             />
           </div>
       </AccordionSection>
