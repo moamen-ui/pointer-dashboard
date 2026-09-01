@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
+import type { ColumnDef } from '@tanstack/vue-table';
 import {
   useGetApiAdminTenants,
   usePostApiAdminTenants,
@@ -16,20 +17,14 @@ import {
   useGetApiAdminPlans,
   usePatchApiAdminTenantsIdPlan,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, EllipsisVertical } from 'lucide-vue-next';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge, type BadgeVariants } from '@/components/ui/badge';
+import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -44,17 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
-import { cn } from '@/lib/utils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
-import EmptyState from '@/shared/EmptyState.vue';
 
 const { t } = useI18n();
 const queryClient = useQueryClient();
@@ -211,35 +198,50 @@ function formatExpiry(iso: string | null | undefined): string {
   }
 }
 
-// ── Local edit state (seeded via watch, never mutates cache) ──────────
-interface EditState {
-  email: string;
-  displayName: string;
+// A computed so headers follow live language switches (Angular re-evaluates
+// its columns() every pass for the same reason).
+const columns = computed<ColumnDef<typeof dataTableFeatures, TenantResponse>[]>(() => [
+  { accessorKey: 'displayName', header: t('tenants.displayName'), sortingFn: 'alphanumeric' },
+  { accessorKey: 'email', header: t('tenants.email'), sortingFn: 'alphanumeric' },
+  { id: 'approvalStatus', header: t('tenants.approvalStatus'), enableSorting: false },
+  { id: 'isActive', header: t('tenants.status'), enableSorting: false },
+  { accessorKey: 'projects', header: t('tenants.projects') },
+  { accessorKey: 'comments', header: t('tenants.comments') },
+  { id: 'plan', header: t('tenants.plan'), enableSorting: false },
+  { id: 'demoExpiry', header: t('tenants.demoExpiry'), enableSorting: false },
+]);
+
+function approvalSeverity(status: string | null | undefined): BadgeVariants['variant'] {
+  if (status === 'approved') return 'success';
+  if (status === 'rejected') return 'destructive';
+  return 'neutral';
 }
-const editMap = ref<Record<number, EditState>>({});
 
-watch(
-  tenants,
-  (list) => {
-    const next: Record<number, EditState> = {};
-    for (const t of list) {
-      const id = t.id!;
-      // Preserve any in-flight edits; seed missing entries from fresh data.
-      next[id] = editMap.value[id] ?? {
-        email: t.email ?? '',
-        displayName: t.displayName ?? '',
-      };
-    }
-    editMap.value = next;
-  },
-  { immediate: true },
-);
-
-function approvalChip(status: string | null | undefined) {
-  if (!status) return 'chip-neutral';
-  if (status === 'approved') return 'chip-active';
-  if (status === 'pending') return 'chip-pending';
-  return 'chip-disabled';
+// Per-row action menu, conditional logic matching the Angular reference exactly.
+function actionsFor(tenant: TenantResponse): RowActionItem[] {
+  const items: RowActionItem[] = [];
+  if (tenant.approvalStatus !== 'approved') {
+    items.push({ label: t('tenants.approve'), icon: ShieldCheck, onClick: () => void approveTenant(tenant) });
+  }
+  if (tenant.isActive) {
+    items.push({ label: t('common.disable'), icon: Ban, severity: 'danger', onClick: () => void disableTenant(tenant) });
+  } else {
+    items.push({ label: t('common.enable'), icon: CheckCircle2, onClick: () => void enableTenant(tenant) });
+  }
+  items.push({ label: t('tenants.changePlan'), icon: CreditCard, onClick: () => openChangePlan(tenant) });
+  if (tenant.isDemo) {
+    items.push({
+      label: t('tenants.extend'),
+      icon: Clock,
+      disabled: !!tenant.demoExtended,
+      tooltip: tenant.demoExtended ? t('tenants.extendOnce') : undefined,
+      onClick: () => void doExtend(tenant),
+    });
+    items.push({ label: t('tenants.editDemoConfig'), icon: Settings2, onClick: () => openDemoConfig(tenant) });
+  }
+  // Delete stays last in every menu (Pointer feedback #137).
+  items.push({ label: t('common.delete'), icon: Trash2, severity: 'danger', onClick: () => void doDelete(tenant) });
+  return items;
 }
 
 // ── Change plan dialog ────────────────────────────────────────────────────────
@@ -280,115 +282,41 @@ async function saveChangePlan() {
 
     <p v-if="isError" class="text-sm text-destructive">{{ t('tenants.loadError') }}</p>
 
-    <Card v-if="tenants.length > 0 || isFetching">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{{ t('tenants.email') }}</TableHead>
-            <TableHead>{{ t('tenants.displayName') }}</TableHead>
-            <TableHead>{{ t('tenants.approval') }}</TableHead>
-            <TableHead>{{ t('tenants.status') }}</TableHead>
-            <TableHead>{{ t('tenants.projects') }}</TableHead>
-            <TableHead>{{ t('tenants.comments') }}</TableHead>
-            <TableHead>{{ t('tenants.demoExpiry') }}</TableHead>
-            <TableHead>{{ t('tenants.plan') }}</TableHead>
-            <TableHead>{{ t('tenants.actions') }}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="tenant in tenants" :key="tenant.id">
-            <TableCell class="text-sm">{{ tenant.email }}</TableCell>
-            <TableCell class="text-sm">{{ tenant.displayName }}</TableCell>
-            <TableCell>
-              <span :class="cn('chip', approvalChip(tenant.approvalStatus))">
-                {{ tenant.approvalStatus ?? 'pending' }}
-              </span>
-            </TableCell>
-            <TableCell>
-              <span :class="cn('chip', tenant.isActive ? 'chip-active' : 'chip-disabled')">
-                {{ t(tenant.isActive ? 'common.active' : 'common.disabled') }}
-              </span>
-            </TableCell>
-            <TableCell>{{ tenant.projects ?? 0 }}</TableCell>
-            <TableCell>{{ tenant.comments ?? 0 }}</TableCell>
-            <!-- Demo expiry column -->
-            <TableCell class="text-sm">
-              <template v-if="(tenant as any).isDemo">
-                {{ formatExpiry((tenant as any).expiresAt) }}
-              </template>
-              <template v-else>—</template>
-            </TableCell>
-            <!-- Plan column -->
-            <TableCell class="text-sm">
-              <div class="flex flex-col gap-0.5">
-                <span>{{ (tenant as any).planName ?? t('tenants.freePlan') }}</span>
-                <span v-if="(tenant as any).subscriptionStatus" class="chip chip-neutral text-[10px]">
-                  {{ (tenant as any).subscriptionStatus }}
-                </span>
-              </div>
-            </TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon">
-                    <span class="sr-only">{{ t('tenants.actions') }}</span>
-                    <EllipsisVertical class="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    v-if="tenant.approvalStatus !== 'approved'"
-                    @select="approveTenant(tenant)"
-                  >
-                    <ShieldCheck class="h-4 w-4" /> {{ t('tenants.approve') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    v-if="tenant.isActive"
-                    class="text-destructive focus:text-destructive"
-                    @select="disableTenant(tenant)"
-                  >
-                    <Ban class="h-4 w-4" /> {{ t('common.disable') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem v-else @select="enableTenant(tenant)">
-                    <CheckCircle2 class="h-4 w-4" /> {{ t('common.enable') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem @select="openChangePlan(tenant)">
-                    <CreditCard class="h-4 w-4" /> {{ t('tenants.changePlan') }}
-                  </DropdownMenuItem>
-                  <!-- Demo-only actions -->
-                  <template v-if="(tenant as any).isDemo">
-                    <DropdownMenuItem
-                      :disabled="(tenant as any).demoExtended"
-                      :title="(tenant as any).demoExtended ? t('tenants.extendOnce') : undefined"
-                      @select="doExtend(tenant)"
-                    >
-                      <Clock class="h-4 w-4" /> {{ t('tenants.extend') }}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @select="openDemoConfig(tenant)">
-                      <Settings2 class="h-4 w-4" /> {{ t('tenants.editDemoConfig') }}
-                    </DropdownMenuItem>
-                  </template>
-                                  <!-- Delete stays last in every menu (Pointer feedback #137). -->
-                  <DropdownMenuItem
-                    class="text-destructive focus:text-destructive"
-                    @select="doDelete(tenant)"
-                  >
-                    <Trash2 class="h-4 w-4" /> {{ t('common.delete') }}
-                  </DropdownMenuItem>
-</DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </Card>
-
-    <EmptyState
-      v-if="!isFetching && tenants.length === 0 && !isError"
-      :icon="Building2"
-      :message="t('tenants.empty')"
-      :hint="t('tenants.emptyHint')"
-    />
+    <DataTable
+      v-else
+      :data="tenants"
+      :columns="columns"
+      :actions="actionsFor"
+      :actions-aria-label="t('tenants.actions')"
+      paginated
+      :loading="isFetching"
+      :empty-icon="Building2"
+      :empty-message="t('tenants.empty')"
+      :empty-hint="t('tenants.emptyHint')"
+    >
+      <template #cell-displayName="{ row }">{{ row.displayName ?? '—' }}</template>
+      <template #cell-email="{ row }">{{ row.email ?? '—' }}</template>
+      <template #cell-approvalStatus="{ row }">
+        <Badge :variant="approvalSeverity(row.approvalStatus)">{{ row.approvalStatus ?? '—' }}</Badge>
+      </template>
+      <template #cell-isActive="{ row }">
+        <Badge :variant="row.isActive ? 'success' : 'destructive'">
+          {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+        </Badge>
+      </template>
+      <template #cell-projects="{ row }">{{ row.projects ?? 0 }}</template>
+      <template #cell-comments="{ row }">{{ row.comments ?? 0 }}</template>
+      <template #cell-plan="{ row }">
+        <Badge variant="neutral">{{ row.planName ?? t('tenants.noPlan') }}</Badge>
+        <Badge v-if="row.subscriptionStatus" variant="success" class="ms-1 text-[10px]">
+          {{ row.subscriptionStatus }}
+        </Badge>
+      </template>
+      <template #cell-demoExpiry="{ row }">
+        <template v-if="row.isDemo">{{ formatExpiry(row.expiresAt) }}</template>
+        <template v-else>—</template>
+      </template>
+    </DataTable>
   </div>
 
   <!-- Create tenant dialog -->
