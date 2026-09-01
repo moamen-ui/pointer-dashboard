@@ -10,7 +10,6 @@ import {
   Validators,
 } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -18,8 +17,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
@@ -31,10 +28,13 @@ import {
   getApiAdminProjectsIdAppUrlsResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AuthService } from '../../core/auth/auth.service';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular';
 
 /** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
@@ -98,18 +98,17 @@ const latin = asciiDigits(name.toLowerCase())
   imports: [
     FormsModule,
     ReactiveFormsModule,
-    MatTableModule,
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
     MatIconModule,
-    MatMenuModule,
     MatDialogModule,
-    MatTooltipModule,
     MatSlideToggleModule,
     TranslocoModule,
-    EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
     <div class="p-6">
@@ -133,104 +132,36 @@ const latin = asciiDigits(name.toLowerCase())
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
       }
 
-      @if (projects().length === 0) {
-        <app-empty-state
-          icon="folder_open"
-          [message]="'projects.empty' | transloco"
-          [hint]="(auth.isSuperAdmin() ? 'projects.superAdminEmptyHint' : 'projects.emptyHint') | transloco"
-        >
-          @if (!auth.isSuperAdmin()) {
-            <button mat-flat-button color="primary" (click)="openAdd()">
-              <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
-            </button>
-          }
-        </app-empty-state>
-      } @else {
-      <table mat-table [dataSource]="projects()" class="w-full mat-elevation-z2">
-        <ng-container matColumnDef="key">
-          <th mat-header-cell *matHeaderCellDef>{{ 'projects.key' | transloco }}</th>
-          <td mat-cell *matCellDef="let project"><code>{{ project.key }}</code></td>
-        </ng-container>
-
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>{{ 'projects.name' | transloco }}</th>
-          <td mat-cell *matCellDef="let project">{{ project.name }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>{{ 'projects.status' | transloco }}</th>
-          <td mat-cell *matCellDef="let project">
-            <span class="chip" [class.chip-active]="project.isActive" [class.chip-disabled]="!project.isActive">
-              {{ project.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
-            </span>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="createdBy">
-          <th mat-header-cell *matHeaderCellDef>{{ 'projects.createdBy' | transloco }}</th>
-          <td mat-cell *matCellDef="let project" class="text-[0.85rem] text-muted">{{ project.createdByName }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="comments">
-          <th mat-header-cell *matHeaderCellDef>{{ 'projects.comments' | transloco }}</th>
-          <td mat-cell *matCellDef="let project" class="text-[0.85rem]">{{ project.commentsCount ?? 0 }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'projects.actions' | transloco }}</th>
-          <td mat-cell *matCellDef="let project">
-            <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-              [attr.aria-label]="'projects.actions' | transloco">
-              <mat-icon>more_vert</mat-icon>
-            </button>
-            <mat-menu #rowMenu="matMenu">
-              @if (project.canEdit) {
-                <button mat-menu-item (click)="openEdit(project)" [disabled]="loading()">
-                  <mat-icon>edit</mat-icon> {{ 'projects.edit' | transloco }}
-                </button>
-              }
-              @if (!project.canEdit) {
-                <button mat-menu-item (click)="openViewPrompts(project)" [disabled]="loading()">
-                  <mat-icon>visibility</mat-icon> {{ 'projects.viewPrompts' | transloco }}
-                </button>
-                <button mat-menu-item (click)="openSuggest(project)" [disabled]="loading()">
-                  <mat-icon>lightbulb</mat-icon> {{ 'projects.suggest' | transloco }}
-                </button>
-              }
-              @if (project.canEdit) {
-                <button mat-menu-item (click)="toggleActive(project)" [disabled]="loading()"
-                  [class.!text-red-600]="project.isActive">
-                  <mat-icon [class.!text-red-600]="project.isActive">{{ project.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                  {{ project.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
-                </button>
-                <button mat-menu-item (click)="exportProject(project)" [disabled]="loading()">
-                  <mat-icon>download</mat-icon> {{ 'exportImport.export' | transloco }}
-                </button>
-                @if (auth.isSuperAdmin()) {
-                  <button mat-menu-item (click)="openImport(project)" [disabled]="loading()">
-                    <mat-icon>upload</mat-icon> {{ 'exportImport.import' | transloco }}
-                  </button>
-                }
-              }
-              <!-- Delete stays last in every menu (Pointer feedback #137). -->
-              @if (project.canDelete) {
-                <button mat-menu-item class="!text-red-600" (click)="deleteProject(project)" [disabled]="loading()">
-                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'projects.delete' | transloco }}
-                </button>
-              } @else {
-                <button mat-menu-item disabled
-                  [matTooltip]="'projects.deleteBlockedComments' | transloco">
-                  <mat-icon>delete</mat-icon> {{ 'projects.delete' | transloco }}
-                </button>
-              }
-            </mat-menu>
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
-      }
+      <app-data-table
+        [rows]="projects()"
+        [columns]="columns()"
+        [actionsColumn]="{
+          items: actionsFor,
+          ariaLabel: 'projects.actions' | transloco,
+          header: 'projects.actions' | transloco,
+        }"
+        [emptyIcon]="'folder_open'"
+        [emptyMessage]="'projects.empty' | transloco"
+        [emptyHint]="(auth.isSuperAdmin() ? 'projects.superAdminEmptyHint' : 'projects.emptyHint') | transloco"
+      >
+        @if (!auth.isSuperAdmin()) {
+          <button emptyAction mat-flat-button color="primary" (click)="openAdd()">
+            <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
+          </button>
+        }
+        <ng-template appDataTableCell="key" let-project><code>{{ project.key }}</code></ng-template>
+        <ng-template appDataTableCell="status" let-project>
+          <app-badge [severity]="project.isActive ? 'success' : 'danger'">
+            {{ project.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
+          </app-badge>
+        </ng-template>
+        <ng-template appDataTableCell="createdBy" let-project>
+          <span class="text-[0.85rem] text-muted">{{ project.createdByName }}</span>
+        </ng-template>
+        <ng-template appDataTableCell="comments" let-project>
+          <span class="text-[0.85rem]">{{ project.commentsCount ?? 0 }}</span>
+        </ng-template>
+      </app-data-table>
     </div>
 
     <!-- Add project dialog -->
@@ -553,7 +484,50 @@ export class ProjectsComponent {
   private suggestingProjectId = signal<number | null>(null);
   suggestBusy = signal(false);
 
-  displayedColumns = ['key', 'name', 'status', 'createdBy', 'comments', 'actions'];
+  // A method (not a stored field) so column headers stay live if the app language changes.
+  columns(): DataTableColumn<ProjectResponse>[] {
+    return [
+      { key: 'key', header: this.transloco.translate('projects.key'), sortable: true },
+      { key: 'name', header: this.transloco.translate('projects.name'), sortable: true },
+      { key: 'status', header: this.transloco.translate('projects.status') },
+      { key: 'createdBy', header: this.transloco.translate('projects.createdBy'), sortable: true },
+      { key: 'comments', header: this.transloco.translate('projects.comments'), sortable: true },
+    ];
+  }
+
+  readonly actionsFor = (project: ProjectResponse): RowActionItem[] => {
+    const busy = this.loading();
+    const items: RowActionItem[] = [];
+    if (project.canEdit) {
+      items.push({ label: this.transloco.translate('projects.edit'), icon: 'edit', disabled: busy, onClick: () => this.openEdit(project) });
+    } else {
+      items.push({ label: this.transloco.translate('projects.viewPrompts'), icon: 'visibility', disabled: busy, onClick: () => this.openViewPrompts(project) });
+      items.push({ label: this.transloco.translate('projects.suggest'), icon: 'lightbulb', disabled: busy, onClick: () => this.openSuggest(project) });
+    }
+    if (project.canEdit) {
+      items.push({
+        label: this.transloco.translate(project.isActive ? 'common.disable' : 'common.enable'),
+        icon: project.isActive ? 'block' : 'check_circle',
+        severity: project.isActive ? 'danger' : 'neutral',
+        disabled: busy,
+        onClick: () => this.toggleActive(project),
+      });
+      items.push({ label: this.transloco.translate('exportImport.export'), icon: 'download', disabled: busy, onClick: () => this.exportProject(project) });
+      if (this.auth.isSuperAdmin()) {
+        items.push({ label: this.transloco.translate('exportImport.import'), icon: 'upload', disabled: busy, onClick: () => this.openImport(project) });
+      }
+    }
+    // Delete stays last in every menu (Pointer feedback #137).
+    items.push({
+      label: this.transloco.translate('projects.delete'),
+      icon: 'delete',
+      severity: 'danger',
+      disabled: busy || !project.canDelete,
+      tooltip: project.canDelete ? undefined : this.transloco.translate('projects.deleteBlockedComments'),
+      onClick: () => this.deleteProject(project),
+    });
+    return items;
+  };
 
   // The key must match what the API accepts, or the request comes back as a raw
   // 400: FluentValidation checks the *unmodified* value (^[a-z0-9-]+$, max 64)
