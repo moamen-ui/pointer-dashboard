@@ -22,20 +22,14 @@ import {
   type PredefinedActionInput,
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, EllipsisVertical, FolderOpen } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/shared/data-table/DataTable';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -43,15 +37,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 import { useAuth } from '@/lib/auth';
 
@@ -440,6 +427,61 @@ export function ProjectsPage() {
     setRows(rows.filter((r) => r._localId !== localId));
   }
 
+  const columns: ColumnDef<ProjectResponse>[] = [
+    { accessorKey: 'key', enableSorting: false, header: t('projects.key'),
+      cell: ({ row }) => <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.original.key}</code> },
+    { accessorKey: 'name', enableSorting: false, header: t('projects.name') },
+    { accessorKey: 'createdByName', enableSorting: false, header: t('projects.createdBy'),
+      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.createdByName ?? '—'}</span> },
+    { accessorKey: 'commentsCount', enableSorting: false, header: t('projects.comments'),
+      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.commentsCount ?? 0}</span> },
+    {
+      accessorKey: 'isActive',
+      enableSorting: false,
+      header: t('projects.status'),
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+        </Badge>
+      ),
+    },
+  ];
+
+  const actionsFor = (project: ProjectResponse): RowActionItem[] => {
+    const items: RowActionItem[] = [];
+    if (project.canEdit) {
+      items.push({ label: t('projects.edit'), onClick: () => openEdit(project, false) });
+    } else {
+      items.push({ label: t('projects.viewPrompts'), icon: Eye, onClick: () => openEdit(project, true) });
+      items.push({ label: t('projects.suggest'), icon: MessageSquarePlus, onClick: () => openSuggest(project) });
+    }
+    // Enable/disable is admin-gated in this port (not per-row canEdit) -- matches this
+    // page's pre-existing convention, kept as-is rather than aligned to the angular
+    // reference's canEdit gate.
+    if (isAdmin) {
+      items.push({
+        label: t(project.isActive ? 'common.disable' : 'common.enable'),
+        icon: project.isActive ? Ban : CheckCircle2,
+        severity: project.isActive ? 'danger' : 'neutral',
+        disabled: toggleMut.isPending,
+        onClick: () => toggleActive(project),
+      });
+    }
+    items.push({ label: t('exportImport.export'), icon: Download, onClick: () => handleExport(project) });
+    if (isSuperAdmin) {
+      items.push({ label: t('exportImport.import'), icon: Upload, onClick: () => openImport(project) });
+    }
+    items.push({
+      label: t('projects.delete'),
+      icon: Trash2,
+      severity: 'danger',
+      disabled: !project.canDelete || deleteMut.isPending,
+      tooltip: project.canDelete ? undefined : t('projects.deleteBlockedComments'),
+      onClick: () => setDeleteProject(project),
+    });
+    return items;
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -459,134 +501,25 @@ export function ProjectsPage() {
         <p className="text-sm text-muted-foreground">{t('projects.superAdminNote')}</p>
       )}
 
-      {projects.length === 0 ? (
-        <EmptyState
-          icon={FolderOpen}
-          message={t('projects.empty')}
-          hint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
-        >
-          {!isSuperAdmin && (
+      <DataTable
+        data={projects}
+        columns={columns}
+        actions={actionsFor}
+        actionsAriaLabel={t('projects.actions')}
+        actionsHeader={t('projects.actions')}
+        paginated
+        emptyIcon={FolderOpen}
+        emptyMessage={t('projects.empty')}
+        emptyHint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
+        emptyAction={
+          !isSuperAdmin ? (
             <Button onClick={openAdd}>
               <Plus className="h-4 w-4" />
               {t('projects.addProject')}
             </Button>
-          )}
-        </EmptyState>
-      ) : (
-        <Card>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('projects.key')}</TableHead>
-              <TableHead>{t('projects.name')}</TableHead>
-              <TableHead>{t('projects.createdBy')}</TableHead>
-              <TableHead>{t('projects.comments')}</TableHead>
-              <TableHead>{t('projects.status')}</TableHead>
-              <TableHead>{t('projects.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell>
-                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{project.key}</code>
-                </TableCell>
-                <TableCell>{project.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {project.createdByName ?? '—'}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {project.commentsCount ?? 0}
-                </TableCell>
-                <TableCell>
-                  <span className={cn('chip', project.isActive ? 'chip-active' : 'chip-disabled')}>
-                    {t(project.isActive ? 'common.active' : 'common.disabled')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <EllipsisVertical className="h-4 w-4" />
-                        <span className="sr-only">{t('projects.actions')}</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {/* Edit — only when canEdit */}
-                      {project.canEdit && (
-                        <DropdownMenuItem onSelect={() => openEdit(project, false)}>
-                          {t('projects.edit')}
-                        </DropdownMenuItem>
-                      )}
-
-                      {/* View predefined prompts — read-only when !canEdit */}
-                      {!project.canEdit && (
-                        <DropdownMenuItem onSelect={() => openEdit(project, true)}>
-                          <Eye className="h-4 w-4" />
-                          {t('projects.viewPrompts')}
-                        </DropdownMenuItem>
-                      )}
-
-                      {/* Suggest prompt — only when !canEdit */}
-                      {!project.canEdit && (
-                        <DropdownMenuItem onSelect={() => openSuggest(project)}>
-                          <MessageSquarePlus className="h-4 w-4" />
-                          {t('projects.suggest')}
-                        </DropdownMenuItem>
-                      )}
-
-                      {/* Enable / disable — admin only */}
-                      {isAdmin && (
-                        <DropdownMenuItem
-                          onSelect={() => toggleActive(project)}
-                          disabled={toggleMut.isPending}
-                          className={cn(
-                            project.isActive && 'text-destructive focus:text-destructive',
-                          )}
-                        >
-                          {project.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                          {t(project.isActive ? 'common.disable' : 'common.enable')}
-                        </DropdownMenuItem>
-                      )}
-
-                      {/* Export */}
-                      <DropdownMenuItem onSelect={() => handleExport(project)}>
-                        <Download className="h-4 w-4" />
-                        {t('exportImport.export')}
-                      </DropdownMenuItem>
-
-                      {/* Import — super-admin only */}
-                      {isSuperAdmin && (
-                        <DropdownMenuItem onSelect={() => openImport(project)}>
-                          <Upload className="h-4 w-4" />
-                          {t('exportImport.import')}
-                        </DropdownMenuItem>
-                      )}
-
-                      {/* Delete — canDelete shows enabled; !canDelete shows disabled with tooltip */}
-                      <DropdownMenuItem
-                        onSelect={() => setDeleteProject(project)}
-                        disabled={!project.canDelete || deleteMut.isPending}
-                        title={!project.canDelete ? t('projects.deleteBlockedComments') : undefined}
-                        className={cn(
-                          'text-destructive focus:text-destructive',
-                          // Radix still blocks selection when disabled; keep pointer
-                          // events so the blocked-delete tooltip remains visible.
-                          !project.canDelete && 'data-[disabled]:pointer-events-auto',
-                        )}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {t('projects.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-      )}
+          ) : undefined
+        }
+      />
 
       {/* Add project dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
