@@ -1,17 +1,15 @@
-import { Component, inject, signal, computed, effect, viewChild } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
-import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { UsersService } from '@moamen-ui/pointer-angular';
 import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
@@ -19,6 +17,9 @@ import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
 import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
@@ -26,11 +27,9 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
   standalone: true,
   imports: [
     MatCardModule,
-    MatTableModule,
     MatButtonModule,
     MatProgressBarModule,
     MatIconModule,
-    MatSortModule,
     MatMenuModule,
     MatFormFieldModule,
     MatSelectModule,
@@ -38,6 +37,9 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
     DatePipe,
     TranslocoModule,
     EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
     @if (loading()) {
@@ -154,58 +156,34 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
       </div>
 
       <div class="overflow-x-auto">
-        @if (projectRows().length === 0) {
-          <app-empty-state
-            icon="folder_open"
-            [message]="'overview.emptyProjects' | transloco"
-            [hint]="'overview.emptyProjectsHint' | transloco"
-          />
-        } @else {
-        <table mat-table [dataSource]="tableDataSource" matSort class="w-full mat-elevation-z1">
-          <ng-container matColumnDef="key">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.key' | transloco }}</th>
-            <td mat-cell *matCellDef="let row"><code>{{ row.key }}</code></td>
-          </ng-container>
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.name' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.name }}</td>
-          </ng-container>
-          <ng-container matColumnDef="comments">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.comments' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.comments }}</td>
-          </ng-container>
-          <ng-container matColumnDef="privateComments">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.private' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              @if (row.privateComments > 0) {
-                <span class="inline-flex items-center gap-[3px] rounded-[11px] bg-stat-slate-bg px-2 py-px text-[0.78rem] font-semibold text-stat-slate" [title]="'overview.privateHiddenTooltip' | transloco">
-                  <mat-icon class="chip-icon !h-[14px] !w-[14px] !text-[14px] !leading-[14px]">lock</mat-icon>{{ row.privateComments }}
-                </span>
-              } @else {
-                <span class="text-muted">—</span>
-              }
-            </td>
-          </ng-container>
-          <!-- Status columns driven by catalog -->
-          @for (st of statusCatalog.ordered(); track st.value) {
-            <ng-container [matColumnDef]="'status_' + st.value">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header [style.color]="st.color">{{ statusCatalog.displayLabel(st) }}</th>
-              <td mat-cell *matCellDef="let row" [style.color]="st.color" class="font-medium">{{ statusCellValue(row, st.value) }}</td>
-            </ng-container>
-          }
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ 'overview.status' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span [class]="row.isActive ? 'chip chip-active' : 'chip chip-disabled'">
-                {{ (row.isActive ? 'common.active' : 'common.disabled') | transloco }}
+        <app-data-table
+          [rows]="projectRows()"
+          [columns]="columns()"
+          [emptyIcon]="'folder_open'"
+          [emptyMessage]="'overview.emptyProjects' | transloco"
+          [emptyHint]="'overview.emptyProjectsHint' | transloco"
+        >
+          <ng-template appDataTableCell="key" let-row><code>{{ row.key }}</code></ng-template>
+          <ng-template appDataTableCell="privateComments" let-row>
+            @if (row.privateComments > 0) {
+              <span class="inline-flex items-center gap-[3px] rounded-[11px] bg-stat-slate-bg px-2 py-px text-[0.78rem] font-semibold text-stat-slate" [title]="'overview.privateHiddenTooltip' | transloco">
+                <mat-icon class="chip-icon !h-[14px] !w-[14px] !text-[14px] !leading-[14px]">lock</mat-icon>{{ row.privateComments }}
               </span>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
-        }
+            } @else {
+              <span class="text-muted">—</span>
+            }
+          </ng-template>
+          @for (st of statusCatalog.ordered(); track st.value) {
+            <ng-template [appDataTableCell]="'status_' + st.value" let-row>
+              <span [style.color]="st.color" class="font-medium">{{ statusCellValue(row, st.value) }}</span>
+            </ng-template>
+          }
+          <ng-template appDataTableCell="status" let-row>
+            <app-badge [severity]="row.isActive ? 'success' : 'danger'">
+              {{ (row.isActive ? 'common.active' : 'common.disabled') | transloco }}
+            </app-badge>
+          </ng-template>
+        </app-data-table>
       </div>
     } @else if (!loading()) {
       <div class="p-12 text-center">
@@ -235,27 +213,26 @@ export class OverviewComponent {
   loading = computed(() => this.statsResource.isLoading() || this.busy());
 
   approveSelection: Record<number, number> = {};
-  tableDataSource = new MatTableDataSource<ProjectStats>([]);
 
-  /** Dynamic columns: key, name, comments, privateComments, status_1..N, status */
-  get displayedColumns(): string[] {
-    const statusCols = this.statusCatalog.ordered().map((s) => `status_${s.value}`);
-    return ['key', 'name', 'comments', 'privateComments', ...statusCols, 'status'];
-  }
+  private transloco = inject(TranslocoService);
 
-  readonly sort = viewChild(MatSort);
-
-  constructor() {
-    effect(() => {
-      const stats = this.statsResource.value();
-      if (stats?.projects) {
-        this.tableDataSource.data = stats.projects;
-      }
-    });
-    effect(() => {
-      const sort = this.sort();
-      if (sort) this.tableDataSource.sort = sort;
-    });
+  /** Dynamic columns: key, name, comments, privateComments, status_1..N, status. A method (not a
+   *  stored field) so headers stay live if the app language changes. */
+  columns(): DataTableColumn<ProjectStats>[] {
+    const statusCols: DataTableColumn<ProjectStats>[] = this.statusCatalog.ordered().map((s) => ({
+      key: `status_${s.value}`,
+      header: this.statusCatalog.displayLabel(s),
+      sortable: true,
+      headerColor: s.color ?? undefined,
+    }));
+    return [
+      { key: 'key', header: this.transloco.translate('overview.key'), sortable: true },
+      { key: 'name', header: this.transloco.translate('overview.name'), sortable: true },
+      { key: 'comments', header: this.transloco.translate('overview.comments'), sortable: true },
+      { key: 'privateComments', header: this.transloco.translate('overview.private'), sortable: true },
+      ...statusCols,
+      { key: 'status', header: this.transloco.translate('overview.status'), sortable: true },
+    ];
   }
 
   /** Map status value → count field on ProjectStats. */

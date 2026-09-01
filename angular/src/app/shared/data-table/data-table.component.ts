@@ -16,6 +16,9 @@ export interface DataTableColumn<T> {
   /** Enables Material's own column sort — the default sort accessor reads `row[key]` directly,
    *  so only mark computed/derived columns sortable if their `key` matches a real row field. */
   sortable?: boolean;
+  /** CSS color applied to the header text — for columns whose meaning is color-coded elsewhere
+   *  on the page (e.g. a per-status column matching that status's configured color). */
+  headerColor?: string;
 }
 
 /**
@@ -67,7 +70,8 @@ export interface DataTableColumn<T> {
       <table mat-table matSort [dataSource]="dataSource" class="w-full mat-elevation-z2">
         @for (column of columns(); track column.key) {
           <ng-container [matColumnDef]="column.key">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header [disabled]="!column.sortable">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header [disabled]="!column.sortable"
+              [style.color]="column.headerColor">
               {{ column.header }}
             </th>
             <td mat-cell *matCellDef="let row">

@@ -8,15 +8,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { RolesService, getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 import type { RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
@@ -24,18 +25,18 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
   standalone: true,
   imports: [
     FormsModule,
-    MatTableModule,
     MatSlideToggleModule,
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
     MatCheckboxModule,
     MatIconModule,
-    MatMenuModule,
     MatDialogModule,
     MatSelectModule,
     TranslocoModule,
-    EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
     <div class="p-6">
@@ -46,96 +47,51 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
         </button>
       </div>
 
-      @if (roles().length === 0) {
-        <app-empty-state
-          icon="manage_accounts"
-          [message]="'roles.empty' | transloco"
-          [hint]="'roles.emptyHint' | transloco"
-        >
-          <button mat-flat-button color="primary" (click)="openAdd()">
-            <mat-icon>add</mat-icon> {{ 'roles.addRole' | transloco }}
-          </button>
-        </app-empty-state>
-      } @else {
-        <table mat-table [dataSource]="roles()" class="w-full mat-elevation-z2">
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>{{ 'roles.name' | transloco }}</th>
-            <td mat-cell *matCellDef="let role">
-              {{ role.name }}
-              @if (role.isSystem) {
-                <span class="chip chip-neutral ms-2 text-[10px]">{{ 'roles.system' | transloco }}</span>
-              }
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="grantsAdmin">
-            <th mat-header-cell *matHeaderCellDef>{{ 'roles.grantsAdmin' | transloco }}</th>
-            <td mat-cell *matCellDef="let role">
-              <mat-slide-toggle
-                class="dense-toggle"
-                hideIcon
-                [checked]="role.grantsAdmin"
-                [disabled]="role.isSystem || !canManage(role)"
-                (change)="toggleGrantsAdmin(role, $event.checked)"
-              />
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="quickAccess">
-            <th mat-header-cell *matHeaderCellDef>{{ 'roles.quickAccess' | transloco }}</th>
-            <td mat-cell *matCellDef="let role">
-              <mat-slide-toggle
-                class="dense-toggle"
-                hideIcon
-                [checked]="role.quickAccess"
-                [disabled]="role.isSystem || !canManage(role)"
-                (change)="toggleQuickAccess(role, $event.checked)"
-              />
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>{{ 'roles.status' | transloco }}</th>
-            <td mat-cell *matCellDef="let role">
-              <span class="chip" [class.chip-active]="role.isActive" [class.chip-disabled]="!role.isActive">
-                {{ (role.isActive ? 'common.active' : 'common.disabled') | transloco }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'roles.actions' | transloco }}</th>
-            <td mat-cell *matCellDef="let role">
-              @if (canToggleActive(role)) {
-                <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                  [attr.aria-label]="'roles.actions' | transloco">
-                  <mat-icon>more_vert</mat-icon>
-                </button>
-                <mat-menu #rowMenu="matMenu">
-                  @if (canManage(role)) {
-                    <button mat-menu-item (click)="renameRole(role)">
-                      <mat-icon>edit</mat-icon> {{ 'common.rename' | transloco }}
-                    </button>
-                  }
-                  <button mat-menu-item (click)="toggleActive(role)"
-                    [class.!text-red-600]="role.isActive">
-                    <mat-icon [class.!text-red-600]="role.isActive">{{ role.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                    {{ role.isActive ? ('common.disable' | transloco) : ('common.enable' | transloco) }}
-                  </button>
-                  @if (canManage(role)) {
-                    <button mat-menu-item class="!text-red-600" (click)="openDelete(role)">
-                      <mat-icon class="!text-red-600">delete</mat-icon> {{ 'roles.delete' | transloco }}
-                    </button>
-                  }
-                </mat-menu>
-              }
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
-      }
+      <app-data-table
+        [rows]="roles()"
+        [columns]="columns()"
+        [actionsColumn]="{
+          items: actionsFor,
+          ariaLabel: 'roles.actions' | transloco,
+          header: 'roles.actions' | transloco,
+        }"
+        [emptyIcon]="'manage_accounts'"
+        [emptyMessage]="'roles.empty' | transloco"
+        [emptyHint]="'roles.emptyHint' | transloco"
+      >
+        <button emptyAction mat-flat-button color="primary" (click)="openAdd()">
+          <mat-icon>add</mat-icon> {{ 'roles.addRole' | transloco }}
+        </button>
+        <ng-template appDataTableCell="name" let-role>
+          {{ role.name }}
+          @if (role.isSystem) {
+            <span class="chip chip-neutral ms-2 text-[10px]">{{ 'roles.system' | transloco }}</span>
+          }
+        </ng-template>
+        <ng-template appDataTableCell="grantsAdmin" let-role>
+          <mat-slide-toggle
+            class="dense-toggle"
+            hideIcon
+            [checked]="role.grantsAdmin"
+            [disabled]="role.isSystem || !canManage(role)"
+            (change)="toggleGrantsAdmin(role, $event.checked)"
+          />
+        </ng-template>
+        <ng-template appDataTableCell="quickAccess" let-role>
+          <mat-slide-toggle
+            class="dense-toggle"
+            hideIcon
+            [checked]="role.quickAccess"
+            [disabled]="role.isSystem || !canManage(role)"
+            (change)="toggleQuickAccess(role, $event.checked)"
+          />
+        </ng-template>
+        <ng-template appDataTableCell="status" let-role>
+          <app-badge [severity]="role.isActive ? 'success' : 'danger'">
+            {{ (role.isActive ? 'common.active' : 'common.disabled') | transloco }}
+          </app-badge>
+        </ng-template>
+      </app-data-table>
     </div>
 
     <!-- Add role dialog -->
@@ -263,6 +219,39 @@ export class RolesComponent {
     return this.auth.isSuperAdmin() ? all : all.filter((r) => this.canToggleActive(r));
   });
 
+  // A method (not a stored field) so column headers stay live if the app language changes.
+  columns(): DataTableColumn<RoleResponse>[] {
+    return [
+      { key: 'name', header: this.transloco.translate('roles.name') },
+      { key: 'grantsAdmin', header: this.transloco.translate('roles.grantsAdmin') },
+      { key: 'quickAccess', header: this.transloco.translate('roles.quickAccess') },
+      { key: 'status', header: this.transloco.translate('roles.status') },
+    ];
+  }
+
+  readonly actionsFor = (role: RoleResponse): RowActionItem[] => {
+    if (!this.canToggleActive(role)) return [];
+    const items: RowActionItem[] = [];
+    if (this.canManage(role)) {
+      items.push({ label: this.transloco.translate('common.rename'), icon: 'edit', onClick: () => this.renameRole(role) });
+    }
+    items.push({
+      label: this.transloco.translate(role.isActive ? 'common.disable' : 'common.enable'),
+      icon: role.isActive ? 'block' : 'check_circle',
+      severity: role.isActive ? 'danger' : 'neutral',
+      onClick: () => this.toggleActive(role),
+    });
+    if (this.canManage(role)) {
+      items.push({
+        label: this.transloco.translate('roles.delete'),
+        icon: 'delete',
+        severity: 'danger',
+        onClick: () => this.openDelete(role),
+      });
+    }
+    return items;
+  };
+
   /**
    * Whether the signed-in user may fully manage this role (rename/delete/reconfigure). The API
    * computes it (RoleResponse.CanManage): system roles are immutable for everyone, and a scoped
@@ -282,8 +271,6 @@ export class RolesComponent {
   canToggleActive(role: RoleResponse): boolean {
     return (role as { canToggleActive?: boolean }).canToggleActive ?? this.canManage(role);
   }
-
-  displayedColumns = ['name', 'grantsAdmin', 'quickAccess', 'status', 'actions'];
 
   newName = '';
   newGrantsAdmin = false;
@@ -376,7 +363,7 @@ export class RolesComponent {
         data: {
           message: this.transloco.translate('common.confirmDisable', { name: role.name }),
           confirmLabel: this.transloco.translate('common.disable'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()

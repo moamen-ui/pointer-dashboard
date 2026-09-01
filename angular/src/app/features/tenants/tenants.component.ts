@@ -16,10 +16,14 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { TenantsService, getApiAdminTenantsResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
 import { InvitesService } from '@moamen-ui/pointer-angular';
 import type { TenantResponse, PlanAdminResponse, InviteResponse } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { PasswordToggleComponent } from '../../shared/password-toggle.component';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
+import type { Severity } from '../../shared/severity';
 
 @Component({
   selector: 'app-tenants',
@@ -27,19 +31,18 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
   imports: [
     DatePipe,
     FormsModule,
-    MatTableModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatInputModule,
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
-    MatMenuModule,
     MatDialogModule,
-    MatTooltipModule,
     TranslocoModule,
     PasswordToggleComponent,
-    EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
     <div class="p-6">
@@ -54,124 +57,45 @@ import { PasswordToggleComponent } from '../../shared/password-toggle.component'
         <p class="text-red-500">{{ 'tenants.loadError' | transloco }}</p>
       } @else if (tenantsResource.isLoading() && tenants().length === 0) {
         <p class="text-muted">{{ 'tenants.loading' | transloco }}</p>
-      } @else if (tenants().length === 0) {
-        <app-empty-state
-          icon="business"
-          [message]="'tenants.empty' | transloco"
-          [hint]="'tenants.emptyHint' | transloco"
-        />
       } @else {
-        <table mat-table [dataSource]="tenants()" class="w-full mat-elevation-z2">
-
-          <ng-container matColumnDef="displayName">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.displayName' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">{{ t.displayName ?? '—' }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="email">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.email' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">{{ t.email ?? '—' }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="approvalStatus">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.approvalStatus' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">
-              <span class="chip"
-                [class.chip-active]="t.approvalStatus === 'approved'"
-                [class.chip-neutral]="t.approvalStatus === 'pending'"
-                [class.chip-disabled]="t.approvalStatus === 'rejected'">
-                {{ t.approvalStatus ?? '—' }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="isActive">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.status' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">
-              <span class="chip" [class.chip-active]="t.isActive" [class.chip-disabled]="!t.isActive">
-                {{ (t.isActive ? 'common.active' : 'common.disabled') | transloco }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="projects">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.projects' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">{{ t.projects ?? 0 }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="comments">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.comments' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">{{ t.comments ?? 0 }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="plan">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.plan' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">
-              <span class="chip chip-neutral">{{ t.planName ?? ('tenants.noPlan' | transloco) }}</span>
-              @if (t.subscriptionStatus) {
-                <span class="chip chip-active ms-1 text-[10px]">{{ t.subscriptionStatus }}</span>
-              }
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="demoExpiry">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.demoExpiry' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">
-              @if (t.isDemo) {
-                {{ t.expiresAt ? (t.expiresAt | date:'short') : '—' }}
-              } @else {
-                —
-              }
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'tenants.actions' | transloco }}</th>
-            <td mat-cell *matCellDef="let t">
-              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                [attr.aria-label]="'tenants.actions' | transloco">
-                <mat-icon>more_vert</mat-icon>
-              </button>
-              <mat-menu #rowMenu="matMenu">
-                @if (t.approvalStatus !== 'approved') {
-                  <button mat-menu-item (click)="setStatus(t, 'approve')">
-                    <mat-icon>check_circle</mat-icon> {{ 'tenants.approve' | transloco }}
-                  </button>
-                }
-                @if (t.isActive) {
-                  <button mat-menu-item class="!text-red-600" (click)="setStatus(t, 'disable')">
-                    <mat-icon class="!text-red-600">block</mat-icon> {{ 'common.disable' | transloco }}
-                  </button>
-                } @else {
-                  <button mat-menu-item (click)="setStatus(t, 'enable')">
-                    <mat-icon>check_circle</mat-icon> {{ 'common.enable' | transloco }}
-                  </button>
-                }
-                <button mat-menu-item (click)="openChangePlan(t)">
-                  <mat-icon>swap_horiz</mat-icon> {{ 'tenants.changePlan' | transloco }}
-                </button>
-                @if (t.isDemo) {
-                  <button mat-menu-item
-                    [disabled]="t.demoExtended"
-                    [matTooltip]="t.demoExtended ? ('tenants.extendOnce' | transloco) : ''"
-                    (click)="extendDemo(t)">
-                    <mat-icon>schedule</mat-icon> {{ 'tenants.extend' | transloco }}
-                  </button>
-                  <button mat-menu-item (click)="openDemoConfig(t)">
-                    <mat-icon>tune</mat-icon> {{ 'tenants.editDemoConfig' | transloco }}
-                  </button>
-                }
-                <!-- Delete stays last in every menu (Pointer feedback #137). -->
-                <button mat-menu-item class="!text-red-600" (click)="openDelete(t)">
-                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'common.delete' | transloco }}
-                </button>
-              </mat-menu>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
+        <app-data-table
+          [rows]="tenants()"
+          [columns]="columns()"
+          [actionsColumn]="{
+            items: actionsFor,
+            ariaLabel: 'tenants.actions' | transloco,
+            header: 'tenants.actions' | transloco,
+          }"
+          [emptyIcon]="'business'"
+          [emptyMessage]="'tenants.empty' | transloco"
+          [emptyHint]="'tenants.emptyHint' | transloco"
+        >
+          <ng-template appDataTableCell="displayName" let-t>{{ t.displayName ?? '—' }}</ng-template>
+          <ng-template appDataTableCell="email" let-t>{{ t.email ?? '—' }}</ng-template>
+          <ng-template appDataTableCell="approvalStatus" let-t>
+            <app-badge [severity]="approvalSeverity(t.approvalStatus)">{{ t.approvalStatus ?? '—' }}</app-badge>
+          </ng-template>
+          <ng-template appDataTableCell="isActive" let-t>
+            <app-badge [severity]="t.isActive ? 'success' : 'danger'">
+              {{ (t.isActive ? 'common.active' : 'common.disabled') | transloco }}
+            </app-badge>
+          </ng-template>
+          <ng-template appDataTableCell="projects" let-t>{{ t.projects ?? 0 }}</ng-template>
+          <ng-template appDataTableCell="comments" let-t>{{ t.comments ?? 0 }}</ng-template>
+          <ng-template appDataTableCell="plan" let-t>
+            <span class="chip chip-neutral">{{ t.planName ?? ('tenants.noPlan' | transloco) }}</span>
+            @if (t.subscriptionStatus) {
+              <span class="chip chip-active ms-1 text-[10px]">{{ t.subscriptionStatus }}</span>
+            }
+          </ng-template>
+          <ng-template appDataTableCell="demoExpiry" let-t>
+            @if (t.isDemo) {
+              {{ t.expiresAt ? (t.expiresAt | date:'short') : '—' }}
+            } @else {
+              —
+            }
+          </ng-template>
+        </app-data-table>
       }
     </div>
 
@@ -353,7 +277,51 @@ export class TenantsComponent {
   // The HTTP interceptor unwraps the envelope, so the actual runtime value is TenantResponse[].
   tenants = computed(() => (this.tenantsResource.value() as unknown as TenantResponse[]) ?? []);
 
-  displayedColumns = ['displayName', 'email', 'approvalStatus', 'isActive', 'projects', 'comments', 'plan', 'demoExpiry', 'actions'];
+  // A method (not a stored field) so column headers stay live if the app language changes.
+  columns(): DataTableColumn<TenantResponse>[] {
+    return [
+      { key: 'displayName', header: this.transloco.translate('tenants.displayName'), sortable: true },
+      { key: 'email', header: this.transloco.translate('tenants.email'), sortable: true },
+      { key: 'approvalStatus', header: this.transloco.translate('tenants.approvalStatus') },
+      { key: 'isActive', header: this.transloco.translate('tenants.status') },
+      { key: 'projects', header: this.transloco.translate('tenants.projects'), sortable: true },
+      { key: 'comments', header: this.transloco.translate('tenants.comments'), sortable: true },
+      { key: 'plan', header: this.transloco.translate('tenants.plan') },
+      { key: 'demoExpiry', header: this.transloco.translate('tenants.demoExpiry') },
+    ];
+  }
+
+  approvalSeverity(status: string | null | undefined): Severity {
+    if (status === 'approved') return 'success';
+    if (status === 'rejected') return 'danger';
+    return 'neutral';
+  }
+
+  readonly actionsFor = (t: TenantResponse): RowActionItem[] => {
+    const items: RowActionItem[] = [];
+    if (t.approvalStatus !== 'approved') {
+      items.push({ label: this.transloco.translate('tenants.approve'), icon: 'check_circle', onClick: () => this.setStatus(t, 'approve') });
+    }
+    if (t.isActive) {
+      items.push({ label: this.transloco.translate('common.disable'), icon: 'block', severity: 'danger', onClick: () => this.setStatus(t, 'disable') });
+    } else {
+      items.push({ label: this.transloco.translate('common.enable'), icon: 'check_circle', onClick: () => this.setStatus(t, 'enable') });
+    }
+    items.push({ label: this.transloco.translate('tenants.changePlan'), icon: 'swap_horiz', onClick: () => this.openChangePlan(t) });
+    if (t.isDemo) {
+      items.push({
+        label: this.transloco.translate('tenants.extend'),
+        icon: 'schedule',
+        disabled: !!t.demoExtended,
+        tooltip: t.demoExtended ? this.transloco.translate('tenants.extendOnce') : undefined,
+        onClick: () => this.extendDemo(t),
+      });
+      items.push({ label: this.transloco.translate('tenants.editDemoConfig'), icon: 'tune', onClick: () => this.openDemoConfig(t) });
+    }
+    // Delete stays last in every menu (Pointer feedback #137).
+    items.push({ label: this.transloco.translate('common.delete'), icon: 'delete', severity: 'danger', onClick: () => this.openDelete(t) });
+    return items;
+  };
 
   newEmail = '';
   newDisplayName = '';
@@ -452,7 +420,7 @@ export class TenantsComponent {
           title: this.transloco.translate('tenants.deleteTitle'),
           message: this.transloco.translate('tenants.deleteMessage', { name: tenant.displayName ?? tenant.email }),
           confirmLabel: this.transloco.translate('common.delete'),
-          confirmColor: 'warn',
+          confirmColor: 'danger',
         },
       })
       .afterClosed()
