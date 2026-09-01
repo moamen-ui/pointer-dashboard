@@ -4,7 +4,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -14,6 +13,8 @@ import { getApiMeApiKeyResource } from '@moamen-ui/pointer-angular';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from './install-guide.service';
+import { TabsComponent, type TabItem } from '../tabs/tabs.component';
+import { TabContentDirective } from '../tabs/tab-content.directive';
 
 /** One step in the guide. `code`/`downloadUrl` are optional — instruction-only steps omit both. */
 export interface SetupStep {
@@ -163,9 +164,10 @@ export function buildExtensionSteps(input: {
     MatSelectModule,
     MatFormFieldModule,
     MatCheckboxModule,
-    MatButtonToggleModule,
     RouterLink,
     TranslocoModule,
+    TabsComponent,
+    TabContentDirective,
   ],
   template: `
     <h2 mat-dialog-title class="flex items-center gap-2">
@@ -174,99 +176,99 @@ export function buildExtensionSteps(input: {
     </h2>
 
     <mat-dialog-content>
-      <!-- Top-level install method. Not persisted: "Code" is the default every time. -->
-      <mat-button-toggle-group class="mb-4" [value]="tab()" (change)="tab.set($event.value)">
-        <mat-button-toggle value="code">{{ 'install.tabCode' | transloco }}</mat-button-toggle>
-        <mat-button-toggle value="extension">{{ 'install.tabExtension' | transloco }}</mat-button-toggle>
-      </mat-button-toggle-group>
-
-      @if (tab() === 'extension') {
-        <!-- Chrome extension: download, unzip, load unpacked, sign in -->
-        <ol class="mt-0 mb-0 flex list-none flex-col gap-3 p-0">
-          @for (st of extensionSteps(); track st.titleKey; let i = $index) {
-            <li class="rounded-lg border border-app-border bg-app/40 p-3">
-              <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
-              <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
-              @if (st.downloadUrl; as url) {
-                <a mat-flat-button color="primary" class="mt-2" [href]="url" download>
-                  <mat-icon>download</mat-icon> {{ 'install.extDownload' | transloco }}
-                </a>
-              } @else if (st.code; as code) {
-                <div class="mt-2 flex items-start gap-2">
-                  <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
-                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
-                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                  </button>
-                </div>
-              }
-            </li>
-          }
-        </ol>
-      } @else {
       <p class="mt-0 mb-4 text-[0.85rem] text-muted">{{ 'install.intro' | transloco }}</p>
 
-      <!-- Which project the snippet points at -->
-      @if (projects().length > 0) {
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-          <mat-label>{{ 'install.project' | transloco }}</mat-label>
-          <mat-select [value]="projectKey()" (selectionChange)="projectKey.set($event.value)">
-            @for (p of projects(); track p.id) {
-              <mat-option [value]="p.key">{{ p.name }} ({{ p.key }})</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      } @else if (!demo()) {
-        <p class="my-0 rounded-lg border border-app-border bg-app/40 p-3 text-[0.85rem]">
-          {{ 'install.noProjects' | transloco }}
-          <a routerLink="/projects" mat-dialog-close class="text-brand underline">
-            {{ 'nav.projects' | transloco }}
-          </a>
-        </p>
-      }
+      <!-- Two install paths: the code-based guide and the Chrome extension. Not persisted:
+           "Code" is the default every time. -->
+      <app-tabs [tabs]="tabItems()" [activeTab]="tab()" (activeTabChange)="tab.set($event)">
+        <ng-template appTabContent="code">
+          <!-- Which project the snippet points at -->
+          @if (projects().length > 0) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+              <mat-label>{{ 'install.project' | transloco }}</mat-label>
+              <mat-select [value]="projectKey()" (selectionChange)="projectKey.set($event.value)">
+                @for (p of projects(); track p.id) {
+                  <mat-option [value]="p.key">{{ p.name }} ({{ p.key }})</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          } @else if (!demo()) {
+            <p class="my-0 rounded-lg border border-app-border bg-app/40 p-3 text-[0.85rem]">
+              {{ 'install.noProjects' | transloco }}
+              <a routerLink="/projects" mat-dialog-close class="text-brand underline">
+                {{ 'nav.projects' | transloco }}
+              </a>
+            </p>
+          }
 
-      <!-- The recommended path: install the skills, then let the agent wire the widget -->
-      <ol class="mt-4 mb-0 flex list-none flex-col gap-3 p-0">
-        @for (st of steps().primary; track st.titleKey; let i = $index) {
-          <li class="rounded-lg border border-app-border bg-app/40 p-3">
-            <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
-            <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
-            @if (st.code; as code) {
-              <div class="mt-2 flex items-start gap-2">
-                <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
-                <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
-                  <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                </button>
-              </div>
+          <!-- The recommended path: install the skills, then let the agent wire the widget -->
+          <ol class="mt-4 mb-0 flex list-none flex-col gap-3 p-0">
+            @for (st of steps().primary; track st.titleKey; let i = $index) {
+              <li class="rounded-lg border border-app-border bg-app/40 p-3">
+                <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
+                <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
+                @if (st.code; as code) {
+                  <div class="mt-2 flex items-start gap-2">
+                    <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
+                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
+                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                    </button>
+                  </div>
+                }
+              </li>
             }
-          </li>
-        }
-      </ol>
+          </ol>
 
-      <!-- Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
-           does this per-stack, so these snippets are the fallback, not the path. -->
-      <details class="mt-4 rounded-lg border border-app-border p-3">
-        <summary class="cursor-pointer text-[0.85rem] font-semibold">
-          {{ 'install.manualTitle' | transloco }}
-        </summary>
-        <p class="mb-2 mt-1 text-[0.78rem] text-muted">{{ 'install.manualHint' | transloco }}</p>
-        <div class="flex flex-col gap-3">
-          @for (st of steps().manual; track st.titleKey) {
-            <div>
-              <div class="text-[0.8rem] font-medium">{{ st.titleKey | transloco }}</div>
-              <div class="mt-0.5 text-[0.75rem] text-muted">{{ st.hintKey | transloco }}</div>
-              @if (st.code; as code) {
-                <div class="mt-1.5 flex items-start gap-2">
-                  <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
-                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
-                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                  </button>
+          <!-- Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
+               does this per-stack, so these snippets are the fallback, not the path. -->
+          <details class="mt-4 rounded-lg border border-app-border p-3">
+            <summary class="cursor-pointer text-[0.85rem] font-semibold">
+              {{ 'install.manualTitle' | transloco }}
+            </summary>
+            <p class="mb-2 mt-1 text-[0.78rem] text-muted">{{ 'install.manualHint' | transloco }}</p>
+            <div class="flex flex-col gap-3">
+              @for (st of steps().manual; track st.titleKey) {
+                <div>
+                  <div class="text-[0.8rem] font-medium">{{ st.titleKey | transloco }}</div>
+                  <div class="mt-0.5 text-[0.75rem] text-muted">{{ st.hintKey | transloco }}</div>
+                  @if (st.code; as code) {
+                    <div class="mt-1.5 flex items-start gap-2">
+                      <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
+                      <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
+                        <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                      </button>
+                    </div>
+                  }
                 </div>
               }
             </div>
-          }
-        </div>
-      </details>
-      }
+          </details>
+        </ng-template>
+
+        <ng-template appTabContent="extension">
+          <!-- Chrome extension: download, unzip, load unpacked, sign in -->
+          <ol class="mt-0 mb-0 flex list-none flex-col gap-3 p-0">
+            @for (st of extensionSteps(); track st.titleKey; let i = $index) {
+              <li class="rounded-lg border border-app-border bg-app/40 p-3">
+                <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
+                <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
+                @if (st.downloadUrl; as url) {
+                  <a mat-flat-button color="primary" class="mt-2" [href]="url" download>
+                    <mat-icon>download</mat-icon> {{ 'install.extDownload' | transloco }}
+                  </a>
+                } @else if (st.code; as code) {
+                  <div class="mt-2 flex items-start gap-2">
+                    <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
+                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
+                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                    </button>
+                  </div>
+                }
+              </li>
+            }
+          </ol>
+        </ng-template>
+      </app-tabs>
     </mat-dialog-content>
 
     <mat-dialog-actions class="justify-between gap-3">
@@ -303,7 +305,15 @@ export class InstallGuideComponent {
   readonly suppressed = signal(this.guide.isSuppressed(this.auth.user()?.id ?? null));
 
   /** Which install method the dialog shows. Component state only — not persisted. */
-  readonly tab = signal<'code' | 'extension'>('code');
+  readonly tab = signal<string>('code');
+
+  // A method (not a stored field) so labels stay live if the app language changes.
+  tabItems(): TabItem[] {
+    return [
+      { value: 'code', label: this.transloco.translate('install.tabCode') },
+      { value: 'extension', label: this.transloco.translate('install.tabExtension') },
+    ];
+  }
 
   private readonly stepsInput = () => ({
     server: this.demo()?.serverUrl || environment.apiBase,
