@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useQueryClient } from '@tanstack/vue-query';
+import type { ColumnDef } from '@tanstack/vue-table';
 import {
   useGetApiAdminUsers,
   useGetApiAdminRoles,
@@ -26,24 +27,16 @@ import {
   UserCheck,
   UserRound,
   Users,
-  EllipsisVertical,
   Copy,
   Link2Off,
   MailCheck,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -58,12 +51,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/formatRequestedAt';
 import { cn } from '@/lib/utils';
@@ -72,6 +59,10 @@ import { toast } from '@/composables/useToast';
 import EmptyState from '@/shared/EmptyState.vue';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
+
+// A union row type (real users + pending invites) with per-kind columns/actions --
+// none of it forced into DataTable's core API, per this page's deliberate escape hatch.
+type Row = ({ kind: 'user' } & UserResponse) | ({ kind: 'invite' } & InviteResponse);
 
 const { t } = useI18n();
 const router = useRouter();
@@ -323,6 +314,61 @@ function formatInviteDate(iso: string | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
 }
+
+const rows = computed<Row[]>(() => {
+  const userRows: Row[] = users.value.map((u) => ({ kind: 'user' as const, ...u }));
+  if (filter.value !== 'Pending') return userRows;
+  const invRows: Row[] = inviteList.value.map((i) => ({ kind: 'invite' as const, ...i }));
+  return [...userRows, ...invRows];
+});
+
+// A computed so headers follow live language switches, and the conditional
+// "requested" column follows the active filter.
+const columns = computed<ColumnDef<typeof dataTableFeatures, Row>[]>(() => {
+  const cols: ColumnDef<typeof dataTableFeatures, Row>[] = [
+    { accessorKey: 'email', header: t('users.email'), enableSorting: false },
+    { id: 'displayName', header: t('users.name'), enableSorting: false },
+    { id: 'role', header: t('users.role'), enableSorting: false },
+  ];
+  if (filter.value !== 'Approved') {
+    cols.push({ id: 'requested', header: t('overview.requested'), enableSorting: false });
+  }
+  cols.push({ id: 'status', header: t('users.status'), enableSorting: false });
+  return cols;
+});
+
+function actionsFor(row: Row): RowActionItem[] {
+  if (row.kind === 'invite') {
+    const items: RowActionItem[] = [];
+    if (row.url) {
+      items.push({ label: t('invite.copy'), icon: Copy, onClick: () => void copyUrl(row.url!) });
+    }
+    items.push({ label: t('invite.revoke'), icon: Link2Off, severity: 'danger', onClick: () => void onRevoke(row.id!) });
+    return items;
+  }
+  const user = row;
+  const items: RowActionItem[] = [];
+  if (filter.value === 'Approved') {
+    items.push({
+      label: t(user.isActive ? 'common.disable' : 'common.enable'),
+      icon: user.isActive ? Ban : CheckCircle2,
+      severity: user.isActive ? 'danger' : 'neutral',
+      disabled: loading.value,
+      onClick: () => void toggleActive(user),
+    });
+  } else {
+    items.push({ label: t('users.approve'), icon: UserCheck, disabled: loading.value, onClick: () => openApprove(user) });
+    if (filter.value === 'Pending') {
+      items.push({ label: t('users.reject'), icon: Ban, severity: 'danger', disabled: loading.value, onClick: () => void reject(user) });
+    }
+  }
+  // View profile link — always shown for approved users (matches this page's
+  // pre-existing convention, kept as-is).
+  if (filter.value === 'Approved') {
+    items.push({ label: t('profile.viewProfile'), icon: UserRound, onClick: () => router.push(`/users/${user.id}/profile`) });
+  }
+  return items;
+}
 </script>
 
 <template>
@@ -379,125 +425,53 @@ function formatInviteDate(iso: string | undefined): string {
       </Button>
     </EmptyState>
 
-    <Card v-else>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{{ t('users.email') }}</TableHead>
-            <TableHead>{{ t('users.name') }}</TableHead>
-            <TableHead>{{ t('users.role') }}</TableHead>
-            <TableHead v-if="filter !== 'Approved'">{{ t('overview.requested') }}</TableHead>
-            <TableHead>{{ t('users.status') }}</TableHead>
-            <TableHead>{{ t('users.actions') }}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="user in users" :key="user.id">
-            <TableCell>{{ user.email }}</TableCell>
-            <TableCell>{{ user.displayName }}</TableCell>
-            <TableCell>
-              <Select
-                v-if="filter === 'Approved'"
-                :model-value="user.roleId != null ? String(user.roleId) : undefined"
-                @update:model-value="(v: any) => v != null && changeRole(user, Number(v))"
-              >
-                <SelectTrigger class="min-w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="role in rolesForUser(user)" :key="role.id" :value="String(role.id)">
-                    {{ role.name }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <span v-else>{{ user.roleName }}</span>
-            </TableCell>
-            <TableCell v-if="filter !== 'Approved'">
-              {{ formatRequestedAt(requestedAt(user)) }}
-            </TableCell>
-            <TableCell>
-              <span :class="cn('chip', user.isActive ? 'chip-active' : 'chip-disabled')">
-                {{ t(user.isActive ? 'common.active' : 'common.disabled') }}
-              </span>
-            </TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                  <Button variant="ghost" size="icon">
-                    <span class="sr-only">{{ t('users.actions') }}</span>
-                    <EllipsisVertical class="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    v-if="filter === 'Approved'"
-                    :disabled="loading"
-                    :class="user.isActive ? 'text-destructive focus:text-destructive' : undefined"
-                    @select="toggleActive(user)"
-                  >
-                    <component :is="user.isActive ? Ban : CheckCircle2" class="h-4 w-4" />
-                    {{ user.isActive ? t('common.disable') : t('common.enable') }}
-                  </DropdownMenuItem>
-                  <template v-else>
-                    <DropdownMenuItem :disabled="loading" @select="openApprove(user)">
-                      <UserCheck class="h-4 w-4" /> {{ t('users.approve') }}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      v-if="filter === 'Pending'"
-                      :disabled="loading"
-                      class="text-destructive focus:text-destructive"
-                      @select="reject(user)"
-                    >
-                      <Ban class="h-4 w-4" /> {{ t('users.reject') }}
-                    </DropdownMenuItem>
-                  </template>
-                  <!-- View profile link — always shown for approved users -->
-                  <DropdownMenuItem
-                    v-if="filter === 'Approved'"
-                    @select="router.push(`/users/${user.id}/profile`)"
-                  >
-                    <UserRound class="h-4 w-4" />
-                    {{ t('profile.viewProfile') }}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-          <template v-if="filter === 'Pending'">
-            <TableRow v-for="inv in inviteList" :key="`invite-${inv.id}`" class="bg-muted/20">
-              <TableCell>{{ inv.email ?? t('invite.anyone') }}</TableCell>
-              <TableCell>—</TableCell>
-              <TableCell>{{ inv.roleName ?? '—' }}</TableCell>
-              <TableCell>{{ t('invite.expires') }}: {{ formatInviteDate(inv.expiresAt) }}</TableCell>
-              <TableCell>
-                <span class="chip chip-neutral">{{ t('invite.invited') }}</span>
-              </TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger as-child>
-                    <Button type="button" variant="ghost" size="icon">
-                      <span class="sr-only">{{ t('users.actions') }}</span>
-                      <EllipsisVertical class="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem v-if="inv.url" @select="copyUrl(inv.url!)">
-                      <Copy class="h-4 w-4" /> {{ t('invite.copy') }}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      class="text-destructive focus:text-destructive"
-                      @select="onRevoke(inv.id!)"
-                    >
-                      <Link2Off class="h-4 w-4" /> {{ t('invite.revoke') }}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          </template>
-        </TableBody>
-      </Table>
-    </Card>
+    <!-- Escape hatch: rows are a union type (real users + pending invites) with
+         per-kind columns/actions, none of which fit a homogeneous DataTable
+         row shape -- every custom column renders through a scoped slot. -->
+    <DataTable
+      v-else
+      :data="rows"
+      :columns="columns"
+      :actions="actionsFor"
+      :actions-aria-label="t('users.actions')"
+      :loading="loading"
+    >
+      <template #cell-email="{ row }">
+        {{ row.kind === 'invite' ? (row.email ?? t('invite.anyone')) : row.email }}
+      </template>
+      <template #cell-displayName="{ row }">
+        {{ row.kind === 'invite' ? '—' : row.displayName }}
+      </template>
+      <template #cell-role="{ row }">
+        <template v-if="row.kind === 'invite'">{{ row.roleName ?? '—' }}</template>
+        <template v-else>
+          <Select
+            v-if="filter === 'Approved'"
+            :model-value="row.roleId != null ? String(row.roleId) : undefined"
+            @update:model-value="(v: any) => v != null && changeRole(row, Number(v))"
+          >
+            <SelectTrigger class="min-w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="role in rolesForUser(row)" :key="role.id" :value="String(role.id)">
+                {{ role.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <span v-else>{{ row.roleName }}</span>
+        </template>
+      </template>
+      <template #cell-requested="{ row }">
+        {{ row.kind === 'invite' ? `${t('invite.expires')}: ${formatInviteDate(row.expiresAt)}` : formatRequestedAt(requestedAt(row)) }}
+      </template>
+      <template #cell-status="{ row }">
+        <span v-if="row.kind === 'invite'" class="chip chip-neutral">{{ t('invite.invited') }}</span>
+        <span v-else :class="cn('chip', row.isActive ? 'chip-active' : 'chip-disabled')">
+          {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+        </span>
+      </template>
+    </DataTable>
   </div>
 
   <!-- Add user dialog — "Send invite" (default) or "Create directly" (secondary) -->
