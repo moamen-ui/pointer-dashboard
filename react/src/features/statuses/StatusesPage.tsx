@@ -11,25 +11,11 @@ import {
   getGetApiStatusesQueryKey,
   type StatusAdminItem,
 } from '@moamen-ui/pointer-react';
-import { EllipsisVertical, Tag } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Save, RotateCcw, Tag } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DataTable } from '@/components/shared/data-table/DataTable';
+import type { RowActionItem } from '@/components/shared/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
@@ -148,116 +134,116 @@ export function StatusesPage() {
   }
 
   const statuses = data ?? [];
+  const isBusy = patchMut.isPending || deleteMut.isPending;
+
+  // Every column but "name" is a live inline-edit control bound to local per-row
+  // state -- the escape hatch this page needs instead of DataTable's plain
+  // display-only cells.
+  const columns: ColumnDef<StatusAdminItem>[] = [
+    {
+      accessorKey: 'name',
+      enableSorting: false,
+      header: t('statuses.colName'),
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name ?? String(row.original.value)}</span>
+      ),
+    },
+    {
+      id: 'label',
+      enableSorting: false,
+      header: t('statuses.colLabel'),
+      cell: ({ row }) => {
+        const val = row.original.value!;
+        const r = rows[val] ?? initRow(row.original);
+        return (
+          // Same slim box as the colour control below, so the row reads as one
+          // set of controls.
+          <Input
+            className="w-[132px] px-2 text-[0.8rem] focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-0"
+            aria-label={t('statuses.colLabel')}
+            value={r.label}
+            maxLength={64}
+            onChange={(e) => setField(val, 'label', e.target.value)}
+          />
+        );
+      },
+    },
+    {
+      id: 'color',
+      enableSorting: false,
+      header: t('statuses.colColor'),
+      cell: ({ row }) => {
+        const val = row.original.value!;
+        const r = rows[val] ?? initRow(row.original);
+        return (
+          // Swatch + hex are one control: a single bordered box that lights up
+          // on focus, with the native picker inside it.
+          <div className="inline-flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+            <input
+              type="color"
+              aria-label={t('statuses.colColor')}
+              value={r.color}
+              onChange={(e) => setField(val, 'color', e.target.value)}
+              className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0"
+            />
+            <input
+              value={r.color}
+              maxLength={7}
+              pattern="^#[0-9a-fA-F]{6}$"
+              onChange={(e) => setField(val, 'color', e.target.value)}
+              className="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-[0.8rem] outline-none"
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: 'order',
+      enableSorting: false,
+      header: t('statuses.colOrder'),
+      cell: ({ row }) => {
+        const val = row.original.value!;
+        const r = rows[val] ?? initRow(row.original);
+        return (
+          <Input
+            type="number"
+            className="w-16 px-2 text-[0.8rem] focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-0"
+            aria-label={t('statuses.colOrder')}
+            min={0}
+            value={r.order}
+            onChange={(e) => setField(val, 'order', Number(e.target.value))}
+          />
+        );
+      },
+    },
+  ];
+
+  const actionsFor = (status: StatusAdminItem): RowActionItem[] => {
+    const val = status.value!;
+    const row = rows[val] ?? initRow(status);
+    const items: RowActionItem[] = [
+      { label: t('statuses.save'), icon: Save, disabled: isBusy || !row.label.trim(), onClick: () => save(val) },
+    ];
+    if (status.isOverridden) {
+      items.push({ label: t('statuses.reset'), icon: RotateCcw, severity: 'danger', disabled: isBusy, onClick: () => setResetTarget(status) });
+    }
+    return items;
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">{t('statuses.title')}</h2>
 
-      {statuses.length === 0 ? (
-        <EmptyState
-          icon={Tag}
-          message={t('statuses.empty')}
-          hint={t('statuses.emptyHint')}
-        />
-      ) : (
-        <Card>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('statuses.colName')}</TableHead>
-              <TableHead>{t('statuses.colLabel')}</TableHead>
-              <TableHead>{t('statuses.colColor')}</TableHead>
-              <TableHead>{t('statuses.colOrder')}</TableHead>
-              <TableHead>{t('statuses.colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {statuses.map((status) => {
-              const val = status.value!;
-              const row = rows[val] ?? initRow(status);
-              const isBusy = patchMut.isPending || deleteMut.isPending;
-              return (
-                <TableRow key={val}>
-                  <TableCell className="font-medium">
-                    {status.name ?? String(val)}
-                  </TableCell>
-                  <TableCell>
-                    {/* Same slim box as the colour control below, so the row
-                        reads as one set of controls. */}
-                    <Input
-                      className="w-[132px] px-2 text-[0.8rem] focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-0"
-                      aria-label={t('statuses.colLabel')}
-                      value={row.label}
-                      maxLength={64}
-                      onChange={(e) => setField(val, 'label', e.target.value)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {/* Swatch + hex are one control: a single bordered box that
-                        lights up on focus, with the native picker inside it. */}
-                    <div className="inline-flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
-                      <input
-                        type="color"
-                        aria-label={t('statuses.colColor')}
-                        value={row.color}
-                        onChange={(e) => setField(val, 'color', e.target.value)}
-                        className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0"
-                      />
-                      <input
-                        value={row.color}
-                        maxLength={7}
-                        pattern="^#[0-9a-fA-F]{6}$"
-                        onChange={(e) => setField(val, 'color', e.target.value)}
-                        className="h-full w-full min-w-0 border-0 bg-transparent p-0 font-mono text-[0.8rem] outline-none"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      className="w-16 px-2 text-[0.8rem] focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-0"
-                      aria-label={t('statuses.colOrder')}
-                      min={0}
-                      value={row.order}
-                      onChange={(e) =>
-                        setField(val, 'order', Number(e.target.value))
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('statuses.colActions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          disabled={isBusy || !row.label.trim()}
-                          onSelect={() => save(val)}
-                        >
-                          {t('statuses.save')}
-                        </DropdownMenuItem>
-                        {status.isOverridden && (
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            disabled={isBusy}
-                            onSelect={() => setResetTarget(status)}
-                          >
-                            {t('statuses.reset')}
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Card>
-      )}
+      <DataTable
+        data={statuses}
+        columns={columns}
+        actions={actionsFor}
+        actionsAriaLabel={t('statuses.colActions')}
+        actionsHeader={t('statuses.colActions')}
+        emptyIcon={Tag}
+        emptyMessage={t('statuses.empty')}
+        emptyHint={t('statuses.emptyHint')}
+      />
 
       {/* Reset confirmation */}
       <ConfirmDialog

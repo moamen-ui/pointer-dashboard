@@ -22,21 +22,15 @@ import {
   getGetApiAdminInvitesQueryKey,
   type InviteResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Ban, CheckCircle2, UserCheck, User, EllipsisVertical, Users, Link, Copy, MailCheck } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Plus, Ban, CheckCircle2, UserCheck, User, Users, Link, Copy, MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { DataTable } from '@/components/shared/data-table/DataTable';
+import type { RowActionItem } from '@/components/shared/types';
 import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -51,12 +45,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -64,6 +52,10 @@ import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/format';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
+
+// A union row type (real users + pending invites) with per-kind columns/actions --
+// none of it forced into DataTable's core API, per this page's deliberate escape hatch.
+type Row = ({ kind: 'user' } & UserResponse) | ({ kind: 'invite' } & InviteResponse);
 
 export function UsersPage() {
   const { t } = useTranslation();
@@ -285,6 +277,121 @@ export function UsersPage() {
   // Under the Pending filter, invite rows are appended after real pending users.
   const totalRows = filter === 'Pending' ? users.length + invites.length : users.length;
 
+  const rows: Row[] = useMemo(() => {
+    const userRows: Row[] = users.map((u) => ({ kind: 'user' as const, ...u }));
+    if (filter !== 'Pending') return userRows;
+    const inviteRows: Row[] = invites.map((i) => ({ kind: 'invite' as const, ...i }));
+    return [...userRows, ...inviteRows];
+  }, [users, invites, filter]);
+
+  const columns: ColumnDef<Row>[] = [
+    {
+      accessorKey: 'email',
+      enableSorting: false,
+      header: t('users.email'),
+      cell: ({ row }) =>
+        row.original.kind === 'invite'
+          ? row.original.email || t('invite.anyone')
+          : row.original.email,
+    },
+    {
+      id: 'displayName',
+      enableSorting: false,
+      header: t('users.name'),
+      cell: ({ row }) => (row.original.kind === 'invite' ? '—' : row.original.displayName),
+    },
+    {
+      id: 'role',
+      enableSorting: false,
+      header: t('users.role'),
+      cell: ({ row }) => {
+        if (row.original.kind === 'invite') return row.original.roleName ?? '—';
+        const user = row.original;
+        if (isApproved) {
+          return (
+            <Select
+              value={user.roleId != null ? String(user.roleId) : undefined}
+              onValueChange={(v) => changeRole(user, Number(v))}
+            >
+              <SelectTrigger className="min-w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {rolesForUser(user).map((r) => (
+                  <SelectItem key={r.id} value={String(r.id)}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        }
+        return <span>{user.roleName}</span>;
+      },
+    },
+  ];
+  if (!isApproved) {
+    columns.push({
+      id: 'requested',
+      enableSorting: false,
+      header: t('overview.requested'),
+      cell: ({ row }) => {
+        if (row.original.kind === 'invite') {
+          return `${t('invite.expires')}: ${formatInviteExpiry(row.original.expiresAt)}`;
+        }
+        // createdAt = when access was requested. The API returns it; the
+        // generated client only declares it from the next publish on.
+        const requestedAt = (row.original as { createdAt?: string | null }).createdAt ?? null;
+        return requestedAt ? formatRequestedAt(requestedAt) : '—';
+      },
+    });
+  }
+  columns.push({
+    id: 'status',
+    enableSorting: false,
+    header: t('users.status'),
+    cell: ({ row }) =>
+      row.original.kind === 'invite' ? (
+        <span className="chip chip-neutral">{t('invite.invited')}</span>
+      ) : (
+        <span className={cn('chip', row.original.isActive ? 'chip-active' : 'chip-disabled')}>
+          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+        </span>
+      ),
+  });
+
+  function actionsFor(row: Row): RowActionItem[] {
+    if (row.kind === 'invite') {
+      return [
+        { label: t('invite.copy'), icon: Copy, disabled: !row.url, onClick: () => copyInviteUrl(row.url ?? '') },
+        {
+          label: t('invite.revoke'),
+          severity: 'danger',
+          disabled: revokeInviteMut.isPending,
+          onClick: () => revokeInviteMut.mutate({ id: row.id! }),
+        },
+      ];
+    }
+    const user = row;
+    const items: RowActionItem[] = [];
+    if (isApproved) {
+      items.push({
+        label: t(user.isActive ? 'common.disable' : 'common.enable'),
+        icon: user.isActive ? Ban : CheckCircle2,
+        severity: user.isActive ? 'danger' : 'neutral',
+        disabled: patchMut.isPending,
+        onClick: () => toggleActive(user),
+      });
+    } else {
+      items.push({ label: t('users.approve'), icon: UserCheck, onClick: () => openApprove(user) });
+      if (filter === 'Pending') {
+        items.push({ label: t('users.reject'), icon: Ban, severity: 'danger', onClick: () => setRejectUser(user) });
+      }
+    }
+    items.push({ label: t('profile.viewProfile'), icon: User, onClick: () => navigate(`/users/${user.id}/profile`) });
+    return items;
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -338,150 +445,13 @@ export function UsersPage() {
           </Button>
         </EmptyState>
       ) : (
-        <Card>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('users.email')}</TableHead>
-              <TableHead>{t('users.name')}</TableHead>
-              <TableHead>{t('users.role')}</TableHead>
-              {!isApproved && <TableHead>{t('overview.requested')}</TableHead>}
-              <TableHead>{t('users.status')}</TableHead>
-              <TableHead>{t('users.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => {
-              // createdAt = when access was requested. The API returns it; the
-              // generated client only declares it from the next publish on.
-              const requestedAt = (user as { createdAt?: string | null }).createdAt ?? null;
-              return (
-                <TableRow key={user.id}>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.displayName}</TableCell>
-                  <TableCell>
-                    {isApproved ? (
-                      <Select
-                        value={user.roleId != null ? String(user.roleId) : undefined}
-                        onValueChange={(v) => changeRole(user, Number(v))}
-                      >
-                        <SelectTrigger className="min-w-[140px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {rolesForUser(user).map((r) => (
-                            <SelectItem key={r.id} value={String(r.id)}>
-                              {r.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span>{user.roleName}</span>
-                    )}
-                  </TableCell>
-                  {!isApproved && (
-                    <TableCell>
-                      {requestedAt ? formatRequestedAt(requestedAt) : '—'}
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <span className={cn('chip', user.isActive ? 'chip-active' : 'chip-disabled')}>
-                      {t(user.isActive ? 'common.active' : 'common.disabled')}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('users.actions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {isApproved ? (
-                          <DropdownMenuItem
-                            onSelect={() => toggleActive(user)}
-                            disabled={patchMut.isPending}
-                            className={cn(
-                              user.isActive && 'text-destructive focus:text-destructive',
-                            )}
-                          >
-                            {user.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                            {t(user.isActive ? 'common.disable' : 'common.enable')}
-                          </DropdownMenuItem>
-                        ) : (
-                          <>
-                            <DropdownMenuItem onSelect={() => openApprove(user)}>
-                              <UserCheck className="h-4 w-4" />
-                              {t('users.approve')}
-                            </DropdownMenuItem>
-                            {filter === 'Pending' && (
-                              <DropdownMenuItem
-                                onSelect={() => setRejectUser(user)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Ban className="h-4 w-4" />
-                                {t('users.reject')}
-                              </DropdownMenuItem>
-                            )}
-                          </>
-                        )}
-                        <DropdownMenuItem
-                          onSelect={() => navigate(`/users/${user.id}/profile`)}
-                        >
-                          <User className="h-4 w-4" />
-                          {t('profile.viewProfile')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {filter === 'Pending' &&
-              invites.map((inv) => (
-                <TableRow key={`invite-${inv.id}`} className="bg-muted/20">
-                  <TableCell>{inv.email ?? t('invite.anyone')}</TableCell>
-                  <TableCell>—</TableCell>
-                  <TableCell>{inv.roleName ?? '—'}</TableCell>
-                  <TableCell>
-                    {t('invite.expires')}: {formatInviteExpiry(inv.expiresAt)}
-                  </TableCell>
-                  <TableCell>
-                    <span className="chip chip-neutral">{t('invite.invited')}</span>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('users.actions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => copyInviteUrl(inv.url ?? '')}
-                          disabled={!inv.url}
-                        >
-                          <Copy className="h-4 w-4" />
-                          {t('invite.copy')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onSelect={() => revokeInviteMut.mutate({ id: inv.id! })}
-                          disabled={revokeInviteMut.isPending}
-                        >
-                          {t('invite.revoke')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      </Card>
+        <DataTable
+          data={rows}
+          columns={columns}
+          actions={actionsFor}
+          actionsAriaLabel={t('users.actions')}
+          actionsHeader={t('users.actions')}
+        />
       )}
 
       {/* Add user dialog — "Send invite" (default) or "Create directly" (secondary) */}
