@@ -15,9 +15,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { PlansService, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
 import type { PlanAdminResponse, PlanEntitlementsDto, PlanWriteDto } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 
 /** Editable form shape: entitlement number fields become string so an empty input maps to null;
  *  bool fields are tri-state (null = "use platform default"). */
@@ -71,7 +74,6 @@ function emptyEntitlementsForm(): EntitlementsForm {
   standalone: true,
   imports: [
     FormsModule,
-    MatTableModule,
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
@@ -79,11 +81,11 @@ function emptyEntitlementsForm(): EntitlementsForm {
     MatCheckboxModule,
     MatSlideToggleModule,
     MatIconModule,
-    MatMenuModule,
     MatDialogModule,
-    MatTooltipModule,
     TranslocoModule,
-    EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
     <div class="p-6">
@@ -98,72 +100,32 @@ function emptyEntitlementsForm(): EntitlementsForm {
         <p class="text-red-500">{{ 'plans.loadError' | transloco }}</p>
       } @else if (plansResource.isLoading() && plans().length === 0) {
         <p class="text-muted">{{ 'plans.loading' | transloco }}</p>
-      } @else if (plans().length === 0) {
-        <app-empty-state
-          icon="credit_card"
-          [message]="'plans.empty' | transloco"
-          [hint]="'plans.emptyHint' | transloco"
-        />
       } @else {
-        <table mat-table [dataSource]="plans()" class="w-full mat-elevation-z2">
-
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.name' | transloco }}</th>
-            <td mat-cell *matCellDef="let p">{{ p.name ?? '—' }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="slug">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.slug' | transloco }}</th>
-            <td mat-cell *matCellDef="let p"><code>{{ p.slug ?? '—' }}</code></td>
-          </ng-container>
-
-          <ng-container matColumnDef="price">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.price' | transloco }}</th>
-            <td mat-cell *matCellDef="let p">{{ formatPrice(p) }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="isActive">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.active' | transloco }}</th>
-            <td mat-cell *matCellDef="let p">
-              <span class="chip" [class.chip-active]="p.isActive" [class.chip-disabled]="!p.isActive">
-                {{ (p.isActive ? 'common.active' : 'common.disabled') | transloco }}
-              </span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="displayState">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.displayState' | transloco }}</th>
-            <td mat-cell *matCellDef="let p">
-              <span class="chip chip-neutral">{{ displayStateLabel(p.displayState) | transloco }}</span>
-            </td>
-          </ng-container>
-
-          <ng-container matColumnDef="activeSubs">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.activeSubs' | transloco }}</th>
-            <td mat-cell *matCellDef="let p">{{ p.activeSubscriptions ?? 0 }}</td>
-          </ng-container>
-
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'plans.actions' | transloco }}</th>
-            <td mat-cell *matCellDef="let p">
-              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                [attr.aria-label]="'plans.actions' | transloco">
-                <mat-icon>more_vert</mat-icon>
-              </button>
-              <mat-menu #rowMenu="matMenu">
-                <button mat-menu-item (click)="openEdit(p)">
-                  <mat-icon>edit</mat-icon> {{ 'plans.edit' | transloco }}
-                </button>
-                <button mat-menu-item class="!text-red-600" (click)="confirmDelete(p)">
-                  <mat-icon class="!text-red-600">delete</mat-icon> {{ 'plans.delete' | transloco }}
-                </button>
-              </mat-menu>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
+        <app-data-table
+          [rows]="plans()"
+          [columns]="columns()"
+          [actionsColumn]="{
+            items: actionsFor,
+            ariaLabel: 'plans.actions' | transloco,
+            header: 'plans.actions' | transloco,
+          }"
+          [emptyIcon]="'credit_card'"
+          [emptyMessage]="'plans.empty' | transloco"
+          [emptyHint]="'plans.emptyHint' | transloco"
+        >
+          <ng-template appDataTableCell="name" let-p>{{ p.name ?? '—' }}</ng-template>
+          <ng-template appDataTableCell="slug" let-p><code>{{ p.slug ?? '—' }}</code></ng-template>
+          <ng-template appDataTableCell="price" let-p>{{ formatPrice(p) }}</ng-template>
+          <ng-template appDataTableCell="isActive" let-p>
+            <app-badge [severity]="p.isActive ? 'success' : 'danger'">
+              {{ (p.isActive ? 'common.active' : 'common.disabled') | transloco }}
+            </app-badge>
+          </ng-template>
+          <ng-template appDataTableCell="displayState" let-p>
+            <app-badge severity="neutral">{{ displayStateLabel(p.displayState) | transloco }}</app-badge>
+          </ng-template>
+          <ng-template appDataTableCell="activeSubs" let-p>{{ p.activeSubscriptions ?? 0 }}</ng-template>
+        </app-data-table>
       }
     </div>
 
@@ -355,7 +317,22 @@ export class PlansComponent {
   // The HTTP interceptor unwraps the envelope, so the actual runtime value is PlanAdminResponse[].
   plans = computed(() => (this.plansResource.value() as unknown as PlanAdminResponse[]) ?? []);
 
-  displayedColumns = ['name', 'slug', 'price', 'isActive', 'displayState', 'activeSubs', 'actions'];
+  // A method (not a stored field) so column headers stay live if the app language changes.
+  columns(): DataTableColumn<PlanAdminResponse>[] {
+    return [
+      { key: 'name', header: this.transloco.translate('plans.name'), sortable: true },
+      { key: 'slug', header: this.transloco.translate('plans.slug'), sortable: true },
+      { key: 'price', header: this.transloco.translate('plans.price') },
+      { key: 'isActive', header: this.transloco.translate('plans.active') },
+      { key: 'displayState', header: this.transloco.translate('plans.displayState') },
+      { key: 'activeSubs', header: this.transloco.translate('plans.activeSubs'), sortable: true },
+    ];
+  }
+
+  readonly actionsFor = (p: PlanAdminResponse): RowActionItem[] => [
+    { label: this.transloco.translate('plans.edit'), icon: 'edit', onClick: () => this.openEdit(p) },
+    { label: this.transloco.translate('plans.delete'), icon: 'delete', severity: 'danger', onClick: () => this.confirmDelete(p) },
+  ];
 
   editingPlan = signal<PlanAdminResponse | null>(null);
   saving = signal(false);
