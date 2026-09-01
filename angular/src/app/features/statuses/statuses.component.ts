@@ -1,21 +1,16 @@
 import { Component, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
 import { MatDialog } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { StatusesService, getApiAdminStatusesResource } from '@moamen-ui/pointer-angular';
 import type { StatusAdminItem } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
+import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 
 interface StatusRow {
   item: StatusAdminItem;
@@ -31,15 +26,9 @@ interface StatusRow {
   standalone: true,
   imports: [
     FormsModule,
-    MatTableModule,
-    MatButtonModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatMenuModule,
-    MatTooltipModule,
     TranslocoModule,
-    EmptyStateComponent,
+    DataTableComponent,
+    DataTableCellDirective,
   ],
   template: `
     <div class="p-6">
@@ -51,120 +40,74 @@ interface StatusRow {
         <p class="text-red-500">{{ 'statuses.loadError' | transloco }}</p>
       } @else if (statusesResource.isLoading() && rows().length === 0) {
         <p class="text-muted">{{ 'statuses.loading' | transloco }}</p>
-      } @else if (rows().length === 0) {
-        <app-empty-state
-          icon="label"
-          [message]="'statuses.empty' | transloco"
-          [hint]="'statuses.emptyHint' | transloco"
-        />
       } @else {
-        <table mat-table [dataSource]="rows()" class="w-full mat-elevation-z2">
+        <!-- Escape hatch: every row is its own inline-edit form (label/color/order),
+             so this table drives page-local state through appDataTableCell instead of
+             the generic actions-column-only shape most pages use. -->
+        <app-data-table
+          [rows]="rows()"
+          [columns]="columns()"
+          [actionsColumn]="{ items: actionsFor, ariaLabel: 'statuses.colActions' | transloco }"
+          [paginated]="false"
+          emptyIcon="label"
+          [emptyMessage]="'statuses.empty' | transloco"
+          [emptyHint]="'statuses.emptyHint' | transloco"
+        >
+          <ng-template appDataTableCell="name" let-row>
+            <span class="font-medium">{{ row.item.name }}</span>
+            @if (row.item.isOverridden) {
+              <span class="chip chip-active ms-2 text-[10px]">Overridden</span>
+            }
+          </ng-template>
 
-          <!-- Name column -->
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colName' | transloco }}</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="font-medium">{{ row.item.name }}</span>
-              @if (row.item.isOverridden) {
-                <span class="chip chip-active ms-2 text-[10px]">Overridden</span>
-              }
-            </td>
-          </ng-container>
+          <ng-template appDataTableCell="label" let-row>
+            <!-- Same slim box as the colour control below, so the row reads as one
+                 set of controls instead of tall Material fields beside a small one. -->
+            <div class="table-field w-[132px]">
+              <input
+                class="table-field-input"
+                [(ngModel)]="row.label"
+                maxlength="64"
+                placeholder="Label"
+                [attr.aria-label]="'statuses.colLabel' | transloco"
+              />
+            </div>
+          </ng-template>
 
-          <!-- Label column -->
-          <ng-container matColumnDef="label">
-            <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colLabel' | transloco }}</th>
-            <td mat-cell *matCellDef="let row; let i = index">
-              <!-- Same slim box as the colour control below, so the row reads as one
-                   set of controls instead of tall Material fields beside a small one. -->
-              <div class="table-field w-[132px]">
-                <input
-                  class="table-field-input"
-                  [(ngModel)]="rows()[i].label"
-                  maxlength="64"
-                  placeholder="Label"
-                  [attr.aria-label]="'statuses.colLabel' | transloco"
-                />
-              </div>
-            </td>
-          </ng-container>
+          <ng-template appDataTableCell="color" let-row>
+            <!-- Swatch + hex are one control: a single bordered box that lights up
+                 on focus, with the native picker sitting inside it. -->
+            <div class="table-field w-[124px] gap-1.5 ps-1.5">
+              <input
+                type="color"
+                class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+                [value]="row.color"
+                (input)="onColorPicker(row, $event)"
+                [attr.aria-label]="'statuses.colColor' | transloco"
+              />
+              <input
+                class="table-field-input font-mono"
+                [(ngModel)]="row.color"
+                placeholder="#rrggbb"
+                pattern="^#[0-9a-fA-F]{6}$"
+                maxlength="7"
+              />
+            </div>
+          </ng-template>
 
-          <!-- Color column -->
-          <ng-container matColumnDef="color">
-            <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colColor' | transloco }}</th>
-            <td mat-cell *matCellDef="let row; let i = index">
-              <!-- Swatch + hex are one control: a single bordered box that lights up
-                   on focus, with the native picker sitting inside it. -->
-              <div class="table-field w-[124px] gap-1.5 ps-1.5">
-                <input
-                  type="color"
-                  class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
-                  [value]="rows()[i].color"
-                  (input)="onColorPicker(i, $event)"
-                  [attr.aria-label]="'statuses.colColor' | transloco"
-                />
-                <input
-                  class="table-field-input font-mono"
-                  [(ngModel)]="rows()[i].color"
-                  placeholder="#rrggbb"
-                  pattern="^#[0-9a-fA-F]{6}$"
-                  maxlength="7"
-                />
-              </div>
-            </td>
-          </ng-container>
-
-          <!-- Order column -->
-          <ng-container matColumnDef="order">
-            <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colOrder' | transloco }}</th>
-            <td mat-cell *matCellDef="let row; let i = index">
-              <div class="table-field w-16">
-                <input
-                  class="table-field-input"
-                  type="number"
-                  min="0"
-                  [(ngModel)]="rows()[i].order"
-                  placeholder="0"
-                  [attr.aria-label]="'statuses.colOrder' | transloco"
-                />
-              </div>
-            </td>
-          </ng-container>
-
-          <!-- Actions column -->
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'statuses.colActions' | transloco }}</th>
-            <td mat-cell *matCellDef="let row; let i = index">
-              <button mat-icon-button [matMenuTriggerFor]="rowMenu"
-                [attr.aria-label]="'statuses.colActions' | transloco">
-                <mat-icon>more_vert</mat-icon>
-              </button>
-              <mat-menu #rowMenu="matMenu">
-                <button
-                  mat-menu-item
-                  [disabled]="row.saving || row.resetting || !isRowValid(row)"
-                  (click)="save(i)"
-                >
-                  <mat-icon>save</mat-icon>
-                  {{ row.saving ? ('statuses.saving' | transloco) : ('statuses.save' | transloco) }}
-                </button>
-                <button
-                  mat-menu-item
-                  class="!text-red-600"
-                  [disabled]="row.saving || row.resetting || !row.item.isOverridden"
-                  [matTooltip]="!row.item.isOverridden ? ('statuses.noOverrides' | transloco) : ''"
-                  (click)="confirmReset(i)"
-                >
-                  <mat-icon class="!text-red-600">restart_alt</mat-icon>
-                  {{ row.resetting ? ('statuses.resetting' | transloco) : ('statuses.reset' | transloco) }}
-                </button>
-              </mat-menu>
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
+          <ng-template appDataTableCell="order" let-row>
+            <div class="table-field w-16">
+              <input
+                class="table-field-input"
+                type="number"
+                min="0"
+                [(ngModel)]="row.order"
+                placeholder="0"
+                [attr.aria-label]="'statuses.colOrder' | transloco"
+              />
+            </div>
+          </ng-template>
+        </app-data-table>
       }
     </div>
   `,
@@ -245,15 +188,36 @@ export class StatusesComponent {
     });
   }
 
-  displayedColumns = ['name', 'label', 'color', 'order', 'actions'];
-
-  onColorPicker(index: number, event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.rows.update((rows) => {
-      rows[index].color = input.value;
-      return [...rows];
-    });
+  // A method (not a stored field) so column headers stay live if the app language changes.
+  columns(): DataTableColumn<StatusRow>[] {
+    return [
+      { key: 'name', header: this.transloco.translate('statuses.colName') },
+      { key: 'label', header: this.transloco.translate('statuses.colLabel') },
+      { key: 'color', header: this.transloco.translate('statuses.colColor') },
+      { key: 'order', header: this.transloco.translate('statuses.colOrder') },
+    ];
   }
+
+  onColorPicker(row: StatusRow, event: Event): void {
+    row.color = (event.target as HTMLInputElement).value;
+  }
+
+  actionsFor = (row: StatusRow): RowActionItem[] => [
+    {
+      label: row.saving ? this.transloco.translate('statuses.saving') : this.transloco.translate('statuses.save'),
+      icon: 'save',
+      disabled: row.saving || row.resetting || !this.isRowValid(row),
+      onClick: () => this.save(row),
+    },
+    {
+      label: row.resetting ? this.transloco.translate('statuses.resetting') : this.transloco.translate('statuses.reset'),
+      icon: 'restart_alt',
+      severity: 'danger',
+      disabled: row.saving || row.resetting || !row.item.isOverridden,
+      tooltip: row.item.isOverridden ? undefined : this.transloco.translate('statuses.noOverrides'),
+      onClick: () => this.confirmReset(row),
+    },
+  ];
 
   isRowValid(row: StatusRow): boolean {
     return (
@@ -264,9 +228,13 @@ export class StatusesComponent {
     );
   }
 
-  save(index: number): void {
-    const row = this.rows()[index];
-    if (!row || !this.isRowValid(row)) return;
+  private indexOf(row: StatusRow): number {
+    return this.rows().findIndex((r) => r === row);
+  }
+
+  save(row: StatusRow): void {
+    const index = this.indexOf(row);
+    if (index < 0 || !this.isRowValid(row)) return;
     const value = row.item.value;
     if (value == null) {
       this.rows.update((rows) => { rows[index].saving = false; return [...rows]; });
@@ -293,9 +261,8 @@ export class StatusesComponent {
       });
   }
 
-  confirmReset(index: number): void {
-    const row = this.rows()[index];
-    if (!row) return;
+  confirmReset(row: StatusRow): void {
+    if (this.indexOf(row) < 0) return;
     this.dialog
       .open(ConfirmDialogComponent, {
         data: {
@@ -306,13 +273,13 @@ export class StatusesComponent {
       })
       .afterClosed()
       .subscribe((ok: boolean | undefined) => {
-        if (ok) this.resetStatus(index);
+        if (ok) this.resetStatus(row);
       });
   }
 
-  private resetStatus(index: number): void {
-    const row = this.rows()[index];
-    if (!row) return;
+  private resetStatus(row: StatusRow): void {
+    const index = this.indexOf(row);
+    if (index < 0) return;
     const value = row.item.value;
     if (value == null) {
       this.rows.update((rows) => { rows[index].resetting = false; return [...rows]; });
