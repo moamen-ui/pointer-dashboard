@@ -11,3 +11,9 @@ export interface RowActionItem {
   tooltip?: string;
   onClick: () => void;
 }
+
+/** One entry in a `<Tabs>` header strip. */
+export interface TabItem {
+  value: string;
+  label: string;
+}

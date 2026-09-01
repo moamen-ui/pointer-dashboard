@@ -6,7 +6,8 @@ import { Copy, Download, Rocket } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent } from '@/components/ui/tabs';
+import AppTabs from '@/components/shared/Tabs.vue';
 import {
   Select,
   SelectContent,
@@ -46,7 +47,7 @@ watch(
 const suppressed = ref(isSuppressed(user.value?.id ?? null));
 
 /** Active guide tab. Deliberately not persisted — every open starts on Code. */
-const activeTab = ref<'code' | 'extension'>('code');
+const activeTab = ref<string>('code');
 
 const steps = computed(() =>
   buildSteps({
@@ -103,12 +104,13 @@ async function copy(text: string): Promise<void> {
 
       <p class="text-sm text-muted-foreground">{{ t('install.intro') }}</p>
 
-      <Tabs v-model="activeTab">
-        <TabsList class="grid w-full grid-cols-2">
-          <TabsTrigger value="code">{{ t('install.tabCode') }}</TabsTrigger>
-          <TabsTrigger value="extension">{{ t('install.tabExtension') }}</TabsTrigger>
-        </TabsList>
-
+      <AppTabs
+        v-model="activeTab"
+        :tabs="[
+          { value: 'code', label: t('install.tabCode') },
+          { value: 'extension', label: t('install.tabExtension') },
+        ]"
+      >
         <TabsContent value="code">
           <!-- Which project the snippet points at -->
           <div v-if="projects.length > 0" class="flex flex-col gap-1.5">
@@ -220,7 +222,7 @@ async function copy(text: string): Promise<void> {
             </li>
           </ol>
         </TabsContent>
-      </Tabs>
+      </AppTabs>
 
       <div class="flex flex-wrap items-center justify-between gap-3">
         <label class="flex cursor-pointer items-center gap-2 text-xs">
