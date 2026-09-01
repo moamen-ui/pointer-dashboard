@@ -15,20 +15,14 @@ import {
   BillingInterval,
   PlanDisplayState,
 } from '@moamen-ui/pointer-react';
-import { Plus, Pencil, Trash2, EllipsisVertical, CreditCard } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Plus, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { EmptyState } from '@/components/EmptyState';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/shared/data-table/DataTable';
+import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
@@ -43,15 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 
 // ---- helpers ----------------------------------------------------------------
@@ -66,6 +53,12 @@ function displayStateBadge(state: number | undefined): string {
   if (state === PlanDisplayState.NUMBER_1) return 'coming-soon';
   if (state === PlanDisplayState.NUMBER_2) return 'hidden';
   return 'visible';
+}
+
+function displayStateSeverity(state: number | undefined): 'success' | 'neutral' | 'destructive' {
+  if (state === PlanDisplayState.NUMBER_1) return 'neutral';
+  if (state === PlanDisplayState.NUMBER_2) return 'destructive';
+  return 'success';
 }
 
 // Blank entitlements form (all null = use platform default)
@@ -351,6 +344,41 @@ export function PlansPage() {
     deleteMut.mutate({ id: deleteTarget.id });
   }
 
+  const columns: ColumnDef<PlanAdminResponse>[] = [
+    { accessorKey: 'name', enableSorting: false, header: t('plans.colName') },
+    { accessorKey: 'slug', enableSorting: false, header: t('plans.colSlug'),
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.slug}</span> },
+    { accessorKey: 'price', enableSorting: false, header: t('plans.colPrice'),
+      cell: ({ row }) => formatPrice(row.original) },
+    {
+      accessorKey: 'isActive',
+      enableSorting: false,
+      header: t('plans.colActive'),
+      cell: ({ row }) => (
+        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'displayState',
+      enableSorting: false,
+      header: t('plans.colDisplay'),
+      cell: ({ row }) => (
+        <Badge variant={displayStateSeverity(row.original.displayState)}>
+          {t(`plans.displayState.${displayStateBadge(row.original.displayState)}`)}
+        </Badge>
+      ),
+    },
+    { accessorKey: 'activeSubscriptions', enableSorting: false, header: t('plans.colSubs'),
+      cell: ({ row }) => row.original.activeSubscriptions ?? 0 },
+  ];
+
+  const actionsFor = (plan: PlanAdminResponse): RowActionItem[] => [
+    { label: t('common.rename'), icon: Pencil, onClick: () => openEdit(plan) },
+    { label: t('plans.delete'), icon: Trash2, severity: 'danger', disabled: deleteMut.isPending, onClick: () => setDeleteTarget(plan) },
+  ];
+
   // ---- Render ----
   if (isLoading && !data) {
     return (
@@ -384,82 +412,23 @@ export function PlansPage() {
         </Button>
       </div>
 
-      {plans.length === 0 ? (
-        <EmptyState
-          icon={CreditCard}
-          message={t('plans.empty')}
-          hint={t('plans.emptyHint')}
-        />
-      ) : (
-        <Card>
-          <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('plans.colName')}</TableHead>
-              <TableHead>{t('plans.colSlug')}</TableHead>
-              <TableHead>{t('plans.colPrice')}</TableHead>
-              <TableHead>{t('plans.colActive')}</TableHead>
-              <TableHead>{t('plans.colDisplay')}</TableHead>
-              <TableHead>{t('plans.colSubs')}</TableHead>
-              <TableHead>{t('tenants.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {plans.map((plan) => (
-              <TableRow key={plan.id}>
-                <TableCell className="font-medium">{plan.name}</TableCell>
-                <TableCell className="text-muted-foreground">{plan.slug}</TableCell>
-                <TableCell>{formatPrice(plan)}</TableCell>
-                <TableCell>
-                  <span className={cn('chip', plan.isActive ? 'chip-active' : 'chip-disabled')}>
-                    {t(plan.isActive ? 'common.active' : 'common.disabled')}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={cn(
-                      'chip',
-                      plan.displayState === PlanDisplayState.NUMBER_0
-                        ? 'chip-active'
-                        : plan.displayState === PlanDisplayState.NUMBER_1
-                          ? 'chip-neutral'
-                          : 'chip-disabled',
-                    )}
-                  >
-                    {t(`plans.displayState.${displayStateBadge(plan.displayState)}`)}
-                  </span>
-                </TableCell>
-                <TableCell>{plan.activeSubscriptions ?? 0}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <EllipsisVertical className="h-4 w-4" />
-                        <span className="sr-only">{t('tenants.actions')}</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => openEdit(plan)}>
-                        <Pencil className="h-4 w-4" />
-                        {t('common.rename')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={deleteMut.isPending}
-                        onSelect={() => setDeleteTarget(plan)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {t('plans.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-      )}
+      <DataTable
+        data={plans}
+        columns={columns}
+        actions={actionsFor}
+        actionsAriaLabel={t('tenants.actions')}
+        actionsHeader={t('tenants.actions')}
+        paginated
+        emptyIcon={CreditCard}
+        emptyMessage={t('plans.empty')}
+        emptyHint={t('plans.emptyHint')}
+        emptyAction={
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            {t('plans.addPlan')}
+          </Button>
+        }
+      />
 
       {/* Create / Edit dialog */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
