@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "active": "Active",
     "disabled": "Disabled",
+    "partial": "Partial",
     "refresh": "Refresh",
     "add": "Add",
     "rename": "Rename",
@@ -229,7 +230,12 @@
     "superAdminEmptyHint": "No projects exist yet. Sign in with a tenant account to create one — super admins manage the platform, not individual projects.",
     "pageContextCapture": "Capture console/network context",
     "pageContextCaptureHint": "When a visitor checks \"Report as a bug\", also capture console errors/warnings and failed or slow network requests from that page. No headers or request/response bodies are ever captured.",
-    "keyAutoHint": "Filled in from the name — edit it if you want a different key"
+    "keyAutoHint": "Filled in from the name — edit it if you want a different key",
+    "appUrl": "App URL",
+    "appUrlHint": "Where this project's widget is embedded. Required before sending a quick-access client invite for this project.",
+    "otherEnvironments": "Other environments",
+    "otherEnvironmentsHint": "Give this project a different App URL per deployment stage — manage the list of environments from the Environments page.",
+    "addEnvironment": "Add environment"
   },
   "exportImport": {
     "export": "Export",

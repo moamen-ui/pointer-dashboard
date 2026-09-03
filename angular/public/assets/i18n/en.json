@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "active": "Active",
     "disabled": "Disabled",
+    "partial": "Partial",
     "refresh": "Refresh",
     "add": "Add",
     "rename": "Rename",
@@ -236,7 +237,8 @@
     "appUrl": "App URL",
     "appUrlHint": "Where this project's widget is embedded. Required before sending a quick-access client invite for this project.",
     "otherEnvironments": "Other environments",
-    "otherEnvironmentsHint": "Give this project a different App URL per deployment stage — manage the list of environments from the Environments page."
+    "otherEnvironmentsHint": "Give this project a different App URL per deployment stage — manage the list of environments from the Environments page.",
+    "addEnvironment": "Add environment"
   },
   "suggestions": {
     "section": "Prompt suggestions",

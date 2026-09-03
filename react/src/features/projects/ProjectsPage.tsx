@@ -16,18 +16,31 @@ import {
   useDeleteApiAdminProjectsId,
   usePostApiProjectsKeyImport,
   usePostApiProjectsIdPredefinedActionSuggestions,
+  useGetApiAdminEnvironments,
+  useGetApiAdminProjectsIdAppUrls,
+  usePutApiAdminProjectsIdAppUrlsEnvironmentId,
+  useDeleteApiAdminProjectsIdAppUrlsEnvironmentId,
   getGetApiAdminProjectsQueryKey,
+  getGetApiAdminProjectsIdAppUrlsQueryKey,
   getApiProjectsKeyExport,
+  ProjectActivationState,
   type ProjectResponse,
   type PredefinedActionInput,
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, FolderOpen } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, FolderOpen, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -209,6 +222,7 @@ export function ProjectsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectResponse | null>(null);
   const [editName, setEditName] = useState('');
+  const [editAppUrl, setEditAppUrl] = useState('');
   const [editActions, setEditActions] = useState<PredefinedActionRow[]>([]);
   // readOnly = true when canEdit is false (view mode)
   const [editReadOnly, setEditReadOnly] = useState(false);
@@ -225,11 +239,136 @@ export function ProjectsPage() {
     },
   });
 
+  // ---- Other-environment App URLs (edit dialog only — a project must exist first) ----
+  // Fetched only while the edit dialog is actually open in edit mode.
+  const envSectionActive = editOpen && !editReadOnly;
+  const { data: environments = [] } = useGetApiAdminEnvironments({
+    query: { enabled: envSectionActive },
+  });
+  const { data: appUrls = [] } = useGetApiAdminProjectsIdAppUrls(editProject?.id ?? 0, {
+    query: { enabled: envSectionActive },
+  });
+
+  // Only rows that ALREADY have a saved URL for this project — not every environment
+  // the tenant has ever defined. "default" is covered by the ordinary "App URL" field
+  // above (the backend keeps them in sync), so it's excluded to avoid showing the
+  // same value twice.
+  const configuredEnvironments = appUrls.filter((u) => u.environmentName !== 'default');
+
+  // Environments not yet configured for this project — the "add new" row's options.
+  const availableEnvironmentsToAdd = environments.filter(
+    (e) =>
+      e.name !== 'default' &&
+      !configuredEnvironments.some((u) => u.appEnvironmentId != null && u.appEnvironmentId === e.id),
+  );
+
+  type EnvDraft = { url: string; isActive: boolean };
+
+  // Draft state per EXISTING row (url + isActive together) — overlays the loaded
+  // value with whatever the user is actively editing; each row saves immediately on
+  // its own check button, independently of the dialog's single Save action.
+  const [envOverrides, setEnvOverrides] = useState<Record<number, EnvDraft>>({});
+  const envDrafts: Record<number, EnvDraft> = {};
+  for (const u of configuredEnvironments) {
+    if (u.appEnvironmentId != null) {
+      envDrafts[u.appEnvironmentId] =
+        envOverrides[u.appEnvironmentId] ?? { url: u.url ?? '', isActive: u.isActive ?? true };
+    }
+  }
+
+  function updateEnvDraft(environmentId: number, patch: Partial<EnvDraft>) {
+    const current =
+      envOverrides[environmentId] ?? envDrafts[environmentId] ?? { url: '', isActive: true };
+    setEnvOverrides((o) => ({ ...o, [environmentId]: { ...current, ...patch } }));
+  }
+
+  function clearEnvOverride(environmentId: number) {
+    setEnvOverrides((o) => {
+      const rest = { ...o };
+      delete rest[environmentId];
+      return rest;
+    });
+  }
+
+  const reloadAppUrls = () => {
+    if (editProject?.id != null) {
+      qc.invalidateQueries({ queryKey: getGetApiAdminProjectsIdAppUrlsQueryKey(editProject.id) });
+    }
+  };
+
+  const saveEnvMut = usePutApiAdminProjectsIdAppUrlsEnvironmentId({
+    mutation: {
+      onSuccess: () => {
+        reloadAppUrls();
+        toast(t('projects.saved'));
+      },
+      onError,
+    },
+  });
+
+  const deleteEnvMut = useDeleteApiAdminProjectsIdAppUrlsEnvironmentId({
+    mutation: {
+      onSuccess: reloadAppUrls,
+      onError,
+    },
+  });
+
+  function saveEnvironmentUrl(environmentId: number) {
+    const projectId = editProject?.id;
+    const draft = envDrafts[environmentId];
+    const url = (draft?.url ?? '').trim();
+    if (projectId == null || !url) return;
+    saveEnvMut.mutate(
+      { id: projectId, environmentId, data: { url, isActive: draft?.isActive ?? true } },
+      { onSuccess: () => clearEnvOverride(environmentId) },
+    );
+  }
+
+  function clearEnvironmentUrl(environmentId: number) {
+    const projectId = editProject?.id;
+    if (projectId == null) return;
+    deleteEnvMut.mutate(
+      { id: projectId, environmentId },
+      { onSuccess: () => clearEnvOverride(environmentId) },
+    );
+  }
+
+  // ---- Inline "add environment" row ----
+  const [showAddEnvRow, setShowAddEnvRow] = useState(false);
+  const [newEnvId, setNewEnvId] = useState<number | null>(null);
+  const [newEnvUrl, setNewEnvUrl] = useState('');
+  const [newEnvActive, setNewEnvActive] = useState(true);
+
+  function startAddEnvironment() {
+    setNewEnvId(null);
+    setNewEnvUrl('');
+    setNewEnvActive(true);
+    setShowAddEnvRow(true);
+  }
+
+  function cancelAddEnvironment() {
+    setShowAddEnvRow(false);
+  }
+
+  function confirmAddEnvironment() {
+    const projectId = editProject?.id;
+    const url = newEnvUrl.trim();
+    if (projectId == null || newEnvId == null || !url) return;
+    saveEnvMut.mutate(
+      { id: projectId, environmentId: newEnvId, data: { url, isActive: newEnvActive } },
+      { onSuccess: () => setShowAddEnvRow(false) },
+    );
+  }
+
   function openEdit(project: ProjectResponse, readOnly = false) {
     setEditProject(project);
     setEditName(project.name ?? '');
+    setEditAppUrl(project.appUrl ?? '');
     setEditReadOnly(readOnly);
     setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
+    // Discard any unsaved per-environment draft from a prior project.
+    setEnvOverrides({});
+    setShowAddEnvRow(false);
     setEditActions(
       (project.predefinedActions ?? []).map((a) => ({
         _localId: nextLocalId(),
@@ -254,8 +393,14 @@ export function ProjectsPage() {
       id: editProject.id!,
       data: {
         name: editName.trim(),
+        appUrl: editAppUrl.trim(),
         predefinedActions: predefinedActions,
         pageContextCaptureEnabled: editPageContextCaptureEnabled,
+        // Not editable from this dialog — passed through unchanged; only the
+        // row-level bulk enable/disable action ever changes them.
+        isActiveLocal: !!editProject.isActiveLocal,
+        isActiveStaging: !!editProject.isActiveStaging,
+        isActiveProduction: !!editProject.isActiveProduction,
       },
     });
   }
@@ -271,8 +416,13 @@ export function ProjectsPage() {
   const [confirmProject, setConfirmProject] = useState<ProjectResponse | null>(null);
 
   function toggleActive(project: ProjectResponse) {
-    if (!project.isActive) {
-      toggleMut.mutate({ id: project.id!, data: { isActive: true } });
+    // Bulk toggle: activating a fully-inactive project turns on every
+    // environment; anything partially/fully active is disabled everywhere.
+    if (project.activationState === ProjectActivationState.NUMBER_0) {
+      toggleMut.mutate({
+        id: project.id!,
+        data: { isActiveLocal: true, isActiveStaging: true, isActiveProduction: true },
+      });
       return;
     }
     setConfirmProject(project);
@@ -280,7 +430,12 @@ export function ProjectsPage() {
   function confirmDisable() {
     const p = confirmProject;
     setConfirmProject(null);
-    if (p) toggleMut.mutate({ id: p.id!, data: { isActive: false } });
+    if (p) {
+      toggleMut.mutate({
+        id: p.id!,
+        data: { isActiveLocal: false, isActiveStaging: false, isActiveProduction: false },
+      });
+    }
   }
 
   // ---- Delete project ----
@@ -436,14 +591,25 @@ export function ProjectsPage() {
     { accessorKey: 'commentsCount', enableSorting: false, header: t('projects.comments'),
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.commentsCount ?? 0}</span> },
     {
-      accessorKey: 'isActive',
+      accessorKey: 'activationState',
       enableSorting: false,
       header: t('projects.status'),
-      cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
-          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const state = row.original.activationState ?? ProjectActivationState.NUMBER_0;
+        const variant =
+          state === ProjectActivationState.NUMBER_2
+            ? 'success'
+            : state === ProjectActivationState.NUMBER_1
+              ? 'warning'
+              : 'destructive';
+        const label =
+          state === ProjectActivationState.NUMBER_2
+            ? 'common.active'
+            : state === ProjectActivationState.NUMBER_1
+              ? 'common.partial'
+              : 'common.disabled';
+        return <Badge variant={variant}>{t(label)}</Badge>;
+      },
     },
   ];
 
@@ -459,10 +625,13 @@ export function ProjectsPage() {
     // page's pre-existing convention, kept as-is rather than aligned to the angular
     // reference's canEdit gate.
     if (isAdmin) {
+      const anyActive =
+        (project.activationState ?? ProjectActivationState.NUMBER_0) !==
+        ProjectActivationState.NUMBER_0;
       items.push({
-        label: t(project.isActive ? 'common.disable' : 'common.enable'),
-        icon: project.isActive ? Ban : CheckCircle2,
-        severity: project.isActive ? 'danger' : 'neutral',
+        label: t(anyActive ? 'common.disable' : 'common.enable'),
+        icon: anyActive ? Ban : CheckCircle2,
+        severity: anyActive ? 'danger' : 'neutral',
         disabled: toggleMut.isPending,
         onClick: () => toggleActive(project),
       });
@@ -643,7 +812,7 @@ export function ProjectsPage() {
 
       {/* Edit / View project dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editReadOnly ? t('projects.viewPrompts') : t('projects.editTitle')}
@@ -659,6 +828,165 @@ export function ProjectsPage() {
                   onChange={(e) => setEditName(e.target.value)}
                   autoFocus
                 />
+              </div>
+            )}
+
+            {!editReadOnly && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="edit-project-app-url">{t('projects.appUrl')}</Label>
+                <Input
+                  id="edit-project-app-url"
+                  value={editAppUrl}
+                  onChange={(e) => setEditAppUrl(e.target.value)}
+                  placeholder="https://staging.example.com"
+                />
+                <p className="text-xs text-muted-foreground">{t('projects.appUrlHint')}</p>
+              </div>
+            )}
+
+            {/* Other environments — only ones already configured for this project
+                show as rows; one inline add-row at a time for the rest. */}
+            {!editReadOnly && (
+              <div className="flex flex-col gap-1">
+                <h4 className="text-sm font-semibold">{t('projects.otherEnvironments')}</h4>
+                <p className="mb-1 text-xs text-muted-foreground">{t('projects.otherEnvironmentsHint')}</p>
+                {(configuredEnvironments.length > 0 || showAddEnvRow) && (
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="text-start text-muted-foreground">
+                        <th className="w-32 pb-1 text-start font-medium">{t('environments.name')}</th>
+                        <th className="pb-1 ps-2 text-start font-medium">{t('projects.appUrl')}</th>
+                        <th className="w-20 pb-1 text-center font-medium">{t('common.active')}</th>
+                        <th className="w-16 pb-1" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {configuredEnvironments.map((env) => {
+                        const envId = env.appEnvironmentId!;
+                        const draft = envDrafts[envId] ?? { url: '', isActive: true };
+                        return (
+                          <tr key={envId} className="align-middle">
+                            <td className="py-1 pe-2 font-medium">{env.environmentName ?? ''}</td>
+                            <td className="py-1 pe-2">
+                              <Input
+                                value={draft.url}
+                                onChange={(e) => updateEnvDraft(envId, { url: e.target.value })}
+                                placeholder="https://..."
+                                className="h-8"
+                              />
+                            </td>
+                            <td className="py-1 text-center">
+                              <input
+                                type="checkbox"
+                                checked={draft.isActive}
+                                onChange={(e) => updateEnvDraft(envId, { isActive: e.target.checked })}
+                                aria-label={t('common.active')}
+                                className="h-4 w-4 cursor-pointer"
+                              />
+                            </td>
+                            <td className="py-1 whitespace-nowrap text-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                type="button"
+                                aria-label={t('common.save')}
+                                disabled={saveEnvMut.isPending}
+                                onClick={() => saveEnvironmentUrl(envId)}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                type="button"
+                                aria-label={t('common.delete')}
+                                disabled={deleteEnvMut.isPending}
+                                onClick={() => clearEnvironmentUrl(envId)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {showAddEnvRow && (
+                        <tr className="align-middle">
+                          <td className="py-1 pe-2">
+                            <Select
+                              value={newEnvId != null ? String(newEnvId) : undefined}
+                              onValueChange={(v) => setNewEnvId(Number(v))}
+                            >
+                              <SelectTrigger className="h-8 w-full">
+                                <SelectValue placeholder={t('environments.name')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableEnvironmentsToAdd.map((e) => (
+                                  <SelectItem key={e.id} value={String(e.id)}>
+                                    {e.name ?? ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="py-1 pe-2">
+                            <Input
+                              value={newEnvUrl}
+                              onChange={(e) => setNewEnvUrl(e.target.value)}
+                              placeholder="https://..."
+                              className="h-8"
+                            />
+                          </td>
+                          <td className="py-1 text-center">
+                            <input
+                              type="checkbox"
+                              checked={newEnvActive}
+                              onChange={(e) => setNewEnvActive(e.target.checked)}
+                              aria-label={t('common.active')}
+                              className="h-4 w-4 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-1 whitespace-nowrap text-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              type="button"
+                              aria-label={t('common.save')}
+                              disabled={newEnvId == null || !newEnvUrl.trim() || saveEnvMut.isPending}
+                              onClick={confirmAddEnvironment}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              type="button"
+                              aria-label={t('common.cancel')}
+                              onClick={cancelAddEnvironment}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+                {!showAddEnvRow && availableEnvironmentsToAdd.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 self-start"
+                    onClick={startAddEnvironment}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {t('projects.addEnvironment')}
+                  </Button>
+                )}
               </div>
             )}
 

@@ -18,11 +18,13 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSelectModule } from '@angular/material/select';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   ProjectsService,
   ExportImportService,
   SuggestionsService,
+  ProjectActivationState,
   getApiAdminProjectsResource,
   getApiAdminEnvironmentsResource,
   getApiAdminProjectsIdAppUrlsResource,
@@ -32,6 +34,7 @@ import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
+import type { Severity } from '../../shared/severity';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
@@ -105,6 +108,7 @@ const latin = asciiDigits(name.toLowerCase())
     MatIconModule,
     MatDialogModule,
     MatSlideToggleModule,
+    MatSelectModule,
     TranslocoModule,
     DataTableComponent,
     DataTableCellDirective,
@@ -151,8 +155,8 @@ const latin = asciiDigits(name.toLowerCase())
         }
         <ng-template appDataTableCell="key" let-project><code>{{ project.key }}</code></ng-template>
         <ng-template appDataTableCell="status" let-project>
-          <app-badge [severity]="project.isActive ? 'success' : 'danger'">
-            {{ project.isActive ? ('common.active' | transloco) : ('common.disabled' | transloco) }}
+          <app-badge [severity]="activationSeverity(project.activationState)">
+            {{ activationLabelKey(project.activationState) | transloco }}
           </app-badge>
         </ng-template>
         <ng-template appDataTableCell="createdBy" let-project>
@@ -244,7 +248,7 @@ const latin = asciiDigits(name.toLowerCase())
     <ng-template #editDialog>
       <h2 mat-dialog-title>{{ 'projects.editTitle' | transloco }}</h2>
       <mat-dialog-content>
-        <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="flex min-w-80 flex-col gap-3 pt-2">
+        <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="flex min-w-80 sm:min-w-[36rem] flex-col gap-3 pt-2">
           <mat-form-field appearance="outline">
             <mat-label>{{ 'projects.name' | transloco }}</mat-label>
             <input matInput formControlName="name" />
@@ -256,40 +260,94 @@ const latin = asciiDigits(name.toLowerCase())
             <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
           </mat-form-field>
 
-          @if (otherEnvironments().length > 0) {
-            <div class="mb-2">
-              <div class="mb-1 text-[0.95rem] font-semibold">{{ 'projects.otherEnvironments' | transloco }}</div>
-              <p class="mb-2 text-[0.8rem] text-muted">{{ 'projects.otherEnvironmentsHint' | transloco }}</p>
-              <div class="flex flex-col gap-2">
-                @for (env of otherEnvironments(); track env.id) {
-                  <div class="flex items-center gap-2">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-24 shrink-0">
-                      <mat-label>{{ 'environments.name' | transloco }}</mat-label>
-                      <input matInput [value]="env.name" disabled />
-                    </mat-form-field>
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
-                      <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
-                      <input matInput placeholder="https://..."
-                        [ngModel]="envUrlDrafts()[env.id!] ?? ''"
-                        [ngModelOptions]="{ standalone: true }"
-                        (ngModelChange)="setEnvUrlDraft(env.id!, $event)" />
-                    </mat-form-field>
-                    <button mat-icon-button type="button" [attr.aria-label]="'common.save' | transloco"
-                      (click)="saveEnvironmentUrl(env.id!)">
-                      <mat-icon>check</mat-icon>
-                    </button>
-                    @if (envUrlDrafts()[env.id!]) {
-                      <button mat-icon-button type="button" class="!text-red-600"
-                        [attr.aria-label]="'common.delete' | transloco"
-                        (click)="clearEnvironmentUrl(env.id!)">
-                        <mat-icon>close</mat-icon>
-                      </button>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          }
+          <div class="mb-2">
+            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'projects.otherEnvironments' | transloco }}</div>
+            <p class="mb-2 text-[0.8rem] text-muted">{{ 'projects.otherEnvironmentsHint' | transloco }}</p>
+            @if (configuredEnvironments().length > 0 || showAddEnvRow()) {
+              <table class="w-full border-collapse text-sm">
+                <thead>
+                  <tr class="text-start text-muted">
+                    <th class="w-32 pb-1 ps-0 text-start font-medium">{{ 'environments.name' | transloco }}</th>
+                    <th class="pb-1 ps-2 text-start font-medium">{{ 'projects.appUrl' | transloco }}</th>
+                    <th class="w-20 pb-1 text-center font-medium">{{ 'common.active' | transloco }}</th>
+                    <th class="w-14 pb-1"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (env of configuredEnvironments(); track env.appEnvironmentId) {
+                    <tr>
+                      <td class="py-1 pe-2 align-middle font-medium">{{ env.environmentName }}</td>
+                      <td class="py-1 pe-2 align-middle">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                          <input matInput placeholder="https://..."
+                            [ngModel]="envDrafts()[env.appEnvironmentId!]?.url ?? ''"
+                            [ngModelOptions]="{ standalone: true }"
+                            (ngModelChange)="setEnvUrlDraft(env.appEnvironmentId!, $event)" />
+                        </mat-form-field>
+                      </td>
+                      <td class="py-1 align-middle text-center">
+                        <mat-slide-toggle
+                          [checked]="envDrafts()[env.appEnvironmentId!]?.isActive ?? true"
+                          (change)="setEnvActiveDraft(env.appEnvironmentId!, $event.checked)" />
+                      </td>
+                      <td class="py-1 align-middle whitespace-nowrap">
+                        <button mat-icon-button type="button" [attr.aria-label]="'common.save' | transloco"
+                          (click)="saveEnvironmentUrl(env.appEnvironmentId!)">
+                          <mat-icon>check</mat-icon>
+                        </button>
+                        <button mat-icon-button type="button" class="!text-red-600"
+                          [attr.aria-label]="'common.delete' | transloco"
+                          (click)="clearEnvironmentUrl(env.appEnvironmentId!)">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                  @if (showAddEnvRow()) {
+                    <tr>
+                      <td class="py-1 pe-2 align-middle">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                          <mat-select [value]="newEnvId()" (valueChange)="newEnvId.set($event)"
+                            [placeholder]="'environments.name' | transloco">
+                            @for (env of availableEnvironmentsToAdd(); track env.id) {
+                              <mat-option [value]="env.id">{{ env.name }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      </td>
+                      <td class="py-1 pe-2 align-middle">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                          <input matInput placeholder="https://..."
+                            [ngModel]="newEnvUrl()" [ngModelOptions]="{ standalone: true }"
+                            (ngModelChange)="newEnvUrl.set($event)" />
+                        </mat-form-field>
+                      </td>
+                      <td class="py-1 align-middle text-center">
+                        <mat-slide-toggle [checked]="newEnvActive()"
+                          (change)="newEnvActive.set($event.checked)" />
+                      </td>
+                      <td class="py-1 align-middle whitespace-nowrap">
+                        <button mat-icon-button type="button" [attr.aria-label]="'common.save' | transloco"
+                          [disabled]="!newEnvId() || !newEnvUrl().trim()"
+                          (click)="confirmAddEnvironment()">
+                          <mat-icon>check</mat-icon>
+                        </button>
+                        <button mat-icon-button type="button" [attr.aria-label]="'common.cancel' | transloco"
+                          (click)="cancelAddEnvironment()">
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+            @if (!showAddEnvRow() && availableEnvironmentsToAdd().length > 0) {
+              <button mat-stroked-button type="button" class="mt-2 border-app-border" (click)="startAddEnvironment()">
+                <mat-icon>add</mat-icon> {{ 'projects.addEnvironment' | transloco }}
+              </button>
+            }
+          </div>
 
           <div class="flex items-center justify-between gap-4">
             <div>
@@ -437,31 +495,53 @@ export class ProjectsComponent {
   environmentsResource = getApiAdminEnvironmentsResource();
   private editingProjectIdForUrls = computed(() => this.editingProjectId() ?? 0);
   projectAppUrlsResource = getApiAdminProjectsIdAppUrlsResource(this.editingProjectIdForUrls);
-  otherEnvironments = computed(() => (this.environmentsResource.value() ?? []).filter((e) => e.name !== 'default'));
-  // The loaded value per AppEnvironmentId, overlaid with whatever the user is actively typing
-  // (envUrlOverrides) — each row saves immediately on its own "check" button, independently of
-  // the reactive `editForm`'s single Save action.
-  private envUrlLoaded = computed(() => {
-    const loaded: Record<number, string> = {};
-    for (const u of this.projectAppUrlsResource.value() ?? []) {
-      if (u.appEnvironmentId != null) loaded[u.appEnvironmentId] = u.url ?? '';
+
+  // Only rows that ALREADY have a saved URL for this project — not every environment the tenant
+  // has ever defined. Each carries its own name/url/isActive straight from the response, so no
+  // cross-referencing against environmentsResource is needed for existing rows.
+  configuredEnvironments = computed(() =>
+    (this.projectAppUrlsResource.value() ?? []).filter((u) => u.environmentName !== 'default'));
+
+  // Environments not yet configured for this project — the "add new" row's dropdown options.
+  availableEnvironmentsToAdd = computed(() => {
+    const configuredIds = new Set(this.configuredEnvironments().map((u) => u.appEnvironmentId));
+    return (this.environmentsResource.value() ?? []).filter((e) => e.name !== 'default' && !configuredIds.has(e.id!));
+  });
+
+  // Draft state per EXISTING row (url + isActive together) — overlays the loaded value with
+  // whatever the user is actively editing; each row saves immediately on its own "check" button,
+  // independently of the reactive `editForm`'s single Save action.
+  private envLoaded = computed(() => {
+    const loaded: Record<number, { url: string; isActive: boolean }> = {};
+    for (const u of this.configuredEnvironments()) {
+      if (u.appEnvironmentId != null) loaded[u.appEnvironmentId] = { url: u.url ?? '', isActive: u.isActive ?? true };
     }
     return loaded;
   });
-  private envUrlOverrides = signal<Record<number, string>>({});
-  envUrlDrafts = computed(() => ({ ...this.envUrlLoaded(), ...this.envUrlOverrides() }));
+  private envOverrides = signal<Record<number, { url: string; isActive: boolean }>>({});
+  envDrafts = computed(() => ({ ...this.envLoaded(), ...this.envOverrides() }));
 
   setEnvUrlDraft(environmentId: number, value: string): void {
-    this.envUrlOverrides.update((o) => ({ ...o, [environmentId]: value }));
+    const current = this.envDrafts()[environmentId] ?? { url: '', isActive: true };
+    this.envOverrides.update((o) => ({ ...o, [environmentId]: { ...current, url: value } }));
+  }
+
+  setEnvActiveDraft(environmentId: number, value: boolean): void {
+    const current = this.envDrafts()[environmentId] ?? { url: '', isActive: true };
+    this.envOverrides.update((o) => ({ ...o, [environmentId]: { ...current, isActive: value } }));
   }
 
   saveEnvironmentUrl(environmentId: number): void {
     const projectId = this.editingProjectId();
-    const url = (this.envUrlDrafts()[environmentId] ?? '').trim();
+    const draft = this.envDrafts()[environmentId];
+    const url = (draft?.url ?? '').trim();
     if (!projectId || !url) return;
-    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId, { url }).subscribe({
+    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId, {
+      url,
+      isActive: draft?.isActive ?? true,
+    } as any).subscribe({
       next: () => {
-        this.envUrlOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
+        this.envOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
         this.projectAppUrlsResource.reload();
         this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 2000 });
       },
@@ -474,8 +554,43 @@ export class ProjectsComponent {
     if (!projectId) return;
     this.projectsService.deleteApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId).subscribe({
       next: () => {
-        this.envUrlOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
+        this.envOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
         this.projectAppUrlsResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  // ---- Add a new environment row ----
+  showAddEnvRow = signal(false);
+  newEnvId = signal<number | null>(null);
+  newEnvUrl = signal('');
+  newEnvActive = signal(true);
+
+  startAddEnvironment(): void {
+    this.newEnvId.set(null);
+    this.newEnvUrl.set('');
+    this.newEnvActive.set(true);
+    this.showAddEnvRow.set(true);
+  }
+
+  cancelAddEnvironment(): void {
+    this.showAddEnvRow.set(false);
+  }
+
+  confirmAddEnvironment(): void {
+    const projectId = this.editingProjectId();
+    const envId = this.newEnvId();
+    const url = this.newEnvUrl().trim();
+    if (!projectId || !envId || !url) return;
+    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
+      url,
+      isActive: this.newEnvActive(),
+    } as any).subscribe({
+      next: () => {
+        this.showAddEnvRow.set(false);
+        this.projectAppUrlsResource.reload();
+        this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 2000 });
       },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
     });
@@ -495,6 +610,20 @@ export class ProjectsComponent {
     ];
   }
 
+  /** Badge color for a project's per-environment activation rollup. */
+  activationSeverity(state: ProjectActivationState | undefined): Severity {
+    if (state === ProjectActivationState.NUMBER_2) return 'success';
+    if (state === ProjectActivationState.NUMBER_1) return 'warning';
+    return 'danger';
+  }
+
+  /** Transloco key for a project's per-environment activation rollup. */
+  activationLabelKey(state: ProjectActivationState | undefined): string {
+    if (state === ProjectActivationState.NUMBER_2) return 'common.active';
+    if (state === ProjectActivationState.NUMBER_1) return 'common.partial';
+    return 'common.disabled';
+  }
+
   readonly actionsFor = (project: ProjectResponse): RowActionItem[] => {
     const busy = this.loading();
     const items: RowActionItem[] = [];
@@ -505,10 +634,11 @@ export class ProjectsComponent {
       items.push({ label: this.transloco.translate('projects.suggest'), icon: 'lightbulb', disabled: busy, onClick: () => this.openSuggest(project) });
     }
     if (project.canEdit) {
+      const anyActive = project.activationState !== ProjectActivationState.NUMBER_0;
       items.push({
-        label: this.transloco.translate(project.isActive ? 'common.disable' : 'common.enable'),
-        icon: project.isActive ? 'block' : 'check_circle',
-        severity: project.isActive ? 'danger' : 'neutral',
+        label: this.transloco.translate(anyActive ? 'common.disable' : 'common.enable'),
+        icon: anyActive ? 'block' : 'check_circle',
+        severity: anyActive ? 'danger' : 'neutral',
         disabled: busy,
         onClick: () => this.toggleActive(project),
       });
@@ -603,6 +733,9 @@ export class ProjectsComponent {
     name: ['', Validators.required],
     appUrl: [''],
     pageContextCaptureEnabled: [false],
+    isActiveLocal: [false],
+    isActiveStaging: [false],
+    isActiveProduction: [false],
     predefinedActions: this.fb.array([]),
   });
 
@@ -657,11 +790,15 @@ export class ProjectsComponent {
 
   openEdit(project: ProjectResponse): void {
     this.editingProjectId.set(project.id ?? null);
-    this.envUrlOverrides.set({}); // discard any unsaved per-environment draft from a prior project
+    this.envOverrides.set({}); // discard any unsaved per-environment draft from a prior project
+    this.showAddEnvRow.set(false);
     this.editForm.reset({
       name: project.name ?? '',
       appUrl: project.appUrl ?? '',
       pageContextCaptureEnabled: !!project.pageContextCaptureEnabled,
+      isActiveLocal: !!project.isActiveLocal,
+      isActiveStaging: !!project.isActiveStaging,
+      isActiveProduction: !!project.isActiveProduction,
     });
     while (this.editPredefinedActionsArray.length) {
       this.editPredefinedActionsArray.removeAt(0);
@@ -675,7 +812,7 @@ export class ProjectsComponent {
         })
       );
     }
-    this.dialogRef = this.dialog.open(this.editDialog(), { width: '540px' });
+    this.dialogRef = this.dialog.open(this.editDialog(), { width: '680px', maxWidth: '680px' });
   }
 
   openViewPrompts(project: ProjectResponse): void {
@@ -780,6 +917,9 @@ export class ProjectsComponent {
       name: val.name,
       appUrl: val.appUrl?.trim() ?? '',
       pageContextCaptureEnabled: val.pageContextCaptureEnabled,
+      isActiveLocal: val.isActiveLocal,
+      isActiveStaging: val.isActiveStaging,
+      isActiveProduction: val.isActiveProduction,
       predefinedActions,
     } as any).subscribe({
       next: () => {
@@ -792,8 +932,10 @@ export class ProjectsComponent {
     });
   }
 
+  // Quick bulk shortcut: active in ANY environment → turns ALL three off (with the
+  // same confirm dialog as before); fully inactive (NUMBER_0) → turns ALL three on.
   toggleActive(project: ProjectResponse) {
-    if (!project.isActive) {
+    if (project.activationState === ProjectActivationState.NUMBER_0) {
       this.patchActive(project, true);
       return;
     }
@@ -813,7 +955,11 @@ export class ProjectsComponent {
 
   private patchActive(project: ProjectResponse, isActive: boolean) {
     this.busy.set(true);
-    this.projectsService.patchApiAdminProjectsId(project.id!, { isActive }).subscribe({
+    this.projectsService.patchApiAdminProjectsId(project.id!, {
+      isActiveLocal: isActive,
+      isActiveStaging: isActive,
+      isActiveProduction: isActive,
+    }).subscribe({
       next: () => { this.busy.set(false); this.projectsResource.reload(); },
       error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });

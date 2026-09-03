@@ -10,18 +10,28 @@ import {
   getGetApiAdminProjectsQueryKey,
   getApiProjectsKeyExport,
   usePostApiProjectsKeyImport,
+  useGetApiAdminEnvironments,
+  useGetApiAdminProjectsIdAppUrls,
+  getGetApiAdminProjectsIdAppUrlsQueryKey,
+  usePutApiAdminProjectsIdAppUrlsEnvironmentId,
+  useDeleteApiAdminProjectsIdAppUrlsEnvironmentId,
   useDeleteApiAdminProjectsId,
   usePostApiProjectsIdPredefinedActionSuggestions,
+  ProjectActivationState,
   type ProjectResponse,
+  type ProjectAppUrlResponse,
+  type AppEnvironmentResponse,
   type ImportResultDto,
   type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, Check, X } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -196,8 +206,10 @@ async function addProject() {
 }
 
 // ── Active toggle ─────────────────────────────────────────────────────
+// Quick bulk shortcut: active in ANY environment → turns ALL three off (with the
+// same confirm dialog as before); fully inactive (NUMBER_0) → turns ALL three on.
 async function toggleActive(project: ProjectResponse) {
-  if (!project.isActive) {
+  if (project.activationState === ProjectActivationState.NUMBER_0) {
     await patchActive(project, true);
     return;
   }
@@ -212,7 +224,14 @@ async function toggleActive(project: ProjectResponse) {
 async function patchActive(project: ProjectResponse, isActive: boolean) {
   busy.value = true;
   try {
-    await updateProject.mutateAsync({ id: project.id!, data: { isActive } });
+    await updateProject.mutateAsync({
+      id: project.id!,
+      data: {
+        isActiveLocal: isActive,
+        isActiveStaging: isActive,
+        isActiveProduction: isActive,
+      },
+    });
     busy.value = false;
     reload();
   } catch (e) {
@@ -287,8 +306,15 @@ interface EditableAction {
 const editOpen = ref(false);
 const editProject = ref<ProjectResponse | null>(null);
 const editName = ref('');
+const editAppUrl = ref('');
 const editActions = ref<EditableAction[]>([]);
 const editPageContextCaptureEnabled = ref(false);
+// The edit dialog UI never touches these three — they are only carried through
+// the PATCH payload unchanged. The only UI that flips them is the bulk
+// enable/disable row action; per-environment control lives in the app-URL table.
+const editIsActiveLocal = ref(false);
+const editIsActiveStaging = ref(false);
+const editIsActiveProduction = ref(false);
 const editInvalid = computed(() => !editName.value.trim());
 
 const patchProject = usePatchApiAdminProjectsId();
@@ -296,13 +322,146 @@ const patchProject = usePatchApiAdminProjectsId();
 function openEdit(project: ProjectResponse) {
   editProject.value = project;
   editName.value = project.name ?? '';
+  editAppUrl.value = project.appUrl ?? '';
   editPageContextCaptureEnabled.value = !!project.pageContextCaptureEnabled;
+  editIsActiveLocal.value = !!project.isActiveLocal;
+  editIsActiveStaging.value = !!project.isActiveStaging;
+  editIsActiveProduction.value = !!project.isActiveProduction;
   editActions.value = (project.predefinedActions ?? []).map((a: PredefinedActionResponse) => ({
     id: a.id,
     text: a.text ?? '',
     prompt: a.prompt ?? '',
   }));
+  // Discard any unsaved per-environment draft from a previously edited project.
+  envOverrides.value = {};
+  showAddEnvRow.value = false;
   editOpen.value = true;
+}
+
+// ── Other environments (edit dialog) ──────────────────────────────────
+// Per-environment App URLs (edit dialog only — a project must exist first).
+// "default" is covered by the ordinary "App URL" field above
+// (ProjectService.SyncDefaultAppUrlAsync keeps them in sync server-side), so
+// it's excluded everywhere below to avoid showing the same value twice.
+const { data: environmentsData } = useGetApiAdminEnvironments();
+const environments = computed<AppEnvironmentResponse[]>(() => environmentsData.value ?? []);
+
+const editingProjectIdForUrls = computed(() => editProject.value?.id ?? 0);
+const { data: appUrlsData } = useGetApiAdminProjectsIdAppUrls(editingProjectIdForUrls, {
+  query: { enabled: () => editProject.value != null },
+});
+
+// Only rows that ALREADY have a saved URL for this project — not every
+// environment the tenant has ever defined. Each carries its own
+// name/url/isActive straight from the response.
+const configuredEnvironments = computed<ProjectAppUrlResponse[]>(() =>
+  (appUrlsData.value ?? []).filter((u) => u.environmentName !== 'default'),
+);
+
+// Environments not yet configured for this project — the add-row's options.
+const availableEnvironmentsToAdd = computed<AppEnvironmentResponse[]>(() => {
+  const configuredIds = new Set(configuredEnvironments.value.map((u) => u.appEnvironmentId));
+  return environments.value.filter((e) => e.name !== 'default' && !configuredIds.has(e.id!));
+});
+
+function reloadAppUrls() {
+  void queryClient.invalidateQueries({ queryKey: getGetApiAdminProjectsIdAppUrlsQueryKey(editingProjectIdForUrls) });
+}
+
+// Draft state per EXISTING row (url + isActive together) — overlays the loaded
+// value with whatever the user is actively editing; each row saves immediately
+// on its own check button, independently of the form's single Save action.
+const envOverrides = ref<Record<number, { url: string; isActive: boolean }>>({});
+const envDrafts = computed(() => {
+  const loaded: Record<number, { url: string; isActive: boolean }> = {};
+  for (const u of configuredEnvironments.value) {
+    if (u.appEnvironmentId != null) {
+      loaded[u.appEnvironmentId] = { url: u.url ?? '', isActive: u.isActive ?? true };
+    }
+  }
+  return { ...loaded, ...envOverrides.value };
+});
+
+function setEnvUrlDraft(environmentId: number, value: string) {
+  const current = envDrafts.value[environmentId] ?? { url: '', isActive: true };
+  envOverrides.value = { ...envOverrides.value, [environmentId]: { ...current, url: value } };
+}
+
+function setEnvActiveDraft(environmentId: number, value: boolean) {
+  const current = envDrafts.value[environmentId] ?? { url: '', isActive: true };
+  envOverrides.value = { ...envOverrides.value, [environmentId]: { ...current, isActive: value } };
+}
+
+const setAppUrlMutation = usePutApiAdminProjectsIdAppUrlsEnvironmentId();
+const deleteAppUrlMutation = useDeleteApiAdminProjectsIdAppUrlsEnvironmentId();
+
+async function saveEnvironmentUrl(environmentId: number) {
+  const projectId = editProject.value?.id;
+  const draft = envDrafts.value[environmentId];
+  const url = (draft?.url ?? '').trim();
+  if (!projectId || !url) return;
+  try {
+    await setAppUrlMutation.mutateAsync({
+      id: projectId,
+      environmentId,
+      data: { url, isActive: draft?.isActive ?? true },
+    });
+    const { [environmentId]: _cleared, ...rest } = envOverrides.value;
+    envOverrides.value = rest;
+    reloadAppUrls();
+    toast(t('projects.saved'));
+  } catch (e) {
+    fail(e);
+  }
+}
+
+async function clearEnvironmentUrl(environmentId: number) {
+  const projectId = editProject.value?.id;
+  if (!projectId) return;
+  try {
+    await deleteAppUrlMutation.mutateAsync({ id: projectId, environmentId });
+    const { [environmentId]: _cleared, ...rest } = envOverrides.value;
+    envOverrides.value = rest;
+    reloadAppUrls();
+  } catch (e) {
+    fail(e);
+  }
+}
+
+// ── Add a new environment row ─────────────────────────────────────────
+const showAddEnvRow = ref(false);
+const newEnvId = ref('');
+const newEnvUrl = ref('');
+const newEnvActive = ref(true);
+
+function startAddEnvironment() {
+  newEnvId.value = '';
+  newEnvUrl.value = '';
+  newEnvActive.value = true;
+  showAddEnvRow.value = true;
+}
+
+function cancelAddEnvironment() {
+  showAddEnvRow.value = false;
+}
+
+async function confirmAddEnvironment() {
+  const projectId = editProject.value?.id;
+  const envId = Number(newEnvId.value);
+  const url = newEnvUrl.value.trim();
+  if (!projectId || !newEnvId.value || !url) return;
+  try {
+    await setAppUrlMutation.mutateAsync({
+      id: projectId,
+      environmentId: envId,
+      data: { url, isActive: newEnvActive.value },
+    });
+    showAddEnvRow.value = false;
+    reloadAppUrls();
+    toast(t('projects.saved'));
+  } catch (e) {
+    fail(e);
+  }
 }
 
 function addEditActionRow() {
@@ -321,7 +480,11 @@ async function saveEdit() {
       id: editProject.value.id!,
       data: {
         name: editName.value,
+        appUrl: editAppUrl.value.trim(),
         pageContextCaptureEnabled: editPageContextCaptureEnabled.value,
+        isActiveLocal: editIsActiveLocal.value,
+        isActiveStaging: editIsActiveStaging.value,
+        isActiveProduction: editIsActiveProduction.value,
         predefinedActions: editActions.value.map((a, i) => ({
           ...(a.id != null ? { id: a.id } : {}),
           text: a.text,
@@ -406,24 +569,37 @@ function openViewPrompts(project: ProjectResponse) {
   viewPromptsOpen.value = true;
 }
 
+function activationVariant(state: ProjectActivationState | undefined) {
+  if (state === ProjectActivationState.NUMBER_2) return 'success';
+  if (state === ProjectActivationState.NUMBER_1) return 'warning';
+  return 'destructive';
+}
+
+function activationLabel(state: ProjectActivationState | undefined) {
+  if (state === ProjectActivationState.NUMBER_2) return t('common.active');
+  if (state === ProjectActivationState.NUMBER_1) return t('common.partial');
+  return t('common.disabled');
+}
+
 // A computed so headers follow live language switches.
 const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectResponse>[]>(() => [
   { accessorKey: 'key', header: t('projects.key'), enableSorting: false },
   { accessorKey: 'name', header: t('projects.name'), enableSorting: false },
   { accessorKey: 'createdByName', header: t('projects.createdBy'), enableSorting: false },
   { accessorKey: 'commentsCount', header: t('projects.comments'), enableSorting: false },
-  { accessorKey: 'isActive', header: t('projects.status'), enableSorting: false },
+  { accessorKey: 'activationState', header: t('projects.status'), enableSorting: false },
 ]);
 
 // Per-row action menu. Enable/Disable stays unconditional (no isAdmin/canEdit
 // gate) -- matches this page's pre-existing convention, kept as-is rather than
 // aligned to the angular/react ports' gating.
 function actionsFor(project: ProjectResponse): RowActionItem[] {
+  const anyActive = project.activationState !== ProjectActivationState.NUMBER_0;
   const items: RowActionItem[] = [
     {
-      label: t(project.isActive ? 'common.disable' : 'common.enable'),
-      icon: project.isActive ? Ban : CheckCircle2,
-      severity: project.isActive ? 'danger' : 'neutral',
+      label: t(anyActive ? 'common.disable' : 'common.enable'),
+      icon: anyActive ? Ban : CheckCircle2,
+      severity: anyActive ? 'danger' : 'neutral',
       disabled: loading.value,
       onClick: () => void toggleActive(project),
     },
@@ -490,9 +666,9 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
       <template #cell-commentsCount="{ row }">
         <span class="text-sm text-muted-foreground">{{ row.commentsCount ?? 0 }}</span>
       </template>
-      <template #cell-isActive="{ row }">
-        <Badge :variant="row.isActive ? 'success' : 'destructive'">
-          {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+      <template #cell-activationState="{ row }">
+        <Badge :variant="activationVariant(row.activationState)">
+          {{ activationLabel(row.activationState) }}
         </Badge>
       </template>
       <Button v-if="!isSuperAdmin" @click="openAdd">
@@ -568,7 +744,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
 
   <!-- Edit project dialog -->
   <Dialog v-model:open="editOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="max-w-[440px] sm:max-w-[680px]">
       <DialogHeader>
         <DialogTitle>{{ t('projects.editTitle') }}</DialogTitle>
       </DialogHeader>
@@ -576,6 +752,119 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <div class="flex flex-col gap-2">
           <Label for="edit-name">{{ t('projects.name') }}</Label>
           <Input id="edit-name" v-model="editName" />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <Label for="edit-app-url">{{ t('projects.appUrl') }}</Label>
+          <Input id="edit-app-url" v-model="editAppUrl" placeholder="https://staging.example.com" />
+          <p class="text-xs text-muted-foreground">{{ t('projects.appUrlHint') }}</p>
+        </div>
+
+        <!-- Other environments: only already-configured environments show as
+             rows; "default" is covered by the ordinary App URL field above. -->
+        <div class="flex flex-col gap-2">
+          <span class="text-sm font-medium">{{ t('projects.otherEnvironments') }}</span>
+          <p class="text-xs text-muted-foreground">{{ t('projects.otherEnvironmentsHint') }}</p>
+          <table v-if="configuredEnvironments.length > 0 || showAddEnvRow" class="w-full border-collapse text-sm">
+            <thead>
+              <tr class="text-muted-foreground">
+                <th class="w-32 pb-1 text-start font-medium">{{ t('environments.name') }}</th>
+                <th class="pb-1 ps-2 text-start font-medium">{{ t('projects.appUrl') }}</th>
+                <th class="w-20 pb-1 text-center font-medium">{{ t('common.active') }}</th>
+                <th class="w-16 pb-1"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="env in configuredEnvironments" :key="env.appEnvironmentId">
+                <td class="py-1 pe-2 align-middle font-medium">{{ env.environmentName }}</td>
+                <td class="py-1 pe-2 align-middle">
+                  <Input
+                    :model-value="envDrafts[env.appEnvironmentId!]?.url ?? ''"
+                    placeholder="https://..."
+                    class="h-8"
+                    @update:model-value="(v: string | number) => setEnvUrlDraft(env.appEnvironmentId!, String(v))"
+                  />
+                </td>
+                <td class="py-1 text-center align-middle">
+                  <Switch
+                    :model-value="envDrafts[env.appEnvironmentId!]?.isActive ?? true"
+                    @update:model-value="(v: boolean) => setEnvActiveDraft(env.appEnvironmentId!, v)"
+                  />
+                </td>
+                <td class="py-1 whitespace-nowrap align-middle">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    :aria-label="t('common.save')"
+                    @click="saveEnvironmentUrl(env.appEnvironmentId!)"
+                  >
+                    <Check class="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    :aria-label="t('common.delete')"
+                    @click="clearEnvironmentUrl(env.appEnvironmentId!)"
+                  >
+                    <Trash2 class="h-4 w-4 text-destructive" />
+                  </Button>
+                </td>
+              </tr>
+              <tr v-if="showAddEnvRow">
+                <td class="py-1 pe-2 align-middle">
+                  <Select v-model="newEnvId">
+                    <SelectTrigger class="h-8 w-full">
+                      <SelectValue :placeholder="t('environments.name')" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="env in availableEnvironmentsToAdd" :key="env.id" :value="String(env.id)">
+                        {{ env.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </td>
+                <td class="py-1 pe-2 align-middle">
+                  <Input v-model="newEnvUrl" placeholder="https://..." class="h-8" />
+                </td>
+                <td class="py-1 text-center align-middle">
+                  <Switch v-model="newEnvActive" />
+                </td>
+                <td class="py-1 whitespace-nowrap align-middle">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    :aria-label="t('common.save')"
+                    :disabled="!newEnvId || !newEnvUrl.trim()"
+                    @click="confirmAddEnvironment"
+                  >
+                    <Check class="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8"
+                    :aria-label="t('common.cancel')"
+                    @click="cancelAddEnvironment"
+                  >
+                    <X class="h-4 w-4" />
+                  </Button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <Button
+            v-if="!showAddEnvRow && availableEnvironmentsToAdd.length > 0"
+            type="button"
+            variant="outline"
+            size="sm"
+            class="self-start"
+            @click="startAddEnvironment"
+          >
+            <Plus class="h-4 w-4" /> {{ t('projects.addEnvironment') }}
+          </Button>
         </div>
 
         <div class="flex items-center justify-between gap-4">
