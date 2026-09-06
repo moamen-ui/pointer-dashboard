@@ -28,9 +28,12 @@ import {
   getApiAdminProjectsResource,
   getApiAdminEnvironmentsResource,
   getApiAdminProjectsIdAppUrlsResource,
+  getApiAdminRolesResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
+import { Observable, forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
@@ -290,11 +293,7 @@ const latin = asciiDigits(name.toLowerCase())
                           [checked]="envDrafts()[env.appEnvironmentId!]?.isActive ?? true"
                           (change)="setEnvActiveDraft(env.appEnvironmentId!, $event.checked)" />
                       </td>
-                      <td class="py-1 align-middle whitespace-nowrap">
-                        <button mat-icon-button type="button" [attr.aria-label]="'common.save' | transloco"
-                          (click)="saveEnvironmentUrl(env.appEnvironmentId!)">
-                          <mat-icon>check</mat-icon>
-                        </button>
+                      <td class="py-1 align-middle whitespace-nowrap text-end">
                         <button mat-icon-button type="button" class="!text-red-600"
                           [attr.aria-label]="'common.delete' | transloco"
                           (click)="clearEnvironmentUrl(env.appEnvironmentId!)">
@@ -327,11 +326,6 @@ const latin = asciiDigits(name.toLowerCase())
                           (change)="newEnvActive.set($event.checked)" />
                       </td>
                       <td class="py-1 align-middle whitespace-nowrap">
-                        <button mat-icon-button type="button" [attr.aria-label]="'common.save' | transloco"
-                          [disabled]="!newEnvId() || !newEnvUrl().trim()"
-                          (click)="confirmAddEnvironment()">
-                          <mat-icon>check</mat-icon>
-                        </button>
                         <button mat-icon-button type="button" [attr.aria-label]="'common.cancel' | transloco"
                           (click)="cancelAddEnvironment()">
                           <mat-icon>close</mat-icon>
@@ -355,6 +349,19 @@ const latin = asciiDigits(name.toLowerCase())
               <div class="text-xs text-muted-foreground">{{ 'projects.pageContextCaptureHint' | transloco }}</div>
             </div>
             <mat-slide-toggle formControlName="pageContextCaptureEnabled" />
+          </div>
+
+          <div class="mb-2">
+            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'projects.envSelectorRoles' | transloco }}</div>
+            <p class="mb-2 text-[0.8rem] text-muted">{{ 'projects.envSelectorRolesHint' | transloco }}</p>
+            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+              <mat-select formControlName="environmentSelectorRoleIds" multiple
+                [placeholder]="'projects.envSelectorRolesPlaceholder' | transloco">
+                @for (role of roles(); track role.id) {
+                  <mat-option [value]="role.id">{{ role.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
           </div>
 
           <!-- Predefined actions section (reused group) -->
@@ -496,6 +503,10 @@ export class ProjectsComponent {
   private editingProjectIdForUrls = computed(() => this.editingProjectId() ?? 0);
   projectAppUrlsResource = getApiAdminProjectsIdAppUrlsResource(this.editingProjectIdForUrls);
 
+  // For the "show environment switcher for" multiselect below — every role this tenant can assign.
+  rolesResource = getApiAdminRolesResource();
+  roles = computed(() => this.rolesResource.value() ?? []);
+
   // Only rows that ALREADY have a saved URL for this project — not every environment the tenant
   // has ever defined. Each carries its own name/url/isActive straight from the response, so no
   // cross-referencing against environmentsResource is needed for existing rows.
@@ -509,8 +520,9 @@ export class ProjectsComponent {
   });
 
   // Draft state per EXISTING row (url + isActive together) — overlays the loaded value with
-  // whatever the user is actively editing; each row saves immediately on its own "check" button,
-  // independently of the reactive `editForm`'s single Save action.
+  // whatever the user is actively editing. Rows have no save button of their own: the dialog's
+  // single Save persists every dirty row (see saveEnvironmentChangesIfPending) together with the
+  // reactive `editForm`. Delete stays immediate.
   private envLoaded = computed(() => {
     const loaded: Record<number, { url: string; isActive: boolean }> = {};
     for (const u of this.configuredEnvironments()) {
@@ -529,24 +541,6 @@ export class ProjectsComponent {
   setEnvActiveDraft(environmentId: number, value: boolean): void {
     const current = this.envDrafts()[environmentId] ?? { url: '', isActive: true };
     this.envOverrides.update((o) => ({ ...o, [environmentId]: { ...current, isActive: value } }));
-  }
-
-  saveEnvironmentUrl(environmentId: number): void {
-    const projectId = this.editingProjectId();
-    const draft = this.envDrafts()[environmentId];
-    const url = (draft?.url ?? '').trim();
-    if (!projectId || !url) return;
-    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId, {
-      url,
-      isActive: draft?.isActive ?? true,
-    } as any).subscribe({
-      next: () => {
-        this.envOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
-        this.projectAppUrlsResource.reload();
-        this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 2000 });
-      },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
-    });
   }
 
   clearEnvironmentUrl(environmentId: number): void {
@@ -578,21 +572,77 @@ export class ProjectsComponent {
     this.showAddEnvRow.set(false);
   }
 
-  confirmAddEnvironment(): void {
+  // Rows whose draft differs from what is loaded — the ones the dialog's Save must persist.
+  private dirtyEnvironmentIds(): number[] {
+    const loaded = this.envLoaded();
+    return Object.entries(this.envOverrides())
+      .filter(([id, draft]) => {
+        const base = loaded[Number(id)];
+        return !base || base.url !== draft.url || base.isActive !== draft.isActive;
+      })
+      .map(([id]) => Number(id));
+  }
+
+  // Persists every pending environment change — edited existing rows plus the "add environment"
+  // row, if one is filled in — called from saveEdit() after the project's own fields are patched,
+  // so the dialog's single Save button covers all of it. Rows with a blank URL are skipped, not
+  // errors (same rule the per-row save used). Failures are surfaced individually; the rest go on.
+  private saveEnvironmentChangesIfPending(onDone: () => void): void {
     const projectId = this.editingProjectId();
-    const envId = this.newEnvId();
-    const url = this.newEnvUrl().trim();
-    if (!projectId || !envId || !url) return;
-    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
-      url,
-      isActive: this.newEnvActive(),
-    } as any).subscribe({
-      next: () => {
-        this.showAddEnvRow.set(false);
-        this.projectAppUrlsResource.reload();
-        this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 2000 });
-      },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    if (!projectId) {
+      onDone();
+      return;
+    }
+
+    const drafts = this.envDrafts();
+    const requests: Observable<{ environmentId: number; ok: boolean }>[] = this.dirtyEnvironmentIds()
+      .filter((envId) => (drafts[envId]?.url ?? '').trim() !== '')
+      .map((envId) =>
+        this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
+          url: drafts[envId].url.trim(),
+          isActive: drafts[envId].isActive,
+        } as any).pipe(
+          map(() => ({ environmentId: envId, ok: true })),
+          catchError((e: unknown) => {
+            this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+            return of({ environmentId: envId, ok: false });
+          }),
+        ),
+      );
+
+    const newEnvId = this.newEnvId();
+    const newUrl = this.newEnvUrl().trim();
+    if (this.showAddEnvRow() && newEnvId && newUrl) {
+      requests.push(
+        this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, newEnvId, {
+          url: newUrl,
+          isActive: this.newEnvActive(),
+        } as any).pipe(
+          map(() => ({ environmentId: newEnvId, ok: true })),
+          catchError((e: unknown) => {
+            this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+            return of({ environmentId: newEnvId, ok: false });
+          }),
+        ),
+      );
+    }
+
+    if (requests.length === 0) {
+      onDone();
+      return;
+    }
+
+    forkJoin(requests).subscribe((results) => {
+      const saved = new Set(results.filter((r) => r.ok).map((r) => r.environmentId));
+      // Drop the drafts that landed; keep a failed row's edit so the user can retry it.
+      this.envOverrides.update((o) => {
+        const rest = { ...o };
+        for (const id of saved) delete rest[id];
+        return rest;
+      });
+      if (saved.has(newEnvId ?? -1)) this.showAddEnvRow.set(false);
+      this.projectAppUrlsResource.reload();
+      onDone();
     });
   }
   viewingProject = signal<ProjectResponse | null>(null);
@@ -736,6 +786,7 @@ export class ProjectsComponent {
     isActiveLocal: [false],
     isActiveStaging: [false],
     isActiveProduction: [false],
+    environmentSelectorRoleIds: this.fb.nonNullable.control<number[]>([]),
     predefinedActions: this.fb.array([]),
   });
 
@@ -799,6 +850,7 @@ export class ProjectsComponent {
       isActiveLocal: !!project.isActiveLocal,
       isActiveStaging: !!project.isActiveStaging,
       isActiveProduction: !!project.isActiveProduction,
+      environmentSelectorRoleIds: project.environmentSelectorRoleIds ?? [],
     });
     while (this.editPredefinedActionsArray.length) {
       this.editPredefinedActionsArray.removeAt(0);
@@ -920,13 +972,16 @@ export class ProjectsComponent {
       isActiveLocal: val.isActiveLocal,
       isActiveStaging: val.isActiveStaging,
       isActiveProduction: val.isActiveProduction,
+      environmentSelectorRoleIds: val.environmentSelectorRoleIds,
       predefinedActions,
     } as any).subscribe({
       next: () => {
-        this.busy.set(false);
-        this.dialogRef?.close();
-        this.projectsResource.reload();
-        this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 3000 });
+        this.saveEnvironmentChangesIfPending(() => {
+          this.busy.set(false);
+          this.dialogRef?.close();
+          this.projectsResource.reload();
+          this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 3000 });
+        });
       },
       error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
     });

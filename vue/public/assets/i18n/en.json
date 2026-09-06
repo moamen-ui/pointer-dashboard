@@ -235,7 +235,10 @@
     "appUrlHint": "Where this project's widget is embedded. Required before sending a quick-access client invite for this project.",
     "otherEnvironments": "Other environments",
     "otherEnvironmentsHint": "Give this project a different App URL per deployment stage — manage the list of environments from the Environments page.",
-    "addEnvironment": "Add environment"
+    "addEnvironment": "Add environment",
+    "envSelectorRoles": "Environment switcher visibility",
+    "envSelectorRolesHint": "Which roles can switch environments in the widget's toolbar. Leave empty for the default: everyone except Client.",
+    "envSelectorRolesPlaceholder": "All roles except Client (default)"
   },
   "exportImport": {
     "export": "Export",

@@ -17,20 +17,23 @@ import {
   useDeleteApiAdminProjectsIdAppUrlsEnvironmentId,
   useDeleteApiAdminProjectsId,
   usePostApiProjectsIdPredefinedActionSuggestions,
+  useGetApiAdminRoles,
   ProjectActivationState,
   type ProjectResponse,
   type ProjectAppUrlResponse,
   type AppEnvironmentResponse,
+  type RoleResponse,
   type ImportResultDto,
   type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, Check, X } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, X } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
@@ -315,7 +318,16 @@ const editPageContextCaptureEnabled = ref(false);
 const editIsActiveLocal = ref(false);
 const editIsActiveStaging = ref(false);
 const editIsActiveProduction = ref(false);
+// Roles allowed to switch environments from the widget toolbar (empty = default:
+// everyone except Client).
+const editEnvSelectorRoleIds = ref<number[]>([]);
 const editInvalid = computed(() => !editName.value.trim());
+
+function toggleEnvSelectorRole(roleId: number, checked: boolean) {
+  editEnvSelectorRoleIds.value = checked
+    ? [...editEnvSelectorRoleIds.value, roleId]
+    : editEnvSelectorRoleIds.value.filter((id) => id !== roleId);
+}
 
 const patchProject = usePatchApiAdminProjectsId();
 
@@ -327,6 +339,7 @@ function openEdit(project: ProjectResponse) {
   editIsActiveLocal.value = !!project.isActiveLocal;
   editIsActiveStaging.value = !!project.isActiveStaging;
   editIsActiveProduction.value = !!project.isActiveProduction;
+  editEnvSelectorRoleIds.value = project.environmentSelectorRoleIds ?? [];
   editActions.value = (project.predefinedActions ?? []).map((a: PredefinedActionResponse) => ({
     id: a.id,
     text: a.text ?? '',
@@ -345,6 +358,11 @@ function openEdit(project: ProjectResponse) {
 // it's excluded everywhere below to avoid showing the same value twice.
 const { data: environmentsData } = useGetApiAdminEnvironments();
 const environments = computed<AppEnvironmentResponse[]>(() => environmentsData.value ?? []);
+
+// Every role this tenant can assign — options for the "Environment switcher
+// visibility" checkboxes (same list the Roles admin page uses).
+const { data: rolesData } = useGetApiAdminRoles();
+const roles = computed<RoleResponse[]>(() => rolesData.value ?? []);
 
 const editingProjectIdForUrls = computed(() => editProject.value?.id ?? 0);
 const { data: appUrlsData } = useGetApiAdminProjectsIdAppUrls(editingProjectIdForUrls, {
@@ -369,18 +387,21 @@ function reloadAppUrls() {
 }
 
 // Draft state per EXISTING row (url + isActive together) — overlays the loaded
-// value with whatever the user is actively editing; each row saves immediately
-// on its own check button, independently of the form's single Save action.
+// value with whatever the user is actively editing. Rows have no save button of
+// their own: the dialog's single Save persists every dirty row (see
+// saveEnvironmentChangesIfPending) together with the rest of the form. Delete
+// stays immediate.
 const envOverrides = ref<Record<number, { url: string; isActive: boolean }>>({});
-const envDrafts = computed(() => {
+const envLoaded = computed(() => {
   const loaded: Record<number, { url: string; isActive: boolean }> = {};
   for (const u of configuredEnvironments.value) {
     if (u.appEnvironmentId != null) {
       loaded[u.appEnvironmentId] = { url: u.url ?? '', isActive: u.isActive ?? true };
     }
   }
-  return { ...loaded, ...envOverrides.value };
+  return loaded;
 });
+const envDrafts = computed(() => ({ ...envLoaded.value, ...envOverrides.value }));
 
 function setEnvUrlDraft(environmentId: number, value: string) {
   const current = envDrafts.value[environmentId] ?? { url: '', isActive: true };
@@ -395,24 +416,15 @@ function setEnvActiveDraft(environmentId: number, value: boolean) {
 const setAppUrlMutation = usePutApiAdminProjectsIdAppUrlsEnvironmentId();
 const deleteAppUrlMutation = useDeleteApiAdminProjectsIdAppUrlsEnvironmentId();
 
-async function saveEnvironmentUrl(environmentId: number) {
-  const projectId = editProject.value?.id;
-  const draft = envDrafts.value[environmentId];
-  const url = (draft?.url ?? '').trim();
-  if (!projectId || !url) return;
-  try {
-    await setAppUrlMutation.mutateAsync({
-      id: projectId,
-      environmentId,
-      data: { url, isActive: draft?.isActive ?? true },
-    });
-    const { [environmentId]: _cleared, ...rest } = envOverrides.value;
-    envOverrides.value = rest;
-    reloadAppUrls();
-    toast(t('projects.saved'));
-  } catch (e) {
-    fail(e);
-  }
+// Rows whose draft differs from what is loaded — the ones the dialog's Save must persist.
+function dirtyEnvironmentIds(): number[] {
+  const loaded = envLoaded.value;
+  return Object.entries(envOverrides.value)
+    .filter(([id, draft]) => {
+      const base = loaded[Number(id)];
+      return !base || base.url !== draft.url || base.isActive !== draft.isActive;
+    })
+    .map(([id]) => Number(id));
 }
 
 async function clearEnvironmentUrl(environmentId: number) {
@@ -445,23 +457,60 @@ function cancelAddEnvironment() {
   showAddEnvRow.value = false;
 }
 
-async function confirmAddEnvironment() {
+// Persists every pending environment change — edited existing rows plus the "add
+// environment" row, if one is filled in — called from saveEdit() after the project's
+// own fields are patched, so the dialog's single Save button covers all of it. Rows
+// with a blank URL are skipped, not errors (same rule the per-row save used).
+// Failures are surfaced individually via a toast; the rest go on, and a failed
+// row's edit is kept so the user can retry it.
+async function saveEnvironmentChangesIfPending() {
   const projectId = editProject.value?.id;
-  const envId = Number(newEnvId.value);
-  const url = newEnvUrl.value.trim();
-  if (!projectId || !newEnvId.value || !url) return;
-  try {
-    await setAppUrlMutation.mutateAsync({
-      id: projectId,
-      environmentId: envId,
-      data: { url, isActive: newEnvActive.value },
-    });
-    showAddEnvRow.value = false;
-    reloadAppUrls();
-    toast(t('projects.saved'));
-  } catch (e) {
-    fail(e);
+  if (!projectId) return;
+
+  const drafts = envDrafts.value;
+  const requests = dirtyEnvironmentIds()
+    .filter((envId) => (drafts[envId]?.url ?? '').trim() !== '')
+    .map((envId) =>
+      setAppUrlMutation
+        .mutateAsync({
+          id: projectId,
+          environmentId: envId,
+          data: { url: drafts[envId].url.trim(), isActive: drafts[envId].isActive },
+        })
+        .then(() => ({ environmentId: envId, ok: true }))
+        .catch((e: unknown) => {
+          toast(extractMessage(e));
+          return { environmentId: envId, ok: false };
+        }),
+    );
+
+  const addEnvId = showAddEnvRow.value && newEnvId.value ? Number(newEnvId.value) : null;
+  if (addEnvId != null && newEnvUrl.value.trim()) {
+    requests.push(
+      setAppUrlMutation
+        .mutateAsync({
+          id: projectId,
+          environmentId: addEnvId,
+          data: { url: newEnvUrl.value.trim(), isActive: newEnvActive.value },
+        })
+        .then(() => ({ environmentId: addEnvId, ok: true }))
+        .catch((e: unknown) => {
+          toast(extractMessage(e));
+          return { environmentId: addEnvId, ok: false };
+        }),
+    );
   }
+
+  if (requests.length === 0) return;
+
+  const results = await Promise.all(requests);
+  const saved = new Set(results.filter((r) => r.ok).map((r) => r.environmentId));
+  // Drop the drafts that landed; keep a failed row's edit so the user can retry it.
+  const rest = { ...envOverrides.value };
+  for (const id of saved) delete rest[id];
+  envOverrides.value = rest;
+  if (addEnvId != null && saved.has(addEnvId)) showAddEnvRow.value = false;
+  reloadAppUrls();
 }
 
 function addEditActionRow() {
@@ -485,6 +534,7 @@ async function saveEdit() {
         isActiveLocal: editIsActiveLocal.value,
         isActiveStaging: editIsActiveStaging.value,
         isActiveProduction: editIsActiveProduction.value,
+        environmentSelectorRoleIds: editEnvSelectorRoleIds.value,
         predefinedActions: editActions.value.map((a, i) => ({
           ...(a.id != null ? { id: a.id } : {}),
           text: a.text,
@@ -494,6 +544,9 @@ async function saveEdit() {
         })),
       },
     });
+    // The dialog's single Save also persists every pending per-environment change;
+    // individual env failures toast on their own and never block the rest.
+    await saveEnvironmentChangesIfPending();
     busy.value = false;
     editOpen.value = false;
     toast(t('projects.saved'));
@@ -796,15 +849,6 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
                     variant="ghost"
                     size="icon"
                     class="h-8 w-8"
-                    :aria-label="t('common.save')"
-                    @click="saveEnvironmentUrl(env.appEnvironmentId!)"
-                  >
-                    <Check class="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-8 w-8"
                     :aria-label="t('common.delete')"
                     @click="clearEnvironmentUrl(env.appEnvironmentId!)"
                   >
@@ -832,16 +876,6 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
                   <Switch v-model="newEnvActive" />
                 </td>
                 <td class="py-1 whitespace-nowrap align-middle">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="h-8 w-8"
-                    :aria-label="t('common.save')"
-                    :disabled="!newEnvId || !newEnvUrl.trim()"
-                    @click="confirmAddEnvironment"
-                  >
-                    <Check class="h-4 w-4" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -878,6 +912,25 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             type="checkbox"
             class="h-4 w-4 cursor-pointer"
           />
+        </div>
+
+        <!-- Environment switcher visibility: which roles can switch environments
+             (Local/Staging/Production) from the widget toolbar. -->
+        <div class="flex flex-col gap-2">
+          <span class="text-sm font-medium">{{ t('projects.envSelectorRoles') }}</span>
+          <p class="text-xs text-muted-foreground">{{ t('projects.envSelectorRolesHint') }}</p>
+          <div class="flex flex-col gap-1.5 rounded-md border p-3">
+            <label v-for="role in roles" :key="role.id" class="flex items-center gap-2 text-sm">
+              <Checkbox
+                :model-value="editEnvSelectorRoleIds.includes(role.id!)"
+                @update:model-value="(v: boolean | 'indeterminate') => toggleEnvSelectorRole(role.id!, v === true)"
+              />
+              {{ role.name }}
+            </label>
+            <p v-if="editEnvSelectorRoleIds.length === 0" class="text-xs text-muted-foreground italic">
+              {{ t('projects.envSelectorRolesPlaceholder') }}
+            </p>
+          </div>
         </div>
 
         <!-- Predefined actions section -->

@@ -6,6 +6,9 @@
 //   • commentsCount + createdByName shown as row info
 //   • View predefined prompts read-only when !canEdit
 //   • "Suggest prompt" dialog when !canEdit (usePostApiProjectsIdPredefinedActionSuggestions)
+//   • Other-environment rows have NO per-row save — the dialog's single Save persists
+//     every dirty row (plus the pending add-row) together after the project PATCH
+//   • "Environment switcher visibility" role multiselect (environmentSelectorRoleIds)
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,7 +21,8 @@ import {
   usePostApiProjectsIdPredefinedActionSuggestions,
   useGetApiAdminEnvironments,
   useGetApiAdminProjectsIdAppUrls,
-  usePutApiAdminProjectsIdAppUrlsEnvironmentId,
+  useGetApiAdminRoles,
+  putApiAdminProjectsIdAppUrlsEnvironmentId,
   useDeleteApiAdminProjectsIdAppUrlsEnvironmentId,
   getGetApiAdminProjectsQueryKey,
   getGetApiAdminProjectsIdAppUrlsQueryKey,
@@ -29,11 +33,17 @@ import {
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, FolderOpen, Check, X } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, FolderOpen, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -227,14 +237,15 @@ export function ProjectsPage() {
   // readOnly = true when canEdit is false (view mode)
   const [editReadOnly, setEditReadOnly] = useState(false);
   const [editPageContextCaptureEnabled, setEditPageContextCaptureEnabled] = useState(false);
+  // Which roles see the widget's environment switcher (empty = default: everyone except Client).
+  const [editEnvSelectorRoleIds, setEditEnvSelectorRoleIds] = useState<number[]>([]);
+  // Covers the WHOLE save sequence (project PATCH + environment batch), not just the PATCH.
+  const [saving, setSaving] = useState(false);
 
+  // Success flow is per-call (saveEdit chains the environment batch after the PATCH),
+  // so only the shared error toast lives at the mutation level.
   const patchMut = usePatchApiAdminProjectsId({
     mutation: {
-      onSuccess: () => {
-        setEditOpen(false);
-        toast(t('projects.saved'));
-        reload();
-      },
       onError,
     },
   });
@@ -248,6 +259,15 @@ export function ProjectsPage() {
   const { data: appUrls = [] } = useGetApiAdminProjectsIdAppUrls(editProject?.id ?? 0, {
     query: { enabled: envSectionActive },
   });
+
+  // Every role this tenant can assign — options for the "environment switcher
+  // visibility" multiselect (same endpoint the Roles admin page uses).
+  const { data: roles = [] } = useGetApiAdminRoles({
+    query: { enabled: envSectionActive },
+  });
+  const selectedRoleNames = roles
+    .filter((r) => r.id != null && editEnvSelectorRoleIds.includes(r.id))
+    .map((r) => r.name ?? '');
 
   // Only rows that ALREADY have a saved URL for this project — not every environment
   // the tenant has ever defined. "default" is covered by the ordinary "App URL" field
@@ -264,17 +284,22 @@ export function ProjectsPage() {
 
   type EnvDraft = { url: string; isActive: boolean };
 
-  // Draft state per EXISTING row (url + isActive together) — overlays the loaded
-  // value with whatever the user is actively editing; each row saves immediately on
-  // its own check button, independently of the dialog's single Save action.
-  const [envOverrides, setEnvOverrides] = useState<Record<number, EnvDraft>>({});
-  const envDrafts: Record<number, EnvDraft> = {};
+  // Originally-loaded per-row values — the baseline the dialog's Save compares each
+  // draft against to decide which rows are dirty.
+  const envLoaded: Record<number, EnvDraft> = {};
   for (const u of configuredEnvironments) {
     if (u.appEnvironmentId != null) {
-      envDrafts[u.appEnvironmentId] =
-        envOverrides[u.appEnvironmentId] ?? { url: u.url ?? '', isActive: u.isActive ?? true };
+      envLoaded[u.appEnvironmentId] = { url: u.url ?? '', isActive: u.isActive ?? true };
     }
   }
+
+  // Draft state per EXISTING row (url + isActive together) — overlays the loaded
+  // value with whatever the user is actively editing. Rows have no save button of
+  // their own: the dialog's single Save persists every dirty row (see
+  // saveEnvironmentChangesIfPending) together with the project's own fields.
+  // Delete stays immediate.
+  const [envOverrides, setEnvOverrides] = useState<Record<number, EnvDraft>>({});
+  const envDrafts: Record<number, EnvDraft> = { ...envLoaded, ...envOverrides };
 
   function updateEnvDraft(environmentId: number, patch: Partial<EnvDraft>) {
     const current =
@@ -296,33 +321,12 @@ export function ProjectsPage() {
     }
   };
 
-  const saveEnvMut = usePutApiAdminProjectsIdAppUrlsEnvironmentId({
-    mutation: {
-      onSuccess: () => {
-        reloadAppUrls();
-        toast(t('projects.saved'));
-      },
-      onError,
-    },
-  });
-
   const deleteEnvMut = useDeleteApiAdminProjectsIdAppUrlsEnvironmentId({
     mutation: {
       onSuccess: reloadAppUrls,
       onError,
     },
   });
-
-  function saveEnvironmentUrl(environmentId: number) {
-    const projectId = editProject?.id;
-    const draft = envDrafts[environmentId];
-    const url = (draft?.url ?? '').trim();
-    if (projectId == null || !url) return;
-    saveEnvMut.mutate(
-      { id: projectId, environmentId, data: { url, isActive: draft?.isActive ?? true } },
-      { onSuccess: () => clearEnvOverride(environmentId) },
-    );
-  }
 
   function clearEnvironmentUrl(environmentId: number) {
     const projectId = editProject?.id;
@@ -350,14 +354,77 @@ export function ProjectsPage() {
     setShowAddEnvRow(false);
   }
 
-  function confirmAddEnvironment() {
+  // Rows whose draft differs from what is loaded — the ones the dialog's Save must persist.
+  function dirtyEnvironmentIds(): number[] {
+    return Object.entries(envOverrides)
+      .filter(([id, draft]) => {
+        const base = envLoaded[Number(id)];
+        return !base || base.url !== draft.url || base.isActive !== draft.isActive;
+      })
+      .map(([id]) => Number(id));
+  }
+
+  // Persists every pending environment change — edited existing rows plus the "add
+  // environment" row, if one is filled in — called from saveEdit() after the project's
+  // own fields are patched, so the dialog's single Save button covers all of it. Rows
+  // with a blank URL are skipped, not errors. Failures are surfaced individually (each
+  // failure toasts on its own); the rest of the batch and the project's own field save
+  // still go through, and a failed row's edit is kept so the user can retry it.
+  async function saveEnvironmentChangesIfPending(onDone: () => void) {
     const projectId = editProject?.id;
-    const url = newEnvUrl.trim();
-    if (projectId == null || newEnvId == null || !url) return;
-    saveEnvMut.mutate(
-      { id: projectId, environmentId: newEnvId, data: { url, isActive: newEnvActive } },
-      { onSuccess: () => setShowAddEnvRow(false) },
-    );
+    if (projectId == null) {
+      onDone();
+      return;
+    }
+
+    const requests: Promise<{ environmentId: number; ok: boolean }>[] = dirtyEnvironmentIds()
+      .filter((envId) => (envDrafts[envId]?.url ?? '').trim() !== '')
+      .map((envId) => {
+        const draft = envDrafts[envId] ?? { url: '', isActive: true };
+        return putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
+          url: draft.url.trim(),
+          isActive: draft.isActive,
+        })
+          .then(() => ({ environmentId: envId, ok: true }))
+          .catch((e: unknown) => {
+            toast(extractMessage(e), 'error');
+            return { environmentId: envId, ok: false };
+          });
+      });
+
+    const pendingNewEnvId = newEnvId;
+    const newUrl = newEnvUrl.trim();
+    if (showAddEnvRow && pendingNewEnvId != null && newUrl) {
+      const addEnvId = pendingNewEnvId;
+      requests.push(
+        putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, addEnvId, {
+          url: newUrl,
+          isActive: newEnvActive,
+        })
+          .then(() => ({ environmentId: addEnvId, ok: true }))
+          .catch((e: unknown) => {
+            toast(extractMessage(e), 'error');
+            return { environmentId: addEnvId, ok: false };
+          }),
+      );
+    }
+
+    if (requests.length === 0) {
+      onDone();
+      return;
+    }
+
+    const results = await Promise.all(requests);
+    const saved = new Set(results.filter((r) => r.ok).map((r) => r.environmentId));
+    // Drop the drafts that landed; keep a failed row's edit so the user can retry it.
+    setEnvOverrides((o) => {
+      const rest = { ...o };
+      for (const id of saved) delete rest[id];
+      return rest;
+    });
+    if (saved.has(pendingNewEnvId ?? -1)) setShowAddEnvRow(false);
+    reloadAppUrls();
+    onDone();
   }
 
   function openEdit(project: ProjectResponse, readOnly = false) {
@@ -366,6 +433,7 @@ export function ProjectsPage() {
     setEditAppUrl(project.appUrl ?? '');
     setEditReadOnly(readOnly);
     setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
+    setEditEnvSelectorRoleIds(project.environmentSelectorRoleIds ?? []);
     // Discard any unsaved per-environment draft from a prior project.
     setEnvOverrides({});
     setShowAddEnvRow(false);
@@ -382,6 +450,7 @@ export function ProjectsPage() {
 
   function saveEdit() {
     if (!editProject || !editName.trim()) return;
+    setSaving(true);
     const predefinedActions: PredefinedActionInput[] = editActions.map((row, idx) => ({
       id: row.id ?? null,
       text: row.text,
@@ -389,20 +458,37 @@ export function ProjectsPage() {
       sortOrder: idx,
       isActive: true,
     }));
-    patchMut.mutate({
-      id: editProject.id!,
-      data: {
-        name: editName.trim(),
-        appUrl: editAppUrl.trim(),
-        predefinedActions: predefinedActions,
-        pageContextCaptureEnabled: editPageContextCaptureEnabled,
-        // Not editable from this dialog — passed through unchanged; only the
-        // row-level bulk enable/disable action ever changes them.
-        isActiveLocal: !!editProject.isActiveLocal,
-        isActiveStaging: !!editProject.isActiveStaging,
-        isActiveProduction: !!editProject.isActiveProduction,
+    patchMut.mutate(
+      {
+        id: editProject.id!,
+        data: {
+          name: editName.trim(),
+          appUrl: editAppUrl.trim(),
+          predefinedActions: predefinedActions,
+          pageContextCaptureEnabled: editPageContextCaptureEnabled,
+          // Always sent as the full array (empty = the default visibility).
+          environmentSelectorRoleIds: editEnvSelectorRoleIds,
+          // Not editable from this dialog — passed through unchanged; only the
+          // row-level bulk enable/disable action ever changes them.
+          isActiveLocal: !!editProject.isActiveLocal,
+          isActiveStaging: !!editProject.isActiveStaging,
+          isActiveProduction: !!editProject.isActiveProduction,
+        },
       },
-    });
+      {
+        // The single Save covers the environment drafts too — persist them right
+        // after the project's own fields land, then close/reload/toast once.
+        onSuccess: () => {
+          saveEnvironmentChangesIfPending(() => {
+            setSaving(false);
+            setEditOpen(false);
+            reload();
+            toast(t('projects.saved'));
+          });
+        },
+        onError: () => setSaving(false),
+      },
+    );
   }
 
   // ---- Enable / disable ----
@@ -888,17 +974,6 @@ export function ProjectsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
-                                type="button"
-                                aria-label={t('common.save')}
-                                disabled={saveEnvMut.isPending}
-                                onClick={() => saveEnvironmentUrl(envId)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
                                 className="h-7 w-7 text-destructive"
                                 type="button"
                                 aria-label={t('common.delete')}
@@ -948,28 +1023,17 @@ export function ProjectsPage() {
                             />
                           </td>
                           <td className="py-1 whitespace-nowrap text-end">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              type="button"
-                              aria-label={t('common.save')}
-                              disabled={newEnvId == null || !newEnvUrl.trim() || saveEnvMut.isPending}
-                              onClick={confirmAddEnvironment}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              type="button"
-                              aria-label={t('common.cancel')}
-                              onClick={cancelAddEnvironment}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </td>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                type="button"
+                                aria-label={t('common.cancel')}
+                                onClick={cancelAddEnvironment}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </td>
                         </tr>
                       )}
                     </tbody>
@@ -1005,6 +1069,51 @@ export function ProjectsPage() {
                   onChange={(e) => setEditPageContextCaptureEnabled(e.target.checked)}
                   className="h-4 w-4 cursor-pointer"
                 />
+              </div>
+            )}
+
+            {/* Environment switcher visibility — which roles can switch environments
+                in the widget's toolbar. Empty selection = the default (everyone
+                except Client). */}
+            {!editReadOnly && (
+              <div className="flex flex-col gap-2">
+                <h4 className="text-sm font-semibold">{t('projects.envSelectorRoles')}</h4>
+                <p className="text-xs text-muted-foreground">{t('projects.envSelectorRolesHint')}</p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate">
+                        {selectedRoleNames.length > 0
+                          ? selectedRoleNames.join(', ')
+                          : t('projects.envSelectorRolesPlaceholder')}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-64 min-w-48 overflow-y-auto">
+                    {roles.map((role) => (
+                      <DropdownMenuCheckboxItem
+                        key={role.id}
+                        checked={role.id != null && editEnvSelectorRoleIds.includes(role.id)}
+                        onCheckedChange={(checked) => {
+                          if (role.id == null) return;
+                          setEditEnvSelectorRoleIds((ids) =>
+                            checked ? [...ids, role.id!] : ids.filter((id) => id !== role.id),
+                          );
+                        }}
+                        // Keep the menu open so several roles can be toggled in one go.
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {role.name ?? ''}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
 
@@ -1080,7 +1189,7 @@ export function ProjectsPage() {
             </Button>
             {!editReadOnly && (
               <Button
-                disabled={!editName.trim() || patchMut.isPending}
+                disabled={!editName.trim() || patchMut.isPending || saving}
                 onClick={saveEdit}
               >
                 {t('common.save')}
