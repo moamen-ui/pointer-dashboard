@@ -303,7 +303,16 @@
     "userRules": "قواعد المطورين",
     "activeTools": "أدوات الذكاء الاصطناعي النشطة",
     "noToolsYet": "لم يتم تسجيل أي أدوات ذكاء اصطناعي بعد. شغّل ./.pointer/pointer.sh للتسجيل.",
-    "userSummaries": "قواعد المطورين الشخصية"
+    "userSummaries": "قواعد المطورين الشخصية",
+    "tenantSummaries": "تبني مساحات العمل",
+    "workspace": "مساحة العمل",
+    "inspectDetails": "فحص تفاصيل القواعد (المشرف العام)",
+    "hideDetails": "إخفاء تفاصيل القواعد",
+    "detailedRulesTitle": "فحص القواعد التفصيلية عبر مساحات العمل",
+    "author": "الكاتب",
+    "ruleScope": "النطاق",
+    "instruction": "نص التوجيه",
+    "emptyDetailedRules": "لا توجد قواعد عبر مساحات العمل."
   },
   "statuses": {
     "title": "الحالات",

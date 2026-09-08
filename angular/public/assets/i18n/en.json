@@ -303,7 +303,16 @@
     "userRules": "Developer Rules",
     "activeTools": "Active AI Tools",
     "noToolsYet": "No AI tools registered yet. Run ./.pointer/pointer.sh to register.",
-    "userSummaries": "Developer Rule Adoption"
+    "userSummaries": "Developer Rule Adoption",
+    "tenantSummaries": "Workspace Adoption",
+    "workspace": "Workspace",
+    "inspectDetails": "Inspect Detailed Rules (Super Admin)",
+    "hideDetails": "Hide Detailed Rules",
+    "detailedRulesTitle": "Cross-Workspace Detailed Rules Inspection",
+    "author": "Author",
+    "ruleScope": "Scope",
+    "instruction": "Instruction Prompt",
+    "emptyDetailedRules": "No rules found across workspaces."
   },
   "statuses": {
     "title": "Statuses",

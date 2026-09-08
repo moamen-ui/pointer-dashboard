@@ -21,7 +21,8 @@ import { StatusCatalogService } from '../../core/status/status-catalog.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
-import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse } from '@moamen-ui/pointer-angular';
+import { AuthService } from '../../core/auth/auth.service';
+import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse, AiRuleResponse, GetApiAdminAiRulesInsightsParams } from '@moamen-ui/pointer-angular';
 
 @Component({
   selector: 'app-overview',
@@ -182,8 +183,29 @@ import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse } fro
               </div>
             </div>
 
-            <!-- Active Tools and Developer Adoption -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Active Tools and Developer Adoption (and Workspaces for Super Admin) -->
+            <div class="grid grid-cols-1 gap-4" [class.md:grid-cols-3]="auth.isSuperAdmin() && (insights.tenantSummaries?.length ?? 0) > 0" [class.md:grid-cols-2]="!auth.isSuperAdmin() || (insights.tenantSummaries?.length ?? 0) === 0">
+              <!-- Workspace adoption for Super Admin -->
+              @if (auth.isSuperAdmin() && (insights.tenantSummaries?.length ?? 0) > 0) {
+                <div class="rounded-lg border border-app-border p-4">
+                  <div class="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <mat-icon class="text-muted text-base">domain</mat-icon>
+                    {{ 'aiRules.tenantSummaries' | transloco }}
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    @for (tenant of insights.tenantSummaries ?? []; track tenant.tenantId ?? $index) {
+                      <div class="flex items-center justify-between text-xs py-1 border-b border-app-border last:border-0">
+                        <span class="font-medium text-ink">{{ tenant.tenantName }}</span>
+                        <div class="flex items-center gap-2 text-muted">
+                          <span>{{ tenant.projectsCount ?? 0 }} {{ 'overview.projects' | transloco }}</span>
+                          <span class="font-semibold text-stat-slate">{{ tenant.rulesCount ?? 0 }} {{ 'aiRules.section' | transloco }}</span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
               <!-- Registered AI Tools -->
               <div class="rounded-lg border border-app-border p-4">
                 <div class="font-semibold text-sm mb-3 flex items-center gap-2">
@@ -226,6 +248,51 @@ import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse } fro
                 }
               </div>
             </div>
+
+            <!-- Super Admin Detailed Rules Inspection -->
+            @if (auth.isSuperAdmin()) {
+              <div class="mt-5 pt-4 border-t border-app-border flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs text-muted">
+                  <mat-icon class="text-base text-primary">policy</mat-icon>
+                  <span class="font-medium">{{ 'aiRules.detailedRulesTitle' | transloco }}</span>
+                </div>
+                <button mat-stroked-button (click)="showDetailedRules.set(!showDetailedRules())">
+                  <mat-icon>{{ showDetailedRules() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                  {{ (showDetailedRules() ? 'aiRules.hideDetails' : 'aiRules.inspectDetails') | transloco }}
+                </button>
+              </div>
+
+              @if (showDetailedRules()) {
+                <div class="mt-4 overflow-x-auto">
+                  <app-data-table
+                    [rows]="detailedRulesRows()"
+                    [columns]="detailedRulesColumns()"
+                    [search]="true"
+                    [searchPlaceholder]="'common.search' | transloco"
+                    [emptyIcon]="'psychology'"
+                    [emptyMessage]="'aiRules.emptyDetailedRules' | transloco"
+                  >
+                    <ng-template appDataTableCell="scope" let-row>
+                      @if (row.isPersonal) {
+                        <app-badge severity="neutral">{{ 'aiRules.personalBadge' | transloco }}</app-badge>
+                      } @else if (row.isProjectAdminRule) {
+                        <app-badge severity="warning">{{ 'aiRules.projectBadge' | transloco }}</app-badge>
+                      } @else {
+                        <app-badge severity="primary">{{ 'aiRules.inheritedBadge' | transloco }}</app-badge>
+                      }
+                    </ng-template>
+                    <ng-template appDataTableCell="prompt" let-row>
+                      <span class="line-clamp-2 text-xs font-mono text-muted" [title]="row.prompt">{{ row.prompt }}</span>
+                    </ng-template>
+                    <ng-template appDataTableCell="status" let-row>
+                      <app-badge [severity]="row.isActive ? 'success' : 'danger'">
+                        {{ (row.isActive ? 'common.active' : 'common.disabled') | transloco }}
+                      </app-badge>
+                    </ng-template>
+                  </app-data-table>
+                </div>
+              }
+            }
           </mat-card-content>
         </mat-card>
       }
@@ -279,11 +346,15 @@ export class OverviewComponent {
   private usersService = inject(UsersService);
   private snack = inject(MatSnackBar);
   statusCatalog = inject(StatusCatalogService);
+  auth = inject(AuthService);
 
   statsResource = getApiAdminStatsResource();
   pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
   rolesResource = getApiAdminRolesResource();
-  aiInsightsResource = getApiAdminAiRulesInsightsResource();
+  aiInsightsParams = computed<GetApiAdminAiRulesInsightsParams>(() => ({
+    includeDetails: this.auth.isSuperAdmin(),
+  }));
+  aiInsightsResource = getApiAdminAiRulesInsightsResource(this.aiInsightsParams);
 
   stats = computed(() => this.statsResource.value());
   aiInsights = computed(() => this.aiInsightsResource.value() as unknown as AiInsightsResponse | undefined);
@@ -292,6 +363,9 @@ export class OverviewComponent {
   pendingUsers = computed(() => this.pendingResource.value() ?? []);
   pendingCount = computed(() => this.pendingResource.value()?.length ?? 0);
   roles = computed(() => this.rolesResource.value() ?? []);
+
+  showDetailedRules = signal(false);
+  detailedRulesRows = computed<AiRuleResponse[]>(() => this.aiInsights()?.detailedRules ?? []);
 
   busy = signal(false);
   loading = computed(() => this.statsResource.isLoading() || this.busy());
@@ -304,6 +378,18 @@ export class OverviewComponent {
   }
 
   private transloco = inject(TranslocoService);
+
+  detailedRulesColumns(): DataTableColumn<AiRuleResponse>[] {
+    return [
+      { key: 'tenantName', header: this.transloco.translate('aiRules.workspace'), sortable: true },
+      { key: 'projectName', header: this.transloco.translate('overview.projects'), sortable: true },
+      { key: 'scope', header: this.transloco.translate('aiRules.ruleScope'), sortable: false },
+      { key: 'userName', header: this.transloco.translate('aiRules.author'), sortable: true },
+      { key: 'title', header: this.transloco.translate('aiRules.titleLabel'), sortable: true },
+      { key: 'prompt', header: this.transloco.translate('aiRules.instruction'), sortable: false },
+      { key: 'status', header: this.transloco.translate('overview.status'), sortable: true },
+    ];
+  }
 
   /** Dynamic columns: key, name, comments, privateComments, status_1..N, status. A method (not a
    *  stored field) so headers stay live if the app language changes. */
