@@ -146,6 +146,10 @@ import { DemoPanelComponent } from './demo-panel.component';
               <mat-icon matListItemIcon>public</mat-icon>
               <span matListItemTitle>{{ 'nav.environments' | transloco }}</span>
             </a>
+            <a mat-list-item routerLink="/settings" routerLinkActive="active-link">
+              <mat-icon matListItemIcon>settings</mat-icon>
+              <span matListItemTitle>{{ 'nav.settings' | transloco }}</span>
+            </a>
           }
           @if (auth.isSuperAdmin()) {
             <a mat-list-item routerLink="/tenants" routerLinkActive="active-link">
@@ -155,10 +159,6 @@ import { DemoPanelComponent } from './demo-panel.component';
             <a mat-list-item routerLink="/plans" routerLinkActive="active-link">
               <mat-icon matListItemIcon>credit_card</mat-icon>
               <span matListItemTitle>{{ 'nav.plans' | transloco }}</span>
-            </a>
-            <a mat-list-item routerLink="/settings" routerLinkActive="active-link">
-              <mat-icon matListItemIcon>settings</mat-icon>
-              <span matListItemTitle>{{ 'nav.settings' | transloco }}</span>
             </a>
             <a mat-list-item routerLink="/branding" routerLinkActive="active-link">
               <mat-icon matListItemIcon>palette</mat-icon>

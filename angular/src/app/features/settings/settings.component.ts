@@ -71,9 +71,9 @@ type EditableRule = {
            (SettingsController is Policies.SuperAdmin) — hidden for a tenant admin, who only
            reaches this page for the tenant-scoped sections below. -->
       @if (auth.isSuperAdmin()) {
-      @if (settingsResource.error()) {
+      @if (settingsResource?.error()) {
         <p class="text-red-500">{{ 'settings.loadError' | transloco }}</p>
-      } @else if (settingsResource.isLoading()) {
+      } @else if (settingsResource?.isLoading()) {
         <p class="text-muted">{{ 'settings.loading' | transloco }}</p>
       } @else {
         <div class="flex max-w-2xl flex-col gap-6">
@@ -460,7 +460,7 @@ export class SettingsComponent {
   private fb = inject(FormBuilder);
   auth = inject(AuthService);
 
-  settingsResource = getApiAdminSettingsResource();
+  settingsResource = this.auth.isSuperAdmin() ? getApiAdminSettingsResource() : undefined;
   actionsResource = getApiAdminPredefinedActionsResource();
   suggestionsResource = getApiAdminPredefinedActionSuggestionsResource();
 
@@ -474,7 +474,7 @@ export class SettingsComponent {
   suggestionBusy = signal(false);
 
   // The HTTP interceptor unwraps the API envelope, so the runtime value is SettingsResponse.
-  settingsValue = computed(() => this.settingsResource.value() as unknown as SettingsResponse | undefined);
+  settingsValue = computed(() => this.settingsResource?.value() as unknown as SettingsResponse | undefined);
 
   // Tenant-wide actions: filter to those where projectId == null.
   rawActions = computed(() => (this.actionsResource.value() ?? []) as PredefinedActionResponse[]);
@@ -525,7 +525,7 @@ export class SettingsComponent {
     this.settingsService.putApiAdminSettings(body as any).subscribe({
       next: () => {
         this._form.set({});
-        this.settingsResource.reload();
+        this.settingsResource?.reload();
         this.snack.open(this.transloco.translate('settings.saved'), 'OK', { duration: 3000 });
       },
       error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),

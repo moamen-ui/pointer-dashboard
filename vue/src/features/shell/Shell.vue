@@ -46,6 +46,7 @@ const ADMIN_NAV = [
   { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/statuses', key: 'nav.statuses', icon: Tag },
+  { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
 const ALL_NAV = [
@@ -56,7 +57,6 @@ const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
   { to: '/plans', key: 'nav.plans', icon: CreditCard },
   { to: '/branding', key: 'nav.branding', icon: Palette },
-  { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
 const { t } = useI18n();

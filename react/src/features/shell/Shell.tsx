@@ -43,6 +43,7 @@ const ADMIN_NAV = [
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/statuses', key: 'nav.statuses', icon: Tags },
   { to: '/environments', key: 'nav.environments', icon: Globe },
+  { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
 // Projects is visible to all authenticated users (admin + non-admin)
@@ -53,7 +54,6 @@ const ALL_USER_NAV = [
 const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
   { to: '/plans', key: 'nav.plans', icon: CreditCard },
-  { to: '/settings', key: 'nav.settings', icon: Settings },
   { to: '/branding', key: 'nav.branding', icon: Paintbrush },
 ];
 
