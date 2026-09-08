@@ -326,7 +326,15 @@ const latin = asciiDigits(name.toLowerCase())
                           (change)="newEnvActive.set($event.checked)" />
                       </td>
                       <td class="py-1 align-middle whitespace-nowrap">
-                        <button mat-icon-button type="button" [attr.aria-label]="'common.cancel' | transloco"
+                        <button mat-icon-button type="button" color="primary"
+                          [disabled]="isAddingEnv() || !newEnvId() || !newEnvUrl().trim()"
+                          [attr.aria-label]="'common.add' | transloco"
+                          (click)="confirmAddEnvironment()">
+                          <mat-icon>check</mat-icon>
+                        </button>
+                        <button mat-icon-button type="button"
+                          [disabled]="isAddingEnv()"
+                          [attr.aria-label]="'common.cancel' | transloco"
                           (click)="cancelAddEnvironment()">
                           <mat-icon>close</mat-icon>
                         </button>
@@ -560,6 +568,7 @@ export class ProjectsComponent {
   newEnvId = signal<number | null>(null);
   newEnvUrl = signal('');
   newEnvActive = signal(true);
+  isAddingEnv = signal(false);
 
   startAddEnvironment(): void {
     this.newEnvId.set(null);
@@ -569,7 +578,37 @@ export class ProjectsComponent {
   }
 
   cancelAddEnvironment(): void {
+    if (this.isAddingEnv()) return;
     this.showAddEnvRow.set(false);
+    this.newEnvId.set(null);
+    this.newEnvUrl.set('');
+    this.newEnvActive.set(true);
+  }
+
+  confirmAddEnvironment(): void {
+    const projectId = this.editingProjectId();
+    const envId = this.newEnvId();
+    const url = this.newEnvUrl().trim();
+    if (!projectId || !envId || !url) return;
+
+    this.isAddingEnv.set(true);
+    this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
+      url,
+      isActive: this.newEnvActive(),
+    } as any).subscribe({
+      next: () => {
+        this.isAddingEnv.set(false);
+        this.showAddEnvRow.set(false);
+        this.newEnvId.set(null);
+        this.newEnvUrl.set('');
+        this.newEnvActive.set(true);
+        this.projectAppUrlsResource.reload();
+      },
+      error: (e: unknown) => {
+        this.isAddingEnv.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
   }
 
   // Rows whose draft differs from what is loaded — the ones the dialog's Save must persist.
