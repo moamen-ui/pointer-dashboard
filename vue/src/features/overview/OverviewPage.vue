@@ -9,11 +9,15 @@ import {
   useGetApiAdminRoles,
   usePostApiAdminUsersIdApprove,
   usePostApiAdminUsersIdReject,
+  useGetApiAdminAiRulesInsights,
   getGetApiAdminUsersQueryKey,
   getGetApiAdminStatsQueryKey,
   type ProjectStats,
   type UserResponse,
   type RoleResponse,
+  type AiInsightsResponse,
+  type AiRuleResponse,
+  type GetApiAdminAiRulesInsightsParams,
 } from '@moamen-ui/pointer-vue';
 import {
   Folder,
@@ -28,6 +32,13 @@ import {
   Lock,
   UserCheck,
   Ban,
+  Brain,
+  Bot,
+  Wrench,
+  Shield,
+  Building2,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-vue-next';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,14 +64,38 @@ import { formatRequestedAt } from '@/lib/formatRequestedAt';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
 import { useStatusCatalog } from '@/composables/useStatusCatalog';
+import { useAuth } from '@/composables/useAuth';
 
 const { t } = useI18n();
 const queryClient = useQueryClient();
+const { isSuperAdmin } = useAuth();
 
 // Generated TanStack query hook (GET → useQuery). The package's customInstance
 // already unwraps Result<T>, so data resolves to StatsResponse.
 const { data: stats, isFetching, refetch } = useGetApiAdminStats();
 const { items: statusItems, color: statusColor, displayLabel: statusLabel, displayLabelFor: statusLabelFor } = useStatusCatalog();
+
+// AI Insights & Rules
+const aiInsightsParams = computed<GetApiAdminAiRulesInsightsParams>(() => ({
+  includeDetails: isSuperAdmin.value,
+}));
+const { data: aiInsightsData, refetch: refetchAiInsights } = useGetApiAdminAiRulesInsights(aiInsightsParams);
+const aiInsights = computed<AiInsightsResponse | undefined>(
+  () => aiInsightsData.value as unknown as AiInsightsResponse | undefined,
+);
+
+const showDetailedRules = ref(false);
+const detailedRulesRows = computed<AiRuleResponse[]>(() => aiInsights.value?.detailedRules ?? []);
+
+const detailedRulesColumns = computed<ColumnDef<typeof dataTableFeatures, AiRuleResponse>[]>(() => [
+  { accessorKey: 'tenantName', header: t('aiRules.workspace'), sortingFn: 'alphanumeric' },
+  { accessorKey: 'projectName', header: t('overview.projects'), sortingFn: 'alphanumeric' },
+  { id: 'scope', header: t('aiRules.ruleScope') },
+  { accessorKey: 'userName', header: t('aiRules.author'), sortingFn: 'alphanumeric' },
+  { accessorKey: 'title', header: t('aiRules.titleLabel'), sortingFn: 'alphanumeric' },
+  { id: 'prompt', header: t('aiRules.instruction') },
+  { id: 'status', header: t('overview.status') },
+]);
 
 // Pending approvals — same admin-users endpoint as the Users page, filtered to pending.
 const pendingQuery = useGetApiAdminUsers({ status: 'pending' });
@@ -266,11 +301,154 @@ const cards = computed(() => [
       </div>
     </Card>
 
+    <!-- AI Coding Tools & Rules Insights -->
+    <Card v-if="aiInsights" class="p-6">
+      <div class="flex flex-col gap-1">
+        <h3 class="flex items-center gap-2 text-base font-semibold">
+          <Brain class="h-5 w-5 text-primary" />
+          {{ t('aiRules.insightsTitle') }}
+        </h3>
+        <p class="text-xs text-muted-foreground">{{ t('aiRules.insightsSubtitle') }}</p>
+      </div>
+
+      <!-- Rules Counts -->
+      <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="flex flex-col rounded-lg border border-border p-3">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.totalRules') }}</span>
+          <span class="mt-1 text-2xl font-bold">{{ aiInsights.totalRulesCount ?? 0 }}</span>
+        </div>
+        <div class="flex flex-col rounded-lg border border-border p-3">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.tenantRules') }}</span>
+          <span class="mt-1 text-2xl font-bold text-primary">{{ aiInsights.tenantRulesCount ?? 0 }}</span>
+        </div>
+        <div class="flex flex-col rounded-lg border border-border p-3">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.projectRules') }}</span>
+          <span class="mt-1 text-2xl font-bold">{{ aiInsights.projectRulesCount ?? 0 }}</span>
+        </div>
+        <div class="flex flex-col rounded-lg border border-border p-3">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.userRules') }}</span>
+          <span class="mt-1 text-2xl font-bold text-amber-500">{{ aiInsights.userPersonalRulesCount ?? 0 }}</span>
+        </div>
+      </div>
+
+      <!-- Active Tools and Developer Adoption (and Workspaces for Super Admin) -->
+      <div
+        :class="cn('mt-4 grid grid-cols-1 gap-4', isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2')"
+      >
+        <!-- Workspace adoption for Super Admin -->
+        <div
+          v-if="isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0"
+          class="rounded-lg border border-border p-4"
+        >
+          <div class="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Building2 class="h-4 w-4 text-muted-foreground" />
+            <span>{{ t('aiRules.tenantSummaries') }}</span>
+          </div>
+          <div class="flex flex-col gap-2">
+            <div
+              v-for="tenant in aiInsights.tenantSummaries ?? []"
+              :key="tenant.tenantId ?? tenant.tenantName ?? ''"
+              class="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+            >
+              <span class="font-medium">{{ tenant.tenantName }}</span>
+              <div class="flex items-center gap-2 text-muted-foreground">
+                <span>{{ tenant.projectsCount ?? 0 }} {{ t('overview.projects') }}</span>
+                <span class="font-semibold text-foreground">{{ tenant.rulesCount ?? 0 }} {{ t('aiRules.section') }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Registered AI Tools -->
+        <div class="rounded-lg border border-border p-4">
+          <div class="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Bot class="h-4 w-4 text-muted-foreground" />
+            <span>{{ t('aiRules.activeTools') }}</span>
+          </div>
+          <p v-if="(aiInsights.toolUsage ?? []).length === 0" class="text-xs text-muted-foreground">
+            {{ t('aiRules.noToolsYet') }}
+          </p>
+          <div v-else class="flex flex-col gap-2">
+            <div
+              v-for="tool in aiInsights.toolUsage ?? []"
+              :key="tool.toolName ?? ''"
+              class="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+            >
+              <span class="font-mono font-medium">{{ tool.toolName }}</span>
+              <div class="flex items-center gap-2 text-muted-foreground">
+                <span>{{ tool.projectCount ?? 0 }} {{ t('overview.projects') }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Developer adoption -->
+        <div class="rounded-lg border border-border p-4">
+          <div class="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Wrench class="h-4 w-4 text-muted-foreground" />
+            <span>{{ t('aiRules.userSummaries') }}</span>
+          </div>
+          <p v-if="(aiInsights.userRuleSummaries ?? []).length === 0" class="text-xs text-muted-foreground">
+            {{ t('aiRules.noPersonalRules') }}
+          </p>
+          <div v-else class="flex flex-col gap-2">
+            <div
+              v-for="user in aiInsights.userRuleSummaries ?? []"
+              :key="user.userId ?? user.userName ?? ''"
+              class="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+            >
+              <span class="font-medium">{{ user.userName }}</span>
+              <span class="font-semibold text-foreground">{{ user.rulesCount ?? 0 }} {{ t('aiRules.section') }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Super Admin Detailed Rules Inspection -->
+      <div v-if="isSuperAdmin" class="mt-5 border-t border-border pt-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <Shield class="h-4 w-4 text-primary" />
+            <span class="font-medium">{{ t('aiRules.detailedRulesTitle') }}</span>
+          </div>
+          <Button variant="outline" size="sm" @click="showDetailedRules = !showDetailedRules">
+            <component :is="showDetailedRules ? ChevronUp : ChevronDown" class="h-4 w-4" />
+            {{ t(showDetailedRules ? 'aiRules.hideDetails' : 'aiRules.inspectDetails') }}
+          </Button>
+        </div>
+
+        <div v-if="showDetailedRules" class="mt-4">
+          <DataTable
+            :data="detailedRulesRows"
+            :columns="detailedRulesColumns"
+            paginated
+            searchable
+            :empty-icon="Brain"
+            :empty-message="t('aiRules.emptyDetailedRules')"
+          >
+            <template #cell-scope="{ row }">
+              <Badge v-if="row.isPersonal" variant="neutral">{{ t('aiRules.personalBadge') }}</Badge>
+              <Badge v-else-if="row.isProjectAdminRule" variant="warning">{{ t('aiRules.projectBadge') }}</Badge>
+              <Badge v-else variant="default">{{ t('aiRules.inheritedBadge') }}</Badge>
+            </template>
+            <template #cell-prompt="{ row }">
+              <span class="line-clamp-2 text-xs font-mono text-muted-foreground" :title="row.prompt ?? undefined">{{ row.prompt }}</span>
+            </template>
+            <template #cell-status="{ row }">
+              <Badge :variant="row.isActive ? 'success' : 'destructive'">
+                {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
+              </Badge>
+            </template>
+          </DataTable>
+        </div>
+      </div>
+    </Card>
+
     <!-- Projects breakdown -->
     <div>
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-lg font-semibold">{{ t('overview.breakdown') }}</h2>
-        <Button variant="outline" size="sm" :disabled="isFetching" @click="() => refetch()">
+        <Button variant="outline" size="sm" :disabled="isFetching" @click="() => { void refetch(); void refetchAiInsights(); }">
           <RefreshCw :class="cn('h-4 w-4', isFetching && 'animate-spin')" />
           {{ t('common.refresh') }}
         </Button>

@@ -10,8 +10,11 @@ import {
   usePostApiAdminUsersIdReject,
   getGetApiAdminUsersQueryKey,
   getGetApiAdminStatsQueryKey,
+  useGetApiAdminAiRulesInsights,
   type ProjectStats,
   type UserResponse,
+  type AiInsightsResponse,
+  type AiRuleResponse,
 } from '@moamen-ui/pointer-react';
 import {
   Folder,
@@ -25,8 +28,14 @@ import {
   RefreshCw,
   Lock,
   UserCheck,
+  Brain,
+  Building2,
+  Bot,
+  Wrench,
+  ShieldCheck,
+  ChevronDown,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/EmptyState';
@@ -52,8 +61,9 @@ import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/format';
 import { useStatusCatalog } from '@/lib/status-catalog';
+import { useAuth } from '@/lib/auth';
 
-interface StatDef {
+type StatDef = {
   key: string; // i18n key
   label?: string; // catalog-driven status label; overrides t(key)
   value: number | undefined;
@@ -72,8 +82,21 @@ export function OverviewPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { isSuperAdmin } = useAuth();
   const { data: stats, isFetching, refetch } = useGetApiAdminStats();
+  const {
+    data: insightsData,
+    isFetching: isInsightsFetching,
+    refetch: refetchInsights,
+  } = useGetApiAdminAiRulesInsights({ includeDetails: isSuperAdmin });
+  const aiInsights = insightsData as AiInsightsResponse | undefined;
+  const [showDetailedRules, setShowDetailedRules] = useState(false);
   const catalog = useStatusCatalog();
+
+  const reloadAll = () => {
+    void refetch();
+    void refetchInsights();
+  };
 
   // Pending approvals — same data the /users Pending filter shows.
   const { data: pendingUsers = [] } = useGetApiAdminUsers({ status: 'pending' });
@@ -189,6 +212,63 @@ export function OverviewPage() {
     },
   ];
 
+  const detailedRulesColumns = useMemo<ColumnDef<AiRuleResponse>[]>(
+    () => [
+      {
+        accessorKey: 'tenantName',
+        header: t('aiRules.workspace'),
+      },
+      {
+        accessorKey: 'projectName',
+        header: t('overview.projects'),
+      },
+      {
+        id: 'scope',
+        header: t('aiRules.ruleScope'),
+        cell: ({ row }) => {
+          if (row.original.isPersonal) {
+            return <Badge variant="neutral">{t('aiRules.personalBadge')}</Badge>;
+          }
+          if (row.original.isProjectAdminRule) {
+            return <Badge variant="warning">{t('aiRules.projectBadge')}</Badge>;
+          }
+          return <Badge variant="default">{t('aiRules.inheritedBadge')}</Badge>;
+        },
+      },
+      {
+        accessorKey: 'userName',
+        header: t('aiRules.author'),
+      },
+      {
+        accessorKey: 'title',
+        header: t('aiRules.titleLabel'),
+      },
+      {
+        accessorKey: 'prompt',
+        header: t('aiRules.instruction'),
+        cell: ({ row }) => (
+          <span
+            className="line-clamp-2 max-w-md font-mono text-xs text-muted-foreground"
+            title={row.original.prompt ?? ''}
+          >
+            {row.original.prompt ?? '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => row.isActive,
+        header: t('overview.status'),
+        cell: ({ row }) => (
+          <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+            {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+          </Badge>
+        ),
+      },
+    ],
+    [t],
+  );
+
   const cards: StatDef[] = [
     { key: 'overview.projects', value: totals?.projects, icon: Folder, tone: 'slate' },
     { key: 'overview.users', value: totals?.users, icon: UsersIcon, tone: 'slate' },
@@ -284,12 +364,198 @@ export function OverviewPage() {
         </CardContent>
       </Card>
 
+      {/* AI Coding Tools & Rules Insights */}
+      {aiInsights && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              <h3 className="text-[1.05rem] font-semibold">{t('aiRules.insightsTitle')}</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('aiRules.insightsSubtitle')}</p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6 pt-0">
+            {/* Rules counts */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="flex flex-col rounded-lg border border-border p-3">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t('aiRules.totalRules')}
+                </span>
+                <span className="mt-1 text-2xl font-bold">
+                  {aiInsights.totalRulesCount ?? 0}
+                </span>
+              </div>
+              <div className="flex flex-col rounded-lg border border-border p-3">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t('aiRules.tenantRules')}
+                </span>
+                <span className="mt-1 text-2xl font-bold text-primary">
+                  {aiInsights.tenantRulesCount ?? 0}
+                </span>
+              </div>
+              <div className="flex flex-col rounded-lg border border-border p-3">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t('aiRules.projectRules')}
+                </span>
+                <span className="mt-1 text-2xl font-bold">
+                  {aiInsights.projectRulesCount ?? 0}
+                </span>
+              </div>
+              <div className="flex flex-col rounded-lg border border-border p-3">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {t('aiRules.userRules')}
+                </span>
+                <span className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-300">
+                  {aiInsights.userPersonalRulesCount ?? 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Active AI Tools and Developer Adoption (and Workspaces for Super Admin) */}
+            <div
+              className={cn(
+                'grid grid-cols-1 gap-4',
+                isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0
+                  ? 'md:grid-cols-3'
+                  : 'md:grid-cols-2',
+              )}
+            >
+              {/* Workspace adoption for Super Admin */}
+              {isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0 && (
+                <div className="rounded-lg border border-border p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    {t('aiRules.tenantSummaries')}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {(aiInsights.tenantSummaries ?? []).map((tenant, idx) => (
+                      <div
+                        key={tenant.tenantId ?? idx}
+                        className="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+                      >
+                        <span className="font-medium">{tenant.tenantName}</span>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span>
+                            {tenant.projectsCount ?? 0} {t('overview.projects')}
+                          </span>
+                          <span className="font-semibold text-slate-600 dark:text-slate-300">
+                            {tenant.rulesCount ?? 0} {t('aiRules.section')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Registered AI Tools */}
+              <div className="rounded-lg border border-border p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <Bot className="h-4 w-4 text-muted-foreground" />
+                  {t('aiRules.activeTools')}
+                </div>
+                {(aiInsights.toolUsage ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t('aiRules.noToolsYet')}</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(aiInsights.toolUsage ?? []).map((tool, idx) => (
+                      <div
+                        key={tool.toolName ?? idx}
+                        className="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+                      >
+                        <span className="font-mono font-medium">{tool.toolName}</span>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span>
+                            {tool.projectCount ?? 0} {t('overview.projects')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Developer adoption */}
+              <div className="rounded-lg border border-border p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                  {t('aiRules.userSummaries')}
+                </div>
+                {(aiInsights.userRuleSummaries ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t('aiRules.noPersonalRules')}</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(aiInsights.userRuleSummaries ?? []).map((user, idx) => (
+                      <div
+                        key={user.userId ?? idx}
+                        className="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+                      >
+                        <span className="font-medium">{user.userName}</span>
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          {user.rulesCount ?? 0} {t('aiRules.section')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Super Admin Detailed Rules Inspection */}
+            {isSuperAdmin && (
+              <div className="flex flex-col gap-3 border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{t('aiRules.detailedRulesTitle')}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDetailedRules((prev) => !prev)}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 transition-transform',
+                        showDetailedRules && 'rotate-180',
+                      )}
+                    />
+                    {t(showDetailedRules ? 'aiRules.hideDetails' : 'aiRules.inspectDetails')}
+                  </Button>
+                </div>
+
+                {showDetailedRules && (
+                  <div className="overflow-x-auto">
+                    <DataTable
+                      data={aiInsights.detailedRules ?? []}
+                      columns={detailedRulesColumns}
+                      searchable
+                      searchPlaceholder={t('common.search')}
+                      paginated
+                      emptyIcon={Brain}
+                      emptyMessage={t('aiRules.emptyDetailedRules')}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Projects breakdown */}
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('overview.breakdown')}</h2>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={reloadAll}
+            disabled={isFetching || isInsightsFetching}
+          >
+            <RefreshCw
+              className={cn('h-4 w-4', (isFetching || isInsightsFetching) && 'animate-spin')}
+            />
             {t('common.refresh')}
           </Button>
         </div>

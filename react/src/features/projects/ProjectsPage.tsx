@@ -9,7 +9,7 @@
 //   • Other-environment rows have NO per-row save — the dialog's single Save persists
 //     every dirty row (plus the pending add-row) together after the project PATCH
 //   • "Environment switcher visibility" role multiselect (environmentSelectorRoleIds)
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -27,13 +27,37 @@ import {
   getGetApiAdminProjectsQueryKey,
   getGetApiAdminProjectsIdAppUrlsQueryKey,
   getApiProjectsKeyExport,
+  useGetApiAiRulesProjectKey,
+  getGetApiAiRulesProjectKeyQueryKey,
+  usePostApiAdminAiRules,
+  usePutApiAdminAiRulesId,
+  useDeleteApiAdminAiRulesId,
+  getGetApiAiRulesMyQueryKey,
+  usePostApiAiRulesMy,
+  usePutApiAiRulesMyId,
+  useDeleteApiAiRulesMyId,
+  type AiRuleResponse,
   ProjectActivationState,
   type ProjectResponse,
   type PredefinedActionInput,
   type ExportFileDto,
 } from '@moamen-ui/pointer-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, Eye, MessageSquarePlus, FolderOpen, X, ChevronDown } from 'lucide-react';
+import {
+  Plus,
+  Ban,
+  CheckCircle2,
+  Download,
+  Upload,
+  Trash2,
+  Eye,
+  MessageSquarePlus,
+  FolderOpen,
+  X,
+  ChevronDown,
+  Check,
+  Brain,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,12 +90,12 @@ import { extractMessage } from '@/lib/error';
 import { useAuth } from '@/lib/auth';
 
 // Local row type for predefined actions in the form
-interface PredefinedActionRow {
+type PredefinedActionRow = {
   _localId: number;
   id?: number;
   text: string;
   prompt: string;
-}
+};
 
 let _nextLocalId = 1;
 function nextLocalId() {
@@ -156,6 +180,518 @@ function keyErrorFor(value: string, projects: ProjectResponse[]): KeyError | nul
   if (v.length > KEY_MAX_LENGTH) return 'keyMaxLength';
   if (projects.some((p) => (p.key ?? '').toLowerCase() === v)) return 'keyTaken';
   return null;
+}
+
+type EditableAiRule = {
+  id?: number;
+  title: string;
+  prompt: string;
+  isActive: boolean;
+  isInherited?: boolean;
+  isPersonal?: boolean;
+  dirty: boolean;
+};
+
+type ProjectAiRulesContentProps = {
+  project: ProjectResponse;
+  canEditProject?: boolean;
+};
+
+function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesContentProps) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { isAdmin } = useAuth();
+
+  const projectKey = project.key ?? '';
+  const { data: rulesData, isLoading } = useGetApiAiRulesProjectKey(projectKey, {
+    query: { enabled: !!projectKey },
+  });
+
+  const adminRules: AiRuleResponse[] = (rulesData?.adminRules as AiRuleResponse[]) ?? [];
+  const myRules: AiRuleResponse[] = (rulesData?.myRules as AiRuleResponse[]) ?? [];
+
+  const [localAdminRules, setLocalAdminRules] = useState<Record<number, EditableAiRule>>({});
+  const [localMyRules, setLocalMyRules] = useState<Record<number, EditableAiRule>>({});
+
+  const [newProjectRuleTitle, setNewProjectRuleTitle] = useState('');
+  const [newProjectRulePrompt, setNewProjectRulePrompt] = useState('');
+
+  const [newPersonalRuleTitle, setNewPersonalRuleTitle] = useState('');
+  const [newPersonalRulePrompt, setNewPersonalRulePrompt] = useState('');
+
+  const reloadRules = () => {
+    void qc.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey) });
+    void qc.invalidateQueries({ queryKey: getGetApiAiRulesMyQueryKey() });
+  };
+
+  useEffect(() => {
+    setLocalAdminRules((prev) => {
+      let added = false;
+      const next = { ...prev };
+      for (const r of adminRules) {
+        if (r.id != null && !(r.id in next)) {
+          next[r.id] = {
+            id: r.id,
+            title: r.title ?? '',
+            prompt: r.prompt ?? '',
+            isActive: r.isActive ?? true,
+            isInherited: r.isTenantWide ?? false,
+            dirty: false,
+          };
+          added = true;
+        }
+      }
+      return added ? next : prev;
+    });
+  }, [adminRules]);
+
+  useEffect(() => {
+    setLocalMyRules((prev) => {
+      let added = false;
+      const next = { ...prev };
+      for (const r of myRules) {
+        if (r.id != null && !(r.id in next)) {
+          next[r.id] = {
+            id: r.id,
+            title: r.title ?? '',
+            prompt: r.prompt ?? '',
+            isActive: r.isActive ?? true,
+            isPersonal: true,
+            dirty: false,
+          };
+          added = true;
+        }
+      }
+      return added ? next : prev;
+    });
+  }, [myRules]);
+
+  function updateAdminRule(id: number, field: 'title' | 'prompt' | 'isActive', value: any) {
+    setLocalAdminRules((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value, dirty: true },
+    }));
+  }
+
+  function updateMyRule(id: number, field: 'title' | 'prompt' | 'isActive', value: any) {
+    setLocalMyRules((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value, dirty: true },
+    }));
+  }
+
+  // Admin rule mutations
+  const putAdminRuleMut = usePutApiAdminAiRulesId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalAdminRules((prev) => ({
+          ...prev,
+          [vars.id]: { ...prev[vars.id], dirty: false },
+        }));
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const deleteAdminRuleMut = useDeleteApiAdminAiRulesId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalAdminRules((prev) => {
+          const next = { ...prev };
+          delete next[vars.id];
+          return next;
+        });
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const postAdminRuleMut = usePostApiAdminAiRules({
+    mutation: {
+      onSuccess: () => {
+        setNewProjectRuleTitle('');
+        setNewProjectRulePrompt('');
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  // Personal rule mutations
+  const putMyRuleMut = usePutApiAiRulesMyId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalMyRules((prev) => ({
+          ...prev,
+          [vars.id]: { ...prev[vars.id], dirty: false },
+        }));
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const deleteMyRuleMut = useDeleteApiAiRulesMyId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalMyRules((prev) => {
+          const next = { ...prev };
+          delete next[vars.id];
+          return next;
+        });
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const postMyRuleMut = usePostApiAiRulesMy({
+    mutation: {
+      onSuccess: () => {
+        setNewPersonalRuleTitle('');
+        setNewPersonalRulePrompt('');
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  function saveAdminRule(ruleId: number) {
+    const edit = localAdminRules[ruleId];
+    if (!edit) return;
+    putAdminRuleMut.mutate({
+      id: ruleId,
+      data: {
+        title: edit.title.trim(),
+        prompt: edit.prompt.trim(),
+        isActive: edit.isActive,
+      },
+    });
+  }
+
+  function handleCreateAdminRule() {
+    if (!project.id || !newProjectRuleTitle.trim() || !newProjectRulePrompt.trim()) return;
+    postAdminRuleMut.mutate({
+      data: {
+        projectId: project.id,
+        title: newProjectRuleTitle.trim(),
+        prompt: newProjectRulePrompt.trim(),
+        sortOrder: adminRules.length,
+      },
+    });
+  }
+
+  function savePersonalRule(ruleId: number) {
+    const edit = localMyRules[ruleId];
+    if (!edit) return;
+    putMyRuleMut.mutate({
+      id: ruleId,
+      data: {
+        title: edit.title.trim(),
+        prompt: edit.prompt.trim(),
+        isActive: edit.isActive,
+      },
+    });
+  }
+
+  function handleCreatePersonalRule() {
+    if (!project.id || !newPersonalRuleTitle.trim() || !newPersonalRulePrompt.trim()) return;
+    postMyRuleMut.mutate({
+      data: {
+        projectId: project.id,
+        title: newPersonalRuleTitle.trim(),
+        prompt: newPersonalRulePrompt.trim(),
+        sortOrder: myRules.length,
+      },
+    });
+  }
+
+  const canManageAdminRules = canEditProject || isAdmin;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <p className="text-xs text-muted-foreground">{t('aiRules.projectHelp')}</p>
+
+      {isLoading && adminRules.length === 0 && myRules.length === 0 && (
+        <p className="text-xs text-muted-foreground">{t('projects.loading', { defaultValue: 'Loading…' })}</p>
+      )}
+
+      {/* Section 1: Workspace & Project Admin Rules */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <div className="text-sm font-semibold">{t('aiRules.adminRulesTitle')}</div>
+          <div className="text-xs text-muted-foreground">{t('aiRules.adminRulesSubtitle')}</div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {adminRules.map((rule) => {
+            const isInherited = !!rule.isTenantWide;
+            const edit = localAdminRules[rule.id!] ?? {
+              id: rule.id,
+              title: rule.title ?? '',
+              prompt: rule.prompt ?? '',
+              isActive: rule.isActive ?? true,
+              isInherited,
+              dirty: false,
+            };
+            const isSaving =
+              putAdminRuleMut.isPending &&
+              (putAdminRuleMut.variables as { id?: number } | undefined)?.id === rule.id;
+
+            return (
+              <div
+                key={rule.id}
+                className="flex flex-col gap-2 rounded-md border border-border p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-1 items-center gap-2">
+                    <Badge variant={isInherited ? 'default' : 'warning'}>
+                      {t(isInherited ? 'aiRules.inheritedBadge' : 'aiRules.projectBadge')}
+                    </Badge>
+                    {!isInherited && canManageAdminRules ? (
+                      <Input
+                        value={edit.title}
+                        onChange={(e) => updateAdminRule(rule.id!, 'title', e.target.value)}
+                        className="h-8 flex-1"
+                      />
+                    ) : (
+                      <span className="text-sm font-medium">{rule.title}</span>
+                    )}
+                  </div>
+                  {!isInherited && canManageAdminRules ? (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={edit.isActive}
+                          onChange={(e) => updateAdminRule(rule.id!, 'isActive', e.target.checked)}
+                          className="h-4 w-4 cursor-pointer"
+                        />
+                        {t(edit.isActive ? 'common.active' : 'common.disabled')}
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        type="button"
+                        disabled={deleteAdminRuleMut.isPending}
+                        onClick={() => deleteAdminRuleMut.mutate({ id: rule.id! })}
+                        aria-label={t('common.delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Badge variant={rule.isActive ? 'success' : 'destructive'}>
+                      {t(rule.isActive ? 'common.active' : 'common.disabled')}
+                    </Badge>
+                  )}
+                </div>
+
+                {!isInherited && canManageAdminRules ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+                      <textarea
+                        value={edit.prompt}
+                        onChange={(e) => updateAdminRule(rule.id!, 'prompt', e.target.value)}
+                        rows={2}
+                        className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      />
+                    </div>
+                    {edit.dirty && (
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => saveAdminRule(rule.id!)}
+                        >
+                          {t('common.save')}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded bg-muted/50 p-2 font-mono text-xs text-muted-foreground whitespace-pre-wrap">
+                    {rule.prompt}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {adminRules.length === 0 && !isLoading && (
+            <p className="text-xs text-muted-foreground">{t('aiRules.empty')}</p>
+          )}
+
+          {/* Add Project Admin Rule Form */}
+          {canManageAdminRules && (
+            <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+              <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addRule')}</div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+                <Input
+                  value={newProjectRuleTitle}
+                  onChange={(e) => setNewProjectRuleTitle(e.target.value)}
+                  placeholder={t('aiRules.titlePlaceholder')}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+                <textarea
+                  value={newProjectRulePrompt}
+                  onChange={(e) => setNewProjectRulePrompt(e.target.value)}
+                  rows={2}
+                  placeholder={t('aiRules.promptPlaceholder')}
+                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!newProjectRuleTitle.trim() || !newProjectRulePrompt.trim() || postAdminRuleMut.isPending}
+                  onClick={handleCreateAdminRule}
+                  type="button"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('aiRules.addRule')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Section 2: My Personal Rules */}
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
+        <div className="flex flex-col gap-0.5">
+          <div className="text-sm font-semibold">{t('aiRules.myRulesTitle')}</div>
+          <div className="text-xs text-muted-foreground">{t('aiRules.myRulesSubtitle')}</div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {myRules.map((rule) => {
+            const edit = localMyRules[rule.id!] ?? {
+              id: rule.id,
+              title: rule.title ?? '',
+              prompt: rule.prompt ?? '',
+              isActive: rule.isActive ?? true,
+              isPersonal: true,
+              dirty: false,
+            };
+            const isSaving =
+              putMyRuleMut.isPending &&
+              (putMyRuleMut.variables as { id?: number } | undefined)?.id === rule.id;
+
+            return (
+              <div
+                key={rule.id}
+                className="flex flex-col gap-2 rounded-md border border-border p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-1 items-center gap-2">
+                    <Badge variant="neutral">{t('aiRules.personalBadge')}</Badge>
+                    <Input
+                      value={edit.title}
+                      onChange={(e) => updateMyRule(rule.id!, 'title', e.target.value)}
+                      className="h-8 flex-1"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={edit.isActive}
+                        onChange={(e) => updateMyRule(rule.id!, 'isActive', e.target.checked)}
+                        className="h-4 w-4 cursor-pointer"
+                      />
+                      {t(edit.isActive ? 'common.active' : 'common.disabled')}
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      type="button"
+                      disabled={deleteMyRuleMut.isPending}
+                      onClick={() => deleteMyRuleMut.mutate({ id: rule.id! })}
+                      aria-label={t('common.delete')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+                  <textarea
+                    value={edit.prompt}
+                    onChange={(e) => updateMyRule(rule.id!, 'prompt', e.target.value)}
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                {edit.dirty && (
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      disabled={isSaving}
+                      onClick={() => savePersonalRule(rule.id!)}
+                    >
+                      {t('common.save')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {myRules.length === 0 && !isLoading && (
+            <p className="text-xs text-muted-foreground">{t('aiRules.noPersonalRules')}</p>
+          )}
+
+          {/* Add Personal Rule Form */}
+          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+            <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addPersonalRule')}</div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+              <Input
+                value={newPersonalRuleTitle}
+                onChange={(e) => setNewPersonalRuleTitle(e.target.value)}
+                placeholder={t('aiRules.titlePlaceholder')}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+              <textarea
+                value={newPersonalRulePrompt}
+                onChange={(e) => setNewPersonalRulePrompt(e.target.value)}
+                rows={2}
+                placeholder={t('aiRules.promptPlaceholder')}
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!newPersonalRuleTitle.trim() || !newPersonalRulePrompt.trim() || postMyRuleMut.isPending}
+                onClick={handleCreatePersonalRule}
+                type="button"
+              >
+                <Plus className="h-4 w-4" />
+                {t('aiRules.addPersonalRule')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function ProjectsPage() {
@@ -342,6 +878,12 @@ export function ProjectsPage() {
   const [newEnvId, setNewEnvId] = useState<number | null>(null);
   const [newEnvUrl, setNewEnvUrl] = useState('');
   const [newEnvActive, setNewEnvActive] = useState(true);
+  const [isAddingEnv, setIsAddingEnv] = useState(false);
+
+  // AI Rules state
+  const [aiRulesOpen, setAiRulesOpen] = useState(false);
+  const [selectedAiProject, setSelectedAiProject] = useState<ProjectResponse | null>(null);
+  const [showEditAiRules, setShowEditAiRules] = useState(false);
 
   function startAddEnvironment() {
     setNewEnvId(null);
@@ -351,7 +893,35 @@ export function ProjectsPage() {
   }
 
   function cancelAddEnvironment() {
+    if (isAddingEnv) return;
     setShowAddEnvRow(false);
+    setNewEnvId(null);
+    setNewEnvUrl('');
+    setNewEnvActive(true);
+  }
+
+  async function confirmAddEnvironment() {
+    const projectId = editProject?.id;
+    const envId = newEnvId;
+    const url = newEnvUrl.trim();
+    if (!projectId || envId == null || !url) return;
+
+    setIsAddingEnv(true);
+    try {
+      await putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
+        url,
+        isActive: newEnvActive,
+      });
+      setShowAddEnvRow(false);
+      setNewEnvId(null);
+      setNewEnvUrl('');
+      setNewEnvActive(true);
+      reloadAppUrls();
+    } catch (e: unknown) {
+      toast(extractMessage(e), 'error');
+    } finally {
+      setIsAddingEnv(false);
+    }
   }
 
   // Rows whose draft differs from what is loaded — the ones the dialog's Save must persist.
@@ -701,6 +1271,14 @@ export function ProjectsPage() {
 
   const actionsFor = (project: ProjectResponse): RowActionItem[] => {
     const items: RowActionItem[] = [];
+    items.push({
+      label: t('aiRules.section'),
+      icon: Brain,
+      onClick: () => {
+        setSelectedAiProject(project);
+        setAiRulesOpen(true);
+      },
+    });
     if (project.canEdit) {
       items.push({ label: t('projects.edit'), onClick: () => openEdit(project, false) });
     } else {
@@ -992,6 +1570,7 @@ export function ProjectsPage() {
                             <Select
                               value={newEnvId != null ? String(newEnvId) : undefined}
                               onValueChange={(v) => setNewEnvId(Number(v))}
+                              disabled={isAddingEnv}
                             >
                               <SelectTrigger className="h-8 w-full">
                                 <SelectValue placeholder={t('environments.name')} />
@@ -1011,6 +1590,7 @@ export function ProjectsPage() {
                               onChange={(e) => setNewEnvUrl(e.target.value)}
                               placeholder="https://..."
                               className="h-8"
+                              disabled={isAddingEnv}
                             />
                           </td>
                           <td className="py-1 text-center">
@@ -1020,20 +1600,33 @@ export function ProjectsPage() {
                               onChange={(e) => setNewEnvActive(e.target.checked)}
                               aria-label={t('common.active')}
                               className="h-4 w-4 cursor-pointer"
+                              disabled={isAddingEnv}
                             />
                           </td>
                           <td className="py-1 whitespace-nowrap text-end">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                type="button"
-                                aria-label={t('common.cancel')}
-                                onClick={cancelAddEnvironment}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </td>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-primary hover:text-primary"
+                              type="button"
+                              disabled={isAddingEnv || newEnvId == null || !newEnvUrl.trim()}
+                              aria-label={t('common.add')}
+                              onClick={confirmAddEnvironment}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              type="button"
+                              disabled={isAddingEnv}
+                              aria-label={t('common.cancel')}
+                              onClick={cancelAddEnvironment}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </td>
                         </tr>
                       )}
                     </tbody>
@@ -1182,10 +1775,52 @@ export function ProjectsPage() {
                 </Button>
               )}
             </div>
+
+            {/* AI Roles & Rules section */}
+            {editProject && (
+              <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold">{t('aiRules.section')}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEditAiRules((prev) => !prev)}
+                  >
+                    {showEditAiRules ? t('common.cancel') : t('aiRules.section')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('aiRules.projectHelp')}</p>
+                {showEditAiRules && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <ProjectAiRulesContent
+                      project={editProject}
+                      canEditProject={!editReadOnly}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
+            {editReadOnly && editProject && (
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setSelectedAiProject(editProject);
+                  setAiRulesOpen(true);
+                }}
+              >
+                <Brain className="h-4 w-4 text-primary" />
+                {t('aiRules.section')}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setEditOpen(false)}>
-              {editReadOnly ? t('common.cancel') : t('common.cancel')}
+              {t('common.cancel')}
             </Button>
             {!editReadOnly && (
               <Button
@@ -1195,6 +1830,31 @@ export function ProjectsPage() {
                 {t('common.save')}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Standalone Project AI Rules Dialog */}
+      <Dialog open={aiRulesOpen} onOpenChange={setAiRulesOpen}>
+        <DialogContent className="max-w-lg sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              {t('aiRules.section')}: {selectedAiProject?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pt-2">
+            {selectedAiProject && (
+              <ProjectAiRulesContent
+                project={selectedAiProject}
+                canEditProject={selectedAiProject.canEdit}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiRulesOpen(false)}>
+              {t('common.cancel')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

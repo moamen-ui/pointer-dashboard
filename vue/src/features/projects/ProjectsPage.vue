@@ -27,7 +27,8 @@ import {
   type ExportFileDto,
   type PredefinedActionResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, X } from 'lucide-vue-next';
+import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, X, Check, Brain } from 'lucide-vue-next';
+import ProjectAiRules from './ProjectAiRules.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -300,11 +301,11 @@ async function submitImport() {
 }
 
 // ── Edit project ──────────────────────────────────────────────────────
-interface EditableAction {
+type EditableAction = {
   id?: number;
   text: string;
   prompt: string;
-}
+};
 
 const editOpen = ref(false);
 const editProject = ref<ProjectResponse | null>(null);
@@ -445,6 +446,7 @@ const showAddEnvRow = ref(false);
 const newEnvId = ref('');
 const newEnvUrl = ref('');
 const newEnvActive = ref(true);
+const isAddingEnv = ref(false);
 
 function startAddEnvironment() {
   newEnvId.value = '';
@@ -454,7 +456,37 @@ function startAddEnvironment() {
 }
 
 function cancelAddEnvironment() {
+  if (isAddingEnv.value) return;
   showAddEnvRow.value = false;
+  newEnvId.value = '';
+  newEnvUrl.value = '';
+  newEnvActive.value = true;
+}
+
+async function confirmAddEnvironment() {
+  const projectId = editProject.value?.id;
+  const envId = newEnvId.value ? Number(newEnvId.value) : null;
+  const url = newEnvUrl.value.trim();
+  if (!projectId || !envId || !url) return;
+
+  isAddingEnv.value = true;
+  try {
+    await setAppUrlMutation.mutateAsync({
+      id: projectId,
+      environmentId: envId,
+      data: { url, isActive: newEnvActive.value },
+    });
+    // Clear draft row immediately so another environment can be added in the same session
+    showAddEnvRow.value = false;
+    newEnvId.value = '';
+    newEnvUrl.value = '';
+    newEnvActive.value = true;
+    reloadAppUrls();
+  } catch (e: unknown) {
+    toast(extractMessage(e));
+  } finally {
+    isAddingEnv.value = false;
+  }
 }
 
 // Persists every pending environment change — edited existing rows plus the "add
@@ -509,8 +541,23 @@ async function saveEnvironmentChangesIfPending() {
   const rest = { ...envOverrides.value };
   for (const id of saved) delete rest[id];
   envOverrides.value = rest;
-  if (addEnvId != null && saved.has(addEnvId)) showAddEnvRow.value = false;
+  if (addEnvId != null && saved.has(addEnvId)) {
+    showAddEnvRow.value = false;
+    newEnvId.value = '';
+    newEnvUrl.value = '';
+    newEnvActive.value = true;
+  }
   reloadAppUrls();
+}
+
+// ── Project AI Roles & Rules dialog ───────────────────────────────────
+const aiRulesDialogOpen = ref(false);
+const selectedAiProject = ref<ProjectResponse | null>(null);
+
+function openAiRulesDialog(project: ProjectResponse | null) {
+  if (!project) return;
+  selectedAiProject.value = project;
+  aiRulesDialogOpen.value = true;
 }
 
 function addEditActionRow() {
@@ -649,6 +696,12 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectResponse>[]>
 function actionsFor(project: ProjectResponse): RowActionItem[] {
   const anyActive = project.activationState !== ProjectActivationState.NUMBER_0;
   const items: RowActionItem[] = [
+    {
+      label: t('aiRules.section'),
+      icon: Brain,
+      disabled: loading.value,
+      onClick: () => openAiRulesDialog(project),
+    },
     {
       label: t(anyActive ? 'common.disable' : 'common.enable'),
       icon: anyActive ? Ban : CheckCircle2,
@@ -797,7 +850,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
 
   <!-- Edit project dialog -->
   <Dialog v-model:open="editOpen">
-    <DialogContent class="max-w-[440px] sm:max-w-[680px]">
+    <DialogContent class="max-w-[440px] sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{{ t('projects.editTitle') }}</DialogTitle>
       </DialogHeader>
@@ -877,9 +930,22 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
                 </td>
                 <td class="py-1 whitespace-nowrap align-middle">
                   <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    class="h-8 w-8 text-primary"
+                    :disabled="isAddingEnv || !newEnvId || !newEnvUrl.trim()"
+                    :aria-label="t('common.add')"
+                    @click="confirmAddEnvironment"
+                  >
+                    <Check class="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
                     class="h-8 w-8"
+                    :disabled="isAddingEnv"
                     :aria-label="t('common.cancel')"
                     @click="cancelAddEnvironment"
                   >
@@ -960,6 +1026,15 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
               class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
             />
           </div>
+        </div>
+
+        <!-- Project AI Roles & Rules section in edit dialog -->
+        <div class="mt-2 flex flex-col gap-3 rounded-md border p-3">
+          <div class="flex items-center gap-2">
+            <Brain class="h-4 w-4 text-primary" />
+            <span class="text-sm font-semibold">{{ t('aiRules.section') }}</span>
+          </div>
+          <ProjectAiRules v-if="editProject" :project="editProject" :can-edit="true" />
         </div>
       </form>
       <DialogFooter>
@@ -1057,8 +1132,38 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
           </div>
         </div>
       </div>
-      <DialogFooter>
+      <DialogFooter class="flex sm:justify-between items-center">
+        <Button
+          v-if="viewPromptsProject"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="gap-1.5 text-primary"
+          @click="openAiRulesDialog(viewPromptsProject)"
+        >
+          <Brain class="h-4 w-4" /> {{ t('aiRules.section') }}
+        </Button>
         <Button variant="outline" @click="viewPromptsOpen = false">{{ t('common.cancel') }}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+
+  <!-- AI Roles & Rules standalone dialog -->
+  <Dialog v-model:open="aiRulesDialogOpen">
+    <DialogContent class="max-w-[440px] sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <Brain class="h-5 w-5 text-primary" />
+          {{ t('aiRules.section') }}: {{ selectedAiProject?.name }}
+        </DialogTitle>
+      </DialogHeader>
+      <ProjectAiRules
+        v-if="selectedAiProject"
+        :project="selectedAiProject"
+        :can-edit="selectedAiProject.canEdit"
+      />
+      <DialogFooter>
+        <Button variant="outline" @click="aiRulesDialogOpen = false">{{ t('common.cancel') }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

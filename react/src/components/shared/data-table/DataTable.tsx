@@ -28,11 +28,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu';
 import type { RowActionItem } from '@/components/shared/types';
 
-export interface DataTableProps<TData> {
+export type DataTableProps<TData> = {
   data: TData[];
   /**
    * TanStack column defs — a column's native `cell` render fn is the per-column
@@ -50,6 +51,7 @@ export interface DataTableProps<TData> {
   actionsHeader?: string;
   /** Renders a built-in search input above the table, wired to the global filter. */
   searchable?: boolean;
+  searchPlaceholder?: string;
   /** Renders a small pagination footer under the table. */
   paginated?: boolean;
   emptyIcon?: React.ComponentType<{ className?: string }>;
@@ -57,7 +59,7 @@ export interface DataTableProps<TData> {
   emptyHint?: string;
   /** Optional action (e.g. an "Add" button) rendered inside the empty state. */
   emptyAction?: ReactNode;
-}
+};
 
 /**
  * The shared table shell every list page renders: TanStack Table supplies the
@@ -72,12 +74,14 @@ export function DataTable<TData>({
   actionsAriaLabel,
   actionsHeader,
   searchable = false,
+  searchPlaceholder,
   paginated = false,
   emptyIcon,
   emptyMessage = '',
   emptyHint,
   emptyAction,
 }: DataTableProps<TData>) {
+  const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
@@ -140,7 +144,7 @@ export function DataTable<TData>({
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Search"
+            placeholder={searchPlaceholder ?? t('common.search')}
             className="ps-9"
           />
         </div>

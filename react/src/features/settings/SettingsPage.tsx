@@ -21,8 +21,14 @@ import {
   usePostApiAdminPredefinedActionSuggestionsIdApprove,
   usePostApiAdminPredefinedActionSuggestionsIdReject,
   type SuggestionResponse,
+  useGetApiAdminAiRulesTenant,
+  getGetApiAdminAiRulesTenantQueryKey,
+  usePostApiAdminAiRules,
+  usePutApiAdminAiRulesId,
+  useDeleteApiAdminAiRulesId,
+  type AiRuleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, XCircle, EllipsisVertical } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, XCircle, EllipsisVertical, Brain } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
@@ -176,6 +182,254 @@ function SuggestionsCard() {
             </TableBody>
           </Table>
         )}
+    </AccordionSection>
+  );
+}
+
+type EditableRule = {
+  id?: number;
+  title: string;
+  prompt: string;
+  isActive: boolean;
+  sortOrder: number;
+  dirty: boolean;
+};
+
+// ---- Workspace AI Rules card (workspace admins/deputies) ----
+function AiRulesCard() {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: rawRules = [], isLoading } = useGetApiAdminAiRulesTenant();
+  const rules: AiRuleResponse[] = (rawRules as AiRuleResponse[]) ?? [];
+
+  const [localRules, setLocalRules] = useState<Record<number, EditableRule>>({});
+  const [newTitle, setNewTitle] = useState('');
+  const [newPrompt, setNewPrompt] = useState('');
+
+  const reloadRules = () => {
+    void qc.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
+  };
+
+  useEffect(() => {
+    setLocalRules((prev) => {
+      let added = false;
+      const next = { ...prev };
+      for (const r of rules) {
+        if (r.id != null && !(r.id in next)) {
+          next[r.id] = {
+            id: r.id,
+            title: r.title ?? '',
+            prompt: r.prompt ?? '',
+            isActive: r.isActive ?? true,
+            sortOrder: r.sortOrder ?? 0,
+            dirty: false,
+          };
+          added = true;
+        }
+      }
+      return added ? next : prev;
+    });
+  }, [rules]);
+
+  function updateRule(id: number, field: 'title' | 'prompt' | 'isActive', value: any) {
+    setLocalRules((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value, dirty: true },
+    }));
+  }
+
+  const putMut = usePutApiAdminAiRulesId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalRules((prev) => ({
+          ...prev,
+          [vars.id]: { ...prev[vars.id], dirty: false },
+        }));
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const deleteMut = useDeleteApiAdminAiRulesId({
+    mutation: {
+      onSuccess: (_data, vars) => {
+        setLocalRules((prev) => {
+          const next = { ...prev };
+          delete next[vars.id];
+          return next;
+        });
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  const createMut = usePostApiAdminAiRules({
+    mutation: {
+      onSuccess: () => {
+        setNewTitle('');
+        setNewPrompt('');
+        reloadRules();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  function saveRule(ruleId: number) {
+    const edit = localRules[ruleId];
+    if (!edit) return;
+    putMut.mutate({
+      id: ruleId,
+      data: {
+        title: edit.title.trim(),
+        prompt: edit.prompt.trim(),
+        isActive: edit.isActive,
+      },
+    });
+  }
+
+  function handleCreate() {
+    if (!newTitle.trim() || !newPrompt.trim()) return;
+    createMut.mutate({
+      data: {
+        title: newTitle.trim(),
+        prompt: newPrompt.trim(),
+        sortOrder: rules.length,
+      },
+    });
+  }
+
+  return (
+    <AccordionSection
+      title={
+        <span className="flex items-center gap-2">
+          <Brain className="h-4 w-4 text-primary" />
+          {t('aiRules.section')}
+        </span>
+      }
+    >
+      <p className="text-xs text-muted-foreground">{t('aiRules.tenantHelp')}</p>
+
+      {isLoading && rules.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</p>
+      ) : rules.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t('aiRules.empty')}</p>
+      ) : null}
+
+      <div className="flex flex-col gap-3">
+        {rules.map((rule) => {
+          const edit = localRules[rule.id!] ?? {
+            id: rule.id,
+            title: rule.title ?? '',
+            prompt: rule.prompt ?? '',
+            isActive: rule.isActive ?? true,
+            sortOrder: rule.sortOrder ?? 0,
+            dirty: false,
+          };
+          const isSaving =
+            putMut.isPending &&
+            (putMut.variables as { id?: number } | undefined)?.id === rule.id;
+
+          return (
+            <div
+              key={rule.id}
+              className="flex flex-col gap-2 rounded-md border border-border p-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-1 flex-col gap-1">
+                  <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+                  <Input
+                    value={edit.title}
+                    onChange={(e) => updateRule(rule.id!, 'title', e.target.value)}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={edit.isActive}
+                      onChange={(e) => updateRule(rule.id!, 'isActive', e.target.checked)}
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    {t(edit.isActive ? 'common.active' : 'common.disabled')}
+                  </label>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive"
+                    type="button"
+                    disabled={deleteMut.isPending}
+                    onClick={() => deleteMut.mutate({ id: rule.id! })}
+                    aria-label={t('common.delete')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+                <textarea
+                  value={edit.prompt}
+                  onChange={(e) => updateRule(rule.id!, 'prompt', e.target.value)}
+                  rows={2}
+                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+
+              {edit.dirty && (
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    disabled={isSaving}
+                    onClick={() => saveRule(rule.id!)}
+                  >
+                    {t('common.save')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add new rule */}
+      <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+        <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addRule')}</div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+          <Input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder={t('aiRules.titlePlaceholder')}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+          <textarea
+            value={newPrompt}
+            onChange={(e) => setNewPrompt(e.target.value)}
+            rows={2}
+            placeholder={t('aiRules.promptPlaceholder')}
+            className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!newTitle.trim() || !newPrompt.trim() || createMut.isPending}
+            onClick={handleCreate}
+            type="button"
+          >
+            <Plus className="h-4 w-4" />
+            {t('aiRules.addRule')}
+          </Button>
+        </div>
+      </div>
     </AccordionSection>
   );
 }
@@ -703,6 +957,9 @@ export function SettingsPage() {
 
       {/* ── Section 5: Suggestions review (admin only) ── */}
       {isAdmin && <SuggestionsCard />}
+
+      {/* ── Section 6: AI Roles & Rules (workspace admins/deputies, not super admin) ── */}
+      {!isSuperAdmin && <AiRulesCard />}
     </div>
   );
 }

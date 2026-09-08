@@ -15,10 +15,16 @@ import {
   getGetApiAdminPredefinedActionSuggestionsQueryKey,
   usePostApiAdminPredefinedActionSuggestionsIdApprove,
   usePostApiAdminPredefinedActionSuggestionsIdReject,
+  useGetApiAdminAiRulesTenant,
+  usePostApiAdminAiRules,
+  usePutApiAdminAiRulesId,
+  useDeleteApiAdminAiRulesId,
+  getGetApiAdminAiRulesTenantQueryKey,
   SuggestionStatus,
   type SettingsResponse,
   type PredefinedActionResponse,
   type SuggestionResponse,
+  type AiRuleResponse,
 } from '@moamen-ui/pointer-vue';
 import { useAuth } from '@/composables/useAuth';
 import { AccordionSection } from '@/components/ui/accordion-section';
@@ -26,9 +32,10 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2 } from 'lucide-vue-next';
+import { PlusCircle, Trash2, Brain } from 'lucide-vue-next';
 import { extractMessage } from '@/lib/error';
 import { toast } from '@/composables/useToast';
+import { confirm } from '@/composables/useConfirm';
 
 const { t } = useI18n();
 const queryClient = useQueryClient();
@@ -106,12 +113,12 @@ const tenantActions = computed<PredefinedActionResponse[]>(
   () => (predefinedActionsQuery.data.value ?? []).filter((a: PredefinedActionResponse) => a.projectId == null),
 );
 
-interface EditableAction {
+type EditableAction = {
   id?: number;
   text: string;
   prompt: string;
   isNew?: boolean;
-}
+};
 const editableActions = ref<EditableAction[]>([]);
 
 watch(
@@ -210,6 +217,117 @@ async function onRejectSuggestion(s: SuggestionResponse) {
     toast(t('suggestions.rejected'));
     reloadSuggestions();
   } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+// ── Workspace AI Rules (tenant-wide, admins/deputies only) ─────────────
+type EditableTenantAiRule = {
+  id?: number;
+  title: string;
+  prompt: string;
+  isActive: boolean;
+  dirty?: boolean;
+  saving?: boolean;
+};
+
+const tenantRulesQuery = useGetApiAdminAiRulesTenant({
+  query: { enabled: computed(() => !isSuperAdmin.value) },
+});
+const tenantRules = computed<AiRuleResponse[]>(() => tenantRulesQuery.data.value ?? []);
+const editableTenantRules = ref<EditableTenantAiRule[]>([]);
+const rulesSeeded = ref(false);
+
+watch(
+  tenantRules,
+  (rules) => {
+    if (!rulesSeeded.value) {
+      editableTenantRules.value = rules.map((r) => ({
+        id: r.id,
+        title: r.title ?? '',
+        prompt: r.prompt ?? '',
+        isActive: r.isActive ?? true,
+        dirty: false,
+        saving: false,
+      }));
+    }
+  },
+  { immediate: true },
+);
+
+function markTenantRuleDirty(rule: EditableTenantAiRule, field: 'title' | 'prompt' | 'isActive', val: any) {
+  (rule as any)[field] = val;
+  rule.dirty = true;
+  rulesSeeded.value = true;
+}
+
+const updateTenantRuleMutation = usePutApiAdminAiRulesId();
+const deleteTenantRuleMutation = useDeleteApiAdminAiRulesId();
+const createTenantRuleMutation = usePostApiAdminAiRules();
+
+async function saveTenantRule(rule: EditableTenantAiRule) {
+  if (!rule.id) return;
+  rule.saving = true;
+  try {
+    await updateTenantRuleMutation.mutateAsync({
+      id: rule.id,
+      data: {
+        title: rule.title,
+        prompt: rule.prompt,
+        isActive: rule.isActive,
+      },
+    });
+    rule.dirty = false;
+    rule.saving = false;
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
+  } catch (e) {
+    rule.saving = false;
+    toast(extractMessage(e));
+  }
+}
+
+async function deleteTenantRule(rule: EditableTenantAiRule) {
+  if (!rule.id) return;
+  const ok = await confirm({
+    message: `${t('aiRules.delete')}?`,
+    confirmLabel: t('common.delete'),
+    confirmVariant: 'destructive',
+  });
+  if (!ok) return;
+  try {
+    await deleteTenantRuleMutation.mutateAsync({ id: rule.id });
+    rulesSeeded.value = false;
+    editableTenantRules.value = editableTenantRules.value.filter((r) => r.id !== rule.id);
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
+  } catch (e) {
+    toast(extractMessage(e));
+  }
+}
+
+const newTenantRuleTitle = ref('');
+const newTenantRulePrompt = ref('');
+const newTenantRuleBusy = ref(false);
+
+async function createTenantRule() {
+  const title = newTenantRuleTitle.value.trim();
+  const prompt = newTenantRulePrompt.value.trim();
+  if (!title || !prompt) return;
+  newTenantRuleBusy.value = true;
+  try {
+    await createTenantRuleMutation.mutateAsync({
+      data: {
+        title,
+        prompt,
+        sortOrder: tenantRules.value.length,
+      },
+    });
+    newTenantRuleBusy.value = false;
+    newTenantRuleTitle.value = '';
+    newTenantRulePrompt.value = '';
+    rulesSeeded.value = false;
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
+  } catch (e) {
+    newTenantRuleBusy.value = false;
     toast(extractMessage(e));
   }
 }
@@ -448,6 +566,116 @@ async function onRejectSuggestion(s: SuggestionResponse) {
               </div>
             </div>
           </template>
+      </AccordionSection>
+
+      <!-- Section: AI Roles & Rules (tenant-wide, workspace admins/deputies only) -->
+      <AccordionSection v-if="!isSuperAdmin">
+        <template #title>
+          <div class="flex items-center gap-2">
+            <Brain class="h-4 w-4 text-primary" />
+            <span>{{ t('aiRules.section') }}</span>
+          </div>
+        </template>
+        <p class="text-xs text-muted-foreground">{{ t('aiRules.tenantHelp') }}</p>
+
+        <p v-if="tenantRulesQuery.isLoading.value" class="text-sm text-muted-foreground">…</p>
+        <p v-else-if="editableTenantRules.length === 0" class="text-sm text-muted-foreground italic">
+          {{ t('aiRules.empty') }}
+        </p>
+
+        <div class="flex flex-col gap-4">
+          <div
+            v-for="(rule, idx) in editableTenantRules"
+            :key="rule.id ?? idx"
+            class="flex flex-col gap-2 rounded-md border p-3"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex-1">
+                <Label :for="'tr-title-' + (rule.id ?? idx)">{{ t('aiRules.titleLabel') }}</Label>
+                <Input
+                  :id="'tr-title-' + (rule.id ?? idx)"
+                  :model-value="rule.title"
+                  @update:model-value="(val) => markTenantRuleDirty(rule, 'title', String(val))"
+                />
+              </div>
+              <div class="flex flex-col items-center gap-1">
+                <Label :for="'tr-active-' + (rule.id ?? idx)" class="text-xs text-muted-foreground">
+                  {{ t(rule.isActive ? 'common.active' : 'common.disabled') }}
+                </Label>
+                <Switch
+                  :id="'tr-active-' + (rule.id ?? idx)"
+                  :checked="rule.isActive"
+                  @update:checked="(val: boolean) => markTenantRuleDirty(rule, 'isActive', val)"
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <Label :for="'tr-prompt-' + (rule.id ?? idx)">{{ t('aiRules.promptLabel') }}</Label>
+              <textarea
+                :id="'tr-prompt-' + (rule.id ?? idx)"
+                :value="rule.prompt"
+                rows="2"
+                class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+                @input="(e) => markTenantRuleDirty(rule, 'prompt', (e.target as HTMLTextAreaElement).value)"
+              />
+            </div>
+
+            <div class="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                :disabled="rule.saving"
+                @click="deleteTenantRule(rule)"
+              >
+                <Trash2 class="h-4 w-4 text-destructive" />
+                {{ t('common.delete') }}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                :disabled="!rule.dirty || rule.saving"
+                @click="saveTenantRule(rule)"
+              >
+                {{ t('common.save') }}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add new rule inline form -->
+        <div class="mt-4 flex flex-col gap-3 rounded-md border border-dashed p-3">
+          <span class="text-xs font-semibold text-muted-foreground">{{ t('aiRules.addRule') }}</span>
+          <div class="flex flex-col gap-1">
+            <Label for="new-tr-title">{{ t('aiRules.titleLabel') }}</Label>
+            <Input
+              id="new-tr-title"
+              v-model="newTenantRuleTitle"
+              :placeholder="t('aiRules.titlePlaceholder')"
+            />
+          </div>
+          <div class="flex flex-col gap-1">
+            <Label for="new-tr-prompt">{{ t('aiRules.promptLabel') }}</Label>
+            <textarea
+              id="new-tr-prompt"
+              v-model="newTenantRulePrompt"
+              rows="2"
+              :placeholder="t('aiRules.promptPlaceholder')"
+              class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+            />
+          </div>
+          <div class="flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              :disabled="newTenantRuleBusy || !newTenantRuleTitle.trim() || !newTenantRulePrompt.trim()"
+              @click="createTenantRule"
+            >
+              <PlusCircle class="h-4 w-4" /> {{ t('aiRules.addRule') }}
+            </Button>
+          </div>
+        </div>
       </AccordionSection>
 
       <!-- Save button (Access/Email/Demo form only) -->
