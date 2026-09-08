@@ -25,10 +25,12 @@ import {
   ExportImportService,
   SuggestionsService,
   ProjectActivationState,
+  AiRulesService,
   getApiAdminProjectsResource,
   getApiAdminEnvironmentsResource,
   getApiAdminProjectsIdAppUrlsResource,
   getApiAdminRolesResource,
+  getApiAiRulesProjectKeyResource,
   ImportResultDto,
 } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
@@ -41,7 +43,24 @@ import type { Severity } from '../../shared/severity';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
-import type { ProjectResponse, ExportFileDto } from '@moamen-ui/pointer-angular';
+import type {
+  ProjectResponse,
+  ExportFileDto,
+  AiRuleResponse,
+  ProjectAiRulesResponse,
+} from '@moamen-ui/pointer-angular';
+
+type EditableAiRule = {
+  id?: number;
+  projectId?: number | null;
+  title: string;
+  prompt: string;
+  isActive: boolean;
+  isInherited?: boolean;
+  isPersonal?: boolean;
+  dirty: boolean;
+  saving: boolean;
+};
 
 /** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
  *  underscore, hyphen — nothing else. */
@@ -400,6 +419,20 @@ const latin = asciiDigits(name.toLowerCase())
               <mat-icon>add</mat-icon> {{ 'predefined.add' | transloco }}
             </button>
           </div>
+
+          <!-- AI Roles & Rules button in edit dialog -->
+          <div class="mt-4 flex items-center justify-between rounded border border-app-border p-3">
+            <div>
+              <div class="font-medium flex items-center gap-2">
+                <mat-icon class="text-primary">psychology</mat-icon>
+                {{ 'aiRules.section' | transloco }}
+              </div>
+              <div class="text-xs text-muted-foreground">{{ 'aiRules.projectHelp' | transloco }}</div>
+            </div>
+            <button mat-stroked-button type="button" (click)="openAiRulesFromEdit()">
+              {{ 'aiRules.section' | transloco }}
+            </button>
+          </div>
         </form>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
@@ -427,6 +460,11 @@ const latin = asciiDigits(name.toLowerCase())
         </div>
       </mat-dialog-content>
       <mat-dialog-actions align="end">
+        @if (viewingProject(); as p) {
+          <button mat-button color="primary" (click)="openAiRules(p)">
+            <mat-icon>psychology</mat-icon> {{ 'aiRules.section' | transloco }}
+          </button>
+        }
         <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
       </mat-dialog-actions>
     </ng-template>
@@ -471,6 +509,178 @@ const latin = asciiDigits(name.toLowerCase())
         </button>
       </mat-dialog-actions>
     </ng-template>
+
+    <!-- AI Roles & Rules dialog -->
+    <ng-template #aiRulesDialog>
+      <div class="flex items-center justify-between gap-3 pe-2">
+        <h2 mat-dialog-title class="!m-0 flex items-center gap-2">
+          <mat-icon class="text-primary">psychology</mat-icon>
+          {{ 'aiRules.section' | transloco }}: {{ selectedAiProject()?.name }}
+        </h2>
+      </div>
+      <mat-dialog-content>
+        <p class="mb-4 text-[0.85rem] text-muted">{{ 'aiRules.projectHelp' | transloco }}</p>
+
+        @if (projectAiRulesResource.isLoading()) {
+          <mat-progress-bar mode="indeterminate" class="mb-4"></mat-progress-bar>
+        }
+
+        <div class="flex min-w-80 sm:min-w-[38rem] flex-col gap-6 pt-1">
+          <!-- Section 1: Workspace & Project Admin Rules -->
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-[0.95rem] font-semibold">{{ 'aiRules.adminRulesTitle' | transloco }}</div>
+                <div class="text-xs text-muted">{{ 'aiRules.adminRulesSubtitle' | transloco }}</div>
+              </div>
+            </div>
+
+            <div class="mt-2 flex flex-col gap-3">
+              @for (rule of localAdminRules; track rule.id ?? $index) {
+                <div class="flex flex-col gap-2 rounded border border-app-border p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 flex-1">
+                      <span class="rounded px-1.5 py-0.5 text-xs font-semibold"
+                        [class.bg-stat-slate-bg]="rule.isInherited"
+                        [class.text-stat-slate]="rule.isInherited"
+                        [class.bg-stat-blue-bg]="!rule.isInherited"
+                        [class.text-primary]="!rule.isInherited">
+                        {{ (rule.isInherited ? 'aiRules.inheritedBadge' : 'aiRules.projectBadge') | transloco }}
+                      </span>
+                      @if (!rule.isInherited && (selectedAiProject()?.canEdit || auth.isAdmin())) {
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                          <input matInput [ngModel]="rule.title" (ngModelChange)="markAdminRuleDirty(rule, 'title', $event)" />
+                        </mat-form-field>
+                      } @else {
+                        <span class="font-medium text-sm text-ink">{{ rule.title }}</span>
+                      }
+                    </div>
+                    @if (!rule.isInherited && (selectedAiProject()?.canEdit || auth.isAdmin())) {
+                      <mat-slide-toggle
+                        [checked]="rule.isActive"
+                        (change)="markAdminRuleDirty(rule, 'isActive', $event.checked)"
+                      />
+                    }
+                  </div>
+
+                  @if (!rule.isInherited && (selectedAiProject()?.canEdit || auth.isAdmin())) {
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                      <textarea matInput rows="2" [ngModel]="rule.prompt" (ngModelChange)="markAdminRuleDirty(rule, 'prompt', $event)"></textarea>
+                    </mat-form-field>
+                    <div class="flex items-center gap-2">
+                      <button mat-flat-button color="primary" [disabled]="!rule.dirty || rule.saving" (click)="saveProjectAdminRule(rule)">
+                        {{ 'common.save' | transloco }}
+                      </button>
+                      <button mat-stroked-button color="warn" [disabled]="rule.saving" (click)="deleteProjectAdminRule(rule)">
+                        <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="text-xs text-muted whitespace-pre-wrap rounded bg-black/5 dark:bg-white/5 p-2 font-mono">{{ rule.prompt }}</div>
+                  }
+                </div>
+              }
+
+              @if (localAdminRules.length === 0 && !projectAiRulesResource.isLoading()) {
+                <p class="text-[0.8rem] text-muted">{{ 'aiRules.empty' | transloco }}</p>
+              }
+
+              <!-- Add Project Rule Form (Admins / Project Editors only) -->
+              @if (selectedAiProject()?.canEdit || auth.isAdmin()) {
+                <div class="mt-2 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
+                  <div class="text-xs font-semibold text-muted">{{ 'aiRules.addRule' | transloco }}</div>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
+                    <input matInput [formControl]="newProjectRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
+                    <textarea matInput rows="2" [formControl]="newProjectRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
+                  </mat-form-field>
+                  <div>
+                    <button mat-flat-button color="primary"
+                      [disabled]="newProjectRuleBusy() || !newProjectRuleTitle.value.trim() || !newProjectRulePrompt.value.trim()"
+                      (click)="createProjectAdminRule()">
+                      <mat-icon>add</mat-icon> {{ 'aiRules.addRule' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Section 2: My Personal Rules -->
+          <div class="flex flex-col gap-2 border-t border-app-border pt-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-[0.95rem] font-semibold">{{ 'aiRules.myRulesTitle' | transloco }}</div>
+                <div class="text-xs text-muted">{{ 'aiRules.myRulesSubtitle' | transloco }}</div>
+              </div>
+            </div>
+
+            <div class="mt-2 flex flex-col gap-3">
+              @for (rule of localMyRules; track rule.id ?? $index) {
+                <div class="flex flex-col gap-2 rounded border border-app-border p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 flex-1">
+                      <span class="rounded px-1.5 py-0.5 text-xs font-semibold bg-stat-amber-bg text-stat-amber">
+                        {{ 'aiRules.personalBadge' | transloco }}
+                      </span>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                        <input matInput [ngModel]="rule.title" (ngModelChange)="markMyRuleDirty(rule, 'title', $event)" />
+                      </mat-form-field>
+                    </div>
+                    <mat-slide-toggle
+                      [checked]="rule.isActive"
+                      (change)="markMyRuleDirty(rule, 'isActive', $event.checked)"
+                    />
+                  </div>
+
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <textarea matInput rows="2" [ngModel]="rule.prompt" (ngModelChange)="markMyRuleDirty(rule, 'prompt', $event)"></textarea>
+                  </mat-form-field>
+                  <div class="flex items-center gap-2">
+                    <button mat-flat-button color="primary" [disabled]="!rule.dirty || rule.saving" (click)="savePersonalRule(rule)">
+                      {{ 'common.save' | transloco }}
+                    </button>
+                    <button mat-stroked-button color="warn" [disabled]="rule.saving" (click)="deletePersonalRule(rule)">
+                      <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              @if (localMyRules.length === 0 && !projectAiRulesResource.isLoading()) {
+                <p class="text-[0.8rem] text-muted">{{ 'aiRules.noPersonalRules' | transloco }}</p>
+              }
+
+              <!-- Add Personal Rule Form -->
+              <div class="mt-2 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
+                <div class="text-xs font-semibold text-muted">{{ 'aiRules.addPersonalRule' | transloco }}</div>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
+                  <input matInput [formControl]="newPersonalRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
+                  <textarea matInput rows="2" [formControl]="newPersonalRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
+                </mat-form-field>
+                <div>
+                  <button mat-flat-button color="primary"
+                    [disabled]="newPersonalRuleBusy() || !newPersonalRuleTitle.value.trim() || !newPersonalRulePrompt.value.trim()"
+                    (click)="createPersonalRule()">
+                    <mat-icon>add</mat-icon> {{ 'aiRules.addPersonalRule' | transloco }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
+      </mat-dialog-actions>
+    </ng-template>
   `,
 })
 export class ProjectsComponent {
@@ -484,6 +694,7 @@ export class ProjectsComponent {
   private fb = inject(FormBuilder);
   private transloco = inject(TranslocoService);
   private dialog = inject(MatDialog);
+  private aiRulesService = inject(AiRulesService);
   auth = inject(AuthService);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
@@ -491,12 +702,38 @@ export class ProjectsComponent {
   readonly viewPromptsDialog = viewChild.required<TemplateRef<unknown>>('viewPromptsDialog');
   readonly suggestDialog = viewChild.required<TemplateRef<unknown>>('suggestDialog');
   readonly importDialog = viewChild.required<TemplateRef<unknown>>('importDialog');
+  readonly aiRulesDialog = viewChild.required<TemplateRef<unknown>>('aiRulesDialog');
   private dialogRef?: MatDialogRef<unknown>;
+  private aiRulesDialogRef?: MatDialogRef<unknown>;
 
   projectsResource = getApiAdminProjectsResource();
   projects = computed(() => this.projectsResource.value() ?? []);
   busy = signal(false);
   loading = computed(() => this.projectsResource.isLoading() || this.busy());
+
+  selectedAiProject = signal<ProjectResponse | null>(null);
+  private selectedAiProjectKeyForRules = computed(() => this.selectedAiProject()?.key ?? '');
+  projectAiRulesResource = getApiAiRulesProjectKeyResource(this.selectedAiProjectKeyForRules);
+
+  projectAiRules = computed<ProjectAiRulesResponse | undefined>(
+    () => this.projectAiRulesResource.value() as unknown as ProjectAiRulesResponse | undefined
+  );
+
+  rawAdminRules = computed<AiRuleResponse[]>(() => this.projectAiRules()?.adminRules ?? []);
+  rawMyRules = computed<AiRuleResponse[]>(() => this.projectAiRules()?.myRules ?? []);
+
+  newProjectRuleTitle = this.fb.nonNullable.control('');
+  newProjectRulePrompt = this.fb.nonNullable.control('');
+  newProjectRuleBusy = signal(false);
+
+  newPersonalRuleTitle = this.fb.nonNullable.control('');
+  newPersonalRulePrompt = this.fb.nonNullable.control('');
+  newPersonalRuleBusy = signal(false);
+
+  private _editableAdminRules = signal<EditableAiRule[]>([]);
+  private _adminRulesSeeded = signal(false);
+  private _editableMyRules = signal<EditableAiRule[]>([]);
+  private _myRulesSeeded = signal(false);
 
   importBusy = signal(false);
   importFile = signal<File | null>(null);
@@ -716,6 +953,12 @@ export class ProjectsComponent {
   readonly actionsFor = (project: ProjectResponse): RowActionItem[] => {
     const busy = this.loading();
     const items: RowActionItem[] = [];
+    items.push({
+      label: this.transloco.translate('aiRules.section'),
+      icon: 'psychology',
+      disabled: busy,
+      onClick: () => this.openAiRules(project),
+    });
     if (project.canEdit) {
       items.push({ label: this.transloco.translate('projects.edit'), icon: 'edit', disabled: busy, onClick: () => this.openEdit(project) });
     } else {
@@ -1130,5 +1373,217 @@ export class ProjectsComponent {
       }
     };
     reader.readAsText(file);
+  }
+
+  // --- Project AI Roles & Rules ---
+
+  get localAdminRules(): EditableAiRule[] {
+    if (this._adminRulesSeeded()) return this._editableAdminRules();
+    return this.rawAdminRules().map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      title: r.title ?? '',
+      prompt: r.prompt ?? '',
+      isActive: r.isActive ?? true,
+      isInherited: r.isTenantWide ?? false,
+      dirty: false,
+      saving: false,
+    }));
+  }
+
+  get localMyRules(): EditableAiRule[] {
+    if (this._myRulesSeeded()) return this._editableMyRules();
+    return this.rawMyRules().map((r) => ({
+      id: r.id,
+      projectId: r.projectId,
+      title: r.title ?? '',
+      prompt: r.prompt ?? '',
+      isActive: r.isActive ?? true,
+      isPersonal: true,
+      dirty: false,
+      saving: false,
+    }));
+  }
+
+  markAdminRuleDirty(rule: EditableAiRule, field: 'title' | 'prompt' | 'isActive', value: any): void {
+    const current = this._adminRulesSeeded()
+      ? this._editableAdminRules()
+      : this.localAdminRules.map((r) => ({ ...r }));
+    const idx = current.findIndex((r) => r.id === rule.id);
+    if (idx !== -1) {
+      current[idx] = { ...current[idx], [field]: value, dirty: true };
+      this._editableAdminRules.set([...current]);
+      this._adminRulesSeeded.set(true);
+    }
+  }
+
+  markMyRuleDirty(rule: EditableAiRule, field: 'title' | 'prompt' | 'isActive', value: any): void {
+    const current = this._myRulesSeeded()
+      ? this._editableMyRules()
+      : this.localMyRules.map((r) => ({ ...r }));
+    const idx = current.findIndex((r) => r.id === rule.id);
+    if (idx !== -1) {
+      current[idx] = { ...current[idx], [field]: value, dirty: true };
+      this._editableMyRules.set([...current]);
+      this._myRulesSeeded.set(true);
+    }
+  }
+
+  saveProjectAdminRule(rule: EditableAiRule): void {
+    if (!rule.id) return;
+    const current = this.localAdminRules.map((r) => ({ ...r }));
+    const idx = current.findIndex((r) => r.id === rule.id);
+    if (idx !== -1) {
+      current[idx] = { ...current[idx], saving: true };
+      this._editableAdminRules.set([...current]);
+      this._adminRulesSeeded.set(true);
+    }
+    this.aiRulesService.putApiAdminAiRulesId(rule.id, {
+      title: rule.title,
+      prompt: rule.prompt,
+      isActive: rule.isActive,
+    }).subscribe({
+      next: () => {
+        this.resetAiRuleDrafts();
+        this.projectAiRulesResource.reload();
+      },
+      error: (e: unknown) => {
+        const list = this._editableAdminRules();
+        const i = list.findIndex((r) => r.id === rule.id);
+        if (i !== -1) {
+          list[i] = { ...list[i], saving: false };
+          this._editableAdminRules.set([...list]);
+        }
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  deleteProjectAdminRule(rule: EditableAiRule): void {
+    if (!rule.id) return;
+    this.aiRulesService.deleteApiAdminAiRulesId(rule.id).subscribe({
+      next: () => {
+        this.resetAiRuleDrafts();
+        this.projectAiRulesResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  createProjectAdminRule(): void {
+    const project = this.selectedAiProject();
+    if (!project?.id || !this.newProjectRuleTitle.value.trim() || !this.newProjectRulePrompt.value.trim()) return;
+    this.newProjectRuleBusy.set(true);
+    this.aiRulesService.postApiAdminAiRules({
+      projectId: project.id,
+      title: this.newProjectRuleTitle.value.trim(),
+      prompt: this.newProjectRulePrompt.value.trim(),
+      sortOrder: this.rawAdminRules().length,
+    }).subscribe({
+      next: () => {
+        this.newProjectRuleBusy.set(false);
+        this.newProjectRuleTitle.reset();
+        this.newProjectRulePrompt.reset();
+        this.resetAiRuleDrafts();
+        this.projectAiRulesResource.reload();
+      },
+      error: (e: unknown) => {
+        this.newProjectRuleBusy.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  savePersonalRule(rule: EditableAiRule): void {
+    if (!rule.id) return;
+    const current = this.localMyRules.map((r) => ({ ...r }));
+    const idx = current.findIndex((r) => r.id === rule.id);
+    if (idx !== -1) {
+      current[idx] = { ...current[idx], saving: true };
+      this._editableMyRules.set([...current]);
+      this._myRulesSeeded.set(true);
+    }
+    this.aiRulesService.putApiAiRulesMyId(rule.id, {
+      title: rule.title,
+      prompt: rule.prompt,
+      isActive: rule.isActive,
+    }).subscribe({
+      next: () => {
+        this.resetAiRuleDrafts();
+        this.projectAiRulesResource.reload();
+      },
+      error: (e: unknown) => {
+        const list = this._editableMyRules();
+        const i = list.findIndex((r) => r.id === rule.id);
+        if (i !== -1) {
+          list[i] = { ...list[i], saving: false };
+          this._editableMyRules.set([...list]);
+        }
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  deletePersonalRule(rule: EditableAiRule): void {
+    if (!rule.id) return;
+    this.aiRulesService.deleteApiAiRulesMyId(rule.id).subscribe({
+      next: () => {
+        this.resetAiRuleDrafts();
+        this.projectAiRulesResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  createPersonalRule(): void {
+    const project = this.selectedAiProject();
+    if (!project?.id || !this.newPersonalRuleTitle.value.trim() || !this.newPersonalRulePrompt.value.trim()) return;
+    this.newPersonalRuleBusy.set(true);
+    this.aiRulesService.postApiAiRulesMy({
+      projectId: project.id,
+      title: this.newPersonalRuleTitle.value.trim(),
+      prompt: this.newPersonalRulePrompt.value.trim(),
+      sortOrder: this.rawMyRules().length,
+    }).subscribe({
+      next: () => {
+        this.newPersonalRuleBusy.set(false);
+        this.newPersonalRuleTitle.reset();
+        this.newPersonalRulePrompt.reset();
+        this.resetAiRuleDrafts();
+        this.projectAiRulesResource.reload();
+      },
+      error: (e: unknown) => {
+        this.newPersonalRuleBusy.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  private resetAiRuleDrafts(): void {
+    this._adminRulesSeeded.set(false);
+    this._editableAdminRules.set([]);
+    this._myRulesSeeded.set(false);
+    this._editableMyRules.set([]);
+  }
+
+  openAiRules(project: ProjectResponse | null): void {
+    if (!project) return;
+    this.selectedAiProject.set(project);
+    this.resetAiRuleDrafts();
+    this.projectAiRulesResource.reload();
+    this.aiRulesDialogRef = this.dialog.open(this.aiRulesDialog(), {
+      width: '680px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+    });
+    this.aiRulesDialogRef.afterClosed().subscribe(() => {
+      this.selectedAiProject.set(null);
+      this.resetAiRuleDrafts();
+    });
+  }
+
+  openAiRulesFromEdit(): void {
+    const p = this.projects().find((proj) => proj.id === this.editingProjectId());
+    if (p) this.openAiRules(p);
   }
 }

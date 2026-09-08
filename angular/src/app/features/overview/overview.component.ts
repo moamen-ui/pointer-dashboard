@@ -14,13 +14,14 @@ import { UsersService } from '@moamen-ui/pointer-angular';
 import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
 import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
+import { getApiAdminAiRulesInsightsResource } from '@moamen-ui/pointer-angular';
 import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { extractMessage } from '../../core/api/extract-message';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
-import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointer-angular';
+import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
   selector: 'app-overview',
@@ -148,9 +149,90 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
         </mat-card-content>
       </mat-card>
 
+      <!-- AI Coding Tools & Rules Insights -->
+      @if (aiInsights(); as insights) {
+        <mat-card class="mb-8 rounded-[14px] bg-panel text-ink" appearance="outlined">
+          <mat-card-header>
+            <mat-card-title class="flex items-center gap-2 text-[1.05rem]">
+              <mat-icon class="text-primary">psychology</mat-icon>
+              {{ 'aiRules.insightsTitle' | transloco }}
+            </mat-card-title>
+            <mat-card-subtitle class="text-xs text-muted">
+              {{ 'aiRules.insightsSubtitle' | transloco }}
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="pt-4">
+            <!-- Rules Counts -->
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
+              <div class="rounded-lg border border-app-border p-3 flex flex-col">
+                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.totalRules' | transloco }}</span>
+                <span class="text-2xl font-bold mt-1">{{ insights.totalRulesCount ?? 0 }}</span>
+              </div>
+              <div class="rounded-lg border border-app-border p-3 flex flex-col">
+                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.tenantRules' | transloco }}</span>
+                <span class="text-2xl font-bold mt-1 text-primary">{{ insights.tenantRulesCount ?? 0 }}</span>
+              </div>
+              <div class="rounded-lg border border-app-border p-3 flex flex-col">
+                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.projectRules' | transloco }}</span>
+                <span class="text-2xl font-bold mt-1">{{ insights.projectRulesCount ?? 0 }}</span>
+              </div>
+              <div class="rounded-lg border border-app-border p-3 flex flex-col">
+                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.userRules' | transloco }}</span>
+                <span class="text-2xl font-bold mt-1 text-stat-amber">{{ insights.userPersonalRulesCount ?? 0 }}</span>
+              </div>
+            </div>
+
+            <!-- Active Tools and Developer Adoption -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Registered AI Tools -->
+              <div class="rounded-lg border border-app-border p-4">
+                <div class="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <mat-icon class="text-muted text-base">smart_toy</mat-icon>
+                  {{ 'aiRules.activeTools' | transloco }}
+                </div>
+                @if ((insights.toolUsage ?? []).length === 0) {
+                  <p class="text-xs text-muted">{{ 'aiRules.noToolsYet' | transloco }}</p>
+                } @else {
+                  <div class="flex flex-col gap-2">
+                    @for (tool of insights.toolUsage ?? []; track tool.toolName ?? $index) {
+                      <div class="flex items-center justify-between text-xs py-1 border-b border-app-border last:border-0">
+                        <span class="font-medium font-mono text-ink">{{ tool.toolName }}</span>
+                        <div class="flex items-center gap-2 text-muted">
+                          <span>{{ tool.projectCount ?? 0 }} {{ 'overview.projects' | transloco }}</span>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+
+              <!-- Developer adoption -->
+              <div class="rounded-lg border border-app-border p-4">
+                <div class="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <mat-icon class="text-muted text-base">engineering</mat-icon>
+                  {{ 'aiRules.userSummaries' | transloco }}
+                </div>
+                @if ((insights.userRuleSummaries ?? []).length === 0) {
+                  <p class="text-xs text-muted">{{ 'aiRules.noPersonalRules' | transloco }}</p>
+                } @else {
+                  <div class="flex flex-col gap-2">
+                    @for (user of insights.userRuleSummaries ?? []; track user.userId ?? $index) {
+                      <div class="flex items-center justify-between text-xs py-1 border-b border-app-border last:border-0">
+                        <span class="font-medium text-ink">{{ user.userName }}</span>
+                        <span class="font-semibold text-stat-slate">{{ user.rulesCount ?? 0 }} {{ 'aiRules.section' | transloco }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
       <div class="mb-3 flex items-center justify-between">
         <h2 class="m-0 text-[1.1rem] font-bold">{{ 'overview.breakdown' | transloco }}</h2>
-        <button mat-stroked-button (click)="statsResource.reload()" [disabled]="loading()">
+        <button mat-stroked-button (click)="reloadAll()" [disabled]="loading()">
           <mat-icon>refresh</mat-icon> {{ 'common.refresh' | transloco }}
         </button>
       </div>
@@ -188,7 +270,7 @@ import type { ProjectStats, UserResponse, RoleResponse } from '@moamen-ui/pointe
     } @else if (!loading()) {
       <div class="p-12 text-center">
         <p>No data available.</p>
-        <button mat-stroked-button (click)="statsResource.reload()">{{ 'common.refresh' | transloco }}</button>
+        <button mat-stroked-button (click)="reloadAll()">{{ 'common.refresh' | transloco }}</button>
       </div>
     }
   `,
@@ -201,8 +283,10 @@ export class OverviewComponent {
   statsResource = getApiAdminStatsResource();
   pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
   rolesResource = getApiAdminRolesResource();
+  aiInsightsResource = getApiAdminAiRulesInsightsResource();
 
   stats = computed(() => this.statsResource.value());
+  aiInsights = computed(() => this.aiInsightsResource.value() as unknown as AiInsightsResponse | undefined);
   /** Rows behind the breakdown table — read as a signal so the empty state reacts. */
   projectRows = computed<ProjectStats[]>(() => this.statsResource.value()?.projects ?? []);
   pendingUsers = computed(() => this.pendingResource.value() ?? []);
@@ -213,6 +297,11 @@ export class OverviewComponent {
   loading = computed(() => this.statsResource.isLoading() || this.busy());
 
   approveSelection: Record<number, number> = {};
+
+  reloadAll(): void {
+    this.statsResource.reload();
+    this.aiInsightsResource.reload();
+  }
 
   private transloco = inject(TranslocoService);
 

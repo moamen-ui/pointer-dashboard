@@ -16,15 +16,17 @@ import {
   PredefinedActionsService,
   SuggestionsService,
   SuggestionStatus,
+  AiRulesService,
   getApiAdminSettingsResource,
   getApiAdminPredefinedActionsResource,
   getApiAdminPredefinedActionSuggestionsResource,
+  getApiAdminAiRulesTenantResource,
 } from '@moamen-ui/pointer-angular';
-import type { SettingsResponse, PredefinedActionResponse, SuggestionResponse } from '@moamen-ui/pointer-angular';
+import type { SettingsResponse, PredefinedActionResponse, SuggestionResponse, AiRuleResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { AuthService } from '../../core/auth/auth.service';
 
-interface EditableAction {
+type EditableAction = {
   id?: number;
   text: string;
   prompt: string;
@@ -32,7 +34,17 @@ interface EditableAction {
   sortOrder: number;
   dirty: boolean;
   saving: boolean;
-}
+};
+
+type EditableRule = {
+  id?: number;
+  title: string;
+  prompt: string;
+  isActive: boolean;
+  sortOrder: number;
+  dirty: boolean;
+  saving: boolean;
+};
 
 @Component({
   selector: 'app-settings',
@@ -367,6 +379,75 @@ interface EditableAction {
         </div>
       }
 
+      <!-- AI Roles & Rules section (tenant-wide, admins/deputies only) -->
+      @if (auth.isAdmin()) {
+        <div class="mt-8 max-w-2xl">
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title class="flex items-center gap-2 text-base font-semibold">
+                <mat-icon class="text-primary">psychology</mat-icon>
+                {{ 'aiRules.section' | transloco }}
+              </mat-panel-title>
+            </mat-expansion-panel-header>
+            <p class="mb-4 text-[0.85rem] text-muted">{{ 'aiRules.tenantHelp' | transloco }}</p>
+
+            @if (tenantRulesResource.isLoading()) {
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            }
+
+            <div class="flex flex-col gap-4">
+              @for (rule of localRules; track rule.id ?? $index) {
+                <div class="flex flex-col gap-2 rounded border border-app-border p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
+                      <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
+                      <input matInput [ngModel]="rule.title" (ngModelChange)="markRuleDirty(rule, 'title', $event)" />
+                    </mat-form-field>
+                    <mat-slide-toggle
+                      [checked]="rule.isActive"
+                      (change)="markRuleDirty(rule, 'isActive', $event.checked)"
+                    />
+                  </div>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
+                    <textarea matInput rows="2" [ngModel]="rule.prompt" (ngModelChange)="markRuleDirty(rule, 'prompt', $event)"></textarea>
+                  </mat-form-field>
+                  <div class="flex items-center gap-2">
+                    <button mat-flat-button color="primary" [disabled]="!rule.dirty || rule.saving" (click)="saveRule(rule)">
+                      {{ 'common.save' | transloco }}
+                    </button>
+                    <button mat-stroked-button color="warn" [disabled]="rule.saving" (click)="deleteRule(rule)">
+                      <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              @if (tenantRules().length === 0 && !tenantRulesResource.isLoading()) {
+                <p class="text-[0.85rem] text-muted">{{ 'aiRules.empty' | transloco }}</p>
+              }
+            </div>
+
+            <!-- Add new rule inline form -->
+            <div class="mt-4 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
+                <input matInput [formControl]="newRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
+                <textarea matInput rows="2" [formControl]="newRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
+              </mat-form-field>
+              <div>
+                <button mat-flat-button color="primary" [disabled]="newRuleBusy() || !newRuleTitle.value.trim() || !newRulePrompt.value.trim()" (click)="createRule()">
+                  <mat-icon>add</mat-icon> {{ 'aiRules.addRule' | transloco }}
+                </button>
+              </div>
+            </div>
+          </mat-expansion-panel>
+        </div>
+      }
+
     </div>
   `,
 })
@@ -588,6 +669,116 @@ export class SettingsComponent {
       },
       error: (e: unknown) => {
         this.suggestionBusy.set(false);
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  // --- AI Roles & Rules (Tenant-wide) ---
+  private aiRulesService = inject(AiRulesService);
+  tenantRulesResource = getApiAdminAiRulesTenantResource();
+
+  rawTenantRules = computed(() => (this.tenantRulesResource.value() ?? []) as AiRuleResponse[]);
+  tenantRules = computed<EditableRule[]>(() =>
+    this.rawTenantRules().map((r) => ({
+      id: r.id,
+      title: r.title ?? '',
+      prompt: r.prompt ?? '',
+      isActive: r.isActive ?? true,
+      sortOrder: r.sortOrder ?? 0,
+      dirty: false,
+      saving: false,
+    }))
+  );
+
+  newRuleTitle = this.fb.nonNullable.control('');
+  newRulePrompt = this.fb.nonNullable.control('');
+  newRuleBusy = signal(false);
+
+  private _editableRules = signal<EditableRule[]>([]);
+  private _rulesSeeded = signal(false);
+
+  get localRules(): EditableRule[] {
+    return this._rulesSeeded() ? this._editableRules() : this.tenantRules();
+  }
+
+  markRuleDirty(rule: EditableRule, field: 'title' | 'prompt' | 'isActive', value: any): void {
+    const current = this._rulesSeeded()
+      ? this._editableRules()
+      : this.tenantRules().map((r) => ({ ...r }));
+    const idx = current.findIndex((r) => r.id === rule.id);
+    if (idx !== -1) {
+      current[idx] = { ...current[idx], [field]: value, dirty: true };
+      this._editableRules.set([...current]);
+      this._rulesSeeded.set(true);
+    }
+  }
+
+  saveRule(rule: EditableRule): void {
+    if (!rule.id) return;
+    const current = this._rulesSeeded() ? this._editableRules() : this.tenantRules().map((r) => ({ ...r }));
+    const idx = current.findIndex((r) => r.id === rule.id);
+    if (idx !== -1) {
+      current[idx] = { ...current[idx], saving: true };
+      this._editableRules.set([...current]);
+      this._rulesSeeded.set(true);
+    }
+    this.aiRulesService.putApiAdminAiRulesId(rule.id, {
+      title: rule.title,
+      prompt: rule.prompt,
+      isActive: rule.isActive,
+    }).subscribe({
+      next: () => {
+        const list = this._editableRules();
+        const i = list.findIndex((r) => r.id === rule.id);
+        if (i !== -1) {
+          list[i] = { ...list[i], dirty: false, saving: false };
+          this._editableRules.set([...list]);
+        }
+        this.tenantRulesResource.reload();
+      },
+      error: (e: unknown) => {
+        const list = this._editableRules();
+        const i = list.findIndex((r) => r.id === rule.id);
+        if (i !== -1) {
+          list[i] = { ...list[i], saving: false };
+          this._editableRules.set([...list]);
+        }
+        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+      },
+    });
+  }
+
+  deleteRule(rule: EditableRule): void {
+    if (!rule.id) return;
+    this.aiRulesService.deleteApiAdminAiRulesId(rule.id).subscribe({
+      next: () => {
+        this._rulesSeeded.set(false);
+        this._editableRules.set([]);
+        this.tenantRulesResource.reload();
+      },
+      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+    });
+  }
+
+  createRule(): void {
+    if (!this.newRuleTitle.value.trim() || !this.newRulePrompt.value.trim()) return;
+    this.newRuleBusy.set(true);
+    this.aiRulesService.postApiAdminAiRules({
+      title: this.newRuleTitle.value.trim(),
+      prompt: this.newRulePrompt.value.trim(),
+      sortOrder: this.tenantRules().length,
+    }).subscribe({
+      next: () => {
+        this.newRuleBusy.set(false);
+        this.newRuleTitle.reset();
+        this.newRulePrompt.reset();
+        this._rulesSeeded.set(false);
+        this._editableRules.set([]);
+        this.tenantRulesResource.reload();
+      },
+      error: (e: unknown) => {
+        this.newRuleBusy.set(false);
         this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
       },
     });
