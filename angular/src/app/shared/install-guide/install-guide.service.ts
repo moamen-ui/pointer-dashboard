@@ -8,12 +8,12 @@ const SEEN_KEY = (userId: number | string) => `pointer_install_seen:${userId}`;
 const SUPPRESSED_KEY = (userId: number | string) => `pointer_install_suppressed:${userId}`;
 const SESSION_KEY = (userId: number | string) => `pointer_install_shown_session:${userId}`;
 
-export interface AutoOpenContext {
+export type AutoOpenContext = {
   isAdmin: boolean;
   userId: number | string | null;
   /** Comments across every project the user can see. */
   commentsCount: number;
-}
+};
 
 /**
  * Owns the install guide: how it opens, and whether it opens by itself.

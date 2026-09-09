@@ -11,12 +11,36 @@ import type { DemoSession } from '@/lib/demoSession';
 export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
 
 /** One step in the guide. `code` is optional — instruction-only steps omit it. */
-export interface SetupStep {
+export type SetupStep = {
   titleKey: string;
   hintKey: string;
   code?: string;
   /** When set, the step renders a download anchor (not a code block) pointing here. */
   downloadUrl?: string;
+};
+
+export type WizardStep = 'project' | 'method' | 'install' | 'verify';
+export type InstallMethod = 'agent' | 'snippet' | 'extension';
+export type FrameworkStack = 'html' | 'react' | 'vue' | 'angular';
+
+/**
+ * Pings the public activation endpoint to check if the project is active on localhost.
+ */
+export async function checkLocalhostWidgetStatus(
+  server: string,
+  projectKey: string,
+): Promise<boolean> {
+  try {
+    const origin = encodeURIComponent('http://localhost:3000');
+    const res = await fetch(
+      `${server}/api/public/projects/${encodeURIComponent(projectKey)}/widget-status?origin=${origin}`,
+    );
+    if (!res.ok) return false;
+    const json = await res.json();
+    return Boolean(json?.data?.active ?? json?.active);
+  } catch {
+    return false;
+  }
 }
 
 /** Rendered in the snippet until the user actually has a project to point at. */
@@ -27,24 +51,18 @@ export const PASSWORD_PLACEHOLDER = '<your password>';
 
 /** What the dialog renders: the agent-driven path, the hand-wiring fallback,
  *  and the Chrome-extension install steps for the second tab. */
-export interface GuideSteps {
+export type GuideSteps = {
   /** The recommended path, in order. */
   primary: SetupStep[];
   /** Hand-wiring the widget — only needed if you skip the agent prompt. */
   manual: SetupStep[];
   /** Loading the unpacked extension in Chrome — the no-code-install tab. */
   extension: SetupStep[];
-}
+};
 
 /**
  * Builds the install steps. Pure so the branching (demo credentials vs. the signed-in
  * user's own, and the placeholder when there is no project yet) is unit-testable.
- *
- * Shape of the flow: install.sh drops in two skills — pointer-init and
- * pointer-feedback — so wiring the widget is a prompt, not two snippets pasted into
- * index.html. pointer-init detects the host stack (Vite / Angular / Next / CRA /
- * static / Swagger) and wires the loader and env vars the way that stack expects,
- * which the raw snippets cannot do. They stay available as the manual fallback.
  */
 export function buildSteps(input: {
   server: string;

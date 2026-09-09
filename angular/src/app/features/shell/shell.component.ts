@@ -19,6 +19,8 @@ import { BrandingService } from '../../core/branding/branding.service';
 import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
 import { ChangePasswordDialogComponent } from '../../shared/change-password-dialog.component';
 import { DemoPanelComponent } from './demo-panel.component';
+import { TourService } from '../../core/tour/tour.service';
+import { TourSpotlightComponent } from '../../shared/tour/tour-spotlight.component';
 
 @Component({
   selector: 'app-shell',
@@ -38,6 +40,7 @@ import { DemoPanelComponent } from './demo-panel.component';
     BidiModule,
     TranslocoModule,
     DemoPanelComponent,
+    TourSpotlightComponent,
   ],
   template: `
     <mat-toolbar class="toolbar z-[2] shrink-0 border-b border-app-border bg-header text-ink shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
@@ -120,7 +123,7 @@ import { DemoPanelComponent } from './demo-panel.component';
             <span matListItemTitle>{{ 'nav.myProfile' | transloco }}</span>
           </a>
           @if (!auth.isQuickAccess()) {
-            <a mat-list-item routerLink="/projects" routerLinkActive="active-link">
+            <a mat-list-item routerLink="/projects" routerLinkActive="active-link" data-tour="nav-projects">
               <mat-icon matListItemIcon>folder</mat-icon>
               <span matListItemTitle>{{ 'nav.projects' | transloco }}</span>
             </a>
@@ -142,7 +145,7 @@ import { DemoPanelComponent } from './demo-panel.component';
               <mat-icon matListItemIcon>label</mat-icon>
               <span matListItemTitle>{{ 'nav.statuses' | transloco }}</span>
             </a>
-            <a mat-list-item routerLink="/environments" routerLinkActive="active-link">
+            <a mat-list-item routerLink="/environments" routerLinkActive="active-link" data-tour="nav-environments">
               <mat-icon matListItemIcon>public</mat-icon>
               <span matListItemTitle>{{ 'nav.environments' | transloco }}</span>
             </a>
@@ -167,12 +170,16 @@ import { DemoPanelComponent } from './demo-panel.component';
           }
         </mat-nav-list>
 
-        <!-- Installation steps sit at the foot of the nav rather than in the account
-             menu: it is a one-off setup task for the workspace, not a personal
-             setting. The hint dot lives here too, so it is visible without opening
-             anything. -->
+        <!-- Installation steps and quick tour sit at the foot of the nav -->
         <mat-nav-list class="mt-auto border-t border-app-border pt-2" (click)="onNavClick(snav)">
           <button mat-list-item type="button" class="w-full cursor-pointer text-start"
+            data-tour="tour-trigger"
+            (click)="tour.startTour()">
+            <mat-icon matListItemIcon>explore</mat-icon>
+            <span matListItemTitle>{{ 'tour.quickTour' | transloco }}</span>
+          </button>
+          <button mat-list-item type="button" class="w-full cursor-pointer text-start"
+            data-tour="nav-install-guide"
             (click)="installGuide.open()">
             <mat-icon matListItemIcon>rocket_launch</mat-icon>
             <span matListItemTitle>
@@ -189,6 +196,7 @@ import { DemoPanelComponent } from './demo-panel.component';
       <mat-sidenav-content class="h-full overflow-auto bg-app p-4 sm:p-6">
         <app-demo-panel />
         <router-outlet />
+        <app-tour-spotlight />
       </mat-sidenav-content>
     </mat-sidenav-container>
   `,
@@ -215,6 +223,7 @@ export class ShellComponent {
   prefs = inject(PreferencesService);
   branding = inject(BrandingService);
   installGuide = inject(InstallGuideService);
+  tour = inject(TourService);
   private dialog = inject(MatDialog);
 
   /** First word of the display name — "Ahmed" out of "Ahmed Omran". */

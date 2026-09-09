@@ -36,6 +36,9 @@ import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
 import { DemoPanel } from '@/components/DemoPanel';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
+import { TourProvider, useTour } from '@/lib/tour';
+import { TourSpotlight } from '@/components/TourSpotlight';
+import { Compass } from 'lucide-react';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -60,7 +63,10 @@ const SUPER_ADMIN_NAV = [
 export function Shell() {
   return (
     <InstallGuideProvider>
-      <ShellLayout />
+      <TourProvider>
+        <ShellLayout />
+        <TourSpotlight />
+      </TourProvider>
     </InstallGuideProvider>
   );
 }
@@ -72,6 +78,7 @@ function ShellLayout() {
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
   const installGuide = useInstallGuide();
+  const tour = useTour();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // First name only: enough to tell whose session this is without spending
@@ -210,6 +217,7 @@ function ShellLayout() {
                 <NavLink
                   key={to}
                   to={to}
+                  data-tour={to === '/environments' ? 'nav-environments' : undefined}
                   onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
@@ -228,6 +236,7 @@ function ShellLayout() {
               <NavLink
                 key={to}
                 to={to}
+                data-tour={to === '/projects' ? 'nav-projects' : undefined}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   cn(
@@ -276,18 +285,28 @@ function ShellLayout() {
             </NavLink>
           </nav>
 
-          {/* Installation steps sit at the foot of the nav rather than in the account
-              menu: it is a one-off setup task for the workspace, not a personal
-              setting. The hint dot lives here too, so it is visible without opening
-              anything. */}
-          <div className="mt-auto border-t border-border px-2.5 pt-2">
+          {/* Quick tour + Installation steps in the footer */}
+          <div className="mt-auto flex flex-col gap-0.5 border-t border-border px-2.5 pt-2">
             <button
               type="button"
               onClick={() => {
                 setSidebarOpen(false);
+                tour.startTour();
+              }}
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              <Compass className="h-5 w-5" />
+              <span>{t('tour.quickTour')}</span>
+            </button>
+
+            <button
+              type="button"
+              data-tour="nav-install-guide"
+              onClick={() => {
+                setSidebarOpen(false);
                 installGuide.open();
               }}
-              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             >
               <Rocket className="h-5 w-5" />
               <span>{t('install.title')}</span>

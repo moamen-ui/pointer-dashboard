@@ -737,7 +737,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
   <div class="flex flex-col gap-4">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-lg font-semibold">{{ t('projects.title') }}</h2>
-      <Button v-if="!isSuperAdmin" @click="openAdd">
+      <Button v-if="!isSuperAdmin" data-tour="add-project-btn" @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
       </Button>
     </div>
@@ -777,7 +777,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
           {{ activationLabel(row.activationState) }}
         </Badge>
       </template>
-      <Button v-if="!isSuperAdmin" @click="openAdd">
+      <Button v-if="!isSuperAdmin" data-tour="add-project-btn" @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
       </Button>
     </DataTable>
@@ -789,7 +789,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
       <DialogHeader>
         <DialogTitle>{{ t('projects.addProject') }}</DialogTitle>
       </DialogHeader>
-      <form class="flex flex-col gap-3 pt-2" @submit.prevent="addProject">
+      <form class="flex flex-col gap-3 pt-2" data-tour="project-modal-sections" @submit.prevent="addProject">
         <div class="flex flex-col gap-2">
           <Label for="p-name">{{ t('projects.name') }}</Label>
           <Input id="p-name" v-model="addForm.name" @input="syncKeyFromName" />
