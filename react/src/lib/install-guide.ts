@@ -14,11 +14,36 @@ const SEEN_KEY = (userId: string) => `pointer_install_seen:${userId}`;
 const SUPPRESSED_KEY = (userId: string) => `pointer_install_suppressed:${userId}`;
 const SESSION_KEY = (userId: string) => `pointer_install_shown_session:${userId}`;
 
-export interface AutoOpenContext {
+export type AutoOpenContext = {
   isAdmin: boolean;
   userId: string | null;
   /** Comments across every project the user can see. */
   commentsCount: number;
+};
+
+export type WizardStep = 'project' | 'method' | 'install' | 'verify';
+export type InstallMethod = 'agent' | 'snippet' | 'extension';
+export type FrameworkStack = 'html' | 'react' | 'vue' | 'angular';
+
+/**
+ * Checks if the widget is configured and active for localhost (http://localhost:3000)
+ * by pinging the anonymous public activation endpoint.
+ */
+export async function checkLocalhostWidgetStatus(
+  server: string,
+  projectKey: string,
+): Promise<boolean> {
+  try {
+    const origin = encodeURIComponent('http://localhost:3000');
+    const res = await fetch(
+      `${server}/api/public/projects/${encodeURIComponent(projectKey)}/widget-status?origin=${origin}`,
+    );
+    if (!res.ok) return false;
+    const json = await res.json();
+    return Boolean(json?.data?.active ?? json?.active);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -80,14 +105,14 @@ function setFlag(key: string, store: Storage = localStorage): void {
 // ── Demo session (sessionStorage['pointer_demo']) ─────────────────────────
 
 /** Demo session written by the demo provisioning flow (sessionStorage). */
-export interface DemoSession {
+export type DemoSession = {
   email?: string | null;
   password?: string | null;
   projectKey?: string | null;
   serverUrl?: string | null;
   expiresAt?: string;
   emailSent?: boolean;
-}
+};
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 

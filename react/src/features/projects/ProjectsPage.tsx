@@ -13,6 +13,13 @@ import { useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  KEY_MAX_LENGTH,
+  normalizeKey,
+  slugifyKey,
+  keyErrorFor as checkKeyError,
+  type KeyError,
+} from '@/lib/project-utils';
+import {
   useGetApiAdminProjects,
   usePostApiAdminProjects,
   usePatchApiAdminProjectsId,
@@ -106,80 +113,8 @@ function emptyRow(): PredefinedActionRow {
   return { _localId: nextLocalId(), text: '', prompt: '' };
 }
 
-/** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
- *  underscore, hyphen — nothing else. */
-const KEY_PATTERN = /^[a-z0-9-]+$/;
-/** Mirrors the projects.key column (character varying(64)). */
-const KEY_MAX_LENGTH = 64;
-
-/** Keeps the typed key in the shape the API accepts: lowercased and without
- *  surrounding whitespace. The API validates the raw value (only lowercasing
- *  afterwards), so an uppercase key would 400 even though it would have been
- *  stored fine — normalising avoids that trap. */
-function normalizeKey(value: string): string {
-  return value.toLowerCase().trim();
-}
-
-/**
- * Turns a project name into a key the API will accept: lowercase, with anything
- * outside [a-z0-9._-] collapsed to a single hyphen, trimmed of leading/trailing
- * separators and capped at the column length.
- */
-const ARABIC_MAP: Record<string, string> = {
-  'ء': 'a', 'آ': 'a', 'أ': 'a', 'ؤ': 'w', 'إ': 'a', 'ئ': 'y', 'ا': 'a', 'ب': 'b',
-  'ة': 'h', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'dh',
-  'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z',
-  'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
-  'ه': 'h', 'و': 'w', 'ى': 'a', 'ي': 'y',
-  // Persian/Urdu letters that show up in Arabic-script names
-  'پ': 'p', 'چ': 'ch', 'ژ': 'zh', 'ک': 'k', 'گ': 'g', 'ی': 'y',
-};
-
-/** Arabic-Indic and extended Arabic-Indic digits → ASCII. */
-function asciiDigits(value: string): string {
-  return value.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-              .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
-}
-
-/**
- * Turns a project name into a key the API will accept: `^[a-z0-9-]+$`, at most
- * KEY_MAX_LENGTH characters.
- *
- * - Arabic is transliterated (most of this product's users write Arabic names, and
- *   dropping the letters left them with an empty key).
- * - Only letters, digits and dashes survive: every other run — spaces, dots,
- *   underscores, punctuation — becomes a single dash, so "web.app_v2 beta" reads
- *   "web-app-v2-beta".
- * - Edges are trimmed of separators, and trimmed again after the length cut so a
- *   truncated key never ends on one.
- *
- * Exported for the spec.
- */
-function slugifyKey(name: string): string {
-const latin = asciiDigits(name.toLowerCase())
-    // harakat + tatweel carry no sound; drop them before mapping letters
-    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
-    .replace(/[\u0621-\u06FF]/g, (ch) => ARABIC_MAP[ch] ?? ' ');
-
-  return latin
-    .replace(/[^a-z0-9]+/g, '-')   // the key allows only letters, digits and dashes
-    .replace(/-{2,}/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, KEY_MAX_LENGTH)
-    .replace(/-+$/g, '');          // the cut must not leave a dangling dash
-}
-
-type KeyError = 'keyRequired' | 'keyPattern' | 'keyMaxLength' | 'keyTaken';
-
-/** One error at a time, in this precedence. The taken-check compares
- *  case-insensitively on the normalised value, saving a 409 round-trip. */
 function keyErrorFor(value: string, projects: ProjectResponse[]): KeyError | null {
-  const v = normalizeKey(value);
-  if (!v) return 'keyRequired';
-  if (!KEY_PATTERN.test(v)) return 'keyPattern';
-  if (v.length > KEY_MAX_LENGTH) return 'keyMaxLength';
-  if (projects.some((p) => (p.key ?? '').toLowerCase() === v)) return 'keyTaken';
-  return null;
+  return checkKeyError(value, projects.map((p) => p.key));
 }
 
 type EditableAiRule = {
@@ -1320,7 +1255,7 @@ export function ProjectsPage() {
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t('projects.title')}</h2>
         {!isSuperAdmin && (
-          <Button onClick={openAdd}>
+          <Button onClick={openAdd} data-tour="add-project-btn">
             <Plus className="h-4 w-4" />
             {t('projects.addProject')}
           </Button>
@@ -1346,7 +1281,7 @@ export function ProjectsPage() {
         emptyHint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
         emptyAction={
           !isSuperAdmin ? (
-            <Button onClick={openAdd}>
+            <Button onClick={openAdd} data-tour="add-project-btn">
               <Plus className="h-4 w-4" />
               {t('projects.addProject')}
             </Button>
@@ -1360,7 +1295,7 @@ export function ProjectsPage() {
           <DialogHeader>
             <DialogTitle>{t('projects.addProject')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
+          <div className="flex flex-col gap-4 pt-1" data-tour="project-modal-sections">
             {/* Name first: the key is derived from it (Pointer feedback #138). */}
             <div className="flex flex-col gap-2">
               <Label htmlFor="project-name">{t('projects.name')}</Label>

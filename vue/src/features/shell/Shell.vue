@@ -22,6 +22,7 @@ import {
   Rocket,
   Languages,
   Globe,
+  Compass,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,9 +37,12 @@ import { usePreferences } from '@/composables/usePreferences';
 import { useBranding } from '@/composables/useBranding';
 import DemoPanel from '@/features/shell/DemoPanel.vue';
 import InstallGuideDialog from '@/shared/install-guide/InstallGuideDialog.vue';
+import TourSpotlight from '@/components/TourSpotlight.vue';
 import { shouldAutoOpen, useInstallGuide } from '@/shared/install-guide/useInstallGuide';
+import { useTour } from '@/lib/tour';
 
 const sidebarOpen = ref(false);
+const { startTour } = useTour();
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -188,6 +192,7 @@ function signOut() {
 
     <!-- Shared installation-steps dialog (header rocket + demo banner + auto-open) -->
     <InstallGuideDialog />
+    <TourSpotlight />
 
     <!-- Body: sidebar + content -->
     <div class="flex flex-1 overflow-hidden bg-app">
@@ -209,6 +214,7 @@ function signOut() {
               v-for="item in ADMIN_NAV"
               :key="item.to"
               :to="item.to"
+              :data-tour="item.to === '/environments' ? 'nav-environments' : undefined"
               class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               active-class="bg-brand-tint font-semibold !text-brand"
               @click="sidebarOpen = false"
@@ -236,6 +242,7 @@ function signOut() {
             v-for="item in ALL_NAV"
             :key="item.to"
             :to="item.to"
+            :data-tour="item.to === '/projects' ? 'nav-projects' : undefined"
             class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             active-class="bg-brand-tint font-semibold !text-brand"
             @click="sidebarOpen = false"
@@ -255,14 +262,21 @@ function signOut() {
           </RouterLink>
         </nav>
 
-        <!-- Installation steps sit at the foot of the nav rather than in the account
-             menu: it is a one-off setup task for the workspace, not a personal
-             setting. The hint dot lives here too, so it is visible without opening
-             anything. -->
-        <div class="mt-auto border-t border-border px-2.5 pt-2">
+        <!-- Quick tour + Installation steps in the footer -->
+        <div class="mt-auto flex flex-col gap-0.5 border-t border-border px-2.5 pt-2">
           <button
             type="button"
-            class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            @click="sidebarOpen = false; startTour()"
+          >
+            <Compass class="h-5 w-5" />
+            <span>{{ t('tour.quickTour') }}</span>
+          </button>
+
+          <button
+            type="button"
+            data-tour="nav-install-guide"
+            class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             @click="sidebarOpen = false; guideOpen = true"
           >
             <Rocket class="h-5 w-5" />

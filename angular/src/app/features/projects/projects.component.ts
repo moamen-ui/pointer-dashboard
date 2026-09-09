@@ -62,60 +62,16 @@ type EditableAiRule = {
   saving: boolean;
 };
 
-/** Mirrors CreateProjectValidator on the API: lowercase letters, digits, dot,
- *  underscore, hyphen — nothing else. */
-export const KEY_PATTERN = /^[a-z0-9-]+$/;
-/** Mirrors the projects.key column (character varying(64)). */
-export const KEY_MAX_LENGTH = 64;
+import {
+  KEY_PATTERN,
+  KEY_MAX_LENGTH,
+  ARABIC_MAP,
+  asciiDigits,
+  slugifyKey,
+} from '../../shared/project-utils';
 
-/**
- * Arabic → Latin, so an Arabic project name still yields a usable key rather than an
- * empty one. Deliberately a plain readable transliteration (م → m, ش → sh, خ → kh);
- * it only has to be stable and valid, not scholarly.
- */
-const ARABIC_MAP: Record<string, string> = {
-  'ء': 'a', 'آ': 'a', 'أ': 'a', 'ؤ': 'w', 'إ': 'a', 'ئ': 'y', 'ا': 'a', 'ب': 'b',
-  'ة': 'h', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd', 'ذ': 'dh',
-  'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd', 'ط': 't', 'ظ': 'z',
-  'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
-  'ه': 'h', 'و': 'w', 'ى': 'a', 'ي': 'y',
-  // Persian/Urdu letters that show up in Arabic-script names
-  'پ': 'p', 'چ': 'ch', 'ژ': 'zh', 'ک': 'k', 'گ': 'g', 'ی': 'y',
-};
+export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
 
-/** Arabic-Indic and extended Arabic-Indic digits → ASCII. */
-function asciiDigits(value: string): string {
-  return value.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
-              .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
-}
-
-/**
- * Turns a project name into a key the API will accept: `^[a-z0-9-]+$`, at most
- * KEY_MAX_LENGTH characters.
- *
- * - Arabic is transliterated (most of this product's users write Arabic names, and
- *   dropping the letters left them with an empty key).
- * - Only letters, digits and dashes survive: every other run — spaces, dots,
- *   underscores, punctuation — becomes a single dash, so "web.app_v2 beta" reads
- *   "web-app-v2-beta".
- * - Edges are trimmed of separators, and trimmed again after the length cut so a
- *   truncated key never ends on one.
- *
- * Exported for the spec.
- */
-export function slugifyKey(name: string): string {
-const latin = asciiDigits(name.toLowerCase())
-    // harakat + tatweel carry no sound; drop them before mapping letters
-    .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
-    .replace(/[\u0621-\u06FF]/g, (ch) => ARABIC_MAP[ch] ?? ' ');
-
-  return latin
-    .replace(/[^a-z0-9]+/g, '-')   // the key allows only letters, digits and dashes
-    .replace(/-{2,}/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, KEY_MAX_LENGTH)
-    .replace(/-+$/g, '');          // the cut must not leave a dangling dash
-}
 
 @Component({
   selector: 'app-projects',
@@ -141,7 +97,7 @@ const latin = asciiDigits(name.toLowerCase())
       <div class="mb-4 flex items-center justify-between gap-3">
         <h2 class="m-0 text-[1.5em] font-bold">{{ 'projects.title' | transloco }}</h2>
         @if (!auth.isSuperAdmin()) {
-          <button mat-flat-button color="primary" (click)="openAdd()">
+          <button mat-flat-button color="primary" data-tour="add-project-btn" (click)="openAdd()">
             <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
           </button>
         }
@@ -193,7 +149,7 @@ const latin = asciiDigits(name.toLowerCase())
     <!-- Add project dialog -->
     <ng-template #addDialog>
       <h2 mat-dialog-title>{{ 'projects.addProject' | transloco }}</h2>
-      <mat-dialog-content>
+      <mat-dialog-content data-tour="project-modal-sections">
         <form [formGroup]="addForm" (ngSubmit)="addProject()" class="flex min-w-80 flex-col gap-3 pt-2">
           <!-- Name first: the key is derived from it (Pointer feedback #138). -->
           <mat-form-field appearance="outline">

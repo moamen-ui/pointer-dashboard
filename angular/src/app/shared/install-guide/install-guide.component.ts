@@ -1,71 +1,83 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { getApiMeApiKeyResource } from '@moamen-ui/pointer-angular';
+import {
+  getApiMeApiKeyResource,
+  ProjectsService,
+} from '@moamen-ui/pointer-angular';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from './install-guide.service';
-import { TabsComponent, type TabItem } from '../tabs/tabs.component';
-import { TabContentDirective } from '../tabs/tab-content.directive';
+import { slugifyKey } from '../project-utils';
 
 /** One step in the guide. `code`/`downloadUrl` are optional — instruction-only steps omit both. */
-export interface SetupStep {
+export type SetupStep = {
   titleKey: string;
   hintKey: string;
   code?: string;
   /** Renders the step as a download anchor instead of a code block. */
   downloadUrl?: string;
-}
+};
 
 /** Demo session written by the demo provisioning flow (sessionStorage). */
-interface DemoSession {
+export type DemoSession = {
   email?: string | null;
   password?: string | null;
   projectKey?: string | null;
   serverUrl?: string | null;
   emailSent?: boolean;
-}
+};
+
+export type WizardStep = 'project' | 'method' | 'install' | 'verify';
+export type InstallMethod = 'agent' | 'snippet' | 'extension';
+export type FrameworkStack = 'html' | 'react' | 'vue' | 'angular';
+export type ConnectionStatus = 'idle' | 'checking' | 'active' | 'inactive';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
-/** The extension zip is a landing-domain artifact served by Caddy — deliberately
- *  not derived from the API base, which points at a different origin. */
 export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
-/** Rendered in the snippet until the user actually has a project to point at. */
 export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
-/** Placeholder inside the credentials snippet for a demo session. Deliberately not
- *  translated — it is pasted into .pointer/credentials.env, where English reads
- *  correctly either way. */
 export const PASSWORD_PLACEHOLDER = '<your password>';
-/** Placeholder shown for the signed-in user's own API key while it's still loading
- *  (or failed to load) — see ProfileComponent for the same key, always re-viewable. */
 export const API_KEY_PLACEHOLDER = '<your API key — see your Profile page>';
 
 /** What the dialog renders: the agent-driven path, plus the hand-wiring fallback. */
-export interface GuideSteps {
+export type GuideSteps = {
   /** The recommended path, in order. */
   primary: SetupStep[];
   /** Hand-wiring the widget — only needed if you skip the agent prompt. */
   manual: SetupStep[];
+};
+
+export async function checkLocalhostWidgetStatus(server: string, projectKey: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${server}/api/public/projects/${projectKey}/widget-status?origin=http://localhost:3000`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data?.data?.active;
+  } catch {
+    return false;
+  }
 }
 
-/**
- * Builds the install steps. Pure so the branching (demo credentials vs. the signed-in
- * user's own, and the placeholder when there is no project yet) is unit-testable.
- *
- * Shape of the flow: install.sh drops in two skills — pointer-init and
- * pointer-feedback — so wiring the widget is a prompt, not two snippets pasted into
- * index.html. pointer-init detects the host stack (Vite / Angular / Next / CRA /
- * static / Swagger) and wires the loader and env vars the way that stack expects,
- * which the raw snippets cannot do. They stay available as the manual fallback.
- */
 export function buildSteps(input: {
   server: string;
   projectKey: string | null;
@@ -80,18 +92,14 @@ export function buildSteps(input: {
 
   return {
     primary: [
-      // Installs pointer-init + pointer-feedback and scaffolds .pointer/credentials.env.
       { titleKey: 'demo.step3Title', hintKey: 'demo.step3Hint', code: `curl -fsSL ${server}/install.sh | sh` },
       { titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: credentials },
-      // Names the skill and supplies its three variables, so the agent wires the
-      // widget straight away instead of stopping to ask for them.
       {
         titleKey: 'install.stepAgentTitle',
         hintKey: 'install.stepAgentHint',
         code: `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${projectKey}, Pointer server URL: ${server}, environment: local`,
       },
       { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
-      // Kept English on purpose — the pointer-feedback skill triggers on this phrasing.
       { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' },
     ],
     manual: [
@@ -101,12 +109,7 @@ export function buildSteps(input: {
   };
 }
 
-/** The credentials snippet, shared by the code guide and the extension sign-in step:
- *  demo widget login during a demo session (still email/password — a demo account's
- *  own API key isn't fetched here, a separate concern from the signed-in user's own),
- *  the signed-in user's own API key otherwise (fetched by the component, passed in —
- *  this function stays pure/sync for testability). */
-function credentialsSnippet(input: {
+export function credentialsSnippet(input: {
   server: string;
   userEmail: string | null;
   apiKey: string | null;
@@ -121,10 +124,6 @@ function credentialsSnippet(input: {
     : `POINTER_API_KEY=${input.apiKey ?? API_KEY_PLACEHOLDER}`;
 }
 
-/**
- * Builds the Chrome-extension install steps. Pure, like buildSteps, so the
- * credentials branching is unit-testable the same way.
- */
 export function buildExtensionSteps(input: {
   server: string;
   userEmail: string | null;
@@ -149,134 +148,484 @@ export function buildExtensionSteps(input: {
   ];
 }
 
-/**
- * The installation steps, in a dialog. Opened from the header icon (any signed-in
- * user, any time) and automatically for a workspace admin who is new here or has
- * no feedback yet — see InstallGuideService for that policy.
- */
 @Component({
   selector: 'app-install-guide',
   standalone: true,
   imports: [
+    CommonModule,
+    FormsModule,
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
     MatSelectModule,
     MatFormFieldModule,
+    MatInputModule,
     MatCheckboxModule,
     RouterLink,
     TranslocoModule,
-    TabsComponent,
-    TabContentDirective,
   ],
   template: `
-    <h2 mat-dialog-title class="flex items-center gap-2">
-      <mat-icon class="text-brand">rocket_launch</mat-icon>
-      {{ 'install.title' | transloco }}
-    </h2>
+    <div class="flex items-center justify-between border-b border-app-border px-6 py-4">
+      <h2 class="m-0 flex items-center gap-2 text-lg font-bold text-ink">
+        <mat-icon class="text-brand">rocket_launch</mat-icon>
+        {{ 'install.title' | transloco }}
+      </h2>
+      <button mat-icon-button type="button" class="!h-8 !w-8" (click)="closeDialog()">
+        <mat-icon class="!text-base">close</mat-icon>
+      </button>
+    </div>
 
-    <mat-dialog-content>
-      <p class="mt-0 mb-4 text-[0.85rem] text-muted">{{ 'install.intro' | transloco }}</p>
+    <div class="max-h-[82vh] overflow-y-auto px-6 py-4">
+      <!-- Stepper / Progress Bar -->
+      <div class="mb-6 flex items-center justify-between border-b border-app-border pb-4">
+        @for (st of wizardSteps; track st.key; let i = $index) {
+          <div
+            class="flex items-center gap-2 cursor-pointer transition-colors"
+            (click)="canNavigateToStep(st.key) && currentStep.set(st.key)"
+          >
+            <div
+              class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all"
+              [class.bg-brand]="currentStep() === st.key"
+              [class.text-white]="currentStep() === st.key"
+              [class.bg-app-border]="currentStep() !== st.key"
+              [class.text-muted]="currentStep() !== st.key"
+            >
+              {{ i + 1 }}
+            </div>
+            <span
+              class="hidden text-xs font-medium sm:inline"
+              [class.text-brand]="currentStep() === st.key"
+              [class.text-muted]="currentStep() !== st.key"
+            >
+              {{ st.labelKey | transloco }}
+            </span>
+          </div>
+          @if (i < wizardSteps.length - 1) {
+            <div class="h-[1px] flex-1 bg-app-border mx-2"></div>
+          }
+        }
+      </div>
 
-      <!-- Two install paths: the code-based guide and the Chrome extension. Not persisted:
-           "Code" is the default every time. -->
-      <app-tabs [tabs]="tabItems()" [activeTab]="tab()" (activeTabChange)="tab.set($event)">
-        <ng-template appTabContent="code">
-          <!-- Which project the snippet points at -->
-          @if (projects().length > 0) {
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-              <mat-label>{{ 'install.project' | transloco }}</mat-label>
-              <mat-select [value]="projectKey()" (selectionChange)="projectKey.set($event.value)">
-                @for (p of projects(); track p.id) {
-                  <mat-option [value]="p.key">{{ p.name }} ({{ p.key }})</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-          } @else if (!demo()) {
-            <p class="my-0 rounded-lg border border-app-border bg-app/40 p-3 text-[0.85rem]">
-              {{ 'install.noProjects' | transloco }}
-              <a routerLink="/projects" mat-dialog-close class="text-brand underline">
-                {{ 'nav.projects' | transloco }}
-              </a>
+      <!-- ========================================================================= -->
+      <!-- STEP 1: PROJECT SETUP                                                     -->
+      <!-- ========================================================================= -->
+      @if (currentStep() === 'project') {
+        <div class="flex flex-col gap-4 py-1">
+          <div>
+            <h3 class="m-0 text-base font-semibold text-ink">
+              {{ 'install.wizard.projectTitle' | transloco }}
+            </h3>
+            <p class="mt-1 text-xs text-muted">
+              {{ 'install.wizard.projectDesc' | transloco }}
             </p>
+          </div>
+
+          @if (projects().length > 0) {
+            <div class="rounded-xl border border-app-border bg-panel p-4">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                <mat-label>{{ 'install.project' | transloco }}</mat-label>
+                <mat-select [value]="effectiveProjectKey()" (selectionChange)="projectKey.set($event.value)">
+                  @for (p of projects(); track p.id) {
+                    <mat-option [value]="p.key">{{ p.name }} ({{ p.key }})</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          } @else {
+            <div class="rounded-xl border border-app-border bg-panel p-4">
+              <p class="mt-0 mb-3 text-xs text-muted">
+                {{ 'install.wizard.noProjects' | transloco }}
+              </p>
+              <div class="flex flex-col gap-3">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                  <mat-label>{{ 'install.wizard.projectName' | transloco }}</mat-label>
+                  <input
+                    matInput
+                    [ngModel]="newProjectName()"
+                    (ngModelChange)="onProjectNameChanged($event)"
+                    placeholder="e.g. Acme Website"
+                  />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
+                  <mat-label>{{ 'install.wizard.projectKey' | transloco }}</mat-label>
+                  <input
+                    matInput
+                    [ngModel]="newProjectKey()"
+                    (ngModelChange)="newProjectKey.set($event)"
+                    placeholder="acme-website"
+                  />
+                </mat-form-field>
+
+                @if (createError()) {
+                  <p class="m-0 text-xs text-red-500">{{ createError() }}</p>
+                }
+
+                <div class="flex justify-end">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="!newProjectName().trim() || !newProjectKey().trim() || isCreatingProject()"
+                    (click)="createFirstProject()"
+                  >
+                    @if (isCreatingProject()) {
+                      {{ 'install.wizard.creating' | transloco }}
+                    } @else {
+                      {{ 'install.wizard.createProject' | transloco }}
+                    }
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ========================================================================= -->
+      <!-- STEP 2: CHOOSE METHOD                                                     -->
+      <!-- ========================================================================= -->
+      @if (currentStep() === 'method') {
+        <div class="flex flex-col gap-4 py-1">
+          <div>
+            <h3 class="m-0 text-base font-semibold text-ink">
+              {{ 'install.wizard.methodTitle' | transloco }}
+            </h3>
+            <p class="mt-1 text-xs text-muted">
+              {{ 'install.wizard.methodDesc' | transloco }}
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <!-- AI Agent Card -->
+            <div
+              class="cursor-pointer rounded-xl border p-4 transition-all"
+              [class.border-brand]="selectedMethod() === 'agent'"
+              [class.bg-brand-tint]="selectedMethod() === 'agent'"
+              [class.border-app-border]="selectedMethod() !== 'agent'"
+              [class.bg-panel]="selectedMethod() !== 'agent'"
+              (click)="selectedMethod.set('agent')"
+            >
+              <div class="flex items-center justify-between">
+                <mat-icon class="text-brand">terminal</mat-icon>
+                <span class="rounded bg-brand/10 px-2 py-0.5 text-[0.65rem] font-bold text-brand uppercase">
+                  {{ 'install.wizard.methodAgentBadge' | transloco }}
+                </span>
+              </div>
+              <h4 class="mt-3 mb-1 text-sm font-bold text-ink">
+                {{ 'install.wizard.methodAgentTitle' | transloco }}
+              </h4>
+              <p class="m-0 text-xs leading-relaxed text-muted">
+                {{ 'install.wizard.methodAgentDesc' | transloco }}
+              </p>
+            </div>
+
+            <!-- Code Snippet Card -->
+            <div
+              class="cursor-pointer rounded-xl border p-4 transition-all"
+              [class.border-brand]="selectedMethod() === 'snippet'"
+              [class.bg-brand-tint]="selectedMethod() === 'snippet'"
+              [class.border-app-border]="selectedMethod() !== 'snippet'"
+              [class.bg-panel]="selectedMethod() !== 'snippet'"
+              (click)="selectedMethod.set('snippet')"
+            >
+              <mat-icon class="text-brand">code</mat-icon>
+              <h4 class="mt-3 mb-1 text-sm font-bold text-ink">
+                {{ 'install.wizard.methodSnippetTitle' | transloco }}
+              </h4>
+              <p class="m-0 text-xs leading-relaxed text-muted">
+                {{ 'install.wizard.methodSnippetDesc' | transloco }}
+              </p>
+            </div>
+
+            <!-- Extension Card -->
+            <div
+              class="cursor-pointer rounded-xl border p-4 transition-all"
+              [class.border-brand]="selectedMethod() === 'extension'"
+              [class.bg-brand-tint]="selectedMethod() === 'extension'"
+              [class.border-app-border]="selectedMethod() !== 'extension'"
+              [class.bg-panel]="selectedMethod() !== 'extension'"
+              (click)="selectedMethod.set('extension')"
+            >
+              <mat-icon class="text-brand">extension</mat-icon>
+              <h4 class="mt-3 mb-1 text-sm font-bold text-ink">
+                {{ 'install.wizard.methodExtTitle' | transloco }}
+              </h4>
+              <p class="m-0 text-xs leading-relaxed text-muted">
+                {{ 'install.wizard.methodExtDesc' | transloco }}
+              </p>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ========================================================================= -->
+      <!-- STEP 3: ADD CODE TO PROJECT                                               -->
+      <!-- ========================================================================= -->
+      @if (currentStep() === 'install') {
+        <div class="flex flex-col gap-4 py-1">
+          <!-- AI Agent Mode -->
+          @if (selectedMethod() === 'agent') {
+            <div class="flex flex-col gap-3">
+              <div class="rounded-xl border border-app-border bg-panel p-4">
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.curlTitle' | transloco }}
+                </div>
+                <div class="mt-0.5 text-xs text-muted">
+                  {{ 'install.wizard.curlHint' | transloco }}
+                </div>
+                <div class="mt-2 flex items-center gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2.5 py-2 font-mono text-xs text-ink"><code>curl -fsSL {{ serverUrl() }}/install.sh | sh</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy('curl -fsSL ' + serverUrl() + '/install.sh | sh')">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-app-border bg-panel p-4">
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.credsTitle' | transloco }}
+                </div>
+                <div class="mt-0.5 text-xs text-muted">
+                  {{ 'install.wizard.credsHint' | transloco }}
+                </div>
+                <div class="mt-2 flex items-start gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto rounded bg-app px-2.5 py-2 font-mono text-xs text-ink"><code>{{ credentials() }}</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(credentials())">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-app-border bg-panel p-4">
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.agentPromptTitle' | transloco }}
+                </div>
+                <div class="mt-0.5 text-xs text-muted">
+                  {{ 'install.wizard.agentPromptHint' | transloco }}
+                </div>
+                <div class="mt-2 flex items-start gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2.5 py-2 font-mono text-xs text-ink"><code>{{ agentPrompt() }}</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(agentPrompt())">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
+            </div>
           }
 
-          <!-- The recommended path: install the skills, then let the agent wire the widget -->
-          <ol class="mt-4 mb-0 flex list-none flex-col gap-3 p-0">
-            @for (st of steps().primary; track st.titleKey; let i = $index) {
-              <li class="rounded-lg border border-app-border bg-app/40 p-3">
-                <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
-                <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
-                @if (st.code; as code) {
-                  <div class="mt-2 flex items-start gap-2">
-                    <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
-                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
-                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                    </button>
-                  </div>
-                }
-              </li>
-            }
-          </ol>
-
-          <!-- Hand-wiring, for anyone not using an agent. Collapsed: the prompt above
-               does this per-stack, so these snippets are the fallback, not the path. -->
-          <details class="mt-4 rounded-lg border border-app-border p-3">
-            <summary class="cursor-pointer text-[0.85rem] font-semibold">
-              {{ 'install.manualTitle' | transloco }}
-            </summary>
-            <p class="mb-2 mt-1 text-[0.78rem] text-muted">{{ 'install.manualHint' | transloco }}</p>
+          <!-- Code Snippet Mode -->
+          @if (selectedMethod() === 'snippet') {
             <div class="flex flex-col gap-3">
-              @for (st of steps().manual; track st.titleKey) {
-                <div>
-                  <div class="text-[0.8rem] font-medium">{{ st.titleKey | transloco }}</div>
-                  <div class="mt-0.5 text-[0.75rem] text-muted">{{ st.hintKey | transloco }}</div>
-                  @if (st.code; as code) {
-                    <div class="mt-1.5 flex items-start gap-2">
-                      <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
+              <div class="flex flex-wrap gap-2">
+                @for (tab of stackTabs; track tab.stack) {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    class="!h-8 !text-xs"
+                    [class.!bg-brand]="selectedStack() === tab.stack"
+                    [class.!text-white]="selectedStack() === tab.stack"
+                    [class.border-app-border]="selectedStack() !== tab.stack"
+                    (click)="selectedStack.set(tab.stack)"
+                  >
+                    {{ tab.labelKey | transloco }}
+                  </button>
+                }
+              </div>
+
+              <div class="rounded-xl border border-app-border bg-panel p-4">
+                <div class="text-xs text-muted mb-2">
+                  {{ 'install.wizard.snippetInstructions' | transloco }}
+                </div>
+                <div class="flex items-start gap-2">
+                  <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2.5 py-2 font-mono text-xs text-ink"><code>{{ currentStackSnippet() }}</code></pre>
+                  <button mat-stroked-button class="border-app-border" type="button" (click)="copy(currentStackSnippet())">
+                    <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Extension Mode -->
+          @if (selectedMethod() === 'extension') {
+            <ol class="m-0 flex list-none flex-col gap-3 p-0">
+              @for (st of extensionSteps(); track st.titleKey; let i = $index) {
+                <li class="rounded-xl border border-app-border bg-panel p-4">
+                  <div class="text-xs font-semibold text-ink">
+                    {{ i + 1 }}. {{ st.titleKey | transloco }}
+                  </div>
+                  <div class="mt-0.5 text-xs text-muted">{{ st.hintKey | transloco }}</div>
+                  @if (st.downloadUrl; as url) {
+                    <a mat-flat-button color="primary" class="mt-3" [href]="url" download>
+                      <mat-icon>download</mat-icon> {{ 'install.extDownload' | transloco }}
+                    </a>
+                  } @else if (st.code; as code) {
+                    <div class="mt-2 flex items-start gap-2">
+                      <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2.5 py-2 font-mono text-xs text-ink"><code>{{ code }}</code></pre>
                       <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
                         <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
                       </button>
                     </div>
                   }
-                </div>
+                </li>
               }
+            </ol>
+          }
+        </div>
+      }
+
+      <!-- ========================================================================= -->
+      <!-- STEP 4: LAUNCH & SEE IT LIVE                                              -->
+      <!-- ========================================================================= -->
+      @if (currentStep() === 'verify') {
+        <div class="flex flex-col gap-4 py-1">
+          <div>
+            <h3 class="m-0 text-base font-semibold text-ink">
+              {{ 'install.wizard.step4Title' | transloco }}
+            </h3>
+            <p class="mt-1 text-xs text-muted">
+              {{ 'install.wizard.step4Hint' | transloco }}
+            </p>
+          </div>
+
+          <!-- 4-step checklist -->
+          <div class="flex flex-col gap-2.5">
+            <div class="flex items-start gap-3 rounded-xl border border-app-border bg-panel p-3.5">
+              <mat-icon class="text-brand mt-0.5">terminal</mat-icon>
+              <div>
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.runDevTitle' | transloco }}
+                </div>
+                <div class="text-xs text-muted">
+                  {{ 'install.wizard.runDevHint' | transloco }}
+                </div>
+              </div>
             </div>
-          </details>
-        </ng-template>
 
-        <ng-template appTabContent="extension">
-          <!-- Chrome extension: download, unzip, load unpacked, sign in -->
-          <ol class="mt-0 mb-0 flex list-none flex-col gap-3 p-0">
-            @for (st of extensionSteps(); track st.titleKey; let i = $index) {
-              <li class="rounded-lg border border-app-border bg-app/40 p-3">
-                <div class="text-[0.85rem] font-semibold">{{ i + 1 }}. {{ st.titleKey | transloco }}</div>
-                <div class="mt-0.5 text-[0.78rem] text-muted">{{ st.hintKey | transloco }}</div>
-                @if (st.downloadUrl; as url) {
-                  <a mat-flat-button color="primary" class="mt-2" [href]="url" download>
-                    <mat-icon>download</mat-icon> {{ 'install.extDownload' | transloco }}
-                  </a>
-                } @else if (st.code; as code) {
-                  <div class="mt-2 flex items-start gap-2">
-                    <pre class="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2 py-1.5 text-[0.78rem]"><code>{{ code }}</code></pre>
-                    <button mat-stroked-button class="border-app-border" type="button" (click)="copy(code)">
-                      <mat-icon>content_copy</mat-icon> {{ 'demo.copy' | transloco }}
-                    </button>
-                  </div>
-                }
-              </li>
+            <div class="flex items-start gap-3 rounded-xl border border-app-border bg-panel p-3.5">
+              <mat-icon class="text-brand mt-0.5">open_in_browser</mat-icon>
+              <div>
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.openLocalTitle' | transloco }}
+                </div>
+                <div class="text-xs text-muted">
+                  {{ 'install.wizard.openLocalHint' | transloco }}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3 rounded-xl border border-app-border bg-panel p-3.5">
+              <mat-icon class="text-brand mt-0.5">push_pin</mat-icon>
+              <div>
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.spotWidgetTitle' | transloco }}
+                </div>
+                <div class="text-xs text-muted">
+                  {{ 'install.wizard.spotWidgetHint' | transloco }}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3 rounded-xl border border-app-border bg-panel p-3.5">
+              <mat-icon class="text-brand mt-0.5">chat_bubble</mat-icon>
+              <div>
+                <div class="text-xs font-semibold text-ink">
+                  {{ 'install.wizard.dropCommentTitle' | transloco }}
+                </div>
+                <div class="text-xs text-muted">
+                  {{ 'install.wizard.dropCommentHint' | transloco }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Connection Ping Tool -->
+          <div class="rounded-xl border border-app-border bg-panel p-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-semibold text-ink">
+                {{ 'install.wizard.checkConnection' | transloco }}
+              </span>
+              <button
+                mat-stroked-button
+                class="border-app-border !text-xs"
+                type="button"
+                [disabled]="connectionStatus() === 'checking'"
+                (click)="verifyLocalConnection()"
+              >
+                <mat-icon [class.animate-spin]="connectionStatus() === 'checking'">refresh</mat-icon>
+                {{
+                  (connectionStatus() === 'checking'
+                    ? 'install.wizard.checking'
+                    : 'common.refresh') | transloco
+                }}
+              </button>
+            </div>
+
+            @if (connectionStatus() === 'active') {
+              <div class="mt-2.5 flex items-center gap-2 rounded-lg bg-emerald-500/10 p-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+                <mat-icon class="!text-base">check_circle</mat-icon>
+                <span>{{ 'install.wizard.connectionActive' | transloco }}</span>
+              </div>
             }
-          </ol>
-        </ng-template>
-      </app-tabs>
-    </mat-dialog-content>
 
-    <mat-dialog-actions class="justify-between gap-3">
+            @if (connectionStatus() === 'inactive') {
+              <div class="mt-2.5 flex items-center gap-2 rounded-lg bg-amber-500/10 p-2.5 text-xs text-amber-600 dark:text-amber-400">
+                <mat-icon class="!text-base">info</mat-icon>
+                <span>{{ 'install.wizard.connectionInactive' | transloco }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- Celebratory Card if comments or connection confirmed -->
+          @if (connectionStatus() === 'active' || hasCollectedComments()) {
+            <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <mat-icon>celebration</mat-icon>
+                <span class="text-sm font-bold">{{ 'install.wizard.celebrationTitle' | transloco }}</span>
+              </div>
+              <p class="mt-1 text-xs text-muted">
+                {{ 'install.wizard.celebrationDesc' | transloco }}
+              </p>
+              <div class="mt-3">
+                <a
+                  mat-flat-button
+                  color="primary"
+                  routerLink="/projects"
+                  (click)="closeDialog()"
+                >
+                  {{ 'install.wizard.viewComments' | transloco }}
+                </a>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Wizard Navigation Footer -->
+    <div class="flex items-center justify-between border-t border-app-border px-6 py-3.5">
       <mat-checkbox [checked]="suppressed()" (change)="setSuppressed($event.checked)">
-        <span class="text-[0.8rem]">{{ 'install.dontShowAgain' | transloco }}</span>
+        <span class="text-xs text-muted">{{ 'install.dontShowAgain' | transloco }}</span>
       </mat-checkbox>
-      <button mat-flat-button color="primary" mat-dialog-close>{{ 'install.done' | transloco }}</button>
-    </mat-dialog-actions>
+
+      <div class="flex items-center gap-2">
+        @if (currentStep() !== 'project') {
+          <button mat-button type="button" (click)="goPrev()">
+            {{ 'install.wizard.back' | transloco }}
+          </button>
+        }
+        @if (currentStep() !== 'verify') {
+          <button mat-flat-button color="primary" type="button" (click)="goNext()">
+            {{ 'install.wizard.next' | transloco }}
+          </button>
+        } @else {
+          <button mat-flat-button color="primary" type="button" (click)="closeDialog()">
+            {{ 'install.wizard.finish' | transloco }}
+          </button>
+        }
+      </div>
+    </div>
   `,
 })
 export class InstallGuideComponent {
@@ -284,39 +633,62 @@ export class InstallGuideComponent {
   private transloco = inject(TranslocoService);
   private auth = inject(AuthService);
   private guide = inject(InstallGuideService);
+  private projectsService = inject(ProjectsService);
+  private router = inject(Router);
+  private dialogRef = inject(MatDialogRef<InstallGuideComponent>, { optional: true });
 
-  // The signed-in user's own API key — same one shown on the Profile page, re-viewable there
-  // any time. Not fetched for a demo session (credentialsSnippet keeps demo email/password).
   private readonly apiKeyResource = getApiMeApiKeyResource();
-
-  // Transloco loads its language file over HTTP, so a translate() call made while
-  // building the steps can land before the file arrives and echo the key back. This
-  // signal makes the computed below re-run once a load event fires.
   private translationEvents = toSignal(this.transloco.events$, { initialValue: null });
 
   readonly demo = signal<DemoSession | null>(this.readDemoSession());
   readonly projects = computed(() => this.guide.projects().filter((p) => p.key));
 
-  /** Selected project key; defaults to the demo project, else the first one. */
   readonly projectKey = signal<string | null>(
     this.readDemoSession()?.projectKey ?? null,
   );
 
   readonly suppressed = signal(this.guide.isSuppressed(this.auth.user()?.id ?? null));
 
-  /** Which install method the dialog shows. Component state only — not persisted. */
-  readonly tab = signal<string>('code');
+  // Wizard state
+  readonly currentStep = signal<WizardStep>('project');
+  readonly selectedMethod = signal<InstallMethod>('agent');
+  readonly selectedStack = signal<FrameworkStack>('html');
+  readonly connectionStatus = signal<ConnectionStatus>('idle');
 
-  // A method (not a stored field) so labels stay live if the app language changes.
-  tabItems(): TabItem[] {
-    return [
-      { value: 'code', label: this.transloco.translate('install.tabCode') },
-      { value: 'extension', label: this.transloco.translate('install.tabExtension') },
-    ];
-  }
+  // Inline project creation
+  readonly newProjectName = signal('');
+  readonly newProjectKey = signal('');
+  readonly isCreatingProject = signal(false);
+  readonly createError = signal<string | null>(null);
+
+  readonly wizardSteps: { key: WizardStep; labelKey: string }[] = [
+    { key: 'project', labelKey: 'install.wizard.stepProject' },
+    { key: 'method', labelKey: 'install.wizard.stepMethod' },
+    { key: 'install', labelKey: 'install.wizard.stepInstall' },
+    { key: 'verify', labelKey: 'install.wizard.stepVerify' },
+  ];
+
+  readonly stackTabs: { stack: FrameworkStack; labelKey: string }[] = [
+    { stack: 'html', labelKey: 'install.wizard.stackHtml' },
+    { stack: 'react', labelKey: 'install.wizard.stackReact' },
+    { stack: 'vue', labelKey: 'install.wizard.stackVue' },
+    { stack: 'angular', labelKey: 'install.wizard.stackAngular' },
+  ];
+
+  readonly serverUrl = computed(() => this.demo()?.serverUrl || environment.apiBase);
+
+  readonly effectiveProjectKey = computed(() => {
+    return this.projectKey() ?? this.projects()[0]?.key ?? PROJECT_KEY_PLACEHOLDER;
+  });
+
+  readonly hasCollectedComments = computed(() => {
+    const key = this.effectiveProjectKey();
+    const p = this.projects().find((proj) => proj.key === key);
+    return (p?.commentsCount ?? 0) > 0;
+  });
 
   private readonly stepsInput = () => ({
-    server: this.demo()?.serverUrl || environment.apiBase,
+    server: this.serverUrl(),
     userEmail: this.auth.user()?.email ?? null,
     apiKey: this.apiKeyResource.value()?.apiKey ?? null,
     demo: this.demo(),
@@ -326,21 +698,105 @@ export class InstallGuideComponent {
   readonly steps = computed(() =>
     buildSteps({
       ...this.stepsInput(),
-      projectKey: this.projectKey() ?? this.projects()[0]?.key ?? null,
+      projectKey: this.effectiveProjectKey(),
     }),
   );
 
   readonly extensionSteps = computed(() => buildExtensionSteps(this.stepsInput()));
 
-  /** Re-resolves whenever transloco emits (initial load, language switch). */
+  readonly credentials = computed(() => credentialsSnippet(this.stepsInput()));
+
+  readonly agentPrompt = computed(() => {
+    return `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${this.effectiveProjectKey()}, Pointer server URL: ${this.serverUrl()}, environment: local`;
+  });
+
+  readonly stackSnippets = computed<Record<FrameworkStack, string>>(() => {
+    const server = this.serverUrl();
+    const key = this.effectiveProjectKey();
+    return {
+      html: `<!-- Add before </body> or inside <head> -->\n<script src="${server}/pointer.js" defer></script>\n<pointer-feedback project="${key}" server="${server}"></pointer-feedback>`,
+      react: `// In Next.js (app/layout.tsx):\nimport Script from 'next/script';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        {children}\n        <Script src="${server}/pointer.js" strategy="afterInteractive" />\n        <pointer-feedback project="${key}" server="${server}" />\n      </body>\n    </html>\n  );\n}`,
+      vue: `<!-- In Nuxt (app.vue) or Vue App -->\n<template>\n  <div>\n    <NuxtPage />\n    <pointer-feedback project="${key}" server="${server}"></pointer-feedback>\n  </div>\n</template>\n\n<script setup>\nuseHead({\n  script: [{ src: '${server}/pointer.js', defer: true }]\n});\n</script>`,
+      angular: `<!-- In src/index.html -->\n<script src="${server}/pointer.js" defer></script>\n<pointer-feedback project="${key}" server="${server}"></pointer-feedback>`,
+    };
+  });
+
+  readonly currentStackSnippet = computed(() => this.stackSnippets()[this.selectedStack()]);
+
   private readonly translatedCredsEmailed = computed(() => {
     this.translationEvents();
     return this.transloco.translate('demo.credsEmailed');
   });
 
+  // Legacy tab signal compatibility for specs/external consumers
+  readonly tab = signal<'code' | 'extension'>('code');
+
   constructor() {
-    // Opening it counts as seen, however it was opened.
     this.guide.markShown(this.auth.user()?.id ?? null);
+
+    effect(() => {
+      const t = this.tab();
+      if (t === 'extension') {
+        this.currentStep.set('install');
+        this.selectedMethod.set('extension');
+      }
+    });
+  }
+
+  canNavigateToStep(target: WizardStep): boolean {
+    const order: WizardStep[] = ['project', 'method', 'install', 'verify'];
+    const currentIndex = order.indexOf(this.currentStep());
+    const targetIndex = order.indexOf(target);
+    return targetIndex <= currentIndex;
+  }
+
+  goNext(): void {
+    const order: WizardStep[] = ['project', 'method', 'install', 'verify'];
+    const idx = order.indexOf(this.currentStep());
+    if (idx < order.length - 1) {
+      this.currentStep.set(order[idx + 1]);
+    }
+  }
+
+  goPrev(): void {
+    const order: WizardStep[] = ['project', 'method', 'install', 'verify'];
+    const idx = order.indexOf(this.currentStep());
+    if (idx > 0) {
+      this.currentStep.set(order[idx - 1]);
+    }
+  }
+
+  onProjectNameChanged(name: string): void {
+    this.newProjectName.set(name);
+    this.newProjectKey.set(slugifyKey(name));
+  }
+
+  createFirstProject(): void {
+    const name = this.newProjectName().trim();
+    const key = this.newProjectKey().trim();
+    if (!name || !key) return;
+
+    this.isCreatingProject.set(true);
+    this.createError.set(null);
+
+    this.projectsService.postApiAdminProjects({ name, key }).subscribe({
+      next: (project) => {
+        this.isCreatingProject.set(false);
+        this.projectKey.set(project.key ?? key);
+        this.guide.projectsResource.reload();
+        this.goNext();
+      },
+      error: (err) => {
+        this.isCreatingProject.set(false);
+        this.createError.set(err?.error?.message || 'Failed to create project');
+      },
+    });
+  }
+
+  async verifyLocalConnection(): Promise<void> {
+    this.connectionStatus.set('checking');
+    const active = await checkLocalhostWidgetStatus(this.serverUrl(), this.effectiveProjectKey());
+    this.connectionStatus.set(active ? 'active' : 'inactive');
   }
 
   setSuppressed(checked: boolean): void {
@@ -355,6 +811,10 @@ export class InstallGuideComponent {
       () => this.snack.open(this.transloco.translate('demo.copied'), 'OK', { duration: 2000 }),
       () => this.snack.open(this.transloco.translate('demo.copyFailed'), 'OK', { duration: 3000 }),
     );
+  }
+
+  closeDialog(): void {
+    this.dialogRef?.close();
   }
 
   private readDemoSession(): DemoSession | null {
