@@ -159,11 +159,11 @@ async function saveForm() {
         landing: form.value.urlLanding.trim() || null,
       },
     });
-    toast(t('branding.saved'));
+    toast(t('branding.saved'), 'success');
     await loadData();
     await refreshBranding();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     saving.value = false;
   }
@@ -173,18 +173,18 @@ async function saveForm() {
 
 async function uploadAsset(kind: AssetKind, file: File) {
   if (file.size > 1024 * 1024) {
-    toast(t('branding.fileTooLarge'));
+    toast(t('branding.fileTooLarge'), 'warning');
     return;
   }
   uploadingKind.value = kind;
   try {
     const body: PostApiAdminBrandingAssetKindBody = { file };
     await postApiAdminBrandingAssetKind(kind, body);
-    toast(t('branding.assetUploaded'));
+    toast(t('branding.assetUploaded'), 'success');
     await loadData();
     await refreshBranding();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     uploadingKind.value = null;
   }
@@ -206,11 +206,11 @@ async function deleteAsset(kind: AssetKind) {
   deletingKind.value = kind;
   try {
     await deleteApiAdminBrandingAssetKind(kind);
-    toast(t('branding.assetReset'));
+    toast(t('branding.assetReset'), 'success');
     await loadData();
     await refreshBranding();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     deletingKind.value = null;
   }

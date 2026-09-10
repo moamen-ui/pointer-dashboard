@@ -364,3 +364,41 @@ wrap (fix 5). Caught in the confirmation round, not left for the user.
   `react/install-guide-mobile.png`, `react/install-step3-mobile.png`, `react/install-snippet-mobile.png`.
 - The nav collapses to a drawer with a scrim in all three, and every nav item plus both footer actions stay
   reachable.
+
+## Colorize pass (2026-09-11)
+
+Audited the palette against DESIGN.md, then measured every rendered foreground/background pair in the
+browser rather than judging by eye. A probe over Overview and Profile returned 15 contrast failures.
+
+### What was wrong
+- **Two palettes for one vocabulary.** A tenant's status catalog carries its own hex, and the apps let it
+  paint status labels, column headers, counts and the diffstat. Those hexes fail AA as ink (#d97706 is
+  3.2:1 and #16a34a is 3.3:1 on the canvas; #2563eb is 3.7:1 and #6b7280 is 3.9:1 on the dark canvas),
+  and they contradict DESIGN.md's own Fixed Diff rule, which keeps the five hues fixed so state reads the
+  same way in every workspace. The system's tokens all pass (4.87:1 to 6.11:1 light).
+- **Faint ink failed on both surfaces it is used on**: #818b98 is 3.45:1 on the canvas and 3.24:1 on the
+  gutter, yet it paints placeholders, zero counts and row indices. The craft floor requires 4.5:1 for
+  placeholder text.
+- **Toasts did not speak the state vocabulary.** React had two tones, where an error filled the surface
+  solid destructive and every success was a plain neutral box. Vue had no tones at all, so its 33 error
+  toasts looked identical to a save confirmation. Angular hued only the glyph.
+
+### What changed
+- The fixed diff tokens now paint every status label, header, count and diffstat number in all three apps.
+  The tenant's hex stays where it is the subject: the swatch on the Statuses page.
+- `--faint-foreground` is #6a737d light (4.8:1 canvas, 4.5:1 gutter) and #7d8590 dark (5.1:1, 4.6:1). It
+  is still the faintest step; muted stays 6.1:1 and 6.5:1 above it.
+- Toasts share one anatomy in all three apps: the floating-layer grammar (canvas, hairline, menu shadow)
+  with the state hue on the glyph and the hairline, never a fill. Vue's `toast()` gained a tone argument
+  and all 55 of its call sites are now tagged by intent (33 danger, 20 success, 2 warning, 1 info).
+- **Visible colour added, inside the world's own vocabulary:** each status column's header now carries its
+  state tint behind its hue, so the review queue reads as four colour zones instead of one gray strip.
+  All eight hue-on-tint pairs clear 4.5:1 (light 4.52 to 5.24, dark 4.55 to 5.66). React and Vue got a
+  `meta.headerClass` hook on the shared table so a column can own its band.
+- The Statuses page renders each status name as its own state chip, so the page that lists the states
+  speaks the same vocabulary as every table that shows them.
+
+### Verification
+- The same contrast probe now returns 0 failures on Overview and Profile (was 15).
+- `impeccable detect`: 0 findings across Overview, Profile and Statuses in all three apps.
+- Builds: react ✓, vue ✓ (`vue-tsc` clean), angular ✓. Light and dark both captured and composed.

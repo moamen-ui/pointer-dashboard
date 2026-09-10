@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Search,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -164,15 +165,16 @@ export function DataTable<TData>({
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
-                      className={
+                      className={cn(
                         header.id === '__gutter__'
                           ? 'w-10'
                           : header.id === '__actions__'
                             ? actionsHeader
                               ? 'text-right'
                               : 'w-12'
-                            : undefined
-                      }
+                            : undefined,
+                        (header.column.columnDef.meta as { headerClass?: string } | undefined)?.headerClass,
+                      )}
                     >
                       {flexRender(
                         header.column.columnDef.header,
@@ -235,15 +237,16 @@ export function DataTable<TData>({
                   return (
                     <TableHead
                       key={header.id}
-                      className={
+                      className={cn(
                         header.id === '__gutter__'
                           ? 'w-10'
                           : header.id === '__actions__'
                             ? actionsHeader
                               ? 'text-right'
                               : 'w-12'
-                            : undefined
-                      }
+                            : undefined,
+                        (header.column.columnDef.meta as { headerClass?: string } | undefined)?.headerClass,
+                      )}
                       aria-sort={
                         dir === 'asc'
                           ? 'ascending'

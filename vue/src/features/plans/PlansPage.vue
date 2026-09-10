@@ -192,7 +192,7 @@ function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminPlansQueryKey() });
 }
 function fail(e: unknown) {
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 
 // ── Modal form ────────────────────────────────────────────────────────────────
@@ -217,10 +217,10 @@ async function saveForm() {
   try {
     if (editingPlan.value?.id != null) {
       await updatePlan.mutateAsync({ id: editingPlan.value.id, data: dto });
-      toast(t('plans.updated'));
+      toast(t('plans.updated'), 'success');
     } else {
       await createPlan.mutateAsync({ data: dto });
-      toast(t('plans.created'));
+      toast(t('plans.created'), 'success');
     }
     modalOpen.value = false;
     reload();
@@ -243,7 +243,7 @@ async function doDelete(plan: PlanAdminResponse) {
   if (!ok) return;
   try {
     await deletePlan.mutateAsync({ id: plan.id! });
-    toast(t('plans.deleted'));
+    toast(t('plans.deleted'), 'success');
     reload();
   } catch (e) {
     // On 409 (plan in use) surface the message and keep the plan

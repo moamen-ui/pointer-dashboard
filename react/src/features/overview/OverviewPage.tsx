@@ -30,7 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/data-table/DataTable';
-import { CountCell, DiffstatLine, statusTone, toneTextClass } from '@/components/shared/CountCell';
+import { CountCell, DiffstatLine, statusTone, toneHeaderClass } from '@/components/shared/CountCell';
 import {
   Dialog,
   DialogContent,
@@ -192,11 +192,8 @@ export function OverviewPage() {
       (s): ColumnDef<ProjectStats> => ({
         id: `status_${s.value}`,
         accessorFn: (row) => getProjectStatusCount(row, s.value),
-        header: () => (
-          <span className={toneTextClass(statusTone(s.value))}>
-            {catalog.displayLabel(s)}
-          </span>
-        ),
+        meta: { headerClass: toneHeaderClass(statusTone(s.value)) },
+        header: () => catalog.displayLabel(s),
         cell: ({ row }) => (
           <CountCell
             count={getProjectStatusCount(row.original, s.value)}

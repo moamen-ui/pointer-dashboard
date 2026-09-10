@@ -55,7 +55,7 @@ import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/formatRequestedAt';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
-import { statusTone, toneTextClass } from '@/lib/statusTone';
+import { statusTone, toneHeaderClass } from '@/lib/statusTone';
 import { useStatusCatalog } from '@/composables/useStatusCatalog';
 import { useAuth } from '@/composables/useAuth';
 
@@ -127,7 +127,7 @@ async function approve(user: UserResponse) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminStatsQueryKey() });
   } catch (e) {
     busy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -147,7 +147,7 @@ async function reject(user: UserResponse) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminStatsQueryKey() });
   } catch (e) {
     busy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -232,7 +232,8 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(()
     (s): ColumnDef<typeof dataTableFeatures, ProjectStats> => ({
       id: `status_${s.value}`,
       accessorFn: (row) => statusCellValue(row, s.value),
-      header: () => h('span', { class: toneTextClass(statusTone(s.value)) }, statusLabel(s)),
+      meta: { headerClass: toneHeaderClass(statusTone(s.value)) },
+      header: () => statusLabel(s),
       cell: ({ getValue }) => {
         const severity = s.value === 1 ? 'open' : s.value === 2 ? 'ready' : s.value === 3 ? 'completed' : 'archived';
         return h(CountCell, { count: getValue() as number, severity });

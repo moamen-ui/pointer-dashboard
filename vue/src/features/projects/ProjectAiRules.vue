@@ -140,7 +140,7 @@ async function saveProjectAdminRule(rule: EditableRuleItem) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     rule.saving = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -157,7 +157,7 @@ async function deleteProjectAdminRule(rule: EditableRuleItem) {
     adminRulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -184,7 +184,7 @@ async function createProjectAdminRule() {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     newAdminRuleBusy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -211,7 +211,7 @@ async function savePersonalRule(rule: EditableRuleItem) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     rule.saving = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -228,7 +228,7 @@ async function deletePersonalRule(rule: EditableRuleItem) {
     myRulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -255,7 +255,7 @@ async function createPersonalRule() {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     newPersonalRuleBusy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 </script>

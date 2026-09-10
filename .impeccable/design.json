@@ -171,8 +171,8 @@
       "ink-faint": {
         "role": "neutral",
         "displayName": "Faint Ink (3.6:1; secondary only)",
-        "canonical": "#818b98",
-        "dark": "#6e7681",
+        "canonical": "#6a737d",
+        "dark": "#7d8590",
         "tonalRamp": [
           "oklch(20% 0.012 250)",
           "oklch(30% 0.014 250)",

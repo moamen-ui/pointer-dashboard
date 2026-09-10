@@ -72,7 +72,7 @@ const updateProject = usePatchApiAdminProjectsId();
 
 function fail(e: unknown) {
   busy.value = false;
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminProjectsQueryKey() });
@@ -196,7 +196,7 @@ async function addProject() {
     }
     busy.value = false;
     addOpen.value = false;
-    toast(t('projects.createdHint'));
+    toast(t('projects.createdHint'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -248,7 +248,7 @@ async function exportProject(project: ProjectResponse) {
     a.download = `pointer-comments-${project.key}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(t('exportImport.exported'));
+    toast(t('exportImport.exported'), 'success');
   } catch (e) {
     fail(e);
   }
@@ -281,9 +281,9 @@ async function submitImport() {
       comments: result.importedComments ?? 0,
       replies: result.importedReplies ?? 0,
     });
-    toast(`${t('exportImport.imported')} ${msg}`);
+    toast(`${t('exportImport.imported')} ${msg}`, 'success');
     if (result.warnings?.length) {
-      result.warnings.forEach((w) => toast(w));
+      result.warnings.forEach((w) => toast(w, 'warning'));
     }
     importDialogOpen.value = false;
     reload();
@@ -473,7 +473,7 @@ async function confirmAddEnvironment() {
     newEnvActive.value = true;
     reloadAppUrls();
   } catch (e: unknown) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     isAddingEnv.value = false;
   }
@@ -501,7 +501,7 @@ async function saveEnvironmentChangesIfPending() {
         })
         .then(() => ({ environmentId: envId, ok: true }))
         .catch((e: unknown) => {
-          toast(extractMessage(e));
+          toast(extractMessage(e), 'danger');
           return { environmentId: envId, ok: false };
         }),
     );
@@ -517,7 +517,7 @@ async function saveEnvironmentChangesIfPending() {
         })
         .then(() => ({ environmentId: addEnvId, ok: true }))
         .catch((e: unknown) => {
-          toast(extractMessage(e));
+          toast(extractMessage(e), 'danger');
           return { environmentId: addEnvId, ok: false };
         }),
     );
@@ -585,7 +585,7 @@ async function saveEdit() {
     await saveEnvironmentChangesIfPending();
     busy.value = false;
     editOpen.value = false;
-    toast(t('projects.saved'));
+    toast(t('projects.saved'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -606,7 +606,7 @@ async function confirmDelete(project: ProjectResponse) {
   try {
     await deleteProject.mutateAsync({ id: project.id! });
     busy.value = false;
-    toast(t('projects.deleted'));
+    toast(t('projects.deleted'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -636,15 +636,15 @@ async function submitSuggest() {
     });
     busy.value = false;
     suggestOpen.value = false;
-    toast(t('suggestions.sent'));
+    toast(t('suggestions.sent'), 'success');
   } catch (e) {
     busy.value = false;
     // Check for 403 — user can actually edit directly
     const status = (e as any)?.response?.status;
     if (status === 403) {
-      toast(t('suggestions.canEditDirectly'));
+      toast(t('suggestions.canEditDirectly'), 'info');
     } else {
-      toast(extractMessage(e));
+      toast(extractMessage(e), 'danger');
     }
   }
 }

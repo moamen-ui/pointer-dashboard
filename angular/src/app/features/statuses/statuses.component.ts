@@ -11,6 +11,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
+import type { Severity } from '../../shared/severity';
 
 interface StatusRow {
   item: StatusAdminItem;
@@ -59,7 +60,9 @@ interface StatusRow {
           [emptyHint]="'statuses.emptyHint' | transloco"
         >
           <ng-template appDataTableCell="name" let-row>
-            <span class="font-medium">{{ row.item.name }}</span>
+            <app-badge [severity]="severityForStatus(row.item.value)" class="font-medium">
+              {{ row.item.name }}
+            </app-badge>
             @if (row.item.isOverridden) {
               <app-badge severity="warning" class="ms-2">{{ 'statuses.overridden' | transloco }}</app-badge>
             }
@@ -153,6 +156,16 @@ interface StatusRow {
   `],
 })
 export class StatusesComponent {
+  /** Built-in status values map onto the badge severities that carry their diff hue and glyph. */
+  severityForStatus(value: number | undefined): Severity {
+    switch (value) {
+      case 2: return 'warning';
+      case 3: return 'success';
+      case 4: return 'archived';
+      default: return 'primary';
+    }
+  }
+
   private statusesService = inject(StatusesService);
   private catalogService = inject(StatusCatalogService);
   private toast = inject(AppToastService);

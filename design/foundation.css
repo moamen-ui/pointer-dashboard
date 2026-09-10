@@ -44,7 +44,7 @@
   /* Ink */
   --foreground: #1f2328;
   --muted-foreground: #59636e;    /* 5.6:1 on white */
-  --faint-foreground: #818b98;    /* placeholders, disabled — 3.6:1, large/secondary only */
+  --faint-foreground: #6a737d;    /* placeholders, zero counts, row indices — 4.8:1 canvas, 4.5:1 gutter */
 
   /* Lines */
   --border: #d0d7de;              /* hairline everywhere */
@@ -102,7 +102,7 @@ html.dark {
 
   --foreground: #e6edf3;
   --muted-foreground: #9198a1;
-  --faint-foreground: #6e7681;
+  --faint-foreground: #7d8590;   /* 5.1:1 canvas, 4.6:1 gutter */
 
   --border: #3d444d;
   --border-muted: #262c36;

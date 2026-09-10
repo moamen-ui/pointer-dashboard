@@ -173,6 +173,9 @@ function headerClass(header: Header<typeof dataTableFeatures, TData>): string {
   if (header.column.getCanSort()) {
     classes.push('cursor-pointer select-none');
   }
+  // A column may claim its own header band (a status column's state tint, say).
+  const meta = header.column.columnDef.meta as { headerClass?: string } | undefined;
+  if (meta?.headerClass) classes.push(meta.headerClass);
   return classes.filter(Boolean).join(' ');
 }
 

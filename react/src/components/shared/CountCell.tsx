@@ -27,6 +27,21 @@ export function toneTextClass(tone: StateTone): string {
   return toneClasses[tone];
 }
 
+/** A status column's header band: the state's tint behind its hue, so the review queue reads as
+ *  four colour zones instead of one gray strip. Every pair clears 4.5:1 in both themes. */
+const toneHeaderClasses: Record<StateTone, string> = {
+  open: 'bg-state-open-tint text-state-open',
+  ready: 'bg-state-ready-tint text-state-ready',
+  completed: 'bg-state-completed-tint text-state-completed',
+  archived: 'bg-state-archived-tint text-state-archived',
+  danger: 'bg-state-danger-tint text-state-danger',
+  neutral: '',
+};
+
+export function toneHeaderClass(tone: StateTone): string {
+  return toneHeaderClasses[tone];
+}
+
 /** Built-in status values (1 open, 2 ready, 3 completed, 4 archived) mapped to their diff hue. */
 export function statusTone(value: number | undefined): StateTone {
   switch (value) {

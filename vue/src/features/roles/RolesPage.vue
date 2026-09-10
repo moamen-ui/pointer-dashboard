@@ -82,7 +82,7 @@ function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminRolesQueryKey() });
 }
 function fail(e: unknown) {
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 
 // A computed so headers follow live language switches (Angular re-evaluates
@@ -238,7 +238,7 @@ async function deleteRole() {
     const res = await removeRole.mutateAsync({ id: role.id!, params });
     deleteOpen.value = false;
     const moved = res?.reassignedUsers ?? 0;
-    toast(t('roles.deleted') + (moved ? ` (${moved})` : ''));
+    toast(t('roles.deleted') + (moved ? ` (${moved})` : ''), 'success');
     reload();
   } catch (e) {
     fail(e);

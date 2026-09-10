@@ -68,7 +68,7 @@ function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminTenantsQueryKey() });
 }
 function fail(e: unknown) {
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 
 // ── Create tenant ──────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ async function doCreate() {
   try {
     await createTenant.mutateAsync({ data: { email, password, displayName } });
     addOpen.value = false;
-    toast(t('tenants.created'));
+    toast(t('tenants.created'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -136,7 +136,7 @@ async function doDelete(tenant: TenantResponse) {
   if (!ok) return;
   try {
     await deleteTenant.mutateAsync({ id: tenant.id! });
-    toast(t('tenants.deleted'));
+    toast(t('tenants.deleted'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -147,7 +147,7 @@ async function doDelete(tenant: TenantResponse) {
 async function doExtend(tenant: TenantResponse) {
   try {
     await extendTenant.mutateAsync({ id: tenant.id! });
-    toast(t('tenants.extended'));
+    toast(t('tenants.extended'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -180,7 +180,7 @@ async function saveDemoConfig() {
       },
     });
     demoConfigOpen.value = false;
-    toast(t('tenants.demoConfigSaved'));
+    toast(t('tenants.demoConfigSaved'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -275,7 +275,7 @@ async function saveChangePlan() {
       data: { planId: Number(selectedPlanId.value) },
     });
     changePlanOpen.value = false;
-    toast(t('tenants.planChanged'));
+    toast(t('tenants.planChanged'), 'success');
     reload();
   } catch (e) {
     fail(e);

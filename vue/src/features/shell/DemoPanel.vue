@@ -148,7 +148,7 @@ async function submitUpgrade() {
     upgradeDialogOpen.value = false;
     clearDemoSession();
     dismissed.value = true;
-    toast(t('demo.upgradeSuccess'));
+    toast(t('demo.upgradeSuccess'), 'success');
   } catch (e: unknown) {
     upgradeError.value = extractMessage(e);
   }

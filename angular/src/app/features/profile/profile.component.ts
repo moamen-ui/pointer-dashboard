@@ -106,7 +106,7 @@ function envLabel(env: number | undefined): string {
                     <th class="px-3 text-start">{{ 'overview.comments' | transloco }}</th>
                     <th class="px-3 text-start">{{ 'profile.replies' | transloco }}</th>
                     @for (st of statusCatalog.ordered(); track st.value) {
-                      <th class="px-3 text-start" [class]="toneTextClass(st.value)">
+                      <th class="px-3 text-start" [class]="statusCatalog.toneHeaderClass(st.value)">
                         {{ statusCatalog.displayLabel(st) }}
                       </th>
                     }
@@ -145,7 +145,7 @@ function envLabel(env: number | undefined): string {
                         <td class="px-3 font-mono text-[14px]">{{ project.comments ?? 0 }}</td>
                         <td class="px-3 font-mono text-[14px]">{{ project.replies ?? 0 }}</td>
                         @for (st of statusCatalog.ordered(); track st.value) {
-                          <td class="px-3 font-mono text-[14px]" [class]="getProjectStatusCount(project, st.value) > 0 ? toneTextClass(st.value) : 'text-faint-foreground'">
+                          <td class="px-3 font-mono text-[14px]" [class]="getProjectStatusCount(project, st.value) > 0 ? statusCatalog.toneTextClass(st.value) : 'text-faint-foreground'">
                             {{ getProjectStatusCount(project, st.value) }}
                           </td>
                         }
@@ -163,7 +163,7 @@ function envLabel(env: number | undefined): string {
                             @for (st of statusCatalog.ordered(); track st.value) {
                               <td
                                 class="px-3 font-mono text-[14px]"
-                                [class]="getEnvStatusCount(env, st.value) > 0 ? toneTextClass(st.value) : 'text-faint-foreground'"
+                                [class]="getEnvStatusCount(env, st.value) > 0 ? statusCatalog.toneTextClass(st.value) : 'text-faint-foreground'"
                                 [style.opacity]="getEnvStatusCount(env, st.value) === 0 ? '0.6' : '1'"
                               >
                                 {{ getEnvStatusCount(env, st.value) }}
@@ -192,15 +192,6 @@ function envLabel(env: number | undefined): string {
   `,
 })
 export class ProfileComponent {
-  /** The diff hue for a status value as a text class — the vocabulary labels and counts share. */
-  toneTextClass(value: number | undefined): string {
-    switch (value) {
-      case 2: return 'text-state-ready';
-      case 3: return 'text-state-completed';
-      case 4: return 'text-state-archived';
-      default: return 'text-state-open';
-    }
-  }
 
   private route = inject(ActivatedRoute);
   readonly statusCatalog = inject(StatusCatalogService);

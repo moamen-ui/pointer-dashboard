@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-vue-next';
 import { useAuth } from '@/composables/useAuth';
-import { statusTone, toneTextClass } from '@/lib/statusTone';
+import { statusTone, toneHeaderClass, toneTextClass } from '@/lib/statusTone';
 import { useStatusCatalog } from '@/composables/useStatusCatalog';
 import Diffstat from '@/components/shared/Diffstat.vue';
 import CountCell from '@/components/shared/CountCell.vue';
@@ -153,7 +153,7 @@ function getEnvironmentNames(proj: ProfileProject): string {
               v-for="status in statusItems"
               :key="`header-${status.value}`"
               class="w-24 text-end px-3 text-[13px] font-medium"
-              :class="toneTextClass(statusTone(status.value))"
+              :class="toneHeaderClass(statusTone(status.value))"
             >
               {{ statusLabel(status.value) }}
             </div>

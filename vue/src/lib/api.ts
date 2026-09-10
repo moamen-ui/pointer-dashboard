@@ -89,7 +89,7 @@ export function configureApi(): void {
         msg += '. Upgrade your plan to continue.';
         // Show the upgrade prompt as a persistent toast (10 s).
         // TODO: replace with a modal or navigation to /plans when payment integration exists.
-        toast(msg, 10000);
+        toast(msg, 'warning', 10000);
       }
 
       return Promise.reject(error);

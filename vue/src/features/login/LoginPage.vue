@@ -96,7 +96,7 @@ async function onTryDemo() {
     }
     await router.replace(user?.isAdmin ? '/overview' : '/profile');
   } catch (err) {
-    toast(extractMessage(err) || t('demo.failed'));
+    toast(extractMessage(err) || t('demo.failed'), 'danger');
   } finally {
     demoLoading.value = false;
   }

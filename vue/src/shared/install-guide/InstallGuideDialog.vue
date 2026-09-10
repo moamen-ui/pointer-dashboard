@@ -129,10 +129,10 @@ const createProjectMut = usePostApiAdminProjects({
       projectKey.value = created.key ?? newProjectKey.value.trim();
       isCreatingInline.value = false;
       currentStep.value = 'method';
-      toast(t('projects.saved'), 2000);
+      toast(t('projects.saved'), 'success', 2000);
     },
     onError: () => {
-      toast(t('common.error'), 3000);
+      toast(t('common.error'), 'danger', 3000);
     },
   },
 });
@@ -178,9 +178,9 @@ function setSuppressed(checked: boolean | 'indeterminate'): void {
 async function copy(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    toast(t('demo.copied'), 2000);
+    toast(t('demo.copied'), 'success', 2000);
   } catch {
-    toast(t('demo.copyFailed'), 3000);
+    toast(t('demo.copyFailed'), 'danger', 3000);
   }
 }
 

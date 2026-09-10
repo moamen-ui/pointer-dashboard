@@ -117,7 +117,7 @@ function setFilter(status: FilterStatus) {
 
 function fail(e: unknown) {
   busy.value = false;
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 // The base ["api","admin","users"] key prefix-matches every users query
 // (filtered list + pending-count), so one invalidation refreshes both.
@@ -193,17 +193,17 @@ async function sendInvite() {
       url: res.url ?? '',
       emailSent: res.emailSent && res.email ? res.email : null,
     };
-    toast(t('invite.created'));
+    toast(t('invite.created'), 'success');
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
 async function copyUrl(url: string) {
   try {
     await navigator.clipboard.writeText(url);
-    toast(t('invite.copied'));
+    toast(t('invite.copied'), 'success');
   } catch {
     toast(url);
   }
@@ -303,10 +303,10 @@ const revokeInvite = useDeleteApiAdminInvitesId();
 async function onRevoke(id: number) {
   try {
     await revokeInvite.mutateAsync({ id });
-    toast(t('invite.revoked'));
+    toast(t('invite.revoked'), 'success');
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 

@@ -31,7 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useStatusCatalog } from '@/lib/status-catalog';
-import { CountCell, DiffstatLine, statusTone, toneTextClass } from '@/components/shared/CountCell';
+import { CountCell, DiffstatLine, statusTone, toneHeaderClass, toneTextClass } from '@/components/shared/CountCell';
 
 const ENV_LABEL: Record<number, string> = {
   1: 'Local',
@@ -124,7 +124,6 @@ export function ProfilePage() {
         label: status ? catalog.displayLabel(status) : t(`overview.${['open', 'pending', 'completed', 'archived'][(value as number) - 1]}`),
         count: count as number,
         tone: statusTone(value as number),
-        color: status?.color ?? null,
       };
     }),
   ];
@@ -170,7 +169,7 @@ export function ProfilePage() {
                 <TableHead className="text-[13px] font-medium text-muted-foreground">{t('overview.comments')}</TableHead>
                 <TableHead className="text-[13px] font-medium text-muted-foreground">{t('profile.replies')}</TableHead>
                 {catalog.items.map((s) => (
-                  <TableHead key={s.value} className={`text-[13px] font-medium ${toneTextClass(statusTone(s.value))}`}>
+                  <TableHead key={s.value} className={cn('text-[13px] font-medium', toneHeaderClass(statusTone(s.value)))}>
                     {catalog.displayLabel(s)}
                   </TableHead>
                 ))}

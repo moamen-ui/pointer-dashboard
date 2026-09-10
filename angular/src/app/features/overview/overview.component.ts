@@ -164,7 +164,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
                       </button>
                     </th>
                     @for (st of statusCatalog.ordered(); track st.value) {
-                      <th class="px-3 text-start" [class]="toneTextClass(st.value)" [attr.aria-sort]="ariaSort('status_' + st.value)">
+                      <th class="px-3 text-start" [class]="statusCatalog.toneHeaderClass(st.value)" [attr.aria-sort]="ariaSort('status_' + st.value)">
                         <button type="button" class="inline-flex items-center gap-1" (click)="toggleSort('status_' + st.value)">
                           {{ statusCatalog.displayLabel(st) }}
                           <app-icon [name]="sortGlyph('status_' + st.value)" [size]="14" [class.opacity-40]="sortKey() !== 'status_' + st.value"></app-icon>
@@ -237,7 +237,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
                     <th class="px-3 text-start">{{ 'overview.comments' | transloco }}</th>
                     <th class="w-8"></th>
                     @for (st of statusCatalog.ordered(); track st.value) {
-                      <th class="px-3 text-start" [class]="toneTextClass(st.value)">
+                      <th class="px-3 text-start" [class]="statusCatalog.toneHeaderClass(st.value)">
                         {{ statusCatalog.displayLabel(st) }}
                       </th>
                     }
@@ -454,15 +454,6 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
   `,
 })
 export class OverviewComponent {
-  /** The diff hue for a status value as a text class — the vocabulary labels and counts share. */
-  toneTextClass(value: number | undefined): string {
-    switch (value) {
-      case 2: return 'text-state-ready';
-      case 3: return 'text-state-completed';
-      case 4: return 'text-state-archived';
-      default: return 'text-state-open';
-    }
-  }
 
   /** Built-in status values 1..4 mapped to the diff hue used by app-count-cell. */
   stateFor(value: number | undefined): 'open' | 'ready' | 'completed' | 'archived' {

@@ -281,7 +281,7 @@ A near-monochrome paper-and-ink palette where the only saturated colors are the 
 - **Gutter Strong** (#eaeef2; dark #21262d): hover on gutter surfaces (nav items), pressed secondary buttons, disabled button fill.
 - **Ink** (#1f2328; dark #e6edf3): all primary text.
 - **Muted Ink** (#59636e; dark #9198a1; 5.6:1 on white): table header labels, diffstat labels, descriptions, nav items at rest, disabled button text.
-- **Faint Ink** (#818b98; dark #6e7681; 3.6:1): placeholders, zero counts, gutter row indices, the middle dots in the diffstat. Never for body copy.
+- **Faint Ink** (#6a737d; dark #7d8590): placeholders, zero counts, gutter row indices, the middle dots in the diffstat. Clears 4.5:1 on both the canvas and the gutter, so it is safe for real data; it stays the faintest step in the ramp.
 - **Hairline** (#d0d7de; dark #3d444d): every structural border: rail edge, header bottom, table frame, inputs, chips, dialogs.
 - **Hairline Muted** (#e6eaef; dark #262c36): row separators inside an already-bordered table or list, nav group separators, menu separators.
 - **Overlay** (rgba(31,35,40,0.5); dark rgba(1,4,9,0.7)): the backdrop behind dialogs and the mobile drawer.
@@ -428,6 +428,8 @@ Underline tabs: 36px row with a hairline bottom and 16px gaps; tab text 14px mut
 - **Do** float every popup panel (select list, menu, tooltip) out of the page flow: React and Vue portal theirs, Angular's go through a CDK connected overlay. A panel rendered as an absolutely-positioned child gets clipped by the first scrolling ancestor and grows that container's scrollbar, which is exactly what happened to selects inside dialogs. Panels match their trigger's width and flip above it when the viewport runs out.
 - **Do** hover and highlight menu and option rows on the gutter surface, never on a brand tint; the brand's four jobs stay links, focus, active nav and the primary button. Inside a popup the focus ring hugs the row (`outline-offset: 0`) so it reads as a focused row rather than a box floating in the panel.
 - **Do** summarize with a diffstat line (mono numbers in state hues, sans muted labels, faint middle dots) instead of stat tiles.
+- **Do** zone a status column with its own state tint behind its hue in the header band, so a review queue reads as Open / Ready / Completed / Archived at a glance. All eight hue-on-tint pairs clear 4.5:1.
+- **Do** give a toast the floating-layer grammar (canvas, hairline, menu shadow) with the state hue on its glyph and hairline only. A toast never fills with its state colour, and every toast is tagged with the state it reports.
 - **Do** write table headers in mixed case at 13px/500 muted with a sort glyph on sortable columns.
 - **Do** tokenize disabled buttons (gutter-strong fill, muted ink, muted hairline) rather than lowering opacity.
 - **Do** use logical properties only and mirror directional icons in RTL; verify every surface in Arabic.
@@ -440,6 +442,7 @@ Underline tabs: 36px row with a hairline bottom and 16px gaps; tab text 14px mut
 - **Don't** cast a shadow on anything that scrolls with the page; only menus, dialogs and toasts float.
 - **Don't** use uppercase, letter-spaced labels, kickers or eyebrows anywhere, including table headers and tour step counters.
 - **Don't** use the brand color for anything beyond links, focus, active nav and the primary button, and never reassign a diff hue to a non-state meaning.
+- **Don't** let a tenant's status colour paint text or a glyph. The five diff hues are fixed so state reads the same way in every workspace, and the catalog hexes fail AA as ink (#d97706 is 3.2:1, #16a34a is 3.3:1 on the canvas). The operator's colour appears as the swatch on the Statuses page; the tokens do the rest.
 - **Don't** let color be the only signal; every state chip carries a glyph and a label.
 - **Don't** center the main column; content is start-aligned within 1120px.
 - **Don't** put a centered icon-in-a-circle empty state anywhere; use three dashed ghost rows or one line of muted copy plus the action.

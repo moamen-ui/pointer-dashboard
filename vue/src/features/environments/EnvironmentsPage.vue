@@ -51,7 +51,7 @@ function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminEnvironmentsQueryKey() });
 }
 function fail(e: unknown) {
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 
 // A computed so headers follow live language switches (Angular re-evaluates
@@ -141,7 +141,7 @@ async function confirmDelete(env: AppEnvironmentResponse) {
 async function deleteEnvironment(env: AppEnvironmentResponse) {
   try {
     await removeEnvironment.mutateAsync({ id: env.id! });
-    toast(t('environments.deleted'));
+    toast(t('environments.deleted'), 'success');
     reload();
   } catch (e) {
     fail(e);

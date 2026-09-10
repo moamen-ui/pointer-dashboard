@@ -101,10 +101,10 @@ async function saveSettings() {
         extensionZipUrl: extensionZipUrl.value,
       } as any,
     });
-    toast(t('settings.saved'));
+    toast(t('settings.saved'), 'success');
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminSettingsQueryKey() });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -168,7 +168,7 @@ async function saveTenantAction(action: EditableAction, index: number) {
     }
     reloadPredefined();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -181,7 +181,7 @@ async function deleteTenantAction(action: EditableAction, index: number) {
     await deletePredefined.mutateAsync({ id: action.id });
     reloadPredefined();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -205,20 +205,20 @@ function reloadSuggestions() {
 async function onApproveSuggestion(s: SuggestionResponse) {
   try {
     await approveSuggestion.mutateAsync({ id: s.id! });
-    toast(t('suggestions.approved'));
+    toast(t('suggestions.approved'), 'success');
     reloadSuggestions();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
 async function onRejectSuggestion(s: SuggestionResponse) {
   try {
     await rejectSuggestion.mutateAsync({ id: s.id! });
-    toast(t('suggestions.rejected'));
+    toast(t('suggestions.rejected'), 'success');
     reloadSuggestions();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -283,7 +283,7 @@ async function saveTenantRule(rule: EditableTenantAiRule) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
   } catch (e) {
     rule.saving = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -301,7 +301,7 @@ async function deleteTenantRule(rule: EditableTenantAiRule) {
     editableTenantRules.value = editableTenantRules.value.filter((r) => r.id !== rule.id);
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -329,7 +329,7 @@ async function createTenantRule() {
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
   } catch (e) {
     newTenantRuleBusy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 </script>
