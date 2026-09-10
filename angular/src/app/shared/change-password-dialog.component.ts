@@ -1,16 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { MeService } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../core/auth/auth.service';
 import { extractMessage } from '../core/api/extract-message';
-import { FormFieldComponent } from './form-field/form-field.component';
+import { AppButtonDirective } from './ui/app-button.directive';
+import { AppInputDirective } from './ui/app-input.directive';
+import { AppFormFieldComponent } from './ui/app-form-field.component';
+import { AppIconComponent } from './ui/app-icon.component';
+import { AppToastService } from './ui/app-toast.service';
 
 /**
  * Self-service change-password, opened from the profile menu. Success rotates the server-side
@@ -22,43 +21,110 @@ import { FormFieldComponent } from './form-field/form-field.component';
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
     TranslocoModule,
-    FormFieldComponent,
+    AppButtonDirective,
+    AppInputDirective,
+    AppFormFieldComponent,
+    AppIconComponent,
   ],
   template: `
-    <h2 mat-dialog-title>{{ 'changePassword.title' | transloco }}</h2>
-    <mat-dialog-content>
-      <form [formGroup]="form" (ngSubmit)="submit()" class="flex min-w-80 flex-col gap-3 pt-2">
-        <app-form-field
-          [control]="form.controls.currentPassword"
-          [label]="'changePassword.current' | transloco"
-          type="password"
-          [errorMessage]="'common.fieldRequired' | transloco"
-        />
-        <app-form-field
-          [control]="form.controls.newPassword"
-          [label]="'changePassword.new' | transloco"
-          type="password"
-          [errorMessage]="newPasswordError()"
-        />
-        <app-form-field
-          [control]="form.controls.confirmPassword"
-          [label]="'changePassword.confirm' | transloco"
-          type="password"
-          [errorMessage]="'common.fieldRequired' | transloco"
-        />
+    <div class="px-5 pt-5 pb-3 border-b border-border">
+      <h2 class="m-0 text-base font-semibold text-foreground">
+        {{ 'changePassword.title' | transloco }}
+      </h2>
+    </div>
+
+    <div class="px-5 py-4 space-y-4">
+      <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4">
+        <app-form-field label="{{ 'changePassword.current' | transloco }}">
+          <div class="relative">
+            <input
+              appInput
+              [type]="currentPasswordVisible() ? 'text' : 'password'"
+              formControlName="currentPassword"
+              placeholder=""
+            />
+            <button
+              type="button"
+              appButton
+              variant="ghost"
+              size="icon"
+              class="absolute end-0 top-1/2 -translate-y-1/2"
+              (click)="currentPasswordVisible.update(v => !v)"
+            >
+              <app-icon
+                [name]="currentPasswordVisible() ? 'eye-off' : 'eye'"
+                [size]="16"
+              ></app-icon>
+            </button>
+          </div>
+        </app-form-field>
+
+        <app-form-field label="{{ 'changePassword.new' | transloco }}">
+          <div class="relative">
+            <input
+              appInput
+              [type]="newPasswordVisible() ? 'text' : 'password'"
+              formControlName="newPassword"
+              placeholder=""
+            />
+            <button
+              type="button"
+              appButton
+              variant="ghost"
+              size="icon"
+              class="absolute end-0 top-1/2 -translate-y-1/2"
+              (click)="newPasswordVisible.update(v => !v)"
+            >
+              <app-icon
+                [name]="newPasswordVisible() ? 'eye-off' : 'eye'"
+                [size]="16"
+              ></app-icon>
+            </button>
+          </div>
+        </app-form-field>
+
+        <app-form-field label="{{ 'changePassword.confirm' | transloco }}">
+          <div class="relative">
+            <input
+              appInput
+              [type]="confirmPasswordVisible() ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              placeholder=""
+            />
+            <button
+              type="button"
+              appButton
+              variant="ghost"
+              size="icon"
+              class="absolute end-0 top-1/2 -translate-y-1/2"
+              (click)="confirmPasswordVisible.update(v => !v)"
+            >
+              <app-icon
+                [name]="confirmPasswordVisible() ? 'eye-off' : 'eye'"
+                [size]="16"
+              ></app-icon>
+            </button>
+          </div>
+        </app-form-field>
       </form>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close [disabled]="busy()">{{ 'common.cancel' | transloco }}</button>
-      <button mat-flat-button color="primary" (click)="submit()" [disabled]="form.invalid || busy()">
+    </div>
+
+    <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
+      <button appButton variant="secondary" size="sm" type="button" (click)="close()">
+        {{ 'common.cancel' | transloco }}
+      </button>
+      <button
+        appButton
+        variant="primary"
+        size="sm"
+        type="button"
+        (click)="submit()"
+        [disabled]="form.invalid || busy()"
+      >
         {{ 'changePassword.submit' | transloco }}
       </button>
-    </mat-dialog-actions>
+    </div>
   `,
 })
 export class ChangePasswordDialogComponent {
@@ -66,11 +132,13 @@ export class ChangePasswordDialogComponent {
   private meService = inject(MeService);
   private auth = inject(AuthService);
   private router = inject(Router);
-  private snack = inject(MatSnackBar);
+  private toast = inject(AppToastService);
   private transloco = inject(TranslocoService);
-  private dialogRef = inject(MatDialogRef<ChangePasswordDialogComponent>);
 
   busy = signal(false);
+  currentPasswordVisible = signal(false);
+  newPasswordVisible = signal(false);
+  confirmPasswordVisible = signal(false);
 
   form = this.fb.nonNullable.group({
     currentPassword: ['', Validators.required],
@@ -78,35 +146,32 @@ export class ChangePasswordDialogComponent {
     confirmPassword: ['', Validators.required],
   });
 
-  newPasswordError(): string {
-    const ctrl = this.form.controls.newPassword;
-    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
-    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 8 });
-    return '';
-  }
-
   submit(): void {
     if (this.form.invalid) return;
     const { currentPassword, newPassword, confirmPassword } = this.form.getRawValue();
     if (newPassword !== confirmPassword) {
-      this.snack.open(this.transloco.translate('changePassword.mismatch'), 'OK', { duration: 4000 });
+      this.toast.show(this.transloco.translate('changePassword.mismatch'), 'danger');
       return;
     }
     this.busy.set(true);
     this.meService.postApiMeChangePassword({ currentPassword, newPassword }).subscribe({
       next: () => {
         this.busy.set(false);
-        this.dialogRef.close();
-        this.snack.open(this.transloco.translate('changePassword.success'), 'OK', { duration: 4000 });
+        this.toast.show(this.transloco.translate('changePassword.success'), 'success');
         // The security-stamp rotation invalidated this session's token server-side too — clear it
         // locally and send the user to sign back in with the new password.
         this.auth.clearSession();
         this.router.navigateByUrl('/login');
+        this.close();
       },
       error: (e: unknown) => {
         this.busy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
+  }
+
+  close(): void {
+    window.dispatchEvent(new CustomEvent('closeDialog'));
   }
 }

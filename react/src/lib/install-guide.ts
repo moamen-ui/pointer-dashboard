@@ -16,6 +16,8 @@ const SESSION_KEY = (userId: string) => `pointer_install_shown_session:${userId}
 
 export type AutoOpenContext = {
   isAdmin: boolean;
+  /** Super admins manage the platform and own no project, so the guide never opens itself for them. */
+  isSuperAdmin?: boolean;
   userId: string | null;
   /** Comments across every project the user can see. */
   commentsCount: number;
@@ -50,9 +52,11 @@ export async function checkLocalhostWidgetStatus(
  * Auto-open policy: a workspace admin who is either new here or has no feedback
  * yet gets the guide opened for them. An explicit "don't show again" wins over
  * both, and it opens at most once per browser session so a reload doesn't nag.
+ * A super admin never gets it opened for them — they manage the platform rather
+ * than install a widget — but the nav entry still opens it on demand.
  */
 export function shouldAutoOpen(ctx: AutoOpenContext): boolean {
-  if (!ctx.isAdmin || ctx.userId == null) return false;
+  if (!ctx.isAdmin || ctx.isSuperAdmin || ctx.userId == null) return false;
   if (flag(SUPPRESSED_KEY(ctx.userId))) return false;
   if (flag(SESSION_KEY(ctx.userId), sessionStorage)) return false;
   const firstTime = !flag(SEEN_KEY(ctx.userId));

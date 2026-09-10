@@ -5,12 +5,12 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePostApiAuthResetPassword } from '@moamen-ui/pointer-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
 import { FormField } from '@/components/shared/FormField';
 import { passwordError, requiredError } from '@/lib/validators';
 import { extractMessage } from '@/lib/error';
+import { AuthLayout } from '@/components/AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -40,17 +40,15 @@ export function ResetPasswordPage() {
   // If no token in URL, show invalid link message immediately.
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-        <Card className="w-[380px] max-w-[92vw]">
-          <CardContent className="flex flex-col gap-5 p-6">
-            <h1 className="text-center text-xl font-bold">{t('auth.resetTitle')}</h1>
-            <p className="text-center text-sm text-destructive">{t('auth.resetInvalid')}</p>
-            <Link to="/login" className="text-center text-sm text-brand hover:underline">
-              {t('auth.backToLogin')}
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthLayout>
+        <div className="flex flex-col gap-5">
+          <h1 className="text-center text-xl font-bold">{t('auth.resetTitle')}</h1>
+          <p className="text-center text-sm text-destructive">{t('auth.resetInvalid')}</p>
+          <Link to="/login" className="text-center text-sm text-brand hover:underline">
+            {t('auth.backToLogin')}
+          </Link>
+        </div>
+      </AuthLayout>
     );
   }
 
@@ -77,12 +75,11 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="w-[380px] max-w-[92vw]">
-        <CardContent className="flex flex-col gap-5 p-6">
-          <h1 className="text-center text-xl font-bold">{t('auth.resetTitle')}</h1>
+    <AuthLayout>
+      <div className="flex flex-col gap-5">
+        <h1 className="text-center text-xl font-bold">{t('auth.resetTitle')}</h1>
 
-          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             <FormField
               label={t('auth.newPassword')}
               htmlFor="new-password"
@@ -130,8 +127,7 @@ export function ResetPasswordPage() {
               {t('auth.backToLogin')}
             </Link>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </AuthLayout>
   );
 }

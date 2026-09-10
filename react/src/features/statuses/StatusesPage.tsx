@@ -232,7 +232,7 @@ export function StatusesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">{t('statuses.title')}</h2>
+      <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('statuses.title')}</h1>
 
       <DataTable
         data={statuses}
@@ -240,6 +240,7 @@ export function StatusesPage() {
         actions={actionsFor}
         actionsAriaLabel={t('statuses.colActions')}
         actionsHeader={t('statuses.colActions')}
+        gutter
         emptyIcon={Tag}
         emptyMessage={t('statuses.empty')}
         emptyHint={t('statuses.emptyHint')}

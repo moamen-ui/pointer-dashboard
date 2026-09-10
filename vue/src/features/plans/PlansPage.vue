@@ -22,7 +22,7 @@ import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
+
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import FormField from '@/components/shared/FormField.vue';
 import { extractMessage } from '@/lib/error';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -298,20 +299,21 @@ watch(bulletsRef, (v) => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-lg font-semibold">
+  <div class="mx-auto w-full max-w-[1120px]">
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
         {{ t('plans.title') }}
-        <span v-if="isFetching" class="ms-2 text-xs font-normal text-muted-foreground">
+        <span v-if="isFetching" class="ms-2 text-[12px] font-normal text-muted-foreground">
           {{ t('common.loading') }}…
         </span>
-      </h2>
+      </h1>
       <Button @click="openCreate">
-        <Plus class="h-4 w-4" /> {{ t('plans.addPlan') }}
+        <Plus class="h-4 w-4" />
+        {{ t('plans.addPlan') }}
       </Button>
     </div>
 
-    <p v-if="isError" class="text-sm text-destructive">{{ t('plans.loadError') }}</p>
+    <p v-if="isError" class="text-[14px] text-state-danger">{{ t('plans.loadError') }}</p>
 
     <DataTable
       v-else
@@ -319,6 +321,8 @@ watch(bulletsRef, (v) => {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('tenants.actions')"
+      :actions-header="t('tenants.actions')"
+      gutter
       paginated
       :loading="isFetching"
       :empty-icon="CreditCard"
@@ -329,9 +333,11 @@ watch(bulletsRef, (v) => {
         <span class="font-medium">{{ row.name }}</span>
       </template>
       <template #cell-slug="{ row }">
-        <span class="text-muted-foreground">{{ row.slug }}</span>
+        <span class="font-mono text-[13px] text-muted-foreground">{{ row.slug }}</span>
       </template>
-      <template #cell-price="{ row }">{{ formatPrice(row) }}</template>
+      <template #cell-price="{ row }">
+        <span class="font-mono text-[14px]">{{ formatPrice(row) }}</span>
+      </template>
       <template #cell-isActive="{ row }">
         <Badge :variant="row.isActive ? 'success' : 'destructive'">
           {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
@@ -342,37 +348,36 @@ watch(bulletsRef, (v) => {
           {{ t(displayStateKey(row.displayState)) }}
         </Badge>
       </template>
-      <template #cell-activeSubscriptions="{ row }">{{ row.activeSubscriptions ?? 0 }}</template>
+      <template #cell-activeSubscriptions="{ row }">
+        <span class="font-mono text-[14px]">{{ row.activeSubscriptions ?? 0 }}</span>
+      </template>
     </DataTable>
   </div>
 
   <!-- Create / Edit dialog -->
   <Dialog v-model:open="modalOpen">
-    <DialogContent class="max-h-[90vh] max-w-2xl overflow-y-auto">
+    <DialogContent class="max-h-[90vh] w-[min(520px,calc(100vw-32px))] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>{{ editingPlan ? t('plans.editPlan') : t('plans.addPlan') }}</DialogTitle>
+        <DialogTitle class="text-[16px] font-semibold leading-6">
+          {{ editingPlan ? t('plans.editPlan') : t('plans.addPlan') }}
+        </DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-4 pt-1">
+      <div class="space-y-4">
         <!-- Basic fields -->
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-2">
-            <Label for="plan-name">{{ t('plans.colName') }}</Label>
+        <div class="space-y-4">
+          <FormField :label="t('plans.colName')" html-for="plan-name">
             <Input id="plan-name" v-model="form.name" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="plan-slug">{{ t('plans.colSlug') }}</Label>
+          </FormField>
+          <FormField :label="t('plans.colSlug')" html-for="plan-slug">
             <Input id="plan-slug" v-model="form.slug" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="plan-price">{{ t('plans.priceMonthly') }}</Label>
+          </FormField>
+          <FormField :label="t('plans.priceMonthly')" html-for="plan-price">
             <Input id="plan-price" v-model="form.priceMonthly" type="number" :min="0" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="plan-currency">{{ t('plans.currency') }}</Label>
+          </FormField>
+          <FormField :label="t('plans.currency')" html-for="plan-currency">
             <Input id="plan-currency" v-model="form.currency" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="plan-interval">{{ t('plans.interval') }}</Label>
+          </FormField>
+          <FormField :label="t('plans.interval')" html-for="plan-interval">
             <Select v-model="form.interval">
               <SelectTrigger id="plan-interval">
                 <SelectValue />
@@ -382,13 +387,11 @@ watch(bulletsRef, (v) => {
                 <SelectItem value="1">{{ t('plans.intervalYearly') }}</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="plan-sort">{{ t('plans.sortOrder') }}</Label>
+          </FormField>
+          <FormField :label="t('plans.sortOrder')" html-for="plan-sort">
             <Input id="plan-sort" v-model="form.sortOrder" type="number" />
-          </div>
-          <div class="flex flex-col gap-2">
-            <Label for="plan-display">{{ t('plans.displayStateLabel') }}</Label>
+          </FormField>
+          <FormField :label="t('plans.displayStateLabel')" html-for="plan-display">
             <Select v-model="form.displayState">
               <SelectTrigger id="plan-display">
                 <SelectValue />
@@ -399,87 +402,46 @@ watch(bulletsRef, (v) => {
                 <SelectItem value="2">{{ t('plans.displayState.hidden') }}</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div class="flex items-center gap-2 pt-6">
+          </FormField>
+          <div class="flex items-center gap-3">
             <Switch :model-value="form.isActive" @update:model-value="(v: boolean) => (form.isActive = v)" />
-            <Label>{{ t('plans.isActive') }}</Label>
+            <Label class="text-[13px] font-medium text-foreground">{{ t('plans.isActive') }}</Label>
           </div>
         </div>
 
         <!-- Feature bullets -->
-        <div class="flex flex-col gap-2">
-          <Label for="plan-bullets">{{ t('plans.featureBullets') }}</Label>
+        <FormField :label="t('plans.featureBullets')" html-for="plan-bullets">
           <textarea
             id="plan-bullets"
             v-model="bulletsRef"
             rows="4"
-            class="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            class="flex w-full rounded-md border border-border bg-background px-3 py-2 text-[14px] font-sans resize-none"
             :placeholder="t('plans.bulletsPlaceholder')"
           />
-        </div>
+        </FormField>
 
         <!-- Entitlements -->
-        <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {{ t('plans.enforcedSection') }}
-        </p>
-        <div class="grid grid-cols-2 gap-3">
-          <template v-for="key in ['maxProjects','maxSeats','maxCommentsPerMonth','maxExtensionSites','maxPredefinedActionsPerProject','maxTenantWidePredefinedActions']" :key="key">
-            <div class="flex flex-col gap-1">
-              <Label :for="`ent-${key}`" class="text-xs">{{ t(`plans.ent.${key}`) }}</Label>
-              <Input
-                :id="`ent-${key}`"
-                type="number"
-                class="h-8 text-sm"
-                :placeholder="t('plans.entNull')"
-                :value="intToStr((form.entitlements as Record<string, unknown>)[key] as number | null)"
-                @change="(e: Event) => setEntInt(key as keyof PlanEntitlementsDto, (e.target as HTMLInputElement).value)"
-              />
-            </div>
-          </template>
-          <!-- extensionEnabled bool tri-state -->
-          <div class="flex flex-col gap-1">
-            <Label for="ent-extensionEnabled" class="text-xs">{{ t('plans.ent.extensionEnabled') }}</Label>
-            <Select
-              :model-value="entBoolVal('extensionEnabled')"
-              @update:model-value="(v) => setEntBool('extensionEnabled', v as string)"
-            >
-              <SelectTrigger id="ent-extensionEnabled" class="h-8 text-sm">
-                <SelectValue :placeholder="t('plans.entNull')" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">{{ t('plans.entNull') }}</SelectItem>
-                <SelectItem value="true">{{ t('common.yes') }}</SelectItem>
-                <SelectItem value="false">{{ t('common.no') }}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {{ t('plans.displayOnlySection') }}
-        </p>
-        <div class="grid grid-cols-2 gap-3">
-          <template v-for="key in ['retentionDays','maxEnvironments','maxActiveInvites','emailsPerMonth','extensionCommentsPerMonth','maxPendingSuggestions']" :key="key">
-            <div class="flex flex-col gap-1">
-              <Label :for="`ent-${key}`" class="text-xs">{{ t(`plans.ent.${key}`) }}</Label>
-              <Input
-                :id="`ent-${key}`"
-                type="number"
-                class="h-8 text-sm"
-                :placeholder="t('plans.entNull')"
-                :value="intToStr((form.entitlements as Record<string, unknown>)[key] as number | null)"
-                @change="(e: Event) => setEntInt(key as keyof PlanEntitlementsDto, (e.target as HTMLInputElement).value)"
-              />
-            </div>
-          </template>
-          <template v-for="key in ['exportImportEnabled','promptSuggestionsEnabled','customStatusesEnabled','prioritySupport']" :key="key">
-            <div class="flex flex-col gap-1">
-              <Label :for="`ent-${key}`" class="text-xs">{{ t(`plans.ent.${key}`) }}</Label>
+        <div>
+          <h3 class="text-[13px] font-medium text-foreground mb-3">{{ t('plans.enforcedSection') }}</h3>
+          <div class="space-y-3">
+            <template v-for="key in ['maxProjects','maxSeats','maxCommentsPerMonth','maxExtensionSites','maxPredefinedActionsPerProject','maxTenantWidePredefinedActions']" :key="key">
+              <FormField :label="t(`plans.ent.${key}`)" :html-for="`ent-${key}`">
+                <Input
+                  :id="`ent-${key}`"
+                  type="number"
+                  :placeholder="t('plans.entNull')"
+                  :value="intToStr((form.entitlements as Record<string, unknown>)[key] as number | null)"
+                  @change="(e: Event) => setEntInt(key as keyof PlanEntitlementsDto, (e.target as HTMLInputElement).value)"
+                />
+              </FormField>
+            </template>
+            <!-- extensionEnabled bool tri-state -->
+            <FormField :label="t('plans.ent.extensionEnabled')" html-for="ent-extensionEnabled">
               <Select
-                :model-value="entBoolVal(key as keyof PlanEntitlementsDto)"
-                @update:model-value="(v) => setEntBool(key as keyof PlanEntitlementsDto, v as string)"
+                :model-value="entBoolVal('extensionEnabled')"
+                @update:model-value="(v) => setEntBool('extensionEnabled', v as string)"
               >
-                <SelectTrigger :id="`ent-${key}`" class="h-8 text-sm">
+                <SelectTrigger id="ent-extensionEnabled">
                   <SelectValue :placeholder="t('plans.entNull')" />
                 </SelectTrigger>
                 <SelectContent>
@@ -488,17 +450,52 @@ watch(bulletsRef, (v) => {
                   <SelectItem value="false">{{ t('common.no') }}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </template>
+            </FormField>
+          </div>
+        </div>
+
+        <!-- Display-only entitlements -->
+        <div>
+          <h3 class="text-[13px] font-medium text-foreground mb-3">{{ t('plans.displayOnlySection') }}</h3>
+          <div class="space-y-3">
+            <template v-for="key in ['retentionDays','maxEnvironments','maxActiveInvites','emailsPerMonth','extensionCommentsPerMonth','maxPendingSuggestions']" :key="key">
+              <FormField :label="t(`plans.ent.${key}`)" :html-for="`ent-${key}`">
+                <Input
+                  :id="`ent-${key}`"
+                  type="number"
+                  :placeholder="t('plans.entNull')"
+                  :value="intToStr((form.entitlements as Record<string, unknown>)[key] as number | null)"
+                  @change="(e: Event) => setEntInt(key as keyof PlanEntitlementsDto, (e.target as HTMLInputElement).value)"
+                />
+              </FormField>
+            </template>
+            <template v-for="key in ['exportImportEnabled','promptSuggestionsEnabled','customStatusesEnabled','prioritySupport']" :key="key">
+              <FormField :label="t(`plans.ent.${key}`)" :html-for="`ent-${key}`">
+                <Select
+                  :model-value="entBoolVal(key as keyof PlanEntitlementsDto)"
+                  @update:model-value="(v) => setEntBool(key as keyof PlanEntitlementsDto, v as string)"
+                >
+                  <SelectTrigger :id="`ent-${key}`">
+                    <SelectValue :placeholder="t('plans.entNull')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{{ t('plans.entNull') }}</SelectItem>
+                    <SelectItem value="true">{{ t('common.yes') }}</SelectItem>
+                    <SelectItem value="false">{{ t('common.no') }}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+            </template>
+          </div>
         </div>
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" @click="modalOpen = false">{{ t('common.cancel') }}</Button>
+      <div class="flex justify-end gap-2 pt-2">
+        <Button variant="secondary" @click="modalOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="!form.name.trim() || isSaving" @click="saveForm">
           {{ t('common.save') }}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 </template>

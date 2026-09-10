@@ -98,9 +98,17 @@ function applyBranding(b: BrandingData) {
 // ---- Provider ---------------------------------------------------------------
 
 async function fetchBranding(): Promise<BrandingData> {
-  const envelope = await getApiBranding();
-  if (!envelope?.isSuccess) throw new Error('branding fetch failed');
-  const d = envelope.data;
+  // The client's mutator returns the inner payload and throws on failure, but the generated
+  // types still declare the `Result<T>` envelope — accept either shape.
+  const res = await getApiBranding();
+  const d = ((res as unknown as { data?: unknown })?.data ?? res) as {
+    productName?: string | null;
+    tagline?: string | null;
+    primaryColor?: string | null;
+    urls?: Record<string, string | null | undefined> | null;
+    assets?: Record<string, string | null | undefined> | null;
+    version?: number | null;
+  };
   return {
     productName: d?.productName ?? 'Pointer',
     tagline: d?.tagline ?? null,

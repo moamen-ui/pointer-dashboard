@@ -1,38 +1,63 @@
 import { Component, computed, input } from '@angular/core';
+import { AppIconComponent } from '../ui/app-icon.component';
 import type { Severity } from '../severity';
 
 /**
- * A colored status pill. Formalizes the old ad hoc `.chip-active`/`.chip-disabled`/
- * `.chip-neutral` classes into one component driven by the shared severity vocabulary,
- * so a status badge and a severity button/menu-item of the same meaning always match.
+ * State chip (Badge): inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px]
+ * font-medium leading-none; severity-based colors using foundation tokens.
  *
  *   <app-badge severity="success">{{ 'common.active' | transloco }}</app-badge>
  */
 @Component({
   selector: 'app-badge',
   standalone: true,
-  template: `<span class="chip" [class]="chipClass()"><ng-content /></span>`,
+  imports: [AppIconComponent],
+  template: `
+    <span
+      class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none"
+      [class]="badgeClass()"
+    >
+      @if (iconName(); as icon) {
+        <app-icon [name]="icon" [size]="12" class="flex-shrink-0"></app-icon>
+      }
+      <ng-content></ng-content>
+    </span>
+  `,
 })
 export class BadgeComponent {
   readonly severity = input<Severity>('neutral');
 
-  // Deliberately reuses the existing `.chip-active`/`.chip-disabled` classes (same green/red
-  // tokens already used app-wide for boolean active/inactive state) rather than introducing
-  // parallel `.chip-success`/`.chip-danger` classes with identical colors — `danger` mapping to
-  // the class literally named `chip-disabled` reads oddly, but it's the same visual token, not a
-  // second color system.
-  protected readonly chipClass = computed(() => {
+  protected readonly badgeClass = computed(() => {
     switch (this.severity()) {
       case 'success':
-        return 'chip-active';
+        return 'text-state-completed bg-state-completed-tint border-state-completed/30';
       case 'danger':
-        return 'chip-disabled';
+        return 'text-state-danger bg-state-danger-tint border-state-danger/30';
       case 'warning':
-        return 'chip-warn';
+        return 'text-state-ready bg-state-ready-tint border-state-ready/30';
       case 'primary':
-        return 'chip-primary';
+        return 'text-brand bg-brand-tint border-brand/30';
+      case 'archived':
+        return 'text-state-archived bg-state-archived-tint border-state-archived/30';
       default:
-        return 'chip-neutral';
+        return 'text-state-archived bg-state-archived-tint border-state-archived/30';
+    }
+  });
+
+  protected readonly iconName = computed(() => {
+    switch (this.severity()) {
+      case 'success':
+        return 'check-circle';
+      case 'danger':
+        return 'x-circle';
+      case 'warning':
+        return 'clock';
+      case 'archived':
+        return 'archive';
+      // `primary` and `neutral` are label chips (plan names, roles, kinds): no state glyph,
+      // mirroring React's `glyphs.neutral = null`.
+      default:
+        return undefined;
     }
   });
 }

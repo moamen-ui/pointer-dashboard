@@ -1,16 +1,15 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService, getApiAuthSignupEnabledResource, getApiPlansResource } from '@moamen-ui/pointer-angular';
 import type { PlanPublicResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import { FormFieldComponent } from '../../shared/form-field/form-field.component';
+import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppToastService } from '../../shared/ui/app-toast.service';
 
 @Component({
   selector: 'app-signup',
@@ -18,118 +17,139 @@ import { FormFieldComponent } from '../../shared/form-field/form-field.component
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
     TranslocoModule,
-    FormFieldComponent,
+    AppAuthLayoutComponent,
+    AppFormFieldComponent,
+    AppInputDirective,
+    AppButtonDirective,
   ],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-slate-100">
-      <div class="flex w-full max-w-[880px] flex-col items-center gap-6 px-4 py-8">
-
+    <app-auth-layout>
+      <div *transloco="let t" class="flex flex-col gap-5">
         @if (signupResource.isLoading()) {
-          <p class="text-muted">{{ 'signup.loading' | transloco }}</p>
+          <p class="text-sm text-muted-foreground">{{ t('signup.checking') }}</p>
         } @else if (!signupEnabled()) {
-          <mat-card class="flex w-[400px] max-w-[92vw] flex-col gap-2 p-6">
-            <h1 class="my-[0.67em] text-[2em] font-bold">{{ 'signup.title' | transloco }}</h1>
-            <div class="flex flex-col gap-4">
-              <p class="m-0 text-muted">{{ 'signup.closed' | transloco }}</p>
-              <a mat-stroked-button routerLink="/login">{{ 'signup.backToLogin' | transloco }}</a>
-            </div>
-          </mat-card>
+          <h1 class="text-center text-xl font-bold">{{ t('signup.title') }}</h1>
+          <p class="text-center text-sm text-muted-foreground">{{ t('signup.closed') }}</p>
+          <a routerLink="/login" class="text-center text-sm text-brand hover:underline">{{ t('signup.backToLogin') }}</a>
         } @else if (submitted()) {
-          <mat-card class="flex w-[400px] max-w-[92vw] flex-col gap-2 p-6">
-            <h1 class="my-[0.67em] text-[2em] font-bold">{{ 'signup.title' | transloco }}</h1>
-            <div class="flex flex-col gap-4">
-              <p class="m-0 text-green-700 dark:text-green-400">{{ 'signup.pendingApproval' | transloco }}</p>
-              <a mat-stroked-button routerLink="/login">{{ 'signup.backToLogin' | transloco }}</a>
-            </div>
-          </mat-card>
+          <h1 class="text-center text-xl font-bold">{{ t('signup.title') }}</h1>
+          <p class="text-center text-sm text-muted-foreground">{{ t('signup.pending') }}</p>
+          <a routerLink="/login" class="text-center text-sm text-brand hover:underline">{{ t('signup.backToLogin') }}</a>
         } @else {
+          <form [formGroup]="form" (ngSubmit)="submit()" noValidate class="flex flex-col gap-4">
+            <h1 class="text-center text-xl font-bold">{{ t('signup.title') }}</h1>
 
-          <!-- Optional plan selector (public plans). Marketing display only — see submit(). -->
-          @if (selectablePlans().length > 0) {
-            <div class="w-full">
-              <h2 class="mb-4 text-center text-[1.2em] font-semibold">{{ 'signup.plan.selectTitle' | transloco }}</h2>
-              <div class="flex flex-wrap justify-center gap-4">
-                @for (plan of selectablePlans(); track plan.slug) {
-                  <div
-                    class="flex w-[200px] flex-col rounded-xl border-2 p-4 transition-colors"
-                    [class.border-brand]="selectedPlanSlug() === plan.slug"
-                    [class.border-app-border]="selectedPlanSlug() !== plan.slug"
-                    [class.opacity-50]="plan.displayState === 1"
-                    [class.cursor-not-allowed]="plan.displayState === 1"
-                    [class.cursor-pointer]="plan.displayState !== 1"
-                    (click)="selectPlan(plan)">
-                    <p class="m-0 font-semibold">{{ plan.name }}</p>
-                    <p class="m-0 mt-1 text-sm text-muted">
-                      @if (!plan.priceMonthly) {
-                        {{ 'signup.plan.free' | transloco }}
-                      } @else if (plan.interval === 1) {
-                        {{ 'signup.plan.yearlyPrice' | transloco: { price: plan.priceMonthly, currency: plan.currency ?? 'USD' } }}
-                      } @else {
-                        {{ 'signup.plan.monthlyPrice' | transloco: { price: plan.priceMonthly, currency: plan.currency ?? 'USD' } }}
-                      }
-                    </p>
-                    @if (plan.displayState === 1) {
-                      <span class="mt-2 text-xs font-medium text-amber-600">{{ 'signup.plan.comingSoon' | transloco }}</span>
-                    }
-                    @if (plan.featureBullets && plan.featureBullets.length > 0) {
-                      <ul class="m-0 mt-3 list-none p-0 text-xs text-muted">
-                        @for (b of plan.featureBullets; track b) {
-                          <li class="mb-1">• {{ b }}</li>
-                        }
-                      </ul>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          }
-
-          <!-- Signup form -->
-          <mat-card class="flex w-[400px] max-w-[92vw] flex-col gap-2 p-6">
-            <h1 class="my-[0.67em] text-[2em] font-bold">{{ 'signup.title' | transloco }}</h1>
-            <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
-              <app-form-field
-                [control]="form.controls.displayName"
-                [label]="'signup.displayName' | transloco"
-                [errorMessage]="'common.fieldRequired' | transloco"
+            <app-form-field [label]="t('signup.displayName')" [error]="displayNameTouched() || submitted() ? displayNameErrorMsg() : ''">
+              <input
+                appInput
+                formControlName="displayName"
+                (blur)="displayNameTouched.set(true)"
+                autoFocus
               />
-              <app-form-field
-                [control]="form.controls.email"
-                [label]="'signup.email' | transloco"
+            </app-form-field>
+
+            <app-form-field [label]="t('signup.email')" [error]="emailTouched() || submitted() ? emailErrorMsg() : ''">
+              <input
+                appInput
                 type="email"
-                [errorMessage]="emailError()"
+                autoComplete="email"
+                formControlName="email"
+                (blur)="emailTouched.set(true)"
               />
-              <app-form-field
-                [control]="form.controls.password"
-                [label]="'signup.password' | transloco"
+            </app-form-field>
+
+            <app-form-field [label]="t('signup.password')" [error]="passwordTouched() || submitted() ? passwordErrorMsg() : ''">
+              <input
+                appInput
                 type="password"
-                [errorMessage]="passwordError()"
+                autoComplete="new-password"
+                formControlName="password"
+                (blur)="passwordTouched.set(true)"
               />
-              <button mat-flat-button color="primary" class="mt-2"
-                [disabled]="form.invalid || loading()">
-                {{ loading() ? ('signup.submitting' | transloco) : ('signup.submit' | transloco) }}
-              </button>
-            </form>
-            <a mat-button routerLink="/login" class="mt-2 text-center">
-              {{ 'signup.backToLogin' | transloco }}
+            </app-form-field>
+
+            <!-- Plan selector — shown when public plans are available -->
+            @if (selectablePlans().length > 0) {
+              <div class="flex flex-col gap-2">
+                <label class="text-[13px] font-medium text-foreground">{{ t('signup.plan.chooseLabel') }}</label>
+                <div class="flex flex-col gap-2">
+                  @for (plan of selectablePlans(); track plan.slug) {
+                    <button
+                      type="button"
+                      [disabled]="plan.displayState === 1"
+                      (click)="selectPlan(plan)"
+                      class="flex w-full flex-col gap-1 rounded-lg border px-3 py-3 text-start transition-colors"
+                      [class.border-brand]="selectedPlanSlug() === plan.slug"
+                      [class.bg-brand-tint]="selectedPlanSlug() === plan.slug"
+                      [class.text-brand]="selectedPlanSlug() === plan.slug"
+                      [class.border-border]="selectedPlanSlug() !== plan.slug"
+                      [class.bg-card]="selectedPlanSlug() !== plan.slug"
+                      [class.text-card-foreground]="selectedPlanSlug() !== plan.slug"
+                      [class.hover:border-brand/50]="selectedPlanSlug() !== plan.slug"
+                      [class.cursor-not-allowed]="plan.displayState === 1"
+                      [class.opacity-50]="plan.displayState === 1"
+                    >
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="font-semibold text-sm">{{ plan.name }}</span>
+                        <span class="text-xs font-medium">
+                          @if (!plan.priceMonthly) {
+                            {{ t('signup.plan.free') }}
+                          } @else if (plan.interval === 1) {
+                            {{ t('signup.plan.yearlyPrice', { price: plan.priceMonthly, currency: plan.currency ?? 'USD' }) }}
+                          } @else {
+                            {{ t('signup.plan.monthlyPrice', { price: plan.priceMonthly, currency: plan.currency ?? 'USD' }) }}
+                          }
+                        </span>
+                      </div>
+                      @if (plan.displayState === 1) {
+                        <span class="text-[10px] font-medium text-state-ready">{{ t('signup.plan.comingSoon') }}</span>
+                      }
+                      @if (plan.featureBullets && plan.featureBullets.length > 0) {
+                        <ul class="mt-1 flex flex-col gap-0.5">
+                          @for (b of plan.featureBullets.slice(0, 3); track b) {
+                            <li class="text-xs text-muted-foreground">· {{ b }}</li>
+                          }
+                        </ul>
+                      }
+                    </button>
+                  }
+                </div>
+                <p class="text-xs text-muted-foreground">{{ t('signup.plan.hint') }}</p>
+              </div>
+            }
+
+            @if (error()) {
+              <p class="text-sm text-state-danger">{{ error() }}</p>
+            }
+
+            <button
+              type="submit"
+              appButton
+              variant="primary"
+              class="mt-1"
+              [disabled]="form.invalid || loading()"
+            >
+              {{ loading() ? t('signup.submitting') : t('signup.submit') }}
+            </button>
+
+            <a routerLink="/login" class="text-center text-sm text-muted-foreground hover:underline">
+              {{ t('signup.backToLogin') }}
             </a>
-          </mat-card>
+          </form>
         }
       </div>
-    </div>
+    </app-auth-layout>
   `,
 })
 export class SignupComponent {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
-  private snack = inject(MatSnackBar);
+  private toast = inject(AppToastService);
   private transloco = inject(TranslocoService);
   private route = inject(ActivatedRoute);
+
+  private readonly MIN_PASSWORD_LENGTH = 6;
 
   signupResource = getApiAuthSignupEnabledResource();
   signupEnabled = computed(() => this.signupResource.value()?.enabled === true);
@@ -151,10 +171,35 @@ export class SignupComponent {
   loading = signal(false);
   submitted = signal(false);
 
+  displayNameTouched = signal(false);
+  emailTouched = signal(false);
+  passwordTouched = signal(false);
+  error = signal<string | null>(null);
+
   form = this.fb.nonNullable.group({
     displayName: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required, Validators.minLength(this.MIN_PASSWORD_LENGTH)]],
+  });
+
+  displayNameErrorMsg = computed(() => {
+    const ctrl = this.form.controls.displayName;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    return '';
+  });
+
+  emailErrorMsg = computed(() => {
+    const ctrl = this.form.controls.email;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    return '';
+  });
+
+  passwordErrorMsg = computed(() => {
+    const ctrl = this.form.controls.password;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: this.MIN_PASSWORD_LENGTH });
+    return '';
   });
 
   constructor() {
@@ -167,28 +212,17 @@ export class SignupComponent {
     });
   }
 
-  emailError(): string {
-    const ctrl = this.form.controls.email;
-    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
-    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
-    return '';
-  }
-
-  passwordError(): string {
-    const ctrl = this.form.controls.password;
-    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
-    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 6 });
-    return '';
-  }
-
   selectPlan(plan: PlanPublicResponse): void {
     if (plan.displayState === 1) return; // ComingSoon plans are not selectable.
     this.selectedPlanSlug.set(this.selectedPlanSlug() === plan.slug ? null : (plan.slug ?? null));
   }
 
   submit(): void {
+    this.submitted.set(true);
     if (this.form.invalid) return;
+    this.error.set(null);
     this.loading.set(true);
+
     const { email, password, displayName } = this.form.getRawValue();
 
     // INTENTIONAL: planId is always null for now.
@@ -208,7 +242,9 @@ export class SignupComponent {
       },
       error: (e: unknown) => {
         this.loading.set(false);
-        this.snack.open(extractMessage(e) || this.transloco.translate('signup.failed'), 'OK', { duration: 4000 });
+        const msg = extractMessage(e) || this.transloco.translate('signup.failed');
+        this.error.set(msg);
+        this.toast.show(msg, 'danger');
       },
     });
   }

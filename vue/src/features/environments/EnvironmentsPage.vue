@@ -12,6 +12,7 @@ import {
   type AppEnvironmentResponse,
 } from '@moamen-ui/pointer-vue';
 import { Plus, Pencil, Trash2, Globe } from 'lucide-vue-next';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
 import { extractMessage } from '@/lib/error';
@@ -151,10 +151,10 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-lg font-semibold">{{ t('environments.title') }}</h2>
-        <p class="mt-0.5 text-[13px] text-muted-foreground">{{ t('environments.subtitle') }}</p>
+        <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{{ t('environments.title') }}</h1>
+        <p class="mt-0.5 text-[14px] text-muted-foreground">{{ t('environments.subtitle') }}</p>
       </div>
       <Button @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('environments.addEnvironment') }}
@@ -166,6 +166,7 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('common.actions')"
+      gutter
       :empty-icon="Globe"
       :empty-message="t('environments.empty')"
       :empty-hint="t('environments.emptyHint')"
@@ -173,7 +174,7 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
     >
       <!-- Scope cell: Global (platform-owned) vs the tenant's own environment -->
       <template #cell-scope="{ row }">
-        <Badge :variant="row.isGlobal ? 'neutral' : 'success'">
+        <Badge :variant="row.isGlobal ? 'neutral' : 'default'">
           {{ t(row.isGlobal ? 'environments.global' : 'environments.own') }}
         </Badge>
       </template>
@@ -186,12 +187,12 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
 
   <!-- Add environment dialog -->
   <Dialog v-model:open="addOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('environments.addEnvironment') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('environments.addEnvironment') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-2 pt-2">
-        <Label for="environment-name">{{ t('environments.name') }}</Label>
+      <div class="flex flex-col gap-1.5 py-2">
+        <Label for="environment-name" class="text-[13px] font-medium">{{ t('environments.name') }}</Label>
         <Input
           id="environment-name"
           v-model="newName"
@@ -200,7 +201,7 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
         />
       </div>
       <DialogFooter>
-        <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
+        <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="!newName.trim()" @click="addEnvironment">
           <Plus class="h-4 w-4" /> {{ t('environments.addEnvironment') }}
         </Button>
@@ -210,12 +211,12 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
 
   <!-- Rename environment dialog -->
   <Dialog v-model:open="renameOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('common.rename') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('common.rename') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-2 pt-2">
-        <Label for="rename-environment-name">{{ t('environments.name') }}</Label>
+      <div class="flex flex-col gap-1.5 py-2">
+        <Label for="rename-environment-name" class="text-[13px] font-medium">{{ t('environments.name') }}</Label>
         <Input
           id="rename-environment-name"
           v-model="editName"
@@ -223,7 +224,7 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
         />
       </div>
       <DialogFooter>
-        <Button variant="outline" @click="renameOpen = false">{{ t('common.cancel') }}</Button>
+        <Button variant="secondary" @click="renameOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="!editName.trim()" @click="saveRename">{{ t('common.save') }}</Button>
       </DialogFooter>
     </DialogContent>

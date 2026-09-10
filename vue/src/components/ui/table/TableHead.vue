@@ -8,7 +8,7 @@ const props = defineProps<{ class?: string }>();
   <th
     :class="
       cn(
-        'h-10 px-2 text-start align-middle font-semibold text-foreground [&:has([role=checkbox])]:pe-0',
+        'px-3 text-[13px] font-medium text-muted-foreground text-start align-middle [&:has([role=checkbox])]:pe-0',
         props.class,
       )
     "

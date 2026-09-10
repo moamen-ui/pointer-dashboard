@@ -1,6 +1,6 @@
 import { computed, inject, Injectable } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
 import { getApiAdminProjectsResource } from '@moamen-ui/pointer-angular';
+import { AppDialogService } from '../ui/app-dialog.service';
 import { InstallGuideComponent } from './install-guide.component';
 
 /** Per-user localStorage/sessionStorage keys for the auto-open policy. */
@@ -10,6 +10,8 @@ const SESSION_KEY = (userId: number | string) => `pointer_install_shown_session:
 
 export type AutoOpenContext = {
   isAdmin: boolean;
+  /** Super admins manage the platform and own no project, so the guide never opens itself for them. */
+  isSuperAdmin?: boolean;
   userId: number | string | null;
   /** Comments across every project the user can see. */
   commentsCount: number;
@@ -25,7 +27,7 @@ export type AutoOpenContext = {
  */
 @Injectable({ providedIn: 'root' })
 export class InstallGuideService {
-  private dialog = inject(MatDialog);
+  private appDialog = inject(AppDialogService);
 
   readonly projectsResource = getApiAdminProjectsResource();
   readonly projects = computed(() => this.projectsResource.value() ?? []);
@@ -41,7 +43,7 @@ export class InstallGuideService {
   );
 
   open(): void {
-    this.dialog.open(InstallGuideComponent, { width: '680px', maxWidth: '94vw' });
+    this.appDialog.openRef(InstallGuideComponent, { width: 'w-[min(720px,calc(100vw-32px))]' });
   }
 
   /**
@@ -50,7 +52,7 @@ export class InstallGuideService {
    * both, and it opens at most once per browser session so a reload doesn't nag.
    */
   shouldAutoOpen(ctx: AutoOpenContext): boolean {
-    if (!ctx.isAdmin || ctx.userId == null) return false;
+    if (!ctx.isAdmin || ctx.isSuperAdmin || ctx.userId == null) return false;
     if (this.flag(SUPPRESSED_KEY(ctx.userId))) return false;
     if (this.flag(SESSION_KEY(ctx.userId), sessionStorage)) return false;
     const firstTime = !this.flag(SEEN_KEY(ctx.userId));

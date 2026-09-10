@@ -10,16 +10,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSelectModule } from '@angular/material/select';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { BidiModule } from '@angular/cdk/bidi';
 import {
   ProjectsService,
   ExportImportService,
@@ -37,11 +29,19 @@ import { extractMessage } from '../../core/api/extract-message';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { ConfirmService } from '../../core/confirm.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-select.component';
+import { AppSwitchComponent } from '../../shared/ui/app-switch.component';
+import { AppToastService } from '../../shared/ui/app-toast.service';
+import { AppDialogService } from '../../shared/ui/app-dialog.service';
 import type { Severity } from '../../shared/severity';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
-import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 import type {
   ProjectResponse,
@@ -77,565 +77,513 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
   selector: 'app-projects',
   standalone: true,
   imports: [
+    BidiModule,
     FormsModule,
     ReactiveFormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatProgressBarModule,
-    MatIconModule,
-    MatDialogModule,
-    MatSlideToggleModule,
-    MatSelectModule,
     TranslocoModule,
-    DataTableComponent,
+    AppDataTableComponent,
     DataTableCellDirective,
     BadgeComponent,
+    AppButtonDirective,
+    AppIconComponent,
+    AppInputDirective,
+    AppSelectComponent,
+    AppSwitchComponent,
   ],
   template: `
-    <div class="p-6">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="m-0 text-[1.5em] font-bold">{{ 'projects.title' | transloco }}</h2>
+    <div class="space-y-6">
+      <div class="flex items-center justify-between gap-4">
+        <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ 'projects.title' | transloco }}</h1>
         @if (!auth.isSuperAdmin()) {
-          <button mat-flat-button color="primary" data-tour="add-project-btn" (click)="openAdd()">
-            <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
+          <button appButton variant="primary" data-tour="add-project-btn" (click)="openAdd()">
+            <app-icon name="plus" [size]="16"></app-icon>
+            {{ 'projects.addProject' | transloco }}
           </button>
         }
       </div>
 
-      <!-- Super admins are platform-management only — they can't own a project (backend:
-           ProjectService.CreateAsync forbids it). Point them at a real tenant account instead of
-           showing an Add-Project affordance that would only 403. -->
       @if (auth.isSuperAdmin()) {
-        <p class="mb-4 text-sm text-muted-foreground">{{ 'projects.superAdminNote' | transloco }}</p>
-      }
-
-      @if (loading()) {
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <p class="text-[14px] text-muted-foreground">{{ 'projects.superAdminNote' | transloco }}</p>
       }
 
       <app-data-table
+          [gutter]="true"
         [rows]="projects()"
         [columns]="columns()"
-        [actionsColumn]="{
-          items: actionsFor,
-          ariaLabel: 'projects.actions' | transloco,
-          header: 'projects.actions' | transloco,
-        }"
-        [emptyIcon]="'folder_open'"
+        [actions]="actionsFor"
+        [actionsAriaLabel]="'projects.actions' | transloco"
+        [actionsHeader]="'projects.actions' | transloco"
         [emptyMessage]="'projects.empty' | transloco"
         [emptyHint]="(auth.isSuperAdmin() ? 'projects.superAdminEmptyHint' : 'projects.emptyHint') | transloco"
       >
         @if (!auth.isSuperAdmin()) {
-          <button emptyAction mat-flat-button color="primary" (click)="openAdd()">
-            <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
+          <button emptyAction appButton variant="primary" (click)="openAdd()">
+            <app-icon name="plus" [size]="16"></app-icon>
+            {{ 'projects.addProject' | transloco }}
           </button>
         }
-        <ng-template appDataTableCell="key" let-project><code>{{ project.key }}</code></ng-template>
+        <ng-template appDataTableCell="name" let-project>
+          <span class="whitespace-nowrap">{{ project.name }}</span>
+        </ng-template>
+        <ng-template appDataTableCell="key" let-project>
+          <code class="whitespace-nowrap rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">{{ project.key }}</code>
+        </ng-template>
         <ng-template appDataTableCell="status" let-project>
           <app-badge [severity]="activationSeverity(project.activationState)">
             {{ activationLabelKey(project.activationState) | transloco }}
           </app-badge>
         </ng-template>
         <ng-template appDataTableCell="createdBy" let-project>
-          <span class="text-[0.85rem] text-muted">{{ project.createdByName }}</span>
+          <span class="text-[14px] text-muted-foreground">{{ project.createdByName }}</span>
         </ng-template>
         <ng-template appDataTableCell="comments" let-project>
-          <span class="text-[0.85rem]">{{ project.commentsCount ?? 0 }}</span>
+          <span class="font-mono text-[14px]">{{ project.commentsCount ?? 0 }}</span>
         </ng-template>
       </app-data-table>
     </div>
 
-    <!-- Add project dialog -->
+    <!-- Add project dialog (distilled: Name, Key, Page Context Capture only) -->
     <ng-template #addDialog>
-      <h2 mat-dialog-title>{{ 'projects.addProject' | transloco }}</h2>
-      <mat-dialog-content data-tour="project-modal-sections">
-        <form [formGroup]="addForm" (ngSubmit)="addProject()" class="flex min-w-80 flex-col gap-3 pt-2">
-          <!-- Name first: the key is derived from it (Pointer feedback #138). -->
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'projects.name' | transloco }}</mat-label>
-            <input matInput formControlName="name" (input)="syncKeyFromName($event)" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'projects.key' | transloco }}</mat-label>
-            <input
-              matInput
-              formControlName="key"
-              maxlength="64"
-              autocapitalize="none"
-              spellcheck="false"
-              (input)="onKeyEdited($event)"
-            />
-            <mat-hint>{{ (keyEdited() ? 'projects.keyHint' : 'projects.keyAutoHint') | transloco }}</mat-hint>
-            @if (keyControl.hasError('required')) {
-              <mat-error>{{ 'projects.keyRequired' | transloco }}</mat-error>
-            } @else if (keyControl.hasError('pattern')) {
-              <mat-error>{{ 'projects.keyPattern' | transloco }}</mat-error>
-            } @else if (keyControl.hasError('maxlength')) {
-              <mat-error>{{ 'projects.keyMaxLength' | transloco: { max: KEY_MAX_LENGTH } }}</mat-error>
-            } @else if (keyControl.hasError('keyTaken')) {
-              <mat-error>{{ 'projects.keyTaken' | transloco }}</mat-error>
-            }
-          </mat-form-field>
+      <div class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog flex flex-col max-h-[90vh]">
+        <div class="px-5 pt-5 pb-3">
+          <h2 class="text-[16px] font-semibold leading-6">{{ 'projects.addProject' | transloco }}</h2>
+        </div>
+        <div class="px-5 py-2 pb-3 space-y-4 overflow-y-auto">
+          <form [formGroup]="addForm" class="space-y-4">
+            <!-- Name -->
+            <div class="space-y-1.5">
+              <label class="text-[13px] font-medium text-foreground">{{ 'projects.name' | transloco }}</label>
+              <input
+                appInput
+                formControlName="name"
+                (input)="syncKeyFromName($event)"
+                class="w-full"
+              />
+            </div>
 
-          <mat-form-field appearance="outline" class="mb-2">
-            <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
-            <input matInput formControlName="appUrl" placeholder="https://staging.example.com" />
-            <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
-          </mat-form-field>
-
-          <!-- Predefined actions section -->
-          <div class="mt-2">
-            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'predefined.section' | transloco }}</div>
-            <p class="mb-2 text-[0.8rem] text-muted">{{ 'predefined.projectHelp' | transloco }}</p>
-            <div formArrayName="predefinedActions" class="flex flex-col gap-3">
-              @for (action of predefinedActionsArray.controls; track $index) {
-                <div [formGroupName]="$index" class="rounded border border-app-border p-3 flex flex-col gap-2">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
-                    <input matInput formControlName="text" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
-                    <textarea matInput formControlName="prompt" rows="2"></textarea>
-                  </mat-form-field>
-                  <button mat-stroked-button color="warn" type="button" (click)="removeAction($index)">
-                    <mat-icon>remove</mat-icon>
-                  </button>
+            <!-- Key -->
+            <div class="space-y-1.5">
+              <label class="text-[13px] font-medium text-foreground">{{ 'projects.key' | transloco }}</label>
+              <input
+                appInput
+                formControlName="key"
+                maxlength="64"
+                autocapitalize="none"
+                spellcheck="false"
+                (input)="onKeyEdited($event)"
+                class="w-full"
+              />
+              <div class="text-[12px] text-muted-foreground">
+                {{ (keyEdited() ? 'projects.keyHint' : 'projects.keyAutoHint') | transloco }}
+              </div>
+              @if (keyControl.hasError('required')) {
+                <div class="text-[12px] text-state-danger flex items-center gap-1">
+                  <app-icon name="alert-circle" [size]="12"></app-icon>
+                  {{ 'projects.keyRequired' | transloco }}
+                </div>
+              } @else if (keyControl.hasError('pattern')) {
+                <div class="text-[12px] text-state-danger flex items-center gap-1">
+                  <app-icon name="alert-circle" [size]="12"></app-icon>
+                  {{ 'projects.keyPattern' | transloco }}
+                </div>
+              } @else if (keyControl.hasError('maxlength')) {
+                <div class="text-[12px] text-state-danger flex items-center gap-1">
+                  <app-icon name="alert-circle" [size]="12"></app-icon>
+                  {{ 'projects.keyMaxLength' | transloco: { max: KEY_MAX_LENGTH } }}
+                </div>
+              } @else if (keyControl.hasError('keyTaken')) {
+                <div class="text-[12px] text-state-danger flex items-center gap-1">
+                  <app-icon name="alert-circle" [size]="12"></app-icon>
+                  {{ 'projects.keyTaken' | transloco }}
                 </div>
               }
             </div>
-            @if (predefinedActionsArray.length === 0) {
-              <p class="text-[0.8rem] text-muted">{{ 'predefined.empty' | transloco }}</p>
-            }
-            <button mat-stroked-button type="button" class="mt-2 border-app-border" (click)="addAction()">
-              <mat-icon>add</mat-icon> {{ 'predefined.add' | transloco }}
-            </button>
-          </div>
-        </form>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary" (click)="addProject()" [disabled]="addForm.invalid || loading()">
-          <mat-icon>add</mat-icon> {{ 'projects.addProject' | transloco }}
-        </button>
-      </mat-dialog-actions>
+
+            <!-- Page Context Capture switch -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[14px] font-medium text-foreground">{{ 'projects.pageContextCapture' | transloco }}</div>
+                  <div class="text-[12px] text-muted-foreground">{{ 'projects.pageContextCaptureHint' | transloco }}</div>
+                </div>
+                <app-switch [checked]="addForm.get('pageContextCaptureEnabled')?.value ?? false" (checkedChange)="addForm.get('pageContextCaptureEnabled')?.setValue($event)" />
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
+          <button appButton variant="secondary" size="sm" (click)="dialogRef?.close()">
+            {{ 'common.cancel' | transloco }}
+          </button>
+          <button appButton variant="primary" size="sm" (click)="addProject()" [disabled]="addForm.invalid || loading()">
+            <app-icon name="plus" [size]="16"></app-icon>
+            {{ 'projects.addProject' | transloco }}
+          </button>
+        </div>
+      </div>
     </ng-template>
 
     <!-- Edit project dialog -->
     <ng-template #editDialog>
-      <h2 mat-dialog-title>{{ 'projects.editTitle' | transloco }}</h2>
-      <mat-dialog-content>
-        <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="flex min-w-80 sm:min-w-[36rem] flex-col gap-3 pt-2">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'projects.name' | transloco }}</mat-label>
-            <input matInput formControlName="name" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="mb-2">
-            <mat-label>{{ 'projects.appUrl' | transloco }}</mat-label>
-            <input matInput formControlName="appUrl" placeholder="https://staging.example.com" />
-            <mat-hint>{{ 'projects.appUrlHint' | transloco }}</mat-hint>
-          </mat-form-field>
-
-          <div class="mb-2">
-            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'projects.otherEnvironments' | transloco }}</div>
-            <p class="mb-2 text-[0.8rem] text-muted">{{ 'projects.otherEnvironmentsHint' | transloco }}</p>
-            @if (configuredEnvironments().length > 0 || showAddEnvRow()) {
-              <table class="w-full border-collapse text-sm">
-                <thead>
-                  <tr class="text-start text-muted">
-                    <th class="w-32 pb-1 ps-0 text-start font-medium">{{ 'environments.name' | transloco }}</th>
-                    <th class="pb-1 ps-2 text-start font-medium">{{ 'projects.appUrl' | transloco }}</th>
-                    <th class="w-20 pb-1 text-center font-medium">{{ 'common.active' | transloco }}</th>
-                    <th class="w-14 pb-1"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (env of configuredEnvironments(); track env.appEnvironmentId) {
-                    <tr>
-                      <td class="py-1 pe-2 align-middle font-medium">{{ env.environmentName }}</td>
-                      <td class="py-1 pe-2 align-middle">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                          <input matInput placeholder="https://..."
-                            [ngModel]="envDrafts()[env.appEnvironmentId!]?.url ?? ''"
-                            [ngModelOptions]="{ standalone: true }"
-                            (ngModelChange)="setEnvUrlDraft(env.appEnvironmentId!, $event)" />
-                        </mat-form-field>
-                      </td>
-                      <td class="py-1 align-middle text-center">
-                        <mat-slide-toggle
-                          [checked]="envDrafts()[env.appEnvironmentId!]?.isActive ?? true"
-                          (change)="setEnvActiveDraft(env.appEnvironmentId!, $event.checked)" />
-                      </td>
-                      <td class="py-1 align-middle whitespace-nowrap text-end">
-                        <button mat-icon-button type="button" class="!text-red-600"
-                          [attr.aria-label]="'common.delete' | transloco"
-                          (click)="clearEnvironmentUrl(env.appEnvironmentId!)">
-                          <mat-icon>delete</mat-icon>
-                        </button>
-                      </td>
-                    </tr>
-                  }
-                  @if (showAddEnvRow()) {
-                    <tr>
-                      <td class="py-1 pe-2 align-middle">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                          <mat-select [value]="newEnvId()" (valueChange)="newEnvId.set($event)"
-                            [placeholder]="'environments.name' | transloco">
-                            @for (env of availableEnvironmentsToAdd(); track env.id) {
-                              <mat-option [value]="env.id">{{ env.name }}</mat-option>
-                            }
-                          </mat-select>
-                        </mat-form-field>
-                      </td>
-                      <td class="py-1 pe-2 align-middle">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                          <input matInput placeholder="https://..."
-                            [ngModel]="newEnvUrl()" [ngModelOptions]="{ standalone: true }"
-                            (ngModelChange)="newEnvUrl.set($event)" />
-                        </mat-form-field>
-                      </td>
-                      <td class="py-1 align-middle text-center">
-                        <mat-slide-toggle [checked]="newEnvActive()"
-                          (change)="newEnvActive.set($event.checked)" />
-                      </td>
-                      <td class="py-1 align-middle whitespace-nowrap">
-                        <button mat-icon-button type="button" color="primary"
-                          [disabled]="isAddingEnv() || !newEnvId() || !newEnvUrl().trim()"
-                          [attr.aria-label]="'common.add' | transloco"
-                          (click)="confirmAddEnvironment()">
-                          <mat-icon>check</mat-icon>
-                        </button>
-                        <button mat-icon-button type="button"
-                          [disabled]="isAddingEnv()"
-                          [attr.aria-label]="'common.cancel' | transloco"
-                          (click)="cancelAddEnvironment()">
-                          <mat-icon>close</mat-icon>
-                        </button>
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            }
-            @if (!showAddEnvRow() && availableEnvironmentsToAdd().length > 0) {
-              <button mat-stroked-button type="button" class="mt-2 border-app-border" (click)="startAddEnvironment()">
-                <mat-icon>add</mat-icon> {{ 'projects.addEnvironment' | transloco }}
-              </button>
-            }
-          </div>
-
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <div class="font-medium">{{ 'projects.pageContextCapture' | transloco }}</div>
-              <div class="text-xs text-muted-foreground">{{ 'projects.pageContextCaptureHint' | transloco }}</div>
+      <div class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog flex flex-col max-h-[90vh]">
+        <div class="px-5 pt-5 pb-3">
+          <h2 class="text-[16px] font-semibold leading-6">{{ 'projects.editTitle' | transloco }}</h2>
+        </div>
+        <div class="px-5 py-2 overflow-y-auto flex-1">
+          <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="space-y-4">
+            <!-- Name -->
+            <div class="space-y-1.5">
+              <label class="text-[13px] font-medium text-foreground">{{ 'projects.name' | transloco }}</label>
+              <input appInput formControlName="name" class="w-full" />
             </div>
-            <mat-slide-toggle formControlName="pageContextCaptureEnabled" />
-          </div>
 
-          <div class="mb-2">
-            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'projects.envSelectorRoles' | transloco }}</div>
-            <p class="mb-2 text-[0.8rem] text-muted">{{ 'projects.envSelectorRolesHint' | transloco }}</p>
-            <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
-              <mat-select formControlName="environmentSelectorRoleIds" multiple
-                [placeholder]="'projects.envSelectorRolesPlaceholder' | transloco">
-                @for (role of roles(); track role.id) {
-                  <mat-option [value]="role.id">{{ role.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-          </div>
+            <!-- Page Context Capture -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[14px] font-medium text-foreground">{{ 'projects.pageContextCapture' | transloco }}</div>
+                  <div class="text-[12px] text-muted-foreground">{{ 'projects.pageContextCaptureHint' | transloco }}</div>
+                </div>
+                <app-switch formControlName="pageContextCaptureEnabled" />
+              </div>
+            </div>
 
-          <!-- Predefined actions section (reused group) -->
-          <div class="mt-2">
-            <div class="mb-1 text-[0.95rem] font-semibold">{{ 'predefined.section' | transloco }}</div>
-            <p class="mb-2 text-[0.8rem] text-muted">{{ 'predefined.projectHelp' | transloco }}</p>
-            <div formArrayName="predefinedActions" class="flex flex-col gap-3">
-              @for (action of editPredefinedActionsArray.controls; track $index) {
-                <div [formGroupName]="$index" class="rounded border border-app-border p-3 flex flex-col gap-2">
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
-                    <input matInput formControlName="text" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
-                    <textarea matInput formControlName="prompt" rows="2"></textarea>
-                  </mat-form-field>
-                  <button mat-stroked-button color="warn" type="button" (click)="removeEditAction($index)">
-                    <mat-icon>remove</mat-icon>
+            <!-- Other Environments -->
+            <div class="border-t border-border-muted pt-4 mt-4">
+              <h3 class="text-[14px] font-medium text-foreground mb-1">{{ 'projects.otherEnvironments' | transloco }}</h3>
+              <p class="text-[12px] text-muted-foreground mb-3">{{ 'projects.otherEnvironmentsHint' | transloco }}</p>
+              @if (configuredEnvironments().length > 0 || showAddEnvRow()) {
+                <div class="border border-border rounded-md overflow-hidden">
+                  <table class="w-full">
+                    <thead class="bg-gutter border-b border-border-muted">
+                      <tr class="h-10">
+                        <th class="px-3 text-start text-[13px] font-medium text-muted-foreground w-32">{{ 'environments.name' | transloco }}</th>
+                        <th class="px-3 text-start text-[13px] font-medium text-muted-foreground flex-1">{{ 'projects.appUrl' | transloco }}</th>
+                        <th class="px-3 text-center text-[13px] font-medium text-muted-foreground w-20">{{ 'common.active' | transloco }}</th>
+                        <th class="w-16"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (env of configuredEnvironments(); track env.appEnvironmentId) {
+                        <tr class="h-11 border-t border-border-muted hover:bg-gutter/60">
+                          <td class="px-3 text-[14px] font-medium text-foreground">{{ env.environmentName }}</td>
+                          <td class="px-3">
+                            <input
+                              appInput
+                              type="text"
+                              placeholder="https://..."
+                              [ngModel]="envDrafts()[env.appEnvironmentId!]?.url ?? ''"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="setEnvUrlDraft(env.appEnvironmentId!, $event)"
+                              class="w-full h-8"
+                            />
+                          </td>
+                          <td class="px-3 text-center">
+                            <app-switch
+                              [checked]="envDrafts()[env.appEnvironmentId!]?.isActive ?? true"
+                              (checkedChange)="setEnvActiveDraft(env.appEnvironmentId!, $event)"
+                            />
+                          </td>
+                          <td class="px-3 text-end">
+                            <button appButton variant="ghost" size="icon" type="button" (click)="clearEnvironmentUrl(env.appEnvironmentId!)" [attr.aria-label]="'common.delete' | transloco">
+                              <app-icon name="trash-2" [size]="16"></app-icon>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                      @if (showAddEnvRow()) {
+                        <tr class="h-11 border-t border-border-muted hover:bg-gutter/60">
+                          <td class="px-3">
+                            <app-select
+                              [options]="availableEnvironmentsToAdd().map(e => ({ label: e.name ?? '', value: e.id ?? 0 }))"
+                              [value]="newEnvId() ?? 0"
+                              (valueChange)="newEnvId.set($event)"
+                              [disabled]="isAddingEnv()"
+                              class="w-full"
+                            />
+                          </td>
+                          <td class="px-3">
+                            <input
+                              appInput
+                              type="text"
+                              placeholder="https://..."
+                              [ngModel]="newEnvUrl()"
+                              [ngModelOptions]="{ standalone: true }"
+                              (ngModelChange)="newEnvUrl.set($event)"
+                              class="w-full h-8"
+                            />
+                          </td>
+                          <td class="px-3 text-center">
+                            <app-switch [checked]="newEnvActive()" (checkedChange)="newEnvActive.set($event)" />
+                          </td>
+                          <td class="px-3 flex items-center justify-end gap-1">
+                            <button appButton variant="ghost" size="icon" type="button" (click)="confirmAddEnvironment()" [disabled]="isAddingEnv() || !newEnvId() || !newEnvUrl().trim()" [attr.aria-label]="'common.add' | transloco">
+                              <app-icon name="check" [size]="16"></app-icon>
+                            </button>
+                            <button appButton variant="ghost" size="icon" type="button" (click)="cancelAddEnvironment()" [disabled]="isAddingEnv()" [attr.aria-label]="'common.cancel' | transloco">
+                              <app-icon name="x" [size]="16"></app-icon>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+              @if (!showAddEnvRow()) {
+                <div class="mt-3 flex flex-col gap-1 items-start">
+                  <button
+                    appButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    [disabled]="availableEnvironmentsToAdd().length === 0"
+                    (click)="startAddEnvironment()"
+                  >
+                    <app-icon name="plus" [size]="16"></app-icon>
+                    {{ 'projects.addEnvironment' | transloco }}
                   </button>
+                  @if (availableEnvironmentsToAdd().length === 0) {
+                    <p class="text-[12px] text-muted-foreground">
+                      {{ 'projects.allEnvironmentsConfigured' | transloco }}
+                    </p>
+                  }
                 </div>
               }
             </div>
-            @if (editPredefinedActionsArray.length === 0) {
-              <p class="text-[0.8rem] text-muted">{{ 'predefined.empty' | transloco }}</p>
-            }
-            <button mat-stroked-button type="button" class="mt-2 border-app-border" (click)="addEditAction()">
-              <mat-icon>add</mat-icon> {{ 'predefined.add' | transloco }}
-            </button>
-          </div>
 
-          <!-- AI Roles & Rules button in edit dialog -->
-          <div class="mt-4 flex items-center justify-between rounded border border-app-border p-3">
-            <div>
-              <div class="font-medium flex items-center gap-2">
-                <mat-icon class="text-primary">psychology</mat-icon>
-                {{ 'aiRules.section' | transloco }}
-              </div>
-              <div class="text-xs text-muted-foreground">{{ 'aiRules.projectHelp' | transloco }}</div>
+            <!-- Environment Selector Roles -->
+            <div class="border-t border-border-muted pt-4 mt-4">
+              <h3 class="text-[14px] font-medium text-foreground mb-1">{{ 'projects.envSelectorRoles' | transloco }}</h3>
+              <p class="text-[12px] text-muted-foreground mb-3">{{ 'projects.envSelectorRolesHint' | transloco }}</p>
+              <app-select
+                [options]="roles().map(r => ({ label: r.name ?? '', value: r.id ?? 0 }))"
+                [value]="editForm.get('environmentSelectorRoleIds')?.value?.[0]"
+                (valueChange)="onRoleSelect($event)"
+                [disabled]="loading()"
+              />
             </div>
-            <button mat-stroked-button type="button" (click)="openAiRulesFromEdit()">
-              {{ 'aiRules.section' | transloco }}
-            </button>
-          </div>
-        </form>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary" (click)="saveEdit()" [disabled]="editForm.invalid || loading()">
-          <mat-icon>save</mat-icon> {{ 'common.save' | transloco }}
-        </button>
-      </mat-dialog-actions>
+
+            <!-- AI Rules button -->
+            <div class="border-t border-border-muted pt-4 mt-4">
+              <div class="rounded-md border border-border p-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <app-icon name="brain" [size]="16" class="text-brand"></app-icon>
+                  <div>
+                    <div class="text-[14px] font-medium text-foreground">{{ 'aiRules.section' | transloco }}</div>
+                    <div class="text-[12px] text-muted-foreground">{{ 'aiRules.projectHelp' | transloco }}</div>
+                  </div>
+                </div>
+                <button appButton variant="secondary" size="sm" type="button" class="shrink-0 whitespace-nowrap" (click)="openAiRulesFromEdit()">
+                  {{ 'aiRules.section' | transloco }}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
+          <button appButton variant="secondary" size="sm" (click)="dialogRef?.close()">
+            {{ 'common.cancel' | transloco }}
+          </button>
+          <button appButton variant="primary" size="sm" (click)="saveEdit()" [disabled]="editForm.invalid || loading()">
+            <app-icon name="save" [size]="16"></app-icon>
+            {{ 'common.save' | transloco }}
+          </button>
+        </div>
+      </div>
     </ng-template>
 
-    <!-- View predefined prompts (read-only) dialog -->
+    <!-- View predefined prompts dialog -->
     <ng-template #viewPromptsDialog>
-      <h2 mat-dialog-title>{{ 'projects.viewPrompts' | transloco }}</h2>
-      <mat-dialog-content>
-        <div class="flex min-w-80 flex-col gap-3 pt-2">
+      <div class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog flex flex-col max-h-[90vh]">
+        <div class="px-5 pt-5 pb-3">
+          <h2 class="text-[16px] font-semibold leading-6">{{ 'projects.viewPrompts' | transloco }}</h2>
+        </div>
+        <div class="px-5 py-2 overflow-y-auto flex-1 space-y-3">
           @if ((viewingProject()?.predefinedActions ?? []).length === 0) {
-            <p class="text-[0.85rem] text-muted">{{ 'predefined.empty' | transloco }}</p>
-          }
-          @for (action of viewingProject()?.predefinedActions ?? []; track $index) {
-            <div class="rounded border border-app-border p-3 flex flex-col gap-1">
-              <div class="text-[0.85rem] font-semibold">{{ action.text }}</div>
-              <div class="text-[0.8rem] text-muted whitespace-pre-wrap">{{ action.prompt }}</div>
-            </div>
+            <p class="text-[14px] text-muted-foreground">{{ 'predefined.empty' | transloco }}</p>
+          } @else {
+            @for (action of viewingProject()?.predefinedActions ?? []; track $index) {
+              <div class="rounded-md border border-border p-3">
+                <div class="text-[14px] font-medium text-foreground mb-2">{{ action.text }}</div>
+                <div class="text-[13px] text-muted-foreground whitespace-pre-wrap font-mono">{{ action.prompt }}</div>
+              </div>
+            }
           }
         </div>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        @if (viewingProject(); as p) {
-          <button mat-button color="primary" (click)="openAiRules(p)">
-            <mat-icon>psychology</mat-icon> {{ 'aiRules.section' | transloco }}
+        <div class="px-5 pb-5 pt-3 flex justify-between border-t border-border">
+          @if (viewingProject(); as p) {
+            <button appButton variant="secondary" size="sm" (click)="openAiRules(p)">
+              <app-icon name="brain" [size]="16"></app-icon>
+              {{ 'aiRules.section' | transloco }}
+            </button>
+          }
+          <button appButton variant="secondary" size="sm" (click)="dialogRef?.close()">
+            {{ 'common.cancel' | transloco }}
           </button>
-        }
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-      </mat-dialog-actions>
+        </div>
+      </div>
     </ng-template>
 
     <!-- Suggest prompt dialog -->
     <ng-template #suggestDialog>
-      <h2 mat-dialog-title>{{ 'projects.suggest' | transloco }}</h2>
-      <mat-dialog-content>
-        <form [formGroup]="suggestForm" class="flex min-w-80 flex-col gap-3 pt-2">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
-            <input matInput formControlName="text" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
-            <textarea matInput formControlName="prompt" rows="3"></textarea>
-          </mat-form-field>
+      <div class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog flex flex-col max-h-[90vh]">
+        <div class="px-5 pt-5 pb-3">
+          <h2 class="text-[16px] font-semibold leading-6">{{ 'projects.suggest' | transloco }}</h2>
+        </div>
+        <form [formGroup]="suggestForm" class="px-5 py-2 overflow-y-auto flex-1 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-[13px] font-medium text-foreground">{{ 'predefined.text' | transloco }}</label>
+            <input appInput formControlName="text" class="w-full" />
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[13px] font-medium text-foreground">{{ 'predefined.prompt' | transloco }}</label>
+            <textarea formControlName="prompt" class="w-full h-20 px-3 py-2 rounded-md border border-border bg-background text-[14px] resize-none"></textarea>
+          </div>
         </form>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary" (click)="submitSuggest()" [disabled]="suggestForm.invalid || suggestBusy()">
-          <mat-icon>send</mat-icon> {{ 'projects.suggest' | transloco }}
-        </button>
-      </mat-dialog-actions>
+        <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
+          <button appButton variant="secondary" size="sm" (click)="dialogRef?.close()">
+            {{ 'common.cancel' | transloco }}
+          </button>
+          <button appButton variant="primary" size="sm" (click)="submitSuggest()" [disabled]="suggestForm.invalid || suggestBusy()">
+            <app-icon name="send" [size]="16"></app-icon>
+            {{ 'projects.suggest' | transloco }}
+          </button>
+        </div>
+      </div>
     </ng-template>
 
     <!-- Import dialog -->
     <ng-template #importDialog>
-      <h2 mat-dialog-title>{{ 'exportImport.importTitle' | transloco }}</h2>
-      <mat-dialog-content>
-        <p class="mb-4 mt-1 text-[0.9rem] text-muted">{{ 'exportImport.importHint' | transloco }}</p>
-        <div class="flex flex-col gap-3 min-w-80">
-          <input #fileInput type="file" accept=".json" class="block w-full text-[0.9rem]"
-            (change)="onFileSelected($event)" />
+      <div class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog flex flex-col max-h-[90vh]">
+        <div class="px-5 pt-5 pb-3">
+          <h2 class="text-[16px] font-semibold leading-6">{{ 'exportImport.importTitle' | transloco }}</h2>
         </div>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close [disabled]="importBusy()">{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary" (click)="submitImport()" [disabled]="!importFile() || importBusy()">
-          <mat-icon>upload</mat-icon> {{ 'exportImport.import' | transloco }}
-        </button>
-      </mat-dialog-actions>
+        <div class="px-5 py-2 overflow-y-auto flex-1">
+          <p class="text-[14px] text-muted-foreground mb-4">{{ 'exportImport.importHint' | transloco }}</p>
+          <input #fileInput type="file" accept=".json" class="block w-full text-[14px]" (change)="onFileSelected($event)" />
+        </div>
+        <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
+          <button appButton variant="secondary" size="sm" (click)="dialogRef?.close()" [disabled]="importBusy()">
+            {{ 'common.cancel' | transloco }}
+          </button>
+          <button appButton variant="primary" size="sm" (click)="submitImport()" [disabled]="!importFile() || importBusy()">
+            <app-icon name="upload" [size]="16"></app-icon>
+            {{ 'exportImport.import' | transloco }}
+          </button>
+        </div>
+      </div>
     </ng-template>
 
-    <!-- AI Roles & Rules dialog -->
+    <!-- AI Rules dialog -->
     <ng-template #aiRulesDialog>
-      <div class="flex items-center justify-between gap-3 pe-2">
-        <h2 mat-dialog-title class="!m-0 flex items-center gap-2">
-          <mat-icon class="text-primary">psychology</mat-icon>
-          {{ 'aiRules.section' | transloco }}: {{ selectedAiProject()?.name }}
-        </h2>
-      </div>
-      <mat-dialog-content>
-        <p class="mb-4 text-[0.85rem] text-muted">{{ 'aiRules.projectHelp' | transloco }}</p>
+      <div class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog flex flex-col max-h-[90vh]">
+        <div class="px-5 pt-5 pb-3 flex items-center justify-between">
+          <h2 class="text-[16px] font-semibold leading-6 flex items-center gap-2">
+            <app-icon name="brain" [size]="16" class="text-brand"></app-icon>
+            {{ 'aiRules.section' | transloco }}: {{ selectedAiProject()?.name }}
+          </h2>
+        </div>
+        <div class="px-5 py-2 overflow-y-auto flex-1 space-y-6">
+          <p class="text-[13px] text-muted-foreground">{{ 'aiRules.projectHelp' | transloco }}</p>
 
-        @if (projectAiRulesResource.isLoading()) {
-          <mat-progress-bar mode="indeterminate" class="mb-4"></mat-progress-bar>
-        }
-
-        <div class="flex min-w-80 sm:min-w-[38rem] flex-col gap-6 pt-1">
-          <!-- Section 1: Workspace & Project Admin Rules -->
-          <div class="flex flex-col gap-2">
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-[0.95rem] font-semibold">{{ 'aiRules.adminRulesTitle' | transloco }}</div>
-                <div class="text-xs text-muted">{{ 'aiRules.adminRulesSubtitle' | transloco }}</div>
-              </div>
-            </div>
-
-            <div class="mt-2 flex flex-col gap-3">
+          <!-- Admin Rules section -->
+          <div>
+            <h3 class="text-[14px] font-medium text-foreground mb-1">{{ 'aiRules.adminRulesTitle' | transloco }}</h3>
+            <p class="text-[12px] text-muted-foreground mb-3">{{ 'aiRules.adminRulesSubtitle' | transloco }}</p>
+            <div class="space-y-2">
               @for (rule of localAdminRules; track rule.id ?? $index) {
-                <div class="flex flex-col gap-2 rounded border border-app-border p-3">
+                <div class="rounded-md border border-border p-3 space-y-2">
                   <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2 flex-1">
-                      <span class="rounded px-1.5 py-0.5 text-xs font-semibold"
-                        [class.bg-stat-slate-bg]="rule.isInherited"
-                        [class.text-stat-slate]="rule.isInherited"
-                        [class.bg-stat-blue-bg]="!rule.isInherited"
-                        [class.text-primary]="!rule.isInherited">
-                        {{ (rule.isInherited ? 'aiRules.inheritedBadge' : 'aiRules.projectBadge') | transloco }}
-                      </span>
-                      @if (!rule.isInherited && (selectedAiProject()?.canEdit || auth.isAdmin())) {
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
-                          <input matInput [ngModel]="rule.title" (ngModelChange)="markAdminRuleDirty(rule, 'title', $event)" />
-                        </mat-form-field>
-                      } @else {
-                        <span class="font-medium text-sm text-ink">{{ rule.title }}</span>
-                      }
-                    </div>
+                    <span class="rounded px-1.5 py-0.5 text-[12px] font-medium" [class.text-state-archived]="rule.isInherited" [class.bg-state-archived-tint]="rule.isInherited" [class.text-brand]="!rule.isInherited" [class.bg-brand-tint]="!rule.isInherited">
+                      {{ (rule.isInherited ? 'aiRules.inheritedBadge' : 'aiRules.projectBadge') | transloco }}
+                    </span>
                     @if (!rule.isInherited && (selectedAiProject()?.canEdit || auth.isAdmin())) {
-                      <mat-slide-toggle
-                        [checked]="rule.isActive"
-                        (change)="markAdminRuleDirty(rule, 'isActive', $event.checked)"
-                      />
+                      <app-switch [checked]="rule.isActive" (checkedChange)="markAdminRuleDirty(rule, 'isActive', $event)" />
                     }
                   </div>
-
                   @if (!rule.isInherited && (selectedAiProject()?.canEdit || auth.isAdmin())) {
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                      <textarea matInput rows="2" [ngModel]="rule.prompt" (ngModelChange)="markAdminRuleDirty(rule, 'prompt', $event)"></textarea>
-                    </mat-form-field>
+                    <input appInput [ngModel]="rule.title" (ngModelChange)="markAdminRuleDirty(rule, 'title', $event)" class="w-full" />
+                    <textarea class="w-full h-16 px-3 py-2 rounded-md border border-border bg-background text-[13px] font-mono resize-none" [ngModel]="rule.prompt" (ngModelChange)="markAdminRuleDirty(rule, 'prompt', $event)"></textarea>
                     <div class="flex items-center gap-2">
-                      <button mat-flat-button color="primary" [disabled]="!rule.dirty || rule.saving" (click)="saveProjectAdminRule(rule)">
+                      <button appButton variant="primary" size="sm" [disabled]="!rule.dirty || rule.saving" (click)="saveProjectAdminRule(rule)">
                         {{ 'common.save' | transloco }}
                       </button>
-                      <button mat-stroked-button color="warn" [disabled]="rule.saving" (click)="deleteProjectAdminRule(rule)">
-                        <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                      <button appButton variant="destructive" size="sm" [disabled]="rule.saving" (click)="deleteProjectAdminRule(rule)">
+                        <app-icon name="trash-2" [size]="16"></app-icon>
+                        {{ 'common.delete' | transloco }}
                       </button>
                     </div>
                   } @else {
-                    <div class="text-xs text-muted whitespace-pre-wrap rounded bg-black/5 dark:bg-white/5 p-2 font-mono">{{ rule.prompt }}</div>
+                    <div class="text-[14px] font-medium text-foreground">{{ rule.title }}</div>
+                    <div class="text-[13px] font-mono text-muted-foreground whitespace-pre-wrap">{{ rule.prompt }}</div>
                   }
                 </div>
               }
-
-              @if (localAdminRules.length === 0 && !projectAiRulesResource.isLoading()) {
-                <p class="text-[0.8rem] text-muted">{{ 'aiRules.empty' | transloco }}</p>
+              @if (localAdminRules.length === 0) {
+                <p class="text-[13px] text-muted-foreground">{{ 'aiRules.empty' | transloco }}</p>
               }
-
-              <!-- Add Project Rule Form (Admins / Project Editors only) -->
               @if (selectedAiProject()?.canEdit || auth.isAdmin()) {
-                <div class="mt-2 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
-                  <div class="text-xs font-semibold text-muted">{{ 'aiRules.addRule' | transloco }}</div>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
-                    <input matInput [formControl]="newProjectRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
-                    <textarea matInput rows="2" [formControl]="newProjectRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
-                  </mat-form-field>
-                  <div>
-                    <button mat-flat-button color="primary"
-                      [disabled]="newProjectRuleBusy() || !newProjectRuleTitle.value.trim() || !newProjectRulePrompt.value.trim()"
-                      (click)="createProjectAdminRule()">
-                      <mat-icon>add</mat-icon> {{ 'aiRules.addRule' | transloco }}
-                    </button>
-                  </div>
+                <div class="rounded-md border border-dashed border-border p-3 space-y-2">
+                  <div class="text-[12px] font-medium text-muted-foreground">{{ 'aiRules.addRule' | transloco }}</div>
+                  <input appInput [formControl]="newProjectRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" class="w-full" />
+                  <textarea class="w-full h-16 px-3 py-2 rounded-md border border-border bg-background text-[13px] font-mono resize-none" [formControl]="newProjectRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
+                  <button appButton variant="primary" size="sm" [disabled]="newProjectRuleBusy() || !newProjectRuleTitle.value.trim() || !newProjectRulePrompt.value.trim()" (click)="createProjectAdminRule()">
+                    <app-icon name="plus" [size]="16"></app-icon>
+                    {{ 'aiRules.addRule' | transloco }}
+                  </button>
                 </div>
               }
             </div>
           </div>
 
-          <!-- Section 2: My Personal Rules -->
-          <div class="flex flex-col gap-2 border-t border-app-border pt-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-[0.95rem] font-semibold">{{ 'aiRules.myRulesTitle' | transloco }}</div>
-                <div class="text-xs text-muted">{{ 'aiRules.myRulesSubtitle' | transloco }}</div>
-              </div>
-            </div>
-
-            <div class="mt-2 flex flex-col gap-3">
+          <!-- Personal Rules section -->
+          <div class="border-t border-border-muted pt-4">
+            <h3 class="text-[14px] font-medium text-foreground mb-1">{{ 'aiRules.myRulesTitle' | transloco }}</h3>
+            <p class="text-[12px] text-muted-foreground mb-3">{{ 'aiRules.myRulesSubtitle' | transloco }}</p>
+            <div class="space-y-2">
               @for (rule of localMyRules; track rule.id ?? $index) {
-                <div class="flex flex-col gap-2 rounded border border-app-border p-3">
+                <div class="rounded-md border border-border p-3 space-y-2">
                   <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2 flex-1">
-                      <span class="rounded px-1.5 py-0.5 text-xs font-semibold bg-stat-amber-bg text-stat-amber">
-                        {{ 'aiRules.personalBadge' | transloco }}
-                      </span>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
-                        <input matInput [ngModel]="rule.title" (ngModelChange)="markMyRuleDirty(rule, 'title', $event)" />
-                      </mat-form-field>
-                    </div>
-                    <mat-slide-toggle
-                      [checked]="rule.isActive"
-                      (change)="markMyRuleDirty(rule, 'isActive', $event.checked)"
-                    />
+                    <span class="rounded px-1.5 py-0.5 text-[12px] font-medium text-state-ready bg-state-ready-tint">
+                      {{ 'aiRules.personalBadge' | transloco }}
+                    </span>
+                    <app-switch [checked]="rule.isActive" (checkedChange)="markMyRuleDirty(rule, 'isActive', $event)" />
                   </div>
-
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <textarea matInput rows="2" [ngModel]="rule.prompt" (ngModelChange)="markMyRuleDirty(rule, 'prompt', $event)"></textarea>
-                  </mat-form-field>
+                  <input appInput [ngModel]="rule.title" (ngModelChange)="markMyRuleDirty(rule, 'title', $event)" class="w-full" />
+                  <textarea class="w-full h-16 px-3 py-2 rounded-md border border-border bg-background text-[13px] font-mono resize-none" [ngModel]="rule.prompt" (ngModelChange)="markMyRuleDirty(rule, 'prompt', $event)"></textarea>
                   <div class="flex items-center gap-2">
-                    <button mat-flat-button color="primary" [disabled]="!rule.dirty || rule.saving" (click)="savePersonalRule(rule)">
+                    <button appButton variant="primary" size="sm" [disabled]="!rule.dirty || rule.saving" (click)="savePersonalRule(rule)">
                       {{ 'common.save' | transloco }}
                     </button>
-                    <button mat-stroked-button color="warn" [disabled]="rule.saving" (click)="deletePersonalRule(rule)">
-                      <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+                    <button appButton variant="destructive" size="sm" [disabled]="rule.saving" (click)="deletePersonalRule(rule)">
+                      <app-icon name="trash-2" [size]="16"></app-icon>
+                      {{ 'common.delete' | transloco }}
                     </button>
                   </div>
                 </div>
               }
-
-              @if (localMyRules.length === 0 && !projectAiRulesResource.isLoading()) {
-                <p class="text-[0.8rem] text-muted">{{ 'aiRules.noPersonalRules' | transloco }}</p>
+              @if (localMyRules.length === 0) {
+                <p class="text-[13px] text-muted-foreground">{{ 'aiRules.noPersonalRules' | transloco }}</p>
               }
-
-              <!-- Add Personal Rule Form -->
-              <div class="mt-2 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
-                <div class="text-xs font-semibold text-muted">{{ 'aiRules.addPersonalRule' | transloco }}</div>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
-                  <input matInput [formControl]="newPersonalRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
-                  <textarea matInput rows="2" [formControl]="newPersonalRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
-                </mat-form-field>
-                <div>
-                  <button mat-flat-button color="primary"
-                    [disabled]="newPersonalRuleBusy() || !newPersonalRuleTitle.value.trim() || !newPersonalRulePrompt.value.trim()"
-                    (click)="createPersonalRule()">
-                    <mat-icon>add</mat-icon> {{ 'aiRules.addPersonalRule' | transloco }}
-                  </button>
-                </div>
+              <div class="rounded-md border border-dashed border-border p-3 space-y-2">
+                <div class="text-[12px] font-medium text-muted-foreground">{{ 'aiRules.addPersonalRule' | transloco }}</div>
+                <input appInput [formControl]="newPersonalRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" class="w-full" />
+                <textarea class="w-full h-16 px-3 py-2 rounded-md border border-border bg-background text-[13px] font-mono resize-none" [formControl]="newPersonalRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
+                <button appButton variant="primary" size="sm" [disabled]="newPersonalRuleBusy() || !newPersonalRuleTitle.value.trim() || !newPersonalRulePrompt.value.trim()" (click)="createPersonalRule()">
+                  <app-icon name="plus" [size]="16"></app-icon>
+                  {{ 'aiRules.addPersonalRule' | transloco }}
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-      </mat-dialog-actions>
+        <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
+          <button appButton variant="secondary" size="sm" (click)="aiRulesDialogRef?.close()">
+            {{ 'common.cancel' | transloco }}
+          </button>
+        </div>
+      </div>
     </ng-template>
   `,
 })
@@ -643,15 +591,14 @@ export class ProjectsComponent {
   private projectsService = inject(ProjectsService);
   private exportImportService = inject(ExportImportService);
   private suggestionsService = inject(SuggestionsService);
-  // Export uses HttpClient because the generated client only exposes a Signal-based
-  // getApiProjectsKeyExportResource — no imperative variant exists.
   private http = inject(HttpClient);
-  private snack = inject(MatSnackBar);
   private fb = inject(FormBuilder);
   private transloco = inject(TranslocoService);
-  private dialog = inject(MatDialog);
+  private toast = inject(AppToastService);
+  private confirm = inject(ConfirmService);
   private aiRulesService = inject(AiRulesService);
   auth = inject(AuthService);
+  private appDialog = inject(AppDialogService);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly editDialog = viewChild.required<TemplateRef<unknown>>('editDialog');
@@ -659,8 +606,8 @@ export class ProjectsComponent {
   readonly suggestDialog = viewChild.required<TemplateRef<unknown>>('suggestDialog');
   readonly importDialog = viewChild.required<TemplateRef<unknown>>('importDialog');
   readonly aiRulesDialog = viewChild.required<TemplateRef<unknown>>('aiRulesDialog');
-  private dialogRef?: MatDialogRef<unknown>;
-  private aiRulesDialogRef?: MatDialogRef<unknown>;
+  dialogRef?: any;
+  aiRulesDialogRef?: any;
 
   projectsResource = getApiAdminProjectsResource();
   projects = computed(() => this.projectsResource.value() ?? []);
@@ -697,33 +644,20 @@ export class ProjectsComponent {
 
   private editingProjectId = signal<number | null>(null);
 
-  // Per-environment App URLs (edit dialog only — a project must exist first). "default" is
-  // covered by the ordinary "App URL" field above (ProjectService.SyncDefaultAppUrlAsync keeps
-  // them in sync server-side), so it's excluded here to avoid showing the same value twice.
   environmentsResource = getApiAdminEnvironmentsResource();
   private editingProjectIdForUrls = computed(() => this.editingProjectId() ?? 0);
   projectAppUrlsResource = getApiAdminProjectsIdAppUrlsResource(this.editingProjectIdForUrls);
 
-  // For the "show environment switcher for" multiselect below — every role this tenant can assign.
   rolesResource = getApiAdminRolesResource();
   roles = computed(() => this.rolesResource.value() ?? []);
 
-  // Only rows that ALREADY have a saved URL for this project — not every environment the tenant
-  // has ever defined. Each carries its own name/url/isActive straight from the response, so no
-  // cross-referencing against environmentsResource is needed for existing rows.
-  configuredEnvironments = computed(() =>
-    (this.projectAppUrlsResource.value() ?? []).filter((u) => u.environmentName !== 'default'));
+  configuredEnvironments = computed(() => this.projectAppUrlsResource.value() ?? []);
 
-  // Environments not yet configured for this project — the "add new" row's dropdown options.
   availableEnvironmentsToAdd = computed(() => {
     const configuredIds = new Set(this.configuredEnvironments().map((u) => u.appEnvironmentId));
-    return (this.environmentsResource.value() ?? []).filter((e) => e.name !== 'default' && !configuredIds.has(e.id!));
+    return (this.environmentsResource.value() ?? []).filter((e) => !configuredIds.has(e.id!));
   });
 
-  // Draft state per EXISTING row (url + isActive together) — overlays the loaded value with
-  // whatever the user is actively editing. Rows have no save button of their own: the dialog's
-  // single Save persists every dirty row (see saveEnvironmentChangesIfPending) together with the
-  // reactive `editForm`. Delete stays immediate.
   private envLoaded = computed(() => {
     const loaded: Record<number, { url: string; isActive: boolean }> = {};
     for (const u of this.configuredEnvironments()) {
@@ -752,11 +686,10 @@ export class ProjectsComponent {
         this.envOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
         this.projectAppUrlsResource.reload();
       },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
   }
 
-  // ---- Add a new environment row ----
   showAddEnvRow = signal(false);
   newEnvId = signal<number | null>(null);
   newEnvUrl = signal('');
@@ -782,7 +715,7 @@ export class ProjectsComponent {
     const projectId = this.editingProjectId();
     const envId = this.newEnvId();
     const url = this.newEnvUrl().trim();
-    if (!projectId || !envId || !url) return;
+    if (!projectId || envId === null || envId === 0 || !url) return;
 
     this.isAddingEnv.set(true);
     this.projectsService.putApiAdminProjectsIdAppUrlsEnvironmentId(projectId, envId, {
@@ -799,12 +732,11 @@ export class ProjectsComponent {
       },
       error: (e: unknown) => {
         this.isAddingEnv.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
 
-  // Rows whose draft differs from what is loaded — the ones the dialog's Save must persist.
   private dirtyEnvironmentIds(): number[] {
     const loaded = this.envLoaded();
     return Object.entries(this.envOverrides())
@@ -815,10 +747,6 @@ export class ProjectsComponent {
       .map(([id]) => Number(id));
   }
 
-  // Persists every pending environment change — edited existing rows plus the "add environment"
-  // row, if one is filled in — called from saveEdit() after the project's own fields are patched,
-  // so the dialog's single Save button covers all of it. Rows with a blank URL are skipped, not
-  // errors (same rule the per-row save used). Failures are surfaced individually; the rest go on.
   private saveEnvironmentChangesIfPending(onDone: () => void): void {
     const projectId = this.editingProjectId();
     if (!projectId) {
@@ -836,7 +764,7 @@ export class ProjectsComponent {
         } as any).pipe(
           map(() => ({ environmentId: envId, ok: true })),
           catchError((e: unknown) => {
-            this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+            this.toast.show(extractMessage(e), 'danger');
             return of({ environmentId: envId, ok: false });
           }),
         ),
@@ -852,7 +780,7 @@ export class ProjectsComponent {
         } as any).pipe(
           map(() => ({ environmentId: newEnvId, ok: true })),
           catchError((e: unknown) => {
-            this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+            this.toast.show(extractMessage(e), 'danger');
             return of({ environmentId: newEnvId, ok: false });
           }),
         ),
@@ -866,7 +794,6 @@ export class ProjectsComponent {
 
     forkJoin(requests).subscribe((results) => {
       const saved = new Set(results.filter((r) => r.ok).map((r) => r.environmentId));
-      // Drop the drafts that landed; keep a failed row's edit so the user can retry it.
       this.envOverrides.update((o) => {
         const rest = { ...o };
         for (const id of saved) delete rest[id];
@@ -877,29 +804,27 @@ export class ProjectsComponent {
       onDone();
     });
   }
+
   viewingProject = signal<ProjectResponse | null>(null);
   private suggestingProjectId = signal<number | null>(null);
   suggestBusy = signal(false);
 
-  // A method (not a stored field) so column headers stay live if the app language changes.
   columns(): DataTableColumn<ProjectResponse>[] {
     return [
       { key: 'key', header: this.transloco.translate('projects.key'), sortable: true },
       { key: 'name', header: this.transloco.translate('projects.name'), sortable: true },
-      { key: 'status', header: this.transloco.translate('projects.status') },
       { key: 'createdBy', header: this.transloco.translate('projects.createdBy'), sortable: true },
       { key: 'comments', header: this.transloco.translate('projects.comments'), sortable: true },
+      { key: 'status', header: this.transloco.translate('projects.status') },
     ];
   }
 
-  /** Badge color for a project's per-environment activation rollup. */
   activationSeverity(state: ProjectActivationState | undefined): Severity {
     if (state === ProjectActivationState.NUMBER_2) return 'success';
     if (state === ProjectActivationState.NUMBER_1) return 'warning';
     return 'danger';
   }
 
-  /** Transloco key for a project's per-environment activation rollup. */
   activationLabelKey(state: ProjectActivationState | undefined): string {
     if (state === ProjectActivationState.NUMBER_2) return 'common.active';
     if (state === ProjectActivationState.NUMBER_1) return 'common.partial';
@@ -911,21 +836,21 @@ export class ProjectsComponent {
     const items: RowActionItem[] = [];
     items.push({
       label: this.transloco.translate('aiRules.section'),
-      icon: 'psychology',
+      icon: 'brain',
       disabled: busy,
       onClick: () => this.openAiRules(project),
     });
     if (project.canEdit) {
       items.push({ label: this.transloco.translate('projects.edit'), icon: 'edit', disabled: busy, onClick: () => this.openEdit(project) });
     } else {
-      items.push({ label: this.transloco.translate('projects.viewPrompts'), icon: 'visibility', disabled: busy, onClick: () => this.openViewPrompts(project) });
+      items.push({ label: this.transloco.translate('projects.viewPrompts'), icon: 'eye', disabled: busy, onClick: () => this.openViewPrompts(project) });
       items.push({ label: this.transloco.translate('projects.suggest'), icon: 'lightbulb', disabled: busy, onClick: () => this.openSuggest(project) });
     }
     if (project.canEdit) {
       const anyActive = project.activationState !== ProjectActivationState.NUMBER_0;
       items.push({
         label: this.transloco.translate(anyActive ? 'common.disable' : 'common.enable'),
-        icon: anyActive ? 'block' : 'check_circle',
+        icon: anyActive ? 'circle-off' : 'check-circle',
         severity: anyActive ? 'danger' : 'neutral',
         disabled: busy,
         onClick: () => this.toggleActive(project),
@@ -935,10 +860,9 @@ export class ProjectsComponent {
         items.push({ label: this.transloco.translate('exportImport.import'), icon: 'upload', disabled: busy, onClick: () => this.openImport(project) });
       }
     }
-    // Delete stays last in every menu (Pointer feedback #137).
     items.push({
       label: this.transloco.translate('projects.delete'),
-      icon: 'delete',
+      icon: 'trash-2',
       severity: 'danger',
       disabled: busy || !project.canDelete,
       tooltip: project.canDelete ? undefined : this.transloco.translate('projects.deleteBlockedComments'),
@@ -947,11 +871,6 @@ export class ProjectsComponent {
     return items;
   };
 
-  // The key must match what the API accepts, or the request comes back as a raw
-  // 400: FluentValidation checks the *unmodified* value (^[a-z0-9-]+$, max 64)
-  // and only ProjectService lowercases it afterwards — so an uppercase key would
-  // be rejected even though it would have been stored fine. normalizeKey() below
-  // keeps the input in that shape while the user types.
   readonly KEY_MAX_LENGTH = KEY_MAX_LENGTH;
 
   addForm = this.fb.nonNullable.group({
@@ -965,22 +884,15 @@ export class ProjectsComponent {
       ],
     ],
     name: ['', Validators.required],
-    appUrl: [''],
-    predefinedActions: this.fb.array([]),
+    pageContextCaptureEnabled: [false],
   });
 
   get keyControl() {
     return this.addForm.controls.key;
   }
 
-  /** True once the user edits the key by hand — auto-fill stops deferring to the name. */
   readonly keyEdited = signal(false);
 
-  /**
-   * Keeps the typed key in the shape the API accepts: lowercased and without
-   * surrounding whitespace. Lowercasing does not change the length, so the caret
-   * stays where the user left it.
-   */
   normalizeKey(event: Event): void {
     const input = event.target as HTMLInputElement;
     const normalized = input.value.toLowerCase().trim();
@@ -989,25 +901,17 @@ export class ProjectsComponent {
     this.keyControl.setValue(normalized);
   }
 
-  /** Typing in the key takes ownership of it: the name stops driving it. */
   onKeyEdited(event: Event): void {
     this.keyEdited.set(true);
     this.normalizeKey(event);
   }
 
-  /**
-   * Derives the key from the project name while the user hasn't touched the key
-   * themselves — "My New App" → "my-new-app". Stops the moment they edit the key,
-   * and never fights a key they cleared back to empty on purpose.
-   */
   syncKeyFromName(event: Event): void {
     if (this.keyEdited()) return;
     const name = (event.target as HTMLInputElement).value;
     this.keyControl.setValue(slugifyKey(name));
   }
 
-  /** Flags a key that one of the caller's existing projects already uses (the API
-   *  answers 409 for this; catching it here saves the round-trip). */
   private uniqueKeyValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       const value = String(control.value ?? '').toLowerCase().trim();
@@ -1019,13 +923,11 @@ export class ProjectsComponent {
 
   editForm = this.fb.nonNullable.group({
     name: ['', Validators.required],
-    appUrl: [''],
     pageContextCaptureEnabled: [false],
     isActiveLocal: [false],
     isActiveStaging: [false],
     isActiveProduction: [false],
     environmentSelectorRoleIds: this.fb.nonNullable.control<number[]>([]),
-    predefinedActions: this.fb.array([]),
   });
 
   suggestForm = this.fb.nonNullable.group({
@@ -1033,87 +935,36 @@ export class ProjectsComponent {
     prompt: ['', Validators.required],
   });
 
-  get predefinedActionsArray(): FormArray {
-    return this.addForm.get('predefinedActions') as FormArray;
-  }
-
-  get editPredefinedActionsArray(): FormArray {
-    return this.editForm.get('predefinedActions') as FormArray;
-  }
-
-  addAction(): void {
-    this.predefinedActionsArray.push(
-      this.fb.nonNullable.group({
-        text: ['', Validators.required],
-        prompt: ['', Validators.required],
-      })
-    );
-  }
-
-  removeAction(index: number): void {
-    this.predefinedActionsArray.removeAt(index);
-  }
-
-  addEditAction(): void {
-    this.editPredefinedActionsArray.push(
-      this.fb.nonNullable.group({
-        id: [null as number | null],
-        text: ['', Validators.required],
-        prompt: ['', Validators.required],
-      })
-    );
-  }
-
-  removeEditAction(index: number): void {
-    this.editPredefinedActionsArray.removeAt(index);
-  }
-
   openAdd() {
     this.keyEdited.set(false);
-    this.addForm.reset({ key: '', name: '', appUrl: '' });
-    while (this.predefinedActionsArray.length) {
-      this.predefinedActionsArray.removeAt(0);
-    }
-    this.dialogRef = this.dialog.open(this.addDialog(), { width: '540px' });
+    this.addForm.reset({ key: '', name: '', pageContextCaptureEnabled: false });
+    this.dialogRef = this.appDialog.openRef(this.addDialog());
   }
 
   openEdit(project: ProjectResponse): void {
     this.editingProjectId.set(project.id ?? null);
-    this.envOverrides.set({}); // discard any unsaved per-environment draft from a prior project
+    this.envOverrides.set({});
     this.showAddEnvRow.set(false);
     this.editForm.reset({
       name: project.name ?? '',
-      appUrl: project.appUrl ?? '',
       pageContextCaptureEnabled: !!project.pageContextCaptureEnabled,
       isActiveLocal: !!project.isActiveLocal,
       isActiveStaging: !!project.isActiveStaging,
       isActiveProduction: !!project.isActiveProduction,
       environmentSelectorRoleIds: project.environmentSelectorRoleIds ?? [],
     });
-    while (this.editPredefinedActionsArray.length) {
-      this.editPredefinedActionsArray.removeAt(0);
-    }
-    for (const action of project.predefinedActions ?? []) {
-      this.editPredefinedActionsArray.push(
-        this.fb.nonNullable.group({
-          id: [action.id ?? null],
-          text: [action.text ?? '', Validators.required],
-          prompt: [action.prompt ?? '', Validators.required],
-        })
-      );
-    }
-    this.dialogRef = this.dialog.open(this.editDialog(), { width: '680px', maxWidth: '680px' });
+    this.dialogRef = this.appDialog.openRef(this.editDialog());
   }
 
   openViewPrompts(project: ProjectResponse): void {
     this.viewingProject.set(project);
-    this.dialogRef = this.dialog.open(this.viewPromptsDialog(), { width: '540px' });
+    this.dialogRef = this.appDialog.openRef(this.viewPromptsDialog());
   }
 
   openSuggest(project: ProjectResponse): void {
     this.suggestingProjectId.set(project.id ?? null);
     this.suggestForm.reset({ text: '', prompt: '' });
-    this.dialogRef = this.dialog.open(this.suggestDialog(), { width: '480px' });
+    this.dialogRef = this.appDialog.openRef(this.suggestDialog());
   }
 
   submitSuggest(): void {
@@ -1126,28 +977,25 @@ export class ProjectsComponent {
       next: () => {
         this.suggestBusy.set(false);
         this.dialogRef?.close();
-        this.snack.open(this.transloco.translate('suggestions.sent'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('suggestions.sent'), 'success');
       },
       error: (e: unknown) => {
         this.suggestBusy.set(false);
         const msg = (e as any)?.status === 403
           ? this.transloco.translate('suggestions.canEditDirectly')
           : extractMessage(e);
-        this.snack.open(msg, 'OK', { duration: 4000 });
+        this.toast.show(msg, 'danger');
       },
     });
   }
 
   deleteProject(project: ProjectResponse): void {
-    this.dialog
-      .open(ConfirmDialogComponent, {
-        data: {
-          message: this.transloco.translate('projects.deleteConfirm'),
-          confirmLabel: this.transloco.translate('projects.delete'),
-          confirmColor: 'danger',
-        },
+    this.confirm
+      .confirm({
+        message: this.transloco.translate('projects.deleteConfirm'),
+        confirmLabel: this.transloco.translate('projects.delete'),
+        confirmColor: 'danger',
       })
-      .afterClosed()
       .subscribe((ok) => {
         if (!ok) return;
         this.busy.set(true);
@@ -1155,9 +1003,12 @@ export class ProjectsComponent {
           next: () => {
             this.busy.set(false);
             this.projectsResource.reload();
-            this.snack.open(this.transloco.translate('projects.deleted'), 'OK', { duration: 3000 });
+            this.toast.show(this.transloco.translate('projects.deleted'), 'success');
           },
-          error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+          error: (e: unknown) => {
+            this.busy.set(false);
+            this.toast.show(extractMessage(e), 'danger');
+          },
         });
       });
   }
@@ -1166,25 +1017,23 @@ export class ProjectsComponent {
     if (this.addForm.invalid) return;
     this.busy.set(true);
     const val = this.addForm.getRawValue();
-    const predefinedActions = (val.predefinedActions as { text: string; prompt: string }[]).map((a, i) => ({
-      text: a.text,
-      prompt: a.prompt,
-      sortOrder: i,
-      isActive: true,
-    }));
     this.projectsService.postApiAdminProjects({
       key: val.key,
       name: val.name,
-      appUrl: val.appUrl?.trim() || undefined,
-      predefinedActions,
+      pageContextCaptureEnabled: val.pageContextCaptureEnabled,
+      predefinedActions: [],
     } as any).subscribe({
       next: () => {
         this.busy.set(false);
         this.dialogRef?.close();
         this.addForm.reset();
         this.projectsResource.reload();
+        this.toast.show(this.transloco.translate('projects.createdHint'), 'success');
       },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
     });
   }
 
@@ -1194,54 +1043,42 @@ export class ProjectsComponent {
     if (id == null) return;
     this.busy.set(true);
     const val = this.editForm.getRawValue();
-    const predefinedActions = (val.predefinedActions as { id: number | null; text: string; prompt: string }[]).map(
-      (a, i) => ({
-        ...(a.id != null ? { id: a.id } : {}),
-        text: a.text,
-        prompt: a.prompt,
-        sortOrder: i,
-        isActive: true,
-      })
-    );
     this.projectsService.patchApiAdminProjectsId(id, {
       name: val.name,
-      appUrl: val.appUrl?.trim() ?? '',
       pageContextCaptureEnabled: val.pageContextCaptureEnabled,
       isActiveLocal: val.isActiveLocal,
       isActiveStaging: val.isActiveStaging,
       isActiveProduction: val.isActiveProduction,
       environmentSelectorRoleIds: val.environmentSelectorRoleIds,
-      predefinedActions,
+      predefinedActions: [],
     } as any).subscribe({
       next: () => {
         this.saveEnvironmentChangesIfPending(() => {
           this.busy.set(false);
           this.dialogRef?.close();
           this.projectsResource.reload();
-          this.snack.open(this.transloco.translate('projects.saved'), 'OK', { duration: 3000 });
+          this.toast.show(this.transloco.translate('projects.saved'), 'success');
         });
       },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
     });
   }
 
-  // Quick bulk shortcut: active in ANY environment → turns ALL three off (with the
-  // same confirm dialog as before); fully inactive (NUMBER_0) → turns ALL three on.
   toggleActive(project: ProjectResponse) {
     if (project.activationState === ProjectActivationState.NUMBER_0) {
       this.patchActive(project, true);
       return;
     }
-    this.dialog
-      .open(ConfirmDialogComponent, {
-        data: {
-          message: this.transloco.translate('common.confirmDisable', { name: project.key }),
-          confirmLabel: this.transloco.translate('common.disable'),
-          confirmColor: 'danger',
-        },
+    this.confirm
+      .confirm({
+        message: this.transloco.translate('common.confirmDisable', { name: project.key }),
+        confirmLabel: this.transloco.translate('common.disable'),
+        confirmColor: 'danger',
       })
-      .afterClosed()
-      .subscribe((ok) => {
+      .subscribe((ok: boolean) => {
         if (ok) this.patchActive(project, false);
       });
   }
@@ -1254,14 +1091,13 @@ export class ProjectsComponent {
       isActiveProduction: isActive,
     }).subscribe({
       next: () => { this.busy.set(false); this.projectsResource.reload(); },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
     });
   }
 
-  // --- Export ---
-  // NOTE: The generated client only exposes getApiProjectsKeyExportResource (Signal-based httpResource)
-  // for the export endpoint — no imperative method exists in ExportImportService for GET /api/projects/{key}/export.
-  // Keeping HttpClient for this one-shot download call.
   exportProject(project: ProjectResponse): void {
     this.busy.set(true);
     this.http.get<ExportFileDto>(`/api/projects/${project.key}/export`).subscribe({
@@ -1274,17 +1110,19 @@ export class ProjectsComponent {
         anchor.download = `pointer-comments-${project.key}.json`;
         anchor.click();
         URL.revokeObjectURL(url);
-        this.snack.open(this.transloco.translate('exportImport.exported'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('exportImport.exported'), 'success');
       },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
     });
   }
 
-  // --- Import ---
   openImport(project: ProjectResponse): void {
     this.importProjectKey.set(project.key ?? '');
     this.importFile.set(null);
-    this.dialogRef = this.dialog.open(this.importDialog(), { width: '480px' });
+    this.dialogRef = this.appDialog.openRef(this.importDialog());
   }
 
   onFileSelected(event: Event): void {
@@ -1309,29 +1147,24 @@ export class ProjectsComponent {
               comments: result.importedComments ?? 0,
               replies: result.importedReplies ?? 0,
             });
-            this.snack.open(
-              `${this.transloco.translate('exportImport.imported')} ${countMsg}`,
-              'OK',
-              { duration: 6000 }
-            );
+            this.toast.show(`${this.transloco.translate('exportImport.imported')} ${countMsg}`, 'success');
             if ((result.warnings ?? []).length > 0) {
-              result.warnings!.forEach((w) =>
-                this.snack.open(w, 'OK', { duration: 5000 })
-              );
+              result.warnings!.forEach((w) => this.toast.show(w, 'warning'));
             }
             this.projectsResource.reload();
           },
-          error: (e: unknown) => { this.importBusy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
+          error: (e: unknown) => {
+            this.importBusy.set(false);
+            this.toast.show(extractMessage(e), 'danger');
+          },
         });
       } catch {
         this.importBusy.set(false);
-        this.snack.open('Invalid JSON file', 'OK', { duration: 4000 });
+        this.toast.show('Invalid JSON file', 'danger');
       }
     };
     reader.readAsText(file);
   }
-
-  // --- Project AI Roles & Rules ---
 
   get localAdminRules(): EditableAiRule[] {
     if (this._adminRulesSeeded()) return this._editableAdminRules();
@@ -1410,7 +1243,7 @@ export class ProjectsComponent {
           list[i] = { ...list[i], saving: false };
           this._editableAdminRules.set([...list]);
         }
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -1422,7 +1255,7 @@ export class ProjectsComponent {
         this.resetAiRuleDrafts();
         this.projectAiRulesResource.reload();
       },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
   }
 
@@ -1445,7 +1278,7 @@ export class ProjectsComponent {
       },
       error: (e: unknown) => {
         this.newProjectRuleBusy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -1475,7 +1308,7 @@ export class ProjectsComponent {
           list[i] = { ...list[i], saving: false };
           this._editableMyRules.set([...list]);
         }
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -1487,7 +1320,7 @@ export class ProjectsComponent {
         this.resetAiRuleDrafts();
         this.projectAiRulesResource.reload();
       },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
   }
 
@@ -1510,7 +1343,7 @@ export class ProjectsComponent {
       },
       error: (e: unknown) => {
         this.newPersonalRuleBusy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -1527,12 +1360,10 @@ export class ProjectsComponent {
     this.selectedAiProject.set(project);
     this.resetAiRuleDrafts();
     this.projectAiRulesResource.reload();
-    this.aiRulesDialogRef = this.dialog.open(this.aiRulesDialog(), {
-      width: '680px',
-      maxWidth: '95vw',
-      maxHeight: '90vh',
+    this.aiRulesDialogRef = this.appDialog.openRef(this.aiRulesDialog(), {
+      width: 'w-[min(560px,calc(100vw-32px))] max-h-[90vh] overflow-y-auto',
     });
-    this.aiRulesDialogRef.afterClosed().subscribe(() => {
+    this.aiRulesDialogRef.closed.subscribe(() => {
       this.selectedAiProject.set(null);
       this.resetAiRuleDrafts();
     });
@@ -1541,5 +1372,9 @@ export class ProjectsComponent {
   openAiRulesFromEdit(): void {
     const p = this.projects().find((proj) => proj.id === this.editingProjectId());
     if (p) this.openAiRules(p);
+  }
+
+  onRoleSelect(roleId: number): void {
+    this.editForm.patchValue({ environmentSelectorRoleIds: [roleId] });
   }
 }

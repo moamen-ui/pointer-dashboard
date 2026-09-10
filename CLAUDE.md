@@ -10,7 +10,7 @@ consuming its matching API client (`@moamen-ui/pointer-<framework>`) and styled 
 
 | Framework | Dir | UI kit | API client |
 |---|---|---|---|
-| Angular | `angular/` | Angular Material + Tailwind v4 | `@moamen-ui/pointer-angular` |
+| Angular | `angular/` | Hand-written shadcn-style layer in `src/app/shared/ui/` (spartan-ng grammar, **no Angular Material**) + Tailwind v4 | `@moamen-ui/pointer-angular` |
 | React | `react/` | shadcn/ui + Tailwind v4 | `@moamen-ui/pointer-react` |
 | Vue 3 | `vue/` | shadcn-vue + Tailwind v4 | `@moamen-ui/pointer-vue` |
 
@@ -23,6 +23,33 @@ consuming its matching API client (`@moamen-ui/pointer-<framework>`) and styled 
 > per-app work is independent. Give each a self-contained brief (the task + that app's stack), then
 > review together and verify parity (behavior, routes, labels, states).
 
+## Design system (READ BEFORE ANY UI WORK)
+
+The visual world is **"The Review Margin"** and is recorded in [DESIGN.md](DESIGN.md) (+ `.impeccable/design.json`).
+Tokens are canonical in `design/foundation.css` — edit there, then run `design/sync-foundation.sh` to copy
+to each app's `src/styles/foundation.css`. Use only foundation utilities (`bg-gutter`, `text-state-open`,
+`border-border`, …), never raw Tailwind palette colors. UI strings are canonical in `design/i18n/{en,ar}.json`;
+run `python3 design/merge-i18n.py` after editing (it unions the three apps and syncs back). Arabic/RTL is
+first-class: use logical utilities (`ps-*`, `text-start`, `me-*`), never `left/right`.
+
+### Angular syntax standard (Angular 22)
+
+The `angular/` app uses modern Angular only — no decorator-era APIs anywhere:
+
+| Use | Not |
+|---|---|
+| `input()`, `input.required()`, `model()`, `output()` | `@Input()`, `@Output()`, `EventEmitter` |
+| `viewChild()`, `contentChild()`, `contentChildren()` | `@ViewChild()`, `@ContentChild()` |
+| `host: { '(event)': 'fn($event)', '[class]': 'expr()' }` | `@HostListener`, `@HostBinding` |
+| `@if` / `@for` / `@switch` (built in) | `*ngIf`, `*ngFor`, `ngSwitch`, importing `CommonModule` for them |
+| `inject()` | constructor parameter injection |
+| a specific pipe (`DatePipe`, `NgTemplateOutlet`) | `CommonModule` as a catch-all import |
+
+Two Angular-only traps the shared layer already works around: a component host is `display: inline`
+by default (so `space-y-*` margins on a parent are dropped — block-level components set
+`host: { class: 'block' }`), and `[class]="expr"` on a *component* element loses to that component's
+own host classes (use the additive `[class.x]="cond"` instead).
+
 ## Shared component library (READ BEFORE BUILDING A NEW TABLE/FORM/DIALOG)
 
 Every app has its own small `shared/` component set wrapping that framework's UI kit — build new
@@ -30,10 +57,10 @@ list/form/dialog UI on top of these instead of hand-rolling table/menu/field mar
 
 | Component | Angular | React / Vue |
 |---|---|---|
-| Data table (sort, paginate, search, custom cells, trailing actions column) | `src/app/shared/data-table/` (`<app-data-table>` + `appDataTableCell` directive) | `src/components/shared/data-table/` (`<DataTable>`, `#cell-<key>` scoped slots in Vue) |
+| Data table (sort, paginate, search, custom cells, trailing actions column) | `src/app/shared/ui/app-data-table.component.ts` (`<app-data-table>`) + `src/app/shared/data-table/` (`appDataTableCell` directive) | `src/components/shared/data-table/` (`<DataTable>`, `#cell-<key>` scoped slots in Vue) |
 | Row actions menu | `src/app/shared/row-actions-menu/` | `src/components/shared/RowActionsMenu.{tsx,vue}` |
 | Form field wrapper (label/hint/error) | `src/app/shared/form-field/` | `src/components/shared/FormField.{tsx,vue}` |
-| Severity badge (`primary\|success\|warning\|danger\|neutral`) | `src/app/shared/badge/` | `src/components/ui/badge.{tsx}` / `ui/badge/` |
+| State badge (glyph + label; `open\|ready\|success\|warning\|destructive\|archived\|neutral`, Angular `severity`) | `src/app/shared/badge/` | `src/components/ui/badge.{tsx}` / `ui/badge/` |
 | Confirm dialog | `src/app/shared/confirm-dialog.component.ts` + `core/confirm.service.ts` | `useConfirm` composable (Vue) / `ConfirmDialog` (React) |
 | Tabs | `src/app/shared/tabs/` (`<app-tabs>` + `appTabContent` directive) | `src/components/shared/Tabs.{tsx,vue}` (`AppTabs`, thin wrapper — use the real `<TabsContent>` from `ui/tabs` as children/slot) |
 

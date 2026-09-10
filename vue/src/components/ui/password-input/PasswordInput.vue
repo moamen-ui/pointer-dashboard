@@ -37,7 +37,7 @@ const visible = ref(false);
     />
     <button
       type="button"
-      class="absolute end-0 top-0 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      class="absolute end-0 top-0 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       :aria-label="visible ? t('common.hidePassword') : t('common.showPassword')"
       :aria-pressed="visible"
       @click="visible = !visible"

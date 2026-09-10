@@ -28,12 +28,13 @@ import {
   useDeleteApiAdminAiRulesId,
   type AiRuleResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, XCircle, EllipsisVertical, Brain } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, XCircle, EllipsisVertical } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -91,9 +92,7 @@ function SuggestionsCard() {
   });
 
   const pendingCount = pending.length;
-  const sectionTitle = pendingCount > 0
-    ? `${t('suggestions.section')} — ${t('suggestions.pending', { count: pendingCount })}`
-    : t('suggestions.section');
+  const sectionTitle = t('suggestions.section');
 
   return (
     <AccordionSection
@@ -102,22 +101,21 @@ function SuggestionsCard() {
           {sectionTitle}
           {/* Count stays in the header so it is visible while collapsed. */}
           {pendingCount > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full bg-brand px-2 py-0.5 text-xs font-semibold text-white">
+            <Badge variant="default" className="ms-2 text-[11px]">
               {pendingCount}
-            </span>
+            </Badge>
           )}
         </>
       }
     >
-
         {isLoading && (
-          <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
+          <p className="text-[14px] text-muted-foreground">{t('settings.loading')}</p>
         )}
         {isError && (
-          <p className="text-sm text-destructive">{t('settings.loadError')}</p>
+          <p className="text-[14px] text-state-danger">{t('settings.loadError')}</p>
         )}
         {!isLoading && !isError && pending.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t('suggestions.empty')}</p>
+          <p className="text-[14px] text-muted-foreground">{t('suggestions.empty')}</p>
         )}
 
         {pending.length > 0 && (
@@ -134,19 +132,19 @@ function SuggestionsCard() {
             <TableBody>
               {pending.map((s) => (
                 <TableRow key={s.id}>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-[14px]">
                     <span className="font-medium">{s.projectName ?? '—'}</span>
                     {s.projectKey && (
-                      <code className="ms-1 rounded bg-muted px-1 py-0.5 text-xs">
+                      <code className="ms-1 rounded bg-gutter px-1.5 py-0.5 text-[12px] font-mono">
                         {s.projectKey}
                       </code>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-[14px] text-muted-foreground">
                     {s.suggestedByName ?? '—'}
                   </TableCell>
-                  <TableCell className="text-sm">{s.text ?? '—'}</TableCell>
-                  <TableCell className="max-w-[200px] text-sm text-muted-foreground truncate">
+                  <TableCell className="text-[14px]">{s.text ?? '—'}</TableCell>
+                  <TableCell className="max-w-[200px] text-[14px] text-muted-foreground truncate">
                     {s.prompt ?? '—'}
                   </TableCell>
                   <TableCell>
@@ -159,7 +157,7 @@ function SuggestionsCard() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          className="text-green-600 focus:text-green-600 dark:text-green-400 dark:focus:text-green-400"
+                          className="text-state-completed"
                           onSelect={() => approveMut.mutate({ id: s.id! })}
                           disabled={approveMut.isPending}
                         >
@@ -167,7 +165,7 @@ function SuggestionsCard() {
                           {t('suggestions.approve')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
+                          className="text-state-danger"
                           onSelect={() => rejectMut.mutate({ id: s.id! })}
                           disabled={rejectMut.isPending}
                         >
@@ -303,131 +301,126 @@ function AiRulesCard() {
   }
 
   return (
-    <AccordionSection
-      title={
-        <span className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-primary" />
-          {t('aiRules.section')}
-        </span>
-      }
-    >
-      <p className="text-xs text-muted-foreground">{t('aiRules.tenantHelp')}</p>
+    <AccordionSection title={t('aiRules.section')}>
+      <div className="space-y-3">
+        <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('aiRules.tenantHelp')}</p>
 
-      {isLoading && rules.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</p>
-      ) : rules.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t('aiRules.empty')}</p>
-      ) : null}
+        {isLoading && rules.length === 0 ? (
+          <p className="text-[12px] text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</p>
+        ) : rules.length === 0 ? (
+          <p className="text-[12px] text-muted-foreground">{t('aiRules.empty')}</p>
+        ) : null}
 
-      <div className="flex flex-col gap-3">
-        {rules.map((rule) => {
-          const edit = localRules[rule.id!] ?? {
-            id: rule.id,
-            title: rule.title ?? '',
-            prompt: rule.prompt ?? '',
-            isActive: rule.isActive ?? true,
-            sortOrder: rule.sortOrder ?? 0,
-            dirty: false,
-          };
-          const isSaving =
-            putMut.isPending &&
-            (putMut.variables as { id?: number } | undefined)?.id === rule.id;
+        <div className="rounded-md border border-border overflow-hidden">
+          {rules.map((rule, idx) => {
+            const edit = localRules[rule.id!] ?? {
+              id: rule.id,
+              title: rule.title ?? '',
+              prompt: rule.prompt ?? '',
+              isActive: rule.isActive ?? true,
+              sortOrder: rule.sortOrder ?? 0,
+              dirty: false,
+            };
+            const isSaving =
+              putMut.isPending &&
+              (putMut.variables as { id?: number } | undefined)?.id === rule.id;
 
-          return (
-            <div
-              key={rule.id}
-              className="flex flex-col gap-2 rounded-md border border-border p-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-1 flex-col gap-1">
-                  <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
-                  <Input
-                    value={edit.title}
-                    onChange={(e) => updateRule(rule.id!, 'title', e.target.value)}
+            return (
+              <div
+                key={rule.id}
+                className={`flex flex-col gap-3 px-3 py-2.5 ${idx === 0 ? '' : 'border-t border-border-muted'}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-1 flex-col gap-1.5">
+                    <Label className="text-[13px] font-medium text-foreground">{t('aiRules.titleLabel')}</Label>
+                    <Input
+                      value={edit.title}
+                      onChange={(e) => updateRule(rule.id!, 'title', e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-6">
+                    <label className="flex items-center gap-1.5 text-[13px] font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={edit.isActive}
+                        onChange={(e) => updateRule(rule.id!, 'isActive', e.target.checked)}
+                        className="h-4 w-4 cursor-pointer"
+                      />
+                      {t(edit.isActive ? 'common.active' : 'common.disabled')}
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-state-danger"
+                      type="button"
+                      disabled={deleteMut.isPending}
+                      onClick={() => deleteMut.mutate({ id: rule.id! })}
+                      aria-label={t('common.delete')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-[13px] font-medium text-foreground">{t('aiRules.promptLabel')}</Label>
+                  <textarea
+                    value={edit.prompt}
+                    onChange={(e) => updateRule(rule.id!, 'prompt', e.target.value)}
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={edit.isActive}
-                      onChange={(e) => updateRule(rule.id!, 'isActive', e.target.checked)}
-                      className="h-4 w-4 cursor-pointer"
-                    />
-                    {t(edit.isActive ? 'common.active' : 'common.disabled')}
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive"
-                    type="button"
-                    disabled={deleteMut.isPending}
-                    onClick={() => deleteMut.mutate({ id: rule.id! })}
-                    aria-label={t('common.delete')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+
+                {edit.dirty && (
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      disabled={isSaving}
+                      onClick={() => saveRule(rule.id!)}
+                    >
+                      {t('common.save')}
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
-                <textarea
-                  value={edit.prompt}
-                  onChange={(e) => updateRule(rule.id!, 'prompt', e.target.value)}
-                  rows={2}
-                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-
-              {edit.dirty && (
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    disabled={isSaving}
-                    onClick={() => saveRule(rule.id!)}
-                  >
-                    {t('common.save')}
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Add new rule */}
-      <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-        <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addRule')}</div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
-          <Input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder={t('aiRules.titlePlaceholder')}
-          />
+            );
+          })}
         </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
-          <textarea
-            value={newPrompt}
-            onChange={(e) => setNewPrompt(e.target.value)}
-            rows={2}
-            placeholder={t('aiRules.promptPlaceholder')}
-            className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </div>
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!newTitle.trim() || !newPrompt.trim() || createMut.isPending}
-            onClick={handleCreate}
-            type="button"
-          >
-            <Plus className="h-4 w-4" />
-            {t('aiRules.addRule')}
-          </Button>
+
+        {/* Add new rule */}
+        <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[13px] font-medium text-foreground">{t('aiRules.titleLabel')}</Label>
+            <Input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder={t('aiRules.titlePlaceholder')}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[13px] font-medium text-foreground">{t('aiRules.promptLabel')}</Label>
+            <textarea
+              value={newPrompt}
+              onChange={(e) => setNewPrompt(e.target.value)}
+              rows={2}
+              placeholder={t('aiRules.promptPlaceholder')}
+              className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!newTitle.trim() || !newPrompt.trim() || createMut.isPending}
+              onClick={handleCreate}
+              type="button"
+            >
+              <Plus className="h-4 w-4" />
+              {t('aiRules.addRule')}
+            </Button>
+          </div>
         </div>
       </div>
     </AccordionSection>
@@ -638,20 +631,22 @@ export function SettingsPage() {
   const apiKeyConfigured: boolean = settings?.emailApiKeyConfigured ?? false;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h2 className="text-lg font-semibold">{t('settings.title')}</h2>
+    <div className="flex flex-col gap-4 mb-6">
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('settings.title')}</h1>
+      </div>
 
       {isSuperAdmin && (
-      <>
-      {/* ── Section 1: Access ── */}
+        <>
+          {/* ── Section 1: Access ── */}
       <AccordionSection title={t('settings.accessSection')} defaultOpen>
-
+        <div className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="signup-enabled" className="text-sm font-medium">
+              <Label htmlFor="signup-enabled" className="text-[13px] font-medium text-foreground">
                 {t('settings.signupEnabled')}
               </Label>
-              <p className="text-xs text-muted-foreground">{t('settings.signupEnabledHint')}</p>
+              <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.signupEnabledHint')}</p>
             </div>
             <input
               id="signup-enabled"
@@ -661,18 +656,24 @@ export function SettingsPage() {
               className="h-4 w-4 cursor-pointer"
             />
           </div>
+        </div>
+        <div className="flex justify-end pt-2 border-t border-border-muted">
+          <Button variant="default" disabled={updateMut.isPending} onClick={save}>
+            {t('settings.save')}
+          </Button>
+        </div>
       </AccordionSection>
 
       {/* ── Section 2: Email ── */}
       <AccordionSection title={t('settings.emailSection')}>
-
+        <div className="space-y-4">
           {/* emailEnabled */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="email-enabled" className="text-sm font-medium">
+              <Label htmlFor="email-enabled" className="text-[13px] font-medium text-foreground">
                 {t('settings.emailEnabled')}
               </Label>
-              <p className="text-xs text-muted-foreground">{t('settings.emailEnabledHint')}</p>
+              <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailEnabledHint')}</p>
             </div>
             <input
               id="email-enabled"
@@ -684,38 +685,37 @@ export function SettingsPage() {
           </div>
 
           {/* emailFromEmail */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="email-from" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email-from" className="text-[13px] font-medium text-foreground">
               {t('settings.emailFrom')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.emailFromHint')}</p>
             <Input
               id="email-from"
               type="email"
               value={emailFromEmail}
               onChange={(e) => setEmailFromEmail(e.target.value)}
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailFromHint')}</p>
           </div>
 
           {/* emailFromName */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="email-from-name" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email-from-name" className="text-[13px] font-medium text-foreground">
               {t('settings.emailFromName')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.emailFromNameHint')}</p>
             <Input
               id="email-from-name"
               value={emailFromName}
               onChange={(e) => setEmailFromName(e.target.value)}
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailFromNameHint')}</p>
           </div>
 
           {/* emailDailyCap */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="email-daily-cap" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email-daily-cap" className="text-[13px] font-medium text-foreground">
               {t('settings.emailDailyCap')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.emailDailyCapHint')}</p>
             <Input
               id="email-daily-cap"
               type="number"
@@ -724,35 +724,41 @@ export function SettingsPage() {
               onChange={(e) => setEmailDailyCap(Number(e.target.value))}
               className="max-w-[12rem]"
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailDailyCapHint')}</p>
           </div>
 
           {/* API key — read-only status line */}
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t('settings.emailApiKey')}</p>
-            <p className="text-xs text-muted-foreground">{t('settings.emailApiKeyHint')}</p>
-            <p className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-[13px] font-medium text-foreground">{t('settings.emailApiKey')}</Label>
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailApiKeyHint')}</p>
+            <p className="text-[13px] font-medium">
               {apiKeyConfigured ? (
-                <span className="text-green-600 dark:text-green-400">
+                <span className="text-state-completed">
                   ✓ {t('settings.emailApiKeyConfigured')}
                 </span>
               ) : (
-                <span className="text-destructive">
+                <span className="text-state-danger">
                   ✗ {t('settings.emailApiKeyMissing')}
                 </span>
               )}
             </p>
           </div>
+        </div>
+        <div className="flex justify-end pt-4 border-t border-border-muted">
+          <Button variant="default" disabled={updateMut.isPending} onClick={save}>
+            {t('settings.save')}
+          </Button>
+        </div>
       </AccordionSection>
 
       {/* ── Section 3: Demo ── */}
       <AccordionSection title={t('settings.demoSection')}>
-
+        <div className="space-y-4">
           {/* demoMaxActive */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="demo-max-active" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="demo-max-active" className="text-[13px] font-medium text-foreground">
               {t('settings.demoMaxActive')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.demoMaxActiveHint')}</p>
             <Input
               id="demo-max-active"
               type="number"
@@ -761,14 +767,14 @@ export function SettingsPage() {
               onChange={(e) => setDemoMaxActive(Number(e.target.value))}
               className="max-w-[12rem]"
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoMaxActiveHint')}</p>
           </div>
 
           {/* demoTtlHours */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="demo-ttl-hours" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="demo-ttl-hours" className="text-[13px] font-medium text-foreground">
               {t('settings.demoTtlHours')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.demoTtlHoursHint')}</p>
             <Input
               id="demo-ttl-hours"
               type="number"
@@ -777,14 +783,14 @@ export function SettingsPage() {
               onChange={(e) => setDemoTtlHours(Number(e.target.value))}
               className="max-w-[12rem]"
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoTtlHoursHint')}</p>
           </div>
 
           {/* demoPerEmailPerDay */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="demo-per-email" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="demo-per-email" className="text-[13px] font-medium text-foreground">
               {t('settings.demoPerEmailPerDay')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.demoPerEmailPerDayHint')}</p>
             <Input
               id="demo-per-email"
               type="number"
@@ -793,14 +799,14 @@ export function SettingsPage() {
               onChange={(e) => setDemoPerEmailPerDay(Number(e.target.value))}
               className="max-w-[12rem]"
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoPerEmailPerDayHint')}</p>
           </div>
 
           {/* demoCommentCap */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="demo-comment-cap" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="demo-comment-cap" className="text-[13px] font-medium text-foreground">
               {t('settings.demoCommentCap')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.demoCommentCapHint')}</p>
             <Input
               id="demo-comment-cap"
               type="number"
@@ -809,141 +815,151 @@ export function SettingsPage() {
               onChange={(e) => setDemoCommentCap(Number(e.target.value))}
               className="max-w-[12rem]"
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoCommentCapHint')}</p>
           </div>
+        </div>
+        <div className="flex justify-end pt-4 border-t border-border-muted">
+          <Button variant="default" disabled={updateMut.isPending} onClick={save}>
+            {t('settings.save')}
+          </Button>
+        </div>
       </AccordionSection>
 
       {/* ── Section 4: Extension ── */}
       <AccordionSection title={t('settings.extensionSection')}>
-
+        <div className="space-y-4">
           {/* extensionStoreUrl */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="extension-store-url" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="extension-store-url" className="text-[13px] font-medium text-foreground">
               {t('settings.extensionStoreUrl')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.extensionStoreUrlHint')}</p>
             <Input
               id="extension-store-url"
               value={extensionStoreUrl}
               onChange={(e) => setExtensionStoreUrl(e.target.value)}
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.extensionStoreUrlHint')}</p>
           </div>
 
           {/* extensionZipUrl */}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="extension-zip-url" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="extension-zip-url" className="text-[13px] font-medium text-foreground">
               {t('settings.extensionZipUrl')}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('settings.extensionZipUrlHint')}</p>
             <Input
               id="extension-zip-url"
               value={extensionZipUrl}
               onChange={(e) => setExtensionZipUrl(e.target.value)}
             />
+            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.extensionZipUrlHint')}</p>
           </div>
+        </div>
+        <div className="flex justify-end pt-4 border-t border-border-muted">
+          <Button variant="default" disabled={updateMut.isPending} onClick={save}>
+            {t('settings.save')}
+          </Button>
+        </div>
       </AccordionSection>
-
-      {/* ── Save button ── */}
-      <div className="flex justify-end">
-        <Button disabled={updateMut.isPending} onClick={save}>
-          {t('settings.save')}
-        </Button>
-      </div>
       </>
       )}
 
-      {/* ── Section 4: Predefined actions (tenant-wide) ── */}
+      {/* ── Section 5: Predefined actions (tenant-wide) ── */}
       <AccordionSection title={t('predefined.section')}>
-          <p className="text-xs text-muted-foreground">{t('predefined.tenantHelp')}</p>
+        <div className="space-y-3">
+          <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('predefined.tenantHelp')}</p>
 
           {predefinedLoading && (
-            <p className="text-sm text-muted-foreground">{t('settings.loading')}</p>
+            <p className="text-[14px] text-muted-foreground">{t('settings.loading')}</p>
           )}
 
           {!predefinedLoading && predefinedActions.length === 0 && (
-            <p className="text-sm text-muted-foreground">{t('predefined.empty')}</p>
+            <p className="text-[14px] text-muted-foreground">{t('predefined.empty')}</p>
           )}
 
-          {predefinedActions.map((action) => {
-            const edit = localEdits[action.id!] ?? {
-              text: action.text ?? '',
-              prompt: action.prompt ?? '',
-              dirty: false,
-            };
-            const isSaving =
-              patchActionMut.isPending &&
-              (patchActionMut.variables as { id?: number } | undefined)?.id === action.id;
-            return (
-              <div
-                key={action.id}
-                className="flex flex-col gap-2 rounded-md border border-border p-3"
-              >
-                <div className="flex items-start gap-2">
-                  <div className="flex flex-1 flex-col gap-1">
-                    <Label className="text-xs">{t('predefined.text')}</Label>
-                    <Input
-                      value={edit.text}
-                      onChange={(e) => updateLocalAction(action.id!, 'text', e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="mt-5 h-7 w-7 shrink-0 text-destructive"
-                    onClick={() => deleteActionMut.mutate({ id: action.id! })}
-                    disabled={deleteActionMut.isPending}
-                    type="button"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">{t('predefined.prompt')}</Label>
-                  <textarea
-                    value={edit.prompt}
-                    onChange={(e) => updateLocalAction(action.id!, 'prompt', e.target.value)}
-                    rows={2}
-                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                </div>
-                {edit.dirty && (
-                  <div className="flex justify-end">
+          <div className="rounded-md border border-border overflow-hidden">
+            {predefinedActions.map((action, idx) => {
+              const edit = localEdits[action.id!] ?? {
+                text: action.text ?? '',
+                prompt: action.prompt ?? '',
+                dirty: false,
+              };
+              const isSaving =
+                patchActionMut.isPending &&
+                (patchActionMut.variables as { id?: number } | undefined)?.id === action.id;
+              return (
+                <div
+                  key={action.id}
+                  className={`flex flex-col gap-3 px-3 py-2.5 ${idx === 0 ? '' : 'border-t border-border-muted'}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="flex flex-1 flex-col gap-1.5">
+                      <Label className="text-[13px] font-medium text-foreground">{t('predefined.text')}</Label>
+                      <Input
+                        value={edit.text}
+                        onChange={(e) => updateLocalAction(action.id!, 'text', e.target.value)}
+                      />
+                    </div>
                     <Button
+                      variant="ghost"
                       size="sm"
-                      disabled={isSaving}
-                      onClick={() => saveAction(action)}
+                      className="mt-6 h-7 w-7 p-0 shrink-0 text-state-danger"
+                      onClick={() => deleteActionMut.mutate({ id: action.id! })}
+                      disabled={deleteActionMut.isPending}
+                      type="button"
                     >
-                      {t('common.save')}
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-[13px] font-medium text-foreground">{t('predefined.prompt')}</Label>
+                    <textarea
+                      value={edit.prompt}
+                      onChange={(e) => updateLocalAction(action.id!, 'prompt', e.target.value)}
+                      rows={2}
+                      className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                  {edit.dirty && (
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={isSaving}
+                        onClick={() => saveAction(action)}
+                      >
+                        {t('common.save')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {/* Add new action */}
-          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{t('predefined.text')}</Label>
+          <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[13px] font-medium text-foreground">{t('predefined.text')}</Label>
               <Input
                 value={newActionText}
                 onChange={(e) => setNewActionText(e.target.value)}
                 placeholder={t('predefined.text')}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{t('predefined.prompt')}</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[13px] font-medium text-foreground">{t('predefined.prompt')}</Label>
               <textarea
                 value={newActionPrompt}
                 onChange={(e) => setNewActionPrompt(e.target.value)}
                 rows={2}
                 placeholder={t('predefined.prompt')}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
             <div className="flex justify-end">
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={!newActionText.trim() || addActionMut.isPending}
                 onClick={addAction}
                 type="button"
@@ -953,12 +969,13 @@ export function SettingsPage() {
               </Button>
             </div>
           </div>
+        </div>
       </AccordionSection>
 
-      {/* ── Section 5: Suggestions review (admin only) ── */}
+      {/* ── Section 6: Suggestions review (admin only) ── */}
       {isAdmin && <SuggestionsCard />}
 
-      {/* ── Section 6: AI Roles & Rules (workspace admins/deputies, not super admin) ── */}
+      {/* ── Section 7: AI Roles & Rules (workspace admins/deputies, not super admin) ── */}
       {!isSuperAdmin && <AiRulesCard />}
     </div>
   );

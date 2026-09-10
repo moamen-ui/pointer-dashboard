@@ -7,10 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Trash2, Globe } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -56,7 +56,7 @@ export function EnvironmentsPage() {
         header: t('environments.scope'),
         enableSorting: false,
         cell: ({ row }) => (
-          <Badge variant={row.original.isGlobal ? 'neutral' : 'success'}>
+          <Badge variant={row.original.isGlobal ? 'neutral' : 'default'}>
             {t(row.original.isGlobal ? 'environments.global' : 'environments.own')}
           </Badge>
         ),
@@ -162,10 +162,10 @@ export function EnvironmentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">{t('environments.title')}</h2>
-          <p className="m-0 mt-1 text-[13px] text-muted-foreground">
+          <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('environments.title')}</h1>
+          <p className="m-0 mt-1 text-[14px] text-muted-foreground">
             {t('environments.subtitle')}
           </p>
         </div>
@@ -179,6 +179,8 @@ export function EnvironmentsPage() {
         data={environments}
         columns={columns}
         actions={actionsFor}
+        actionsAriaLabel={t('common.actions')}
+        gutter
         emptyIcon={Globe}
         emptyMessage={t('environments.empty')}
         emptyHint={t('environments.emptyHint')}

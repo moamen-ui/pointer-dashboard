@@ -350,14 +350,35 @@ export function UsersPage() {
     id: 'status',
     enableSorting: false,
     header: t('users.status'),
-    cell: ({ row }) =>
-      row.original.kind === 'invite' ? (
-        <span className="chip chip-neutral">{t('invite.invited')}</span>
-      ) : (
-        <span className={cn('chip', row.original.isActive ? 'chip-active' : 'chip-disabled')}>
-          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+    cell: ({ row }) => {
+      if (row.original.kind === 'invite') {
+        return (
+          <span className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none text-state-archived bg-state-archived-tint border-state-archived/30">
+            {t('invite.invited')}
+          </span>
+        );
+      }
+      return (
+        <span className={cn(
+          'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none',
+          row.original.isActive
+            ? 'text-state-completed bg-state-completed-tint border-state-completed/30'
+            : 'text-state-danger bg-state-danger-tint border-state-danger/30'
+        )}>
+          {row.original.isActive ? (
+            <>
+              <CheckCircle2 className="h-3 w-3" />
+              {t('common.active')}
+            </>
+          ) : (
+            <>
+              <Ban className="h-3 w-3" />
+              {t('common.disabled')}
+            </>
+          )}
         </span>
-      ),
+      );
+    },
   });
 
   function actionsFor(row: Row): RowActionItem[] {
@@ -394,28 +415,28 @@ export function UsersPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t('users.title')}</h2>
+      <div className="flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('users.title')}</h1>
         <Button onClick={openAdd}>
           <Plus className="h-4 w-4" />
           {t('users.addUser')}
         </Button>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm text-muted-foreground">{t('users.filter')}</span>
-        <div className="inline-flex overflow-hidden rounded-md border border-border">
+      {/* Filter bar — label + segmented control */}
+      <div className="flex items-center gap-3">
+        <span className="text-[13px] text-muted-foreground">{t('common.show')}</span>
+        <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
           {filters.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors',
+                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
                 filter === f
-                  ? 'bg-brand-tint font-semibold text-brand'
-                  : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                  ? 'bg-background text-foreground border border-border'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {t(
@@ -426,7 +447,9 @@ export function UsersPage() {
                     : 'users.filterRejected',
               )}
               {f === 'Pending' && pendingCount > 0 && (
-                <span className="chip chip-neutral text-[10px]">{pendingCount}</span>
+                <span className="ms-1 inline-flex h-5 items-center justify-center rounded-full bg-state-ready px-1.5 text-[10px] font-medium text-white">
+                  {pendingCount}
+                </span>
               )}
             </button>
           ))}
@@ -451,26 +474,27 @@ export function UsersPage() {
           actions={actionsFor}
           actionsAriaLabel={t('users.actions')}
           actionsHeader={t('users.actions')}
+          gutter
         />
       )}
 
       {/* Add user dialog — "Send invite" (default) or "Create directly" (secondary) */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
           <DialogHeader>
-            <DialogTitle>{t('users.addUser')}</DialogTitle>
+            <DialogTitle className="text-base font-semibold leading-6">{t('users.addUser')}</DialogTitle>
           </DialogHeader>
 
           {!createdInvite && (
-            <div className="inline-flex self-start overflow-hidden rounded-md border border-border">
+            <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
               <button
                 type="button"
                 onClick={() => setAddMode('invite')}
                 className={cn(
-                  'px-3 py-1.5 text-sm transition-colors',
+                  'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
                   addMode === 'invite'
-                    ? 'bg-brand-tint font-semibold text-brand'
-                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                    ? 'bg-background text-foreground border border-border'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t('users.modeInvite')}
@@ -479,10 +503,10 @@ export function UsersPage() {
                 type="button"
                 onClick={() => setAddMode('direct')}
                 className={cn(
-                  'border-s border-border px-3 py-1.5 text-sm transition-colors',
+                  'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
                   addMode === 'direct'
-                    ? 'bg-brand-tint font-semibold text-brand'
-                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                    ? 'bg-background text-foreground border border-border'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t('users.modeDirect')}
@@ -494,7 +518,7 @@ export function UsersPage() {
             createdInvite ? (
               <div className="flex flex-col gap-3 pt-1">
                 {createdInvite.emailSent && (
-                  <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300">
+                  <div className="flex items-center gap-2 rounded-md border border-state-completed/30 bg-state-completed-tint px-3 py-2 text-sm text-state-completed">
                     <MailCheck className="h-4 w-4 shrink-0" />
                     <span>{t('invite.emailSent', { email: createdInvite.emailSent })}</span>
                   </div>

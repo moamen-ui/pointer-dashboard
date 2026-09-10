@@ -1,0 +1,770 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-10T00:00:00Z",
+  "title": "Design System: Pointer Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "brand": {
+        "role": "primary",
+        "displayName": "Brand (operator-overridable)",
+        "canonical": "var(--brand)",
+        "defaultLight": "#0969da",
+        "defaultDark": "#4493f8",
+        "tonalRamp": [
+          "oklch(25% 0.12 255)",
+          "oklch(35% 0.15 255)",
+          "oklch(45% 0.17 255)",
+          "oklch(55% 0.18 255)",
+          "oklch(65% 0.16 255)",
+          "oklch(75% 0.12 255)",
+          "oklch(85% 0.08 255)",
+          "oklch(95% 0.03 255)"
+        ]
+      },
+      "brand-foreground": {
+        "role": "primary",
+        "displayName": "Brand Foreground (ink in dark)",
+        "canonical": "var(--brand-foreground)",
+        "defaultLight": "#ffffff",
+        "defaultDark": "#0d1117",
+        "tonalRamp": [
+          "oklch(15% 0.01 255)",
+          "oklch(25% 0.01 255)",
+          "oklch(40% 0.01 255)",
+          "oklch(55% 0.01 255)",
+          "oklch(70% 0.01 255)",
+          "oklch(85% 0.005 255)",
+          "oklch(95% 0.003 255)",
+          "oklch(100% 0 0)"
+        ]
+      },
+      "brand-tint": {
+        "role": "primary",
+        "displayName": "Brand Tint",
+        "canonical": "var(--brand-tint)",
+        "defaultLight": "#ddf4ff",
+        "defaultDark": "rgba(56, 139, 253, 0.15)",
+        "tonalRamp": [
+          "oklch(25% 0.06 235)",
+          "oklch(40% 0.08 235)",
+          "oklch(55% 0.09 235)",
+          "oklch(70% 0.08 235)",
+          "oklch(80% 0.07 235)",
+          "oklch(88% 0.05 235)",
+          "oklch(94% 0.035 235)",
+          "oklch(98% 0.015 235)"
+        ]
+      },
+      "brand-hover": {
+        "role": "primary",
+        "displayName": "Brand Hover",
+        "canonical": "var(--brand-hover)",
+        "defaultLight": "#0860ca",
+        "defaultDark": "#58a6ff",
+        "tonalRamp": [
+          "oklch(22% 0.11 255)",
+          "oklch(32% 0.14 255)",
+          "oklch(42% 0.16 255)",
+          "oklch(52% 0.17 255)",
+          "oklch(62% 0.15 255)",
+          "oklch(72% 0.12 255)",
+          "oklch(83% 0.08 255)",
+          "oklch(94% 0.03 255)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "#ffffff",
+        "dark": "#0d1117",
+        "tonalRamp": [
+          "oklch(15% 0.01 255)",
+          "oklch(25% 0.01 255)",
+          "oklch(40% 0.008 255)",
+          "oklch(55% 0.006 255)",
+          "oklch(70% 0.005 255)",
+          "oklch(85% 0.004 255)",
+          "oklch(95% 0.002 255)",
+          "oklch(100% 0 0)"
+        ]
+      },
+      "gutter": {
+        "role": "neutral",
+        "displayName": "Gutter",
+        "canonical": "#f6f8fa",
+        "dark": "#161b22",
+        "tonalRamp": [
+          "oklch(18% 0.01 250)",
+          "oklch(28% 0.01 250)",
+          "oklch(42% 0.01 250)",
+          "oklch(56% 0.01 250)",
+          "oklch(70% 0.008 250)",
+          "oklch(84% 0.006 250)",
+          "oklch(93% 0.005 250)",
+          "oklch(97.5% 0.004 250)"
+        ]
+      },
+      "gutter-strong": {
+        "role": "neutral",
+        "displayName": "Gutter Strong",
+        "canonical": "#eaeef2",
+        "dark": "#21262d",
+        "tonalRamp": [
+          "oklch(20% 0.01 250)",
+          "oklch(30% 0.012 250)",
+          "oklch(44% 0.012 250)",
+          "oklch(58% 0.012 250)",
+          "oklch(72% 0.01 250)",
+          "oklch(84% 0.008 250)",
+          "oklch(91% 0.006 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "overlay": {
+        "role": "neutral",
+        "displayName": "Overlay",
+        "canonical": "rgba(31, 35, 40, 0.5)",
+        "dark": "rgba(1, 4, 9, 0.7)",
+        "tonalRamp": [
+          "rgba(31,35,40,0.9)",
+          "rgba(31,35,40,0.8)",
+          "rgba(31,35,40,0.7)",
+          "rgba(31,35,40,0.6)",
+          "rgba(31,35,40,0.5)",
+          "rgba(31,35,40,0.35)",
+          "rgba(31,35,40,0.2)",
+          "rgba(31,35,40,0.08)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1f2328",
+        "dark": "#e6edf3",
+        "tonalRamp": [
+          "oklch(15% 0.01 250)",
+          "oklch(24% 0.01 250)",
+          "oklch(35% 0.012 250)",
+          "oklch(48% 0.012 250)",
+          "oklch(62% 0.012 250)",
+          "oklch(76% 0.01 250)",
+          "oklch(88% 0.008 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink (5.6:1 on white)",
+        "canonical": "#59636e",
+        "dark": "#9198a1",
+        "tonalRamp": [
+          "oklch(18% 0.012 250)",
+          "oklch(28% 0.014 250)",
+          "oklch(38% 0.016 250)",
+          "oklch(48% 0.016 250)",
+          "oklch(60% 0.016 250)",
+          "oklch(72% 0.014 250)",
+          "oklch(84% 0.01 250)",
+          "oklch(94% 0.006 250)"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink (3.6:1; secondary only)",
+        "canonical": "#818b98",
+        "dark": "#6e7681",
+        "tonalRamp": [
+          "oklch(20% 0.012 250)",
+          "oklch(30% 0.014 250)",
+          "oklch(42% 0.016 250)",
+          "oklch(54% 0.018 250)",
+          "oklch(64% 0.018 250)",
+          "oklch(75% 0.014 250)",
+          "oklch(86% 0.01 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#d0d7de",
+        "dark": "#3d444d",
+        "tonalRamp": [
+          "oklch(22% 0.012 250)",
+          "oklch(32% 0.014 250)",
+          "oklch(44% 0.014 250)",
+          "oklch(56% 0.014 250)",
+          "oklch(68% 0.012 250)",
+          "oklch(80% 0.01 250)",
+          "oklch(88% 0.008 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "hairline-muted": {
+        "role": "neutral",
+        "displayName": "Hairline Muted",
+        "canonical": "#e6eaef",
+        "dark": "#262c36",
+        "tonalRamp": [
+          "oklch(20% 0.012 250)",
+          "oklch(30% 0.014 250)",
+          "oklch(42% 0.014 250)",
+          "oklch(55% 0.012 250)",
+          "oklch(68% 0.01 250)",
+          "oklch(80% 0.008 250)",
+          "oklch(89% 0.006 250)",
+          "oklch(95% 0.004 250)"
+        ]
+      },
+      "state-open": {
+        "role": "secondary",
+        "displayName": "Open Blue",
+        "canonical": "#0969da",
+        "dark": "#4493f8",
+        "glyph": "circle",
+        "tonalRamp": [
+          "oklch(25% 0.12 255)",
+          "oklch(35% 0.15 255)",
+          "oklch(45% 0.17 255)",
+          "oklch(55% 0.18 255)",
+          "oklch(65% 0.16 255)",
+          "oklch(75% 0.12 255)",
+          "oklch(85% 0.08 255)",
+          "oklch(95% 0.03 255)"
+        ]
+      },
+      "state-open-tint": {
+        "role": "secondary",
+        "displayName": "Open Tint",
+        "canonical": "#ddf4ff",
+        "dark": "rgba(56, 139, 253, 0.15)",
+        "tonalRamp": [
+          "oklch(25% 0.06 235)",
+          "oklch(40% 0.08 235)",
+          "oklch(55% 0.09 235)",
+          "oklch(70% 0.08 235)",
+          "oklch(80% 0.07 235)",
+          "oklch(88% 0.05 235)",
+          "oklch(94% 0.035 235)",
+          "oklch(98% 0.015 235)"
+        ]
+      },
+      "state-ready": {
+        "role": "secondary",
+        "displayName": "Ready Amber",
+        "canonical": "#9a6700",
+        "dark": "#d29922",
+        "glyph": "clock",
+        "tonalRamp": [
+          "oklch(22% 0.06 80)",
+          "oklch(32% 0.08 80)",
+          "oklch(42% 0.1 80)",
+          "oklch(52% 0.12 80)",
+          "oklch(62% 0.13 80)",
+          "oklch(72% 0.13 80)",
+          "oklch(84% 0.1 80)",
+          "oklch(95% 0.05 80)"
+        ]
+      },
+      "state-ready-tint": {
+        "role": "secondary",
+        "displayName": "Ready Tint",
+        "canonical": "#fff8c5",
+        "dark": "rgba(187, 128, 9, 0.15)",
+        "tonalRamp": [
+          "oklch(28% 0.05 95)",
+          "oklch(42% 0.07 95)",
+          "oklch(56% 0.09 95)",
+          "oklch(70% 0.1 95)",
+          "oklch(82% 0.1 95)",
+          "oklch(90% 0.08 95)",
+          "oklch(95% 0.06 95)",
+          "oklch(98% 0.03 95)"
+        ]
+      },
+      "state-completed": {
+        "role": "secondary",
+        "displayName": "Completed Green",
+        "canonical": "#1a7f37",
+        "dark": "#3fb950",
+        "glyph": "circle-check",
+        "tonalRamp": [
+          "oklch(22% 0.07 150)",
+          "oklch(32% 0.1 150)",
+          "oklch(42% 0.12 150)",
+          "oklch(52% 0.14 150)",
+          "oklch(62% 0.15 150)",
+          "oklch(72% 0.14 150)",
+          "oklch(84% 0.1 150)",
+          "oklch(95% 0.04 150)"
+        ]
+      },
+      "state-completed-tint": {
+        "role": "secondary",
+        "displayName": "Completed Tint",
+        "canonical": "#dafbe1",
+        "dark": "rgba(46, 160, 67, 0.15)",
+        "tonalRamp": [
+          "oklch(28% 0.05 150)",
+          "oklch(42% 0.07 150)",
+          "oklch(56% 0.09 150)",
+          "oklch(70% 0.1 150)",
+          "oklch(82% 0.09 150)",
+          "oklch(90% 0.07 150)",
+          "oklch(95% 0.05 150)",
+          "oklch(98% 0.02 150)"
+        ]
+      },
+      "state-archived": {
+        "role": "secondary",
+        "displayName": "Archived Gray",
+        "canonical": "#59636e",
+        "dark": "#9198a1",
+        "glyph": "archive",
+        "tonalRamp": [
+          "oklch(18% 0.012 250)",
+          "oklch(28% 0.014 250)",
+          "oklch(38% 0.016 250)",
+          "oklch(48% 0.016 250)",
+          "oklch(60% 0.016 250)",
+          "oklch(72% 0.014 250)",
+          "oklch(84% 0.01 250)",
+          "oklch(94% 0.006 250)"
+        ]
+      },
+      "state-archived-tint": {
+        "role": "secondary",
+        "displayName": "Archived Tint",
+        "canonical": "#eaeef2",
+        "dark": "rgba(110, 118, 129, 0.2)",
+        "tonalRamp": [
+          "oklch(20% 0.01 250)",
+          "oklch(30% 0.012 250)",
+          "oklch(44% 0.012 250)",
+          "oklch(58% 0.012 250)",
+          "oklch(72% 0.01 250)",
+          "oklch(84% 0.008 250)",
+          "oklch(91% 0.006 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "state-danger": {
+        "role": "secondary",
+        "displayName": "Danger Red",
+        "canonical": "#d1242f",
+        "dark": "#f85149",
+        "glyph": "circle-x",
+        "tonalRamp": [
+          "oklch(25% 0.1 25)",
+          "oklch(35% 0.14 25)",
+          "oklch(45% 0.17 25)",
+          "oklch(55% 0.2 25)",
+          "oklch(65% 0.19 25)",
+          "oklch(75% 0.14 25)",
+          "oklch(85% 0.09 25)",
+          "oklch(95% 0.03 25)"
+        ]
+      },
+      "state-danger-tint": {
+        "role": "secondary",
+        "displayName": "Danger Tint",
+        "canonical": "#ffebe9",
+        "dark": "rgba(248, 81, 73, 0.12)",
+        "tonalRamp": [
+          "oklch(28% 0.06 25)",
+          "oklch(42% 0.08 25)",
+          "oklch(56% 0.1 25)",
+          "oklch(70% 0.1 25)",
+          "oklch(82% 0.08 25)",
+          "oklch(90% 0.06 25)",
+          "oklch(95% 0.04 25)",
+          "oklch(98% 0.015 25)"
+        ]
+      },
+      "destructive": {
+        "role": "secondary",
+        "displayName": "Destructive",
+        "canonical": "#cf222e",
+        "dark": "#da3633",
+        "tonalRamp": [
+          "oklch(25% 0.1 25)",
+          "oklch(35% 0.14 25)",
+          "oklch(45% 0.17 25)",
+          "oklch(55% 0.2 25)",
+          "oklch(65% 0.19 25)",
+          "oklch(75% 0.14 25)",
+          "oklch(85% 0.09 25)",
+          "oklch(95% 0.03 25)"
+        ]
+      },
+      "destructive-hover": {
+        "role": "secondary",
+        "displayName": "Destructive Hover",
+        "canonical": "#a40e26",
+        "dark": "#f85149",
+        "tonalRamp": [
+          "oklch(22% 0.1 20)",
+          "oklch(32% 0.13 20)",
+          "oklch(42% 0.16 20)",
+          "oklch(52% 0.18 20)",
+          "oklch(62% 0.17 20)",
+          "oklch(72% 0.13 20)",
+          "oklch(84% 0.08 20)",
+          "oklch(94% 0.03 20)"
+        ]
+      },
+      "destructive-foreground": {
+        "role": "secondary",
+        "displayName": "Destructive Foreground",
+        "canonical": "#ffffff",
+        "dark": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(25% 0 0)",
+          "oklch(40% 0 0)",
+          "oklch(55% 0 0)",
+          "oklch(70% 0 0)",
+          "oklch(85% 0 0)",
+          "oklch(95% 0 0)",
+          "oklch(100% 0 0)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline (page title)",
+        "purpose": "The h1 of every page and the brand name on auth pages; the only tightened letter-spacing in the system."
+      },
+      "title": {
+        "displayName": "Title (section / dialog)",
+        "purpose": "Section h2 (Projects, Pending approvals) and dialog titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base size on html; row primary text at 500, nav items 500 at rest and 600 active; measure <= 72ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Table header cells, form field labels, secondary row text, segmented controls, pagination footer. Always mixed case."
+      },
+      "chip": {
+        "displayName": "Chip / Hint",
+        "purpose": "State chips, hints, gutter row indices, account role line, requested dates, tour step counter."
+      },
+      "data": {
+        "displayName": "Data (mono)",
+        "purpose": "Counts in tables and diffstats, key chips (13px), code blocks (13px), gutter index (12px). Tabular figures and slashed zero."
+      }
+    },
+    "fonts": [
+      {
+        "family": "IBMPlexSansArabic",
+        "source": "/assets/fonts/IBMPlexSansArabic-{Thin,ExtraLight,Light,Regular,Medium,SemiBold,Bold}.woff2",
+        "weights": [
+          100,
+          200,
+          300,
+          400,
+          500,
+          600,
+          700
+        ],
+        "license": "OFL",
+        "role": "UI (Arabic + Latin)"
+      },
+      {
+        "family": "IBMPlexMono",
+        "source": "/assets/fonts/IBMPlexMono-{Regular,Medium,SemiBold}.woff2",
+        "weights": [
+          400,
+          500,
+          600
+        ],
+        "license": "OFL",
+        "role": "data"
+      }
+    ],
+    "shadows": [
+      {
+        "name": "shadow-menu",
+        "value": "0 8px 24px rgba(31, 35, 40, 0.12), 0 1px 2px rgba(31, 35, 40, 0.08)",
+        "dark": "0 8px 24px rgba(1, 4, 9, 0.6), 0 1px 2px rgba(1, 4, 9, 0.5)",
+        "purpose": "Dropdown and row-action menus, select popovers, toasts. The only shadow for small floating layers."
+      },
+      {
+        "name": "shadow-dialog",
+        "value": "0 16px 32px rgba(31, 35, 40, 0.18), 0 2px 6px rgba(31, 35, 40, 0.1)",
+        "dark": "0 16px 32px rgba(1, 4, 9, 0.7), 0 2px 6px rgba(1, 4, 9, 0.5)",
+        "purpose": "Modal dialogs and the tour spotlight panel over the overlay. Nothing at rest carries a shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The single easing for menus, dialogs and the count flash."
+      },
+      {
+        "name": "dur-fast",
+        "value": "120ms",
+        "purpose": "Menus and dialogs scale from 0.98 with fade; no slide."
+      },
+      {
+        "name": "dur",
+        "value": "150ms",
+        "purpose": "Hover and active color transitions on controls and nav items."
+      },
+      {
+        "name": "dur-flash",
+        "value": "600ms",
+        "purpose": "The ds-flash count-change highlight: state tint to transparent."
+      },
+      {
+        "name": "no-entrance",
+        "value": "none",
+        "purpose": "No entrance animation on page load; everything collapses under prefers-reduced-motion."
+      }
+    ],
+    "geometry": [
+      {
+        "name": "root-font-size",
+        "value": "14px",
+        "note": "rem utilities render at 0.875x nominal in all three apps"
+      },
+      {
+        "name": "control-h",
+        "value": "32px"
+      },
+      {
+        "name": "control-h-sm",
+        "value": "28px"
+      },
+      {
+        "name": "row-h",
+        "value": "44px"
+      },
+      {
+        "name": "cell-padding",
+        "value": "12px / 6px",
+        "note": "px-3 py-1.5 in all three apps; row-h is a minimum, two-line cells grow"
+      },
+      {
+        "name": "table-header-h",
+        "value": "40px"
+      },
+      {
+        "name": "chip-h",
+        "value": "24px"
+      },
+      {
+        "name": "rail-w",
+        "value": "240px"
+      },
+      {
+        "name": "header-h",
+        "value": "48px"
+      },
+      {
+        "name": "content-max",
+        "value": "1120px"
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--ring); outline-offset: 2px (0 on inputs)"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "Account trigger shows name + role."
+      },
+      {
+        "name": "md",
+        "value": "768px",
+        "purpose": "Rail is in flow at and above; off-canvas drawer below."
+      }
+    ],
+    "parity": {
+      "tokens": "design/foundation.css synced verbatim by design/sync-foundation.sh to react/src/styles, vue/src/styles, angular/src/styles",
+      "i18n": "design/i18n/{en,ar}.json merged by design/merge-i18n.py",
+      "sharedLayers": {
+        "react": [
+          "src/components/ui/{badge,button,table,input,dialog}.tsx",
+          "src/components/shared/CountCell.tsx (CountCell, DiffstatLine)",
+          "src/components/shared/data-table/DataTable.tsx"
+        ],
+        "vue": [
+          "src/components/ui/badge/",
+          "src/components/shared/data-table/DataTable.vue",
+          "src/features/shell/Shell.vue"
+        ],
+        "angular": [
+          "src/app/shared/ui/app-{badge,button,count-cell,diffstat,dialog,toast,icon,input,menu,select,tabs}",
+          "src/app/shared/data-table/"
+        ]
+      },
+      "rule": "Any component addition lands in all three apps under these layer names before it is part of the system. Angular never uses Angular Material."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled brand action per view; sits in the merge position (end of the title row). Disabled is tokenized, never opacity.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\"/><path d=\"m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z\"/></svg>Installation steps</button> <button class=\"ds-btn ds-btn-primary\" disabled>Approve</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent; font-family: var(--font-sans); font-size: 14px; font-weight: 500; line-height: 20px; cursor: pointer; transition: background-color 150ms, color 150ms, border-color 150ms; } .ds-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; } .ds-btn-primary { background: var(--brand); color: var(--brand-foreground); } .ds-btn-primary:hover { background: var(--brand-hover); } .ds-btn:disabled, .ds-btn[disabled] { background: var(--gutter-strong); color: var(--muted-foreground); border-color: var(--border-muted); cursor: not-allowed; pointer-events: none; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default for most actions: canvas fill with a hairline; hover gutter, pressed gutter-strong.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/></svg>Refresh</button> <button class=\"ds-btn ds-btn-ghost\">Cancel</button> <button class=\"ds-btn ds-btn-destructive\">Delete</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent; font-family: var(--font-sans); font-size: 14px; font-weight: 500; line-height: 20px; cursor: pointer; transition: background-color 150ms, color 150ms, border-color 150ms; } .ds-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; } .ds-btn-secondary { background: var(--background); color: var(--foreground); border-color: var(--border); } .ds-btn-secondary:hover { background: var(--gutter); } .ds-btn-secondary:active { background: var(--gutter-strong); } .ds-btn-ghost { background: transparent; color: var(--muted-foreground); } .ds-btn-ghost:hover { background: var(--gutter); color: var(--foreground); } .ds-btn-destructive { background: var(--destructive); color: var(--destructive-foreground); } .ds-btn-destructive:hover { background: var(--destructive-hover); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "32px hairline field on canvas; the global 2px brand ring at 0 offset on focus; danger hairline when invalid.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Project name <span class=\"ds-field-req\">Required</span></span><input class=\"ds-input\" placeholder=\"e.g. Pointer Dashboard\" /><span class=\"ds-field-hint\">Shown in the widget and the review queue.</span></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; font-family: var(--font-sans); max-width: 360px; } .ds-field-label { font-size: 13px; font-weight: 500; line-height: 18px; color: var(--foreground); margin-bottom: 6px; } .ds-field-req { font-size: 12px; font-weight: 400; color: var(--muted-foreground); margin-inline-start: 6px; } .ds-input { height: 32px; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); padding: 0 12px; font: inherit; font-size: 14px; line-height: 20px; } .ds-input::placeholder { color: var(--faint-foreground); } .ds-input:focus-visible { outline: 2px solid var(--ring); outline-offset: 0; } .ds-input[aria-invalid=\"true\"] { border-color: var(--state-danger); } .ds-field-hint { font-size: 12px; line-height: 16px; color: var(--muted-foreground); margin-top: 6px; }"
+    },
+    {
+      "name": "Nav Rail",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "240px gutter rail with a hairline end edge; 32px items, active is brand text on brand tint with no bar.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect width=\"7\" height=\"9\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"5\" x=\"14\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"9\" x=\"14\" y=\"12\" rx=\"1\"/><rect width=\"7\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\"/></svg>Overview</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M22 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></svg>Users</a><div class=\"ds-nav-sep\"></div><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/></svg>Projects</a></nav>",
+      "css": ".ds-rail { width: 240px; box-sizing: border-box; background: var(--gutter); border-inline-end: 1px solid var(--border); padding: 12px 0; display: flex; flex-direction: column; font-family: var(--font-sans); } .ds-nav-item { display: flex; align-items: center; gap: 10px; height: 32px; margin: 0 8px; padding: 0 12px; border-radius: 6px; font-size: 14px; font-weight: 500; line-height: 20px; color: var(--muted-foreground); text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-nav-item:hover { background: var(--gutter-strong); color: var(--foreground); } .ds-nav-item:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; } .ds-nav-item-active, .ds-nav-item-active:hover { background: var(--brand-tint); color: var(--brand); font-weight: 600; } .ds-nav-sep { margin: 8px 0; border-top: 1px solid var(--border-muted); }"
+    },
+    {
+      "name": "State Chip",
+      "kind": "chip",
+      "refersTo": "chip-completed",
+      "description": "24px pill on the state tint with a 30% hairline of the same hue; always glyph + label so color is never the only signal. The chip supplies its glyph from its variant and never receives a second icon; a chip whose text is a label rather than a state uses the glyphless `neutral` variant.",
+      "html": "<span class=\"ds-chip ds-chip-open\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/></svg>Open</span> <span class=\"ds-chip ds-chip-ready\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><polyline points=\"12 6 12 12 16 14\"/></svg>Pending</span> <span class=\"ds-chip ds-chip-completed\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg>Active</span> <span class=\"ds-chip ds-chip-archived\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect width=\"20\" height=\"5\" x=\"2\" y=\"3\" rx=\"1\"/><path d=\"M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8\"/><path d=\"M10 12h4\"/></svg>Archived</span> <span class=\"ds-chip ds-chip-danger\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m15 9-6 6\"/><path d=\"m9 9 6 6\"/></svg>Rejected</span> <span class=\"ds-chip ds-chip-archived\">Stakeholder</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid; font-family: var(--font-sans); font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; } .ds-chip-open { color: var(--state-open); background: var(--state-open-tint); border-color: color-mix(in srgb, var(--state-open) 30%, transparent); } .ds-chip-ready { color: var(--state-ready); background: var(--state-ready-tint); border-color: color-mix(in srgb, var(--state-ready) 30%, transparent); } .ds-chip-completed { color: var(--state-completed); background: var(--state-completed-tint); border-color: color-mix(in srgb, var(--state-completed) 30%, transparent); } .ds-chip-archived { color: var(--state-archived); background: var(--state-archived-tint); border-color: color-mix(in srgb, var(--state-archived) 30%, transparent); } .ds-chip-danger { color: var(--state-danger); background: var(--state-danger-tint); border-color: color-mix(in srgb, var(--state-danger) 30%, transparent); } .ds-chip-brand { color: var(--brand); background: var(--brand-tint); border-color: color-mix(in srgb, var(--brand) 30%, transparent); }"
+    },
+    {
+      "name": "Diffstat Line",
+      "kind": "custom",
+      "refersTo": "data",
+      "description": "The summary device that replaces stat tiles: mono numbers in state hues, sans muted labels, faint middle dots. Sits under the page title.",
+      "html": "<div class=\"ds-diffstat\"><span class=\"ds-ds-item\"><span class=\"ds-ds-n ds-tone-open\">6</span><span>Comments</span></span><span class=\"ds-ds-dot\" aria-hidden=\"true\">·</span><span class=\"ds-ds-item\"><span class=\"ds-ds-n ds-tone-open\">2</span><span>Open</span></span><span class=\"ds-ds-dot\" aria-hidden=\"true\">·</span><span class=\"ds-ds-item\"><span class=\"ds-ds-n ds-tone-ready\">1</span><span>Ready</span></span><span class=\"ds-ds-dot\" aria-hidden=\"true\">·</span><span class=\"ds-ds-item\"><span class=\"ds-ds-n ds-tone-completed\">3</span><span>Completed</span></span><span class=\"ds-ds-dot\" aria-hidden=\"true\">·</span><span class=\"ds-ds-item\"><span class=\"ds-ds-n ds-tone-archived\">0</span><span>Archived</span></span><span class=\"ds-ds-dot\" aria-hidden=\"true\">·</span><span class=\"ds-ds-item\"><span class=\"ds-ds-n\">3</span><span>Projects</span></span><span class=\"ds-ds-dot\" aria-hidden=\"true\">·</span><span class=\"ds-ds-item\"><span class=\"ds-ds-n\">4</span><span>Users</span></span></div>",
+      "css": ".ds-diffstat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--muted-foreground); } .ds-ds-item { display: inline-flex; align-items: center; gap: 4px; } .ds-ds-n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zero' 1; color: var(--foreground); } .ds-ds-dot { color: var(--faint-foreground); } .ds-tone-open { color: var(--state-open); } .ds-tone-ready { color: var(--state-ready); } .ds-tone-completed { color: var(--state-completed); } .ds-tone-archived { color: var(--state-archived); } .ds-tone-danger { color: var(--state-danger); }"
+    },
+    {
+      "name": "Review Queue Table",
+      "kind": "card",
+      "refersTo": "table-row",
+      "description": "Hairline-framed table: gutter header band with mixed-case 13px/500 labels, 44px rows, mono gutter index, key chip, count cells (glyph + hue only when > 0, faint zero otherwise), state chip, trailing chevron.",
+      "html": "<div class=\"ds-table-frame\"><table class=\"ds-table\"><thead><tr><th class=\"ds-th ds-th-gutter\"></th><th class=\"ds-th\">Name</th><th class=\"ds-th ds-num\">Comments</th><th class=\"ds-th ds-num ds-tone-open\">Open</th><th class=\"ds-th ds-num ds-tone-ready\">Ready</th><th class=\"ds-th ds-num ds-tone-completed\">Completed</th><th class=\"ds-th ds-num\">Archived</th><th class=\"ds-th\">Status</th><th class=\"ds-th\"></th></tr></thead><tbody><tr class=\"ds-tr\"><td class=\"ds-td ds-gutter\">1</td><td class=\"ds-td\"><span class=\"ds-name\">Pointer Dashboard</span> <code class=\"ds-key\">pointer-dashboard</code></td><td class=\"ds-td ds-num\"><span class=\"ds-count\">6</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-tone-open\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/></svg>2</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-tone-ready\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><polyline points=\"12 6 12 12 16 14\"/></svg>1</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-tone-completed ds-flash\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg>3</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-zero\">0</span></td><td class=\"ds-td\"><span class=\"ds-chip ds-chip-completed\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg>Active</span></td><td class=\"ds-td ds-chev\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></td></tr><tr class=\"ds-tr\"><td class=\"ds-td ds-gutter\">2</td><td class=\"ds-td\"><span class=\"ds-name\">Marketing Site</span> <code class=\"ds-key\">marketing-site</code></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-zero\">0</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-zero\">0</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-zero\">0</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-zero\">0</span></td><td class=\"ds-td ds-num\"><span class=\"ds-count ds-zero\">0</span></td><td class=\"ds-td\"><span class=\"ds-chip ds-chip-archived\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m15 9-6 6\"/><path d=\"m9 9 6 6\"/></svg>Disabled</span></td><td class=\"ds-td ds-chev\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></td></tr></tbody></table></div>",
+      "css": ".ds-table-frame { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--background); font-family: var(--font-sans); } .ds-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; color: var(--foreground); } .ds-th { height: 40px; padding: 0 12px; text-align: start; vertical-align: middle; background: var(--gutter); border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 500; color: var(--muted-foreground); text-transform: none; } .ds-th-gutter { width: 40px; } .ds-tr { height: 44px; transition: background-color 150ms; } .ds-tr + .ds-tr .ds-td { border-top: 1px solid var(--border-muted); } .ds-tr:hover { background: var(--gutter); } .ds-td { padding: 0 12px; vertical-align: middle; } .ds-gutter { width: 40px; text-align: end; font-family: var(--font-mono); font-size: 12px; color: var(--faint-foreground); } .ds-name { font-weight: 500; } .ds-key { font-family: var(--font-mono); font-size: 13px; background: var(--gutter); border-radius: 4px; padding: 2px 6px; margin-inline-start: 8px; } .ds-num { text-align: end; } .ds-count { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; border-radius: 4px; padding: 0 2px; } .ds-zero { color: var(--faint-foreground); } .ds-tone-open { color: var(--state-open); } .ds-tone-ready { color: var(--state-ready); } .ds-tone-completed { color: var(--state-completed); } .ds-tone-archived { color: var(--state-archived); } .ds-chev { width: 32px; color: var(--muted-foreground); } [dir=\"rtl\"] .ds-chev svg { transform: scaleX(-1); } .ds-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid; font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; } .ds-chip-completed { color: var(--state-completed); background: var(--state-completed-tint); border-color: color-mix(in srgb, var(--state-completed) 30%, transparent); } .ds-chip-archived { color: var(--state-archived); background: var(--state-archived-tint); border-color: color-mix(in srgb, var(--state-archived) 30%, transparent); } @keyframes ds-flash { from { background-color: var(--flash-tint, var(--state-completed-tint)); } to { background-color: transparent; } } .ds-flash { animation: ds-flash 600ms cubic-bezier(0.16, 1, 0.3, 1) both; }"
+    },
+    {
+      "name": "Row Actions Menu",
+      "kind": "nav",
+      "refersTo": "menu",
+      "description": "Floating menu with the menu shadow: 32px items on 4px radius, destructive item in danger red with danger tint on hover, muted hairline separator.",
+      "html": "<div class=\"ds-menu\" role=\"menu\"><button class=\"ds-menu-item\" role=\"menuitem\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z\"/><path d=\"m15 5 4 4\"/></svg>Edit</button><button class=\"ds-menu-item\" role=\"menuitem\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z\"/></svg>Predefined prompts</button><div class=\"ds-menu-sep\" role=\"separator\"></div><button class=\"ds-menu-item ds-menu-item-danger\" role=\"menuitem\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3 6h18\"/><path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\"/><path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\"/></svg>Delete</button></div>",
+      "css": ".ds-menu { display: inline-flex; flex-direction: column; min-width: 180px; padding: 4px; border-radius: 6px; border: 1px solid var(--border); background: var(--background); box-shadow: var(--shadow-menu); font-family: var(--font-sans); animation: ds-menu-in 120ms cubic-bezier(0.16, 1, 0.3, 1) both; } @keyframes ds-menu-in { from { transform: scale(0.98); opacity: 0; } to { transform: scale(1); opacity: 1; } } .ds-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: var(--foreground); font: inherit; font-size: 14px; line-height: 20px; text-align: start; cursor: pointer; transition: background-color 150ms; } .ds-menu-item:hover, .ds-menu-item:focus-visible { background: var(--gutter); outline: none; } .ds-menu-item-danger { color: var(--state-danger); } .ds-menu-item-danger:hover, .ds-menu-item-danger:focus-visible { background: var(--state-danger-tint); } .ds-menu-sep { margin: 4px 0; border-top: 1px solid var(--border-muted); }"
+    },
+    {
+      "name": "Review Dialog",
+      "kind": "card",
+      "refersTo": "dialog",
+      "description": "Single-decision review panel: 520px, 8px radius, hairline, dialog shadow; 16px/600 title, one task in the body, secondary Cancel then primary action in the footer.",
+      "html": "<div class=\"ds-dialog\" role=\"dialog\" aria-labelledby=\"ds-dlg-t\"><div class=\"ds-dialog-head\"><h2 id=\"ds-dlg-t\" class=\"ds-dialog-title\">Approve sign-up</h2><p class=\"ds-dialog-desc\">Choose the role this member gets in the workspace.</p></div><div class=\"ds-dialog-body\"><label class=\"ds-field\"><span class=\"ds-field-label\">Approve as</span><select class=\"ds-input\"><option>Stakeholder</option><option>Developer</option><option>Workspace Admin</option></select></label></div><div class=\"ds-dialog-foot\"><button class=\"ds-btn ds-btn-secondary\">Cancel</button><button class=\"ds-btn ds-btn-primary\">Approve</button></div></div>",
+      "css": ".ds-dialog { width: min(520px, calc(100vw - 32px)); box-sizing: border-box; border-radius: 8px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); box-shadow: var(--shadow-dialog); font-family: var(--font-sans); animation: ds-dialog-in 120ms cubic-bezier(0.16, 1, 0.3, 1) both; } @keyframes ds-dialog-in { from { transform: scale(0.98); opacity: 0; } to { transform: scale(1); opacity: 1; } } .ds-dialog-head { padding: 20px 20px 12px; } .ds-dialog-title { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; } .ds-dialog-desc { margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--muted-foreground); } .ds-dialog-body { padding: 8px 20px; display: flex; flex-direction: column; gap: 16px; } .ds-dialog-foot { padding: 12px 20px 20px; display: flex; justify-content: flex-end; gap: 8px; } .ds-field { display: flex; flex-direction: column; } .ds-field-label { font-size: 13px; font-weight: 500; line-height: 18px; margin-bottom: 6px; } .ds-input { height: 32px; width: 100%; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border); background: var(--background); color: var(--foreground); padding: 0 12px; font: inherit; font-size: 14px; } .ds-input:focus-visible { outline: 2px solid var(--ring); outline-offset: 0; } .ds-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; } .ds-btn-primary { background: var(--brand); color: var(--brand-foreground); } .ds-btn-primary:hover { background: var(--brand-hover); } .ds-btn-secondary { background: var(--background); color: var(--foreground); border-color: var(--border); } .ds-btn-secondary:hover { background: var(--gutter); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Review Margin",
+    "overview": "Feedback on a live app is code review, so the console borrows the grammar of pull-request review tools rather than the grammar of analytics dashboards. The page is a white canvas with a cool gutter surface for the nav rail, table headers and row indices; near-black ink; one-pixel hairlines doing all of the structural work; and a diff vocabulary for state (blue open, amber ready, green completed, gray archived, red danger) rendered as glyph + label on tinted hairline chips. The Overview is a review queue, not a stat wall: a single \"diffstat\" line of counts replaces stat tiles, project rows read like files under review, and one action sits in the merge position.\n\nHierarchy comes from type size, weight and hairlines, never from boxes, shadows or color fills. Nothing casts a shadow at rest; only floating layers (menus, dialogs, toasts) lift off the page. The brand color is a runtime variable the operator can override (white-label), and it drives exactly four things: links, focus rings, the active nav item and the primary filled button. The diff hues stay fixed regardless of brand, so state always reads the same way in every tenant. The finish bar is Linear / Vercel / Resend: crisp, quiet, precise, never cold.\n\nThe system ships identically in three framework apps (React, Vue, Angular) from one token file (design/foundation.css), one i18n source (design/i18n/{en,ar}.json), and mirrored shared component layers. Confirmed rejections: stat tiles above tables, icon squares, progress rings, cards inside cards, colored left borders, gradients, uppercase tracked labels, kickers and eyebrows, Angular Material.",
+    "keyCharacteristics": [
+      "White canvas, gutter surface for rails and headers, hairlines everywhere, no shadows at rest",
+      "One grotesque (IBM Plex Sans Arabic) for all UI text; IBM Plex Mono only for keys, counts and snippets",
+      "State is always glyph + hue + label; color is never the only signal",
+      "Brand color is a runtime CSS variable; diff hues are fixed",
+      "32px controls, 44px rows, 6px radius, 14px base type with tabular numerals everywhere",
+      "Light and dark are both first-class; dark is a light-table negative, not gray on gray",
+      "Arabic and RTL first-class: logical properties only, directional icons mirror",
+      "Three-framework parity is a rule of the system, not a goal"
+    ],
+    "rules": [
+      {
+        "name": "The Four Jobs Rule",
+        "body": "The brand color does exactly four jobs: links, focus, active nav, primary button. Everything else that is colored is a diff hue or a neutral. If a new surface wants brand color for a fifth reason, it is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Diff Rule",
+        "body": "The five state hues never change with tenant branding and are never reassigned to non-state meanings. A blue that is not \"open\", a green that is not \"completed\", a red that is not \"danger\" does not exist in this system.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink-on-Brand Rule",
+        "body": "Text on a filled brand surface in dark mode is ink (--brand-foreground = canvas), not white. Contrast is measured, not assumed.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Hairline Rule",
+        "body": "Every border is var(--border) or var(--border-muted); foundation sets border-color globally so a bare border utility never falls back to currentColor. Raw Tailwind palette colors (text-blue-600, bg-slate-100) are forbidden in feature code.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mixed-Case Rule",
+        "body": "No uppercase, no tracked labels, no kickers or eyebrows. Table headers are mixed case 13px/500 muted; a 12px sort glyph follows sortable labels. Emphasis comes from weight (500/600) and ink level, never from case or tracking.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono-for-Data Rule",
+        "body": "IBM Plex Mono appears only where a value must align or be copied: keys, counts, indices, snippets, tool names. Sans labels never go mono; mono values never carry sans decoration.",
+        "section": "typography"
+      },
+      {
+        "name": "The Two-Weight Rule",
+        "body": "Body text uses 400 and 500; headings use 600. 700 is loaded but unused in UI; 100–300 exist only for the font's completeness.",
+        "section": "typography"
+      },
+      {
+        "name": "The Floating-Only Rule",
+        "body": "A shadow means \"this layer is not part of the page.\" If an element scrolls with the content, it has no shadow. Only --shadow-menu and --shadow-dialog exist; there is no small, medium or large.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Negative Rule",
+        "body": "Dark mode is the light table inverted (canvas #0d1117, gutter #161b22, hairline #3d444d), not a gray-on-gray theme. Tints become 12–20% alpha washes of the same hue so chips and flashes stay legible on the dark canvas.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use only foundation tokens and their Tailwind utilities (bg-gutter, text-muted-foreground, border-border, text-state-open, shadow-menu); never a raw palette class or a hard-coded hex in feature code.",
+      "Do land every component addition in all three apps and in the shared layer names: React components/ui/* + components/shared/*, Vue components/ui/* + components/shared/*, Angular shared/ui/app-* + shared/data-table/. A component that exists in one app does not exist in the system.",
+      "Do keep controls 32px, rows 44px, radius 6px, base type 14px/20px with tabular numerals.",
+      "Do render state as glyph + hue + label on chips, and as glyph + hue on counts only when the count is greater than zero (zero is faint, glyphless).",
+      "Do summarize with a diffstat line (mono numbers in state hues, sans muted labels, faint middle dots) instead of stat tiles.",
+      "Do write table headers in mixed case at 13px/500 muted with a sort glyph on sortable columns.",
+      "Do tokenize disabled buttons (gutter-strong fill, muted ink, muted hairline) rather than lowering opacity.",
+      "Do use logical properties only and mirror directional icons in RTL; verify every surface in Arabic.",
+      "Do keep dark --brand-foreground as ink; any new filled brand surface must pass 4.5:1 in both themes.",
+      "Do keep dialogs to one decision; use a segmented mode switch when two flows share a dialog.",
+      "Do add strings to design/i18n/{en,ar}.json and tokens to design/foundation.css, then sync; never edit a per-app copy."
+    ],
+    "donts": [
+      "Don't add stat tiles, icon squares, progress rings, cards inside cards, colored left borders, or gradients.",
+      "Don't cast a shadow on anything that scrolls with the page; only menus, dialogs and toasts float.",
+      "Don't use uppercase, letter-spaced labels, kickers or eyebrows anywhere, including table headers and tour step counters.",
+      "Don't use the brand color for anything beyond links, focus, active nav and the primary button, and never reassign a diff hue to a non-state meaning.",
+      "Don't let color be the only signal; every state chip carries a glyph and a label.",
+      "Don't center the main column; content is start-aligned within 1120px.",
+      "Don't put a centered icon-in-a-circle empty state anywhere; use three dashed ghost rows or one line of muted copy plus the action.",
+      "Don't use Angular Material, Material Icons or Roboto in the Angular app; the hand-written shared/ui layer is the only UI kit there.",
+      "Don't use pl-/pr-/left-/right-/text-left/text-right; RTL is not optional.",
+      "Don't add entrance animations; state transitions are 150ms, floating layers 120ms scale from 0.98, count flashes 600ms, and all of it collapses under prefers-reduced-motion."
+    ]
+  }
+}

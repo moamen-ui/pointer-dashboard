@@ -49,13 +49,6 @@ import { extractMessage } from '@/lib/error';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTenant = TenantResponse & Record<string, any>;
 
-/** Badge variant for a tenant's approval status. */
-function approvalSeverity(status: string | null | undefined): 'success' | 'neutral' | 'destructive' {
-  if (status === 'approved') return 'success';
-  if (status === 'rejected') return 'destructive';
-  return 'neutral';
-}
-
 /** Format a demo expiry timestamp; blank/absent renders as an em-dash. */
 function formatExpiry(expiresAt: string | null | undefined): string {
   if (!expiresAt) return '—';
@@ -71,7 +64,7 @@ export function TenantsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading, isError, isFetching } = useGetApiAdminTenants();
+  const { data, isLoading, isError } = useGetApiAdminTenants();
   const tenants: AnyTenant[] = (data as unknown as { data?: AnyTenant[] })?.data
     ?? (Array.isArray(data) ? (data as AnyTenant[]) : []);
 
@@ -238,21 +231,41 @@ export function TenantsPage() {
     });
   }
 
-  // Column set mirrors the angular reference: none of these sort; custom cells
-  // carry the approval/status badges, the plan chip pair, and the demo expiry.
+  // Column set per review-margin §3: email 14/500 + display name 13 muted;
+  // plan as neutral chip; approval/status as chips with glyphs;
+  // projects/comments as mono counts; demo expiry mono 13px.
   const columns: ColumnDef<AnyTenant>[] = [
-    { accessorKey: 'displayName', enableSorting: false, header: t('tenants.displayName'),
-      cell: ({ row }) => row.original.displayName ?? '—' },
-    { accessorKey: 'email', enableSorting: false, header: t('tenants.email') },
+    {
+      accessorKey: 'email',
+      enableSorting: false,
+      header: t('tenants.email'),
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[14px] font-medium">{row.original.email}</span>
+          <span className="text-[13px] text-muted-foreground">{row.original.displayName ?? '—'}</span>
+        </div>
+      ),
+    },
     {
       accessorKey: 'approvalStatus',
       enableSorting: false,
       header: t('tenants.approval'),
-      cell: ({ row }) => (
-        <Badge variant={approvalSeverity(row.original.approvalStatus)}>
-          {row.original.approvalStatus ?? '—'}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        // The API returns PascalCase ("Approved"), so normalize before comparing.
+        const status = (row.original.approvalStatus ?? '').toLowerCase();
+        const isApproved = status === 'approved';
+        const isRejected = status === 'rejected';
+        const label =
+          isApproved ? t('common.approved')
+          : isRejected ? t('common.rejected')
+          : status === 'pending' ? t('common.pending')
+          : (row.original.approvalStatus ?? '—');
+        return (
+          <Badge variant={isApproved ? 'success' : isRejected ? 'destructive' : 'warning'}>
+            <span>{label}</span>
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: 'isActive',
@@ -260,25 +273,34 @@ export function TenantsPage() {
       header: t('tenants.statusCol'),
       cell: ({ row }) => (
         <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
-          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+          <span>{t(row.original.isActive ? 'common.active' : 'common.disabled')}</span>
         </Badge>
       ),
     },
-    { accessorKey: 'projects', enableSorting: false, header: t('tenants.projects'),
-      cell: ({ row }) => row.original.projects ?? 0 },
-    { accessorKey: 'comments', enableSorting: false, header: t('tenants.comments'),
-      cell: ({ row }) => row.original.comments ?? 0 },
+    {
+      accessorKey: 'projects',
+      enableSorting: false,
+      header: t('tenants.projects'),
+      cell: ({ row }) => (
+        <span className="font-mono text-[14px]">{row.original.projects ?? 0}</span>
+      ),
+    },
+    {
+      accessorKey: 'comments',
+      enableSorting: false,
+      header: t('tenants.comments'),
+      cell: ({ row }) => (
+        <span className="font-mono text-[14px]">{row.original.comments ?? 0}</span>
+      ),
+    },
     {
       accessorKey: 'plan',
       enableSorting: false,
       header: t('tenants.planCol'),
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium">{row.original.planName ?? t('tenants.freePlan')}</span>
-          {row.original.subscriptionStatus && (
-            <span className="chip chip-neutral text-[10px]">{row.original.subscriptionStatus}</span>
-          )}
-        </div>
+        <Badge variant="neutral">
+          {row.original.planName ?? t('tenants.noPlan')}
+        </Badge>
       ),
     },
     {
@@ -286,7 +308,7 @@ export function TenantsPage() {
       enableSorting: false,
       header: t('tenants.demoExpiry'),
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="font-mono text-[13px] text-muted-foreground">
           {row.original.isDemo ? formatExpiry(row.original.expiresAt) : '—'}
         </span>
       ),
@@ -295,7 +317,7 @@ export function TenantsPage() {
 
   const actionsFor = (tenant: AnyTenant): RowActionItem[] => {
     const items: RowActionItem[] = [];
-    if (tenant.approvalStatus === 'pending') {
+    if ((tenant.approvalStatus ?? '').toLowerCase() !== 'approved') {
       items.push({ label: t('tenants.approve'), icon: ShieldCheck, onClick: () => setStatus(tenant, 'approve') });
     }
     if (tenant.isActive) {
@@ -336,17 +358,12 @@ export function TenantsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
           {t('tenants.title')}
-          {isFetching && (
-            <span className="ms-2 text-xs font-normal text-muted-foreground">
-              {t('common.refresh')}…
-            </span>
-          )}
-        </h2>
-        <Button onClick={openAdd}>
+        </h1>
+        <Button onClick={openAdd} size="sm">
           <Plus className="h-4 w-4" />
           {t('tenants.addTenant')}
         </Button>
@@ -359,29 +376,29 @@ export function TenantsPage() {
         actionsAriaLabel={t('tenants.actions')}
         actionsHeader={t('tenants.actions')}
         paginated
+        gutter
         emptyIcon={Building2}
         emptyMessage={t('tenants.empty')}
         emptyHint={t('tenants.emptyHint')}
         emptyAction={
-          <Button onClick={openAdd}>
+          <Button onClick={openAdd} size="sm">
             <Plus className="h-4 w-4" />
             {t('tenants.addTenant')}
           </Button>
         }
       />
 
-      {/* Change plan dialog */}
+      {/* Change plan dialog — §3 one-task dialog */}
       <Dialog open={!!changePlanTarget} onOpenChange={(open) => { if (!open) setChangePlanTarget(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('tenants.changePlan')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
-            <p className="text-sm text-muted-foreground">
-              {changePlanTarget?.email ?? changePlanTarget?.displayName ?? ''}
-            </p>
-            <div className="flex flex-col gap-2">
-              <Label>{t('tenants.selectPlan')}</Label>
+          <div className="space-y-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-[13px] font-medium text-foreground">
+                {changePlanTarget?.email ?? changePlanTarget?.displayName ?? ''}
+              </Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('tenants.selectPlanPlaceholder')} />
@@ -396,8 +413,8 @@ export function TenantsPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setChangePlanTarget(null)}>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setChangePlanTarget(null)}>
               {t('common.cancel')}
             </Button>
             <Button
@@ -410,15 +427,17 @@ export function TenantsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Create tenant dialog */}
+      {/* Create tenant dialog — §3 one-task dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('tenants.addTenant')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="tenant-email">{t('tenants.email')}</Label>
+          <div className="space-y-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="tenant-email" className="text-[13px] font-medium text-foreground">
+                {t('tenants.email')}
+              </Label>
               <Input
                 id="tenant-email"
                 type="email"
@@ -427,16 +446,20 @@ export function TenantsPage() {
                 autoFocus
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="tenant-password">{t('tenants.password')}</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="tenant-password" className="text-[13px] font-medium text-foreground">
+                {t('tenants.password')}
+              </Label>
               <PasswordInput
                 id="tenant-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="tenant-name">{t('tenants.displayName')}</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="tenant-name" className="text-[13px] font-medium text-foreground">
+                {t('tenants.displayName')}
+              </Label>
               <Input
                 id="tenant-name"
                 value={newDisplayName}
@@ -444,31 +467,32 @@ export function TenantsPage() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>
               {t('common.cancel')}
             </Button>
             <Button
               disabled={!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim() || createMut.isPending}
               onClick={addTenant}
             >
-              <Plus className="h-4 w-4" />
               {t('tenants.addTenant')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Demo config dialog */}
+      {/* Demo config dialog — §3 one-task dialog */}
       <Dialog open={!!demoConfigTarget} onOpenChange={(open) => { if (!open) setDemoConfigTarget(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('tenants.editDemoConfig')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
-            <p className="text-xs text-muted-foreground">{t('tenants.demoConfigHint')}</p>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="demo-cap-override">{t('tenants.commentCapOverride')}</Label>
+          <div className="space-y-4 py-2">
+            <p className="text-[12px] text-muted-foreground">{t('tenants.demoConfigHint')}</p>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="demo-cap-override" className="text-[13px] font-medium text-foreground">
+                {t('tenants.commentCapOverride')}
+              </Label>
               <Input
                 id="demo-cap-override"
                 type="number"
@@ -478,8 +502,10 @@ export function TenantsPage() {
                 onChange={(e) => setCapInput(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="demo-ttl-override">{t('tenants.ttlHoursOverride')}</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="demo-ttl-override" className="text-[13px] font-medium text-foreground">
+                {t('tenants.ttlHoursOverride')}
+              </Label>
               <Input
                 id="demo-ttl-override"
                 type="number"
@@ -490,8 +516,8 @@ export function TenantsPage() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDemoConfigTarget(null)}>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDemoConfigTarget(null)}>
               {t('common.cancel')}
             </Button>
             <Button

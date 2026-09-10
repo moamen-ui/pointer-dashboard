@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              'pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg',
+              'pointer-events-auto flex items-start gap-3 rounded-md border border-border px-4 py-3 text-sm shadow-menu',
               t.tone === 'error'
                 ? 'border-destructive/40 bg-destructive text-destructive-foreground'
                 : 'border-border bg-card text-card-foreground',

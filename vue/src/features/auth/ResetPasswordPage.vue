@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter, useRoute, RouterLink } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 // @ts-ignore composable ships in the client version published at deploy (>=1.0.8)
 import { usePostApiAuthResetPassword } from '@moamen-ui/pointer-vue';
-import { Card, CardContent } from '@/components/ui/card';
+import { Pin } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
 import FormField from '@/components/shared/FormField.vue';
+import { useBranding } from '@/composables/useBranding';
 import { extractMessage } from '@/lib/error';
 
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
+const { branding } = useBranding();
 
 const resetMutation = usePostApiAuthResetPassword();
 
@@ -69,62 +71,68 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-secondary p-4">
-    <Card class="w-[380px] max-w-[92vw]">
-      <CardContent class="flex flex-col gap-5 p-6">
-        <h1 class="text-center text-xl font-bold">{{ t('auth.resetTitle') }}</h1>
+  <div class="flex min-h-screen items-center justify-center bg-background p-4">
+    <div class="w-full max-w-[400px] flex flex-col gap-6">
+      <!-- Brand mark -->
+      <div class="flex items-center gap-2">
+        <Pin class="h-4 w-4 text-brand rotate-45" />
+        <span class="text-[20px] font-semibold text-foreground">{{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}</span>
+      </div>
 
-        <!-- No token in URL -->
-        <div v-if="!token" class="flex flex-col gap-4 text-center">
-          <p class="text-sm text-destructive">{{ t('auth.resetInvalid') }}</p>
-          <Button variant="outline" @click="router.push('/login')">
-            {{ t('auth.backToLogin') }}
-          </Button>
-        </div>
+      <!-- No token in URL -->
+      <div v-if="!token" class="flex flex-col gap-4 text-center">
+        <p class="text-[14px] text-state-danger">{{ t('auth.resetInvalid') }}</p>
+        <Button variant="secondary" @click="router.push('/login')">
+          {{ t('auth.backToLogin') }}
+        </Button>
+      </div>
 
-        <!-- Success flash (briefly shown before router.replace fires) -->
-        <div v-else-if="done" class="flex flex-col gap-4 text-center">
-          <p class="text-sm text-green-600 dark:text-green-400">{{ t('auth.resetDone') }}</p>
-        </div>
+      <!-- Success flash (briefly shown before router.replace fires) -->
+      <div v-else-if="done" class="flex flex-col gap-4 text-center">
+        <p class="text-[14px] text-state-completed">{{ t('auth.resetDone') }}</p>
+      </div>
 
-        <!-- Reset form -->
-        <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <FormField :label="t('auth.newPassword')" html-for="new-password" :error="newPasswordError">
-            <PasswordInput
-              id="new-password"
-              v-model="newPassword"
-              autocomplete="new-password"
-              required
-              @blur="touched.newPassword = true"
-            />
-          </FormField>
-          <FormField :label="t('auth.confirmPassword')" html-for="confirm-password">
-            <PasswordInput
-              id="confirm-password"
-              v-model="confirmPassword"
-              autocomplete="new-password"
-              required
-              @blur="touched.confirmPassword = true"
-            />
-          </FormField>
-          <!-- Cross-field check spans both fields, so it can't live in either
-               FormField's per-field error slot — separate paragraph below them. -->
-          <p v-if="passwordsMismatch" class="text-sm text-destructive">
-            {{ t('invite.passwordMismatch') }}
-          </p>
-          <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-          <Button
-            type="submit"
-            class="mt-1"
-            :disabled="loading || !canSubmit"
-          >
-            {{ t('auth.resetSubmit') }}
-          </Button>
-          <Button variant="ghost" size="sm" @click="router.push('/login')">
-            {{ t('auth.backToLogin') }}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      <!-- Reset form -->
+      <form v-else class="flex flex-col gap-4" @submit.prevent="onSubmit">
+        <FormField :label="t('auth.newPassword')" html-for="new-password" :error="newPasswordError">
+          <PasswordInput
+            id="new-password"
+            v-model="newPassword"
+            autocomplete="new-password"
+            required
+            @blur="touched.newPassword = true"
+          />
+        </FormField>
+        <FormField :label="t('auth.confirmPassword')" html-for="confirm-password">
+          <PasswordInput
+            id="confirm-password"
+            v-model="confirmPassword"
+            autocomplete="new-password"
+            required
+            @blur="touched.confirmPassword = true"
+          />
+        </FormField>
+        <!-- Cross-field check spans both fields, so it can't live in either
+             FormField's per-field error slot — separate paragraph below them. -->
+        <p v-if="passwordsMismatch" class="text-[14px] text-state-danger">
+          {{ t('invite.passwordMismatch') }}
+        </p>
+        <p v-if="error" class="text-[14px] text-state-danger">{{ error }}</p>
+        <Button
+          type="submit"
+          class="w-full"
+          :disabled="loading || !canSubmit"
+        >
+          {{ t('auth.resetSubmit') }}
+        </Button>
+      </form>
+
+      <!-- Links -->
+      <div class="flex flex-col gap-2 pt-2 border-t border-border">
+        <RouterLink to="/login" class="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+          {{ t('auth.backToLogin') }}
+        </RouterLink>
+      </div>
+    </div>
   </div>
 </template>

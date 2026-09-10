@@ -1,72 +1,139 @@
 import { Component, computed, inject, signal, TemplateRef, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { PlansService, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
+import { PlansService, getApiAdminPlansResource, BillingInterval, PlanDisplayState } from '@moamen-ui/pointer-angular';
 import type { PlanAdminResponse, PlanEntitlementsDto, PlanWriteDto } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
 import { BadgeComponent } from '../../shared/badge/badge.component';
+import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
-import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
+import { RowActionsMenuComponent } from '../../shared/row-actions-menu/row-actions-menu.component';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
+import { AppTabsComponent, type TabItem } from '../../shared/ui/app-tabs.component';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-select.component';
+import { AppCheckboxComponent } from '../../shared/ui/app-checkbox.component';
+import { AppDialogService } from '../../shared/ui/app-dialog.service';
+import { AppToastService } from '../../shared/ui/app-toast.service';
+import { ConfirmService } from '../../core/confirm.service';
 
-/** Editable form shape: entitlement number fields become string so an empty input maps to null;
- *  bool fields are tri-state (null = "use platform default"). */
-interface EntitlementsForm {
-  maxProjects: string;
-  maxSeats: string;
-  maxCommentsPerMonth: string;
-  extensionEnabled: boolean | null;
-  maxExtensionSites: string;
-  maxPredefinedActionsPerProject: string;
-  maxTenantWidePredefinedActions: string;
-  retentionDays: string;
-  maxEnvironments: string;
-  maxActiveInvites: string;
-  emailsPerMonth: string;
-  extensionCommentsPerMonth: string;
-  maxPendingSuggestions: string;
-  exportImportEnabled: boolean | null;
-  promptSuggestionsEnabled: boolean | null;
-  customStatusesEnabled: boolean | null;
-  prioritySupport: boolean | null;
+// Blank entitlements form (all null = use platform default)
+function emptyEntitlements(): PlanEntitlementsDto {
+  return {
+    maxProjects: null,
+    maxSeats: null,
+    maxCommentsPerMonth: null,
+    extensionEnabled: null,
+    maxExtensionSites: null,
+    maxPredefinedActionsPerProject: null,
+    maxTenantWidePredefinedActions: null,
+    retentionDays: null,
+    maxEnvironments: null,
+    maxActiveInvites: null,
+    emailsPerMonth: null,
+    extensionCommentsPerMonth: null,
+    maxPendingSuggestions: null,
+    exportImportEnabled: null,
+    promptSuggestionsEnabled: null,
+    customStatusesEnabled: null,
+    prioritySupport: null,
+  };
 }
 
-interface PlanForm {
+// Blank form state
+interface PlanFormState {
   name: string;
   slug: string;
-  priceMonthly: number;
+  priceMonthly: string;
   currency: string;
-  interval: 0 | 1;
-  sortOrder: number;
+  interval: string; // '0' | '1'
+  sortOrder: string;
   isActive: boolean;
-  displayState: 0 | 1 | 2;
-  featureBullets: string[];
-  entitlements: EntitlementsForm;
+  displayState: string; // '0' | '1' | '2'
+  featureBullets: string; // one per line
+  entitlements: PlanEntitlementsDto;
 }
 
-function emptyEntitlementsForm(): EntitlementsForm {
+function emptyForm(): PlanFormState {
   return {
-    maxProjects: '', maxSeats: '', maxCommentsPerMonth: '',
-    extensionEnabled: null, maxExtensionSites: '',
-    maxPredefinedActionsPerProject: '', maxTenantWidePredefinedActions: '',
-    retentionDays: '', maxEnvironments: '', maxActiveInvites: '',
-    emailsPerMonth: '', extensionCommentsPerMonth: '',
-    maxPendingSuggestions: '', exportImportEnabled: null,
-    promptSuggestionsEnabled: null, customStatusesEnabled: null, prioritySupport: null,
+    name: '',
+    slug: '',
+    priceMonthly: '',
+    currency: 'USD',
+    interval: '0',
+    sortOrder: '0',
+    isActive: true,
+    displayState: '0',
+    featureBullets: '',
+    entitlements: emptyEntitlements(),
   };
+}
+
+function planToForm(plan: PlanAdminResponse): PlanFormState {
+  return {
+    name: plan.name ?? '',
+    slug: plan.slug ?? '',
+    priceMonthly: plan.priceMonthly != null ? String(plan.priceMonthly) : '',
+    currency: plan.currency ?? 'USD',
+    interval: String(plan.interval ?? 0),
+    sortOrder: String(plan.sortOrder ?? 0),
+    isActive: plan.isActive ?? true,
+    displayState: String(plan.displayState ?? 0),
+    featureBullets: (plan.featureBullets ?? []).join('\n'),
+    entitlements: plan.entitlements ?? emptyEntitlements(),
+  };
+}
+
+function formToDto(f: PlanFormState): PlanWriteDto {
+  return {
+    name: f.name.trim(),
+    slug: f.slug.trim(),
+    priceMonthly: f.priceMonthly === '' ? 0 : Number(f.priceMonthly),
+    currency: f.currency.trim(),
+    interval: Number(f.interval) as 0 | 1,
+    sortOrder: Number(f.sortOrder) || 0,
+    isActive: f.isActive,
+    displayState: Number(f.displayState) as 0 | 1 | 2,
+    featureBullets: f.featureBullets
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    entitlements: f.entitlements,
+  };
+}
+
+// Convert nullable int field → string for <input>
+function intToStr(v: number | null | undefined): string {
+  return v == null ? '' : String(v);
+}
+
+// Parse input string → nullable int (empty=null, '-1'=unlimited, numeric=number)
+function strToInt(s: string): number | null {
+  const t = s.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return isNaN(n) ? null : n;
+}
+
+function formatPrice(plan: PlanAdminResponse): string {
+  if (!plan.priceMonthly) return 'Free';
+  const interval = plan.interval === BillingInterval.NUMBER_1 ? '/yr' : '/mo';
+  return `${plan.priceMonthly} ${plan.currency ?? 'USD'}${interval}`;
+}
+
+function displayStateBadge(state: number | undefined): string {
+  if (state === PlanDisplayState.NUMBER_1) return 'coming-soon';
+  if (state === PlanDisplayState.NUMBER_2) return 'hidden';
+  return 'visible';
+}
+
+function displayStateSeverity(state: number | undefined): 'success' | 'neutral' | 'danger' {
+  if (state === PlanDisplayState.NUMBER_1) return 'neutral';
+  if (state === PlanDisplayState.NUMBER_2) return 'danger';
+  return 'success';
 }
 
 @Component({
@@ -74,422 +141,393 @@ function emptyEntitlementsForm(): EntitlementsForm {
   standalone: true,
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatSelectModule,
-    MatCheckboxModule,
-    MatSlideToggleModule,
-    MatIconModule,
-    MatDialogModule,
     TranslocoModule,
-    DataTableComponent,
+    AppDataTableComponent,
     DataTableCellDirective,
     BadgeComponent,
+    RowActionsMenuComponent,
+    AppButtonDirective,
+    AppIconComponent,
+    AppTabsComponent,
+    AppFormFieldComponent,
+    AppInputDirective,
+    AppSelectComponent,
+    AppCheckboxComponent,
   ],
   template: `
-    <div class="p-6">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="m-0 text-[1.5em] font-bold">{{ 'plans.title' | transloco }}</h2>
-        <button mat-flat-button color="primary" (click)="openAdd()">
-          <mat-icon>add</mat-icon> {{ 'plans.addPlan' | transloco }}
+    <div class="flex flex-col gap-6">
+      <!-- Title row -->
+      <div class="flex items-center justify-between gap-4">
+        <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
+          {{ 'plans.title' | transloco }}
+        </h1>
+        <button appButton variant="primary" size="sm" (click)="openCreate()">
+          <app-icon name="plus" [size]="16"></app-icon>
+          {{ 'plans.addPlan' | transloco }}
         </button>
       </div>
 
+      <!-- Table -->
       @if (plansResource.error()) {
-        <p class="text-red-500">{{ 'plans.loadError' | transloco }}</p>
+        <div class="flex h-40 items-center justify-center text-sm text-destructive">
+          {{ 'plans.loadError' | transloco }}
+        </div>
       } @else if (plansResource.isLoading() && plans().length === 0) {
-        <p class="text-muted">{{ 'plans.loading' | transloco }}</p>
+        <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          {{ 'plans.loading' | transloco }}
+        </div>
       } @else {
         <app-data-table
           [rows]="plans()"
           [columns]="columns()"
-          [actionsColumn]="{
-            items: actionsFor,
-            ariaLabel: 'plans.actions' | transloco,
-            header: 'plans.actions' | transloco,
-          }"
-          [emptyIcon]="'credit_card'"
+          [gutter]="true"
+          [paginated]="true"
           [emptyMessage]="'plans.empty' | transloco"
           [emptyHint]="'plans.emptyHint' | transloco"
         >
-          <ng-template appDataTableCell="name" let-p>{{ p.name ?? '—' }}</ng-template>
-          <ng-template appDataTableCell="slug" let-p><code>{{ p.slug ?? '—' }}</code></ng-template>
-          <ng-template appDataTableCell="price" let-p>{{ formatPrice(p) }}</ng-template>
+          <!-- Name cell -->
+          <ng-template appDataTableCell="name" let-p>
+            <span class="font-medium">{{ p.name ?? '—' }}</span>
+          </ng-template>
+
+          <!-- Slug cell (mono key chip) -->
+          <ng-template appDataTableCell="slug" let-p>
+            <span class="font-mono text-[13px] text-muted-foreground">
+              {{ p.slug ?? '—' }}
+            </span>
+          </ng-template>
+
+          <!-- Price cell (mono) -->
+          <ng-template appDataTableCell="price" let-p>
+            <span class="font-mono text-[14px]">{{ formatPrice(p) }}</span>
+          </ng-template>
+
+          <!-- Active cell (badge) -->
           <ng-template appDataTableCell="isActive" let-p>
             <app-badge [severity]="p.isActive ? 'success' : 'danger'">
               {{ (p.isActive ? 'common.active' : 'common.disabled') | transloco }}
             </app-badge>
           </ng-template>
+
+          <!-- Display state cell (badge) -->
           <ng-template appDataTableCell="displayState" let-p>
-            <app-badge severity="neutral">{{ displayStateLabel(p.displayState) | transloco }}</app-badge>
+            <app-badge [severity]="displayStateSeverity(p.displayState)">
+              {{ 'plans.displayState.' + displayStateBadge(p.displayState) | transloco }}
+            </app-badge>
           </ng-template>
-          <ng-template appDataTableCell="activeSubs" let-p>{{ p.activeSubscriptions ?? 0 }}</ng-template>
+
+          <!-- Subscriptions cell (mono) -->
+          <ng-template appDataTableCell="subscriptions" let-p>
+            <span class="font-mono text-[14px]">{{ p.activeSubscriptions ?? 0 }}</span>
+          </ng-template>
+
+          <!-- Actions cell -->
+          <ng-template appDataTableCell="actions" let-p>
+            <app-row-actions-menu
+              [items]="getRowActions(p)"
+              [ariaLabel]="'plans.actions' | transloco"
+            />
+          </ng-template>
         </app-data-table>
       }
     </div>
 
-    <!-- Add / Edit plan dialog -->
+    <!-- Create / Edit dialog with Tabs: Details / Enforced / Display-only -->
     <ng-template #planDialog>
-      <h2 mat-dialog-title>{{ (editingPlan() ? 'plans.editPlan' : 'plans.addPlan') | transloco }}</h2>
-      <mat-dialog-content>
-        <div class="flex min-w-[520px] max-w-[90vw] flex-col gap-4 pt-2">
+      <div class="px-5 pt-5 pb-3">
+        <h2 class="text-[16px] font-semibold">
+          {{ (editingPlan() ? 'plans.editPlan' : 'plans.addPlan') | transloco }}
+        </h2>
+      </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.name' | transloco }}</mat-label>
-              <input matInput [(ngModel)]="form.name" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.slug' | transloco }}</mat-label>
-              <input matInput [(ngModel)]="form.slug" />
-            </mat-form-field>
+      <div class="px-5 py-2">
+        <app-tabs [tabs]="tabItems" (selected)="onTabChange($event)"></app-tabs>
+
+        <!-- Details tab -->
+        @if (selectedTab() === 'details') {
+          <div class="space-y-4 py-4">
+            <div class="grid grid-cols-2 gap-4">
+              <app-form-field [label]="'plans.colName' | transloco">
+                <input appInput [(ngModel)]="form.name" type="text" />
+              </app-form-field>
+              <app-form-field [label]="'plans.colSlug' | transloco">
+                <input appInput [(ngModel)]="form.slug" type="text" />
+              </app-form-field>
+              <app-form-field [label]="'plans.priceMonthly' | transloco">
+                <input appInput [(ngModel)]="form.priceMonthly" type="number" min="0" />
+              </app-form-field>
+              <app-form-field [label]="'plans.currency' | transloco">
+                <input appInput [(ngModel)]="form.currency" type="text" />
+              </app-form-field>
+              <app-form-field [label]="'plans.interval' | transloco">
+                <app-select [options]="intervalOptions()" [(value)]="form.interval"></app-select>
+              </app-form-field>
+              <app-form-field [label]="'plans.sortOrder' | transloco">
+                <input appInput [(ngModel)]="form.sortOrder" type="number" />
+              </app-form-field>
+              <app-form-field [label]="'plans.displayStateLabel' | transloco">
+                <app-select [options]="displayStateOptions()" [(value)]="form.displayState"></app-select>
+              </app-form-field>
+            </div>
+
+            <!-- Active checkbox -->
+            <div class="flex items-center gap-2">
+              <app-checkbox [(checked)]="form.isActive" id="plan-active"></app-checkbox>
+              <label for="plan-active" class="text-[13px] font-medium text-foreground">
+                {{ 'plans.isActive' | transloco }}
+              </label>
+            </div>
+
+            <!-- Feature bullets textarea -->
+            <app-form-field [label]="'plans.featureBullets' | transloco" [hint]="'plans.bulletsPlaceholder' | transloco">
+              <textarea
+                appInput
+                [(ngModel)]="form.featureBullets"
+                rows="4"
+                class="resize-none"
+              ></textarea>
+            </app-form-field>
           </div>
+        }
 
-          <div class="grid grid-cols-3 gap-3">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.price' | transloco }}</mat-label>
-              <input matInput type="number" min="0" [(ngModel)]="form.priceMonthly" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.currency' | transloco }}</mat-label>
-              <input matInput [(ngModel)]="form.currency" placeholder="USD" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.interval' | transloco }}</mat-label>
-              <mat-select [(ngModel)]="form.interval">
-                <mat-option [value]="0">{{ 'plans.intervalMonthly' | transloco }}</mat-option>
-                <mat-option [value]="1">{{ 'plans.intervalYearly' | transloco }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+        <!-- Enforced entitlements tab -->
+        @if (selectedTab() === 'enforced') {
+          <div class="space-y-4 py-4">
+            <div class="grid grid-cols-2 gap-4">
+              @for (field of enforcedEntitlementFields; track field.key) {
+                <app-form-field [label]="field.label | transloco" [hint]="'plans.entitlementsHint' | transloco">
+                  @if (field.isBool) {
+                    <app-select
+                      [options]="boolOptions()"
+                      [value]="getBoolValue(field.key)"
+                      (valueChange)="updateBoolEntitlement(field.key, $event)"
+                    ></app-select>
+                  } @else {
+                    <input appInput
+                      type="number"
+                      [value]="intToStr(getNumValue(field.key))"
+                      (input)="updateNumEntitlement(field.key, $event)"
+                    />
+                  }
+                </app-form-field>
+              }
+            </div>
           </div>
+        }
 
-          <div class="grid grid-cols-2 gap-3">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.sortOrder' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.sortOrder" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.displayState' | transloco }}</mat-label>
-              <mat-select [(ngModel)]="form.displayState">
-                <mat-option [value]="0">{{ 'plans.displayStateVisible' | transloco }}</mat-option>
-                <mat-option [value]="1">{{ 'plans.displayStateComingSoon' | transloco }}</mat-option>
-                <mat-option [value]="2">{{ 'plans.displayStateHidden' | transloco }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+        <!-- Display-only entitlements tab -->
+        @if (selectedTab() === 'display') {
+          <div class="space-y-4 py-4">
+            <div class="grid grid-cols-2 gap-4">
+              @for (field of displayOnlyEntitlementFields; track field.key) {
+                <app-form-field [label]="field.label | transloco" [hint]="'plans.entitlementsHint' | transloco">
+                  @if (field.isBool) {
+                    <app-select
+                      [options]="boolOptions()"
+                      [value]="getBoolValue(field.key)"
+                      (valueChange)="updateBoolEntitlement(field.key, $event)"
+                    ></app-select>
+                  } @else {
+                    <input appInput
+                      type="number"
+                      [value]="intToStr(getNumValue(field.key))"
+                      (input)="updateNumEntitlement(field.key, $event)"
+                    />
+                  }
+                </app-form-field>
+              }
+            </div>
           </div>
+        }
+      </div>
 
-          <mat-slide-toggle [(ngModel)]="form.isActive">
-            {{ 'plans.isActive' | transloco }}
-          </mat-slide-toggle>
-
-          <!-- Feature bullets -->
-          <div>
-            <p class="m-0 mb-2 text-sm font-medium text-muted">{{ 'plans.featureBullets' | transloco }}</p>
-            @for (bullet of form.featureBullets; track $index) {
-              <div class="mb-2 flex items-center gap-2">
-                <mat-form-field appearance="outline" class="flex-1">
-                  <input matInput [(ngModel)]="form.featureBullets[$index]" />
-                </mat-form-field>
-                <button mat-icon-button color="warn" type="button" (click)="removeBullet($index)">
-                  <mat-icon>remove_circle_outline</mat-icon>
-                </button>
-              </div>
-            }
-            <button mat-stroked-button type="button" (click)="addBullet()">
-              <mat-icon>add</mat-icon> {{ 'plans.addBullet' | transloco }}
-            </button>
-          </div>
-
-          <!-- Enforced entitlements -->
-          <p class="m-0 mt-2 text-sm font-semibold">{{ 'plans.entitlementsEnforced' | transloco }}</p>
-          <p class="m-0 -mt-3 text-xs text-muted">{{ 'plans.entitlementsHint' | transloco }}</p>
-
-          <div class="grid grid-cols-2 gap-3">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxProjects' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxProjects" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxSeats' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxSeats" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxCommentsPerMonth' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxCommentsPerMonth" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxExtensionSites' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxExtensionSites" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxPredefinedActionsPerProject' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxPredefinedActionsPerProject" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxTenantWidePredefinedActions' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxTenantWidePredefinedActions" />
-            </mat-form-field>
-          </div>
-
-          <mat-checkbox [indeterminate]="form.entitlements.extensionEnabled === null"
-            [(ngModel)]="form.entitlements.extensionEnabled"
-            (click)="cycleTri('extensionEnabled', $event)">
-            {{ 'plans.entExtensionEnabled' | transloco }}
-          </mat-checkbox>
-
-          <!-- Display-only entitlements -->
-          <p class="m-0 mt-2 text-sm font-semibold">{{ 'plans.entitlementsDisplay' | transloco }}</p>
-
-          <div class="grid grid-cols-2 gap-3">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entRetentionDays' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.retentionDays" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxEnvironments' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxEnvironments" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxActiveInvites' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxActiveInvites" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entEmailsPerMonth' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.emailsPerMonth" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entExtensionCommentsPerMonth' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.extensionCommentsPerMonth" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'plans.entMaxPendingSuggestions' | transloco }}</mat-label>
-              <input matInput type="number" [(ngModel)]="form.entitlements.maxPendingSuggestions" />
-            </mat-form-field>
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <mat-checkbox [indeterminate]="form.entitlements.exportImportEnabled === null"
-              [(ngModel)]="form.entitlements.exportImportEnabled"
-              (click)="cycleTri('exportImportEnabled', $event)">
-              {{ 'plans.entExportImportEnabled' | transloco }}
-            </mat-checkbox>
-            <mat-checkbox [indeterminate]="form.entitlements.promptSuggestionsEnabled === null"
-              [(ngModel)]="form.entitlements.promptSuggestionsEnabled"
-              (click)="cycleTri('promptSuggestionsEnabled', $event)">
-              {{ 'plans.entPromptSuggestionsEnabled' | transloco }}
-            </mat-checkbox>
-            <mat-checkbox [indeterminate]="form.entitlements.customStatusesEnabled === null"
-              [(ngModel)]="form.entitlements.customStatusesEnabled"
-              (click)="cycleTri('customStatusesEnabled', $event)">
-              {{ 'plans.entCustomStatusesEnabled' | transloco }}
-            </mat-checkbox>
-            <mat-checkbox [indeterminate]="form.entitlements.prioritySupport === null"
-              [(ngModel)]="form.entitlements.prioritySupport"
-              (click)="cycleTri('prioritySupport', $event)">
-              {{ 'plans.entPrioritySupport' | transloco }}
-            </mat-checkbox>
-          </div>
-
-        </div>
-      </mat-dialog-content>
-      <mat-dialog-actions align="end">
-        <button mat-button mat-dialog-close>{{ 'common.cancel' | transloco }}</button>
-        <button mat-flat-button color="primary"
-          [disabled]="!form.name.trim() || !form.slug.trim() || saving()"
-          (click)="save()">
-          <mat-icon>save</mat-icon> {{ 'common.save' | transloco }}
+      <!-- Footer -->
+      <div class="px-5 pb-5 pt-3 flex justify-end gap-2">
+        <button appButton variant="secondary" (click)="closeDialog()">
+          {{ 'common.cancel' | transloco }}
         </button>
-      </mat-dialog-actions>
+        <button appButton
+          variant="primary"
+          [disabled]="!form.name.trim() || isSaving()"
+          (click)="save()">
+          {{ 'common.save' | transloco }}
+        </button>
+      </div>
     </ng-template>
   `,
 })
 export class PlansComponent {
-  private plansService = inject(PlansService);
-  private snack = inject(MatSnackBar);
-  private transloco = inject(TranslocoService);
-  private dialog = inject(MatDialog);
+  private readonly plansService = inject(PlansService);
+  private readonly toast = inject(AppToastService);
+  private readonly transloco = inject(TranslocoService);
+  private readonly appDialog = inject(AppDialogService);
+  private readonly confirm = inject(ConfirmService);
 
   readonly planDialog = viewChild.required<TemplateRef<unknown>>('planDialog');
-  private dialogRef?: MatDialogRef<unknown>;
+  private dialogRef: any;
 
   plansResource = getApiAdminPlansResource();
-  // The HTTP interceptor unwraps the envelope, so the actual runtime value is PlanAdminResponse[].
   plans = computed(() => (this.plansResource.value() as unknown as PlanAdminResponse[]) ?? []);
 
-  // A method (not a stored field) so column headers stay live if the app language changes.
-  columns(): DataTableColumn<PlanAdminResponse>[] {
+  selectedTab = signal<string>('details');
+  tabItems: TabItem[] = [
+    { id: 'details', label: this.transloco.translate('plans.details') },
+    { id: 'enforced', label: this.transloco.translate('plans.enforcedSection') },
+    { id: 'display', label: this.transloco.translate('plans.displayOnlySection') },
+  ];
+
+  enforcedEntitlementFields = [
+    { key: 'maxProjects', label: 'plans.ent.maxProjects' },
+    { key: 'maxSeats', label: 'plans.ent.maxSeats' },
+    { key: 'maxCommentsPerMonth', label: 'plans.ent.maxCommentsPerMonth' },
+    { key: 'extensionEnabled', label: 'plans.ent.extensionEnabled', isBool: true },
+    { key: 'maxExtensionSites', label: 'plans.ent.maxExtensionSites' },
+    { key: 'maxPredefinedActionsPerProject', label: 'plans.ent.maxPredefinedActionsPerProject' },
+    { key: 'maxTenantWidePredefinedActions', label: 'plans.ent.maxTenantWidePredefinedActions' },
+  ];
+
+  displayOnlyEntitlementFields = [
+    { key: 'retentionDays', label: 'plans.ent.retentionDays' },
+    { key: 'maxEnvironments', label: 'plans.ent.maxEnvironments' },
+    { key: 'maxActiveInvites', label: 'plans.ent.maxActiveInvites' },
+    { key: 'emailsPerMonth', label: 'plans.ent.emailsPerMonth' },
+    { key: 'extensionCommentsPerMonth', label: 'plans.ent.extensionCommentsPerMonth' },
+    { key: 'maxPendingSuggestions', label: 'plans.ent.maxPendingSuggestions' },
+    { key: 'exportImportEnabled', label: 'plans.ent.exportImportEnabled', isBool: true },
+    { key: 'promptSuggestionsEnabled', label: 'plans.ent.promptSuggestionsEnabled', isBool: true },
+    { key: 'customStatusesEnabled', label: 'plans.ent.customStatusesEnabled', isBool: true },
+    { key: 'prioritySupport', label: 'plans.ent.prioritySupport', isBool: true },
+  ];
+
+  columns = computed(() => [
+    { key: 'name', header: this.transloco.translate('plans.colName') },
+    { key: 'slug', header: this.transloco.translate('plans.colSlug') },
+    { key: 'price', header: this.transloco.translate('plans.colPrice') },
+    { key: 'isActive', header: this.transloco.translate('plans.colActive') },
+    { key: 'displayState', header: this.transloco.translate('plans.colDisplay') },
+    { key: 'subscriptions', header: this.transloco.translate('plans.colSubs') },
+    { key: 'actions', header: this.transloco.translate('plans.actions') },
+  ]);
+
+  editingPlan = signal<PlanAdminResponse | null>(null);
+  isSaving = signal(false);
+  form: PlanFormState = emptyForm();
+
+  readonly formatPrice = formatPrice;
+  readonly displayStateBadge = displayStateBadge;
+  readonly displayStateSeverity = displayStateSeverity;
+  readonly intToStr = intToStr;
+
+  intervalOptions = () => [
+    { value: '0', label: this.transloco.translate('plans.intervalMonthly') },
+    { value: '1', label: this.transloco.translate('plans.intervalYearly') },
+  ];
+
+  displayStateOptions = () => [
+    { value: '0', label: this.transloco.translate('plans.displayState.visible') },
+    { value: '1', label: this.transloco.translate('plans.displayState.coming-soon') },
+    { value: '2', label: this.transloco.translate('plans.displayState.hidden') },
+  ];
+
+  getRowActions(plan: PlanAdminResponse): RowActionItem[] {
     return [
-      { key: 'name', header: this.transloco.translate('plans.name'), sortable: true },
-      { key: 'slug', header: this.transloco.translate('plans.slug'), sortable: true },
-      { key: 'price', header: this.transloco.translate('plans.price') },
-      { key: 'isActive', header: this.transloco.translate('plans.active') },
-      { key: 'displayState', header: this.transloco.translate('plans.displayState') },
-      { key: 'activeSubs', header: this.transloco.translate('plans.activeSubs'), sortable: true },
+      {
+        label: this.transloco.translate('common.rename'),
+        icon: 'pencil',
+        onClick: () => this.openEdit(plan),
+      },
+      {
+        label: this.transloco.translate('plans.delete'),
+        icon: 'trash-2',
+        severity: 'danger',
+        disabled: this.isSaving(),
+        onClick: () => this.startDelete(plan),
+      },
     ];
   }
 
-  readonly actionsFor = (p: PlanAdminResponse): RowActionItem[] => [
-    { label: this.transloco.translate('plans.edit'), icon: 'edit', onClick: () => this.openEdit(p) },
-    { label: this.transloco.translate('plans.delete'), icon: 'delete', severity: 'danger', onClick: () => this.confirmDelete(p) },
+  boolOptions = () => [
+    { value: '', label: this.transloco.translate('plans.entNull') },
+    { value: 'true', label: this.transloco.translate('common.yes') },
+    { value: 'false', label: this.transloco.translate('common.no') },
   ];
 
-  editingPlan = signal<PlanAdminResponse | null>(null);
-  saving = signal(false);
-
-  form: PlanForm = this.emptyForm();
-
-  formatPrice(plan: PlanAdminResponse): string {
-    if (!plan.priceMonthly) return this.transloco.translate('plans.free');
-    const interval = plan.interval === 1 ? '/yr' : '/mo';
-    return `${plan.priceMonthly} ${plan.currency ?? 'USD'} ${interval}`;
+  getBoolValue(key: string): string {
+    const val = (this.form.entitlements as unknown as Record<string, any>)[key];
+    return val == null ? '' : val ? 'true' : 'false';
   }
 
-  displayStateLabel(state: number | undefined): string {
-    if (state === 1) return 'plans.displayStateComingSoon';
-    if (state === 2) return 'plans.displayStateHidden';
-    return 'plans.displayStateVisible';
+  getNumValue(key: string): number | null {
+    return (this.form.entitlements as unknown as Record<string, any>)[key] as number | null;
   }
 
-  private emptyForm(): PlanForm {
-    return {
-      name: '', slug: '', priceMonthly: 0, currency: 'USD', interval: 0,
-      sortOrder: 0, isActive: true, displayState: 0, featureBullets: [],
-      entitlements: emptyEntitlementsForm(),
-    };
+  onTabChange(value: string | number): void {
+    this.selectedTab.set(String(value));
   }
 
-  openAdd(): void {
+  openCreate(): void {
     this.editingPlan.set(null);
-    this.form = this.emptyForm();
-    this.dialogRef = this.dialog.open(this.planDialog(), { width: '640px', maxHeight: '90vh' });
+    this.form = emptyForm();
+    this.selectedTab.set('details');
+    this.dialogRef = this.appDialog.openRef(this.planDialog());
   }
 
   openEdit(plan: PlanAdminResponse): void {
     this.editingPlan.set(plan);
-    const ent = plan.entitlements ?? {};
-    const numStr = (v: number | null | undefined): string => (v === null || v === undefined ? '' : String(v));
-    this.form = {
-      name: plan.name ?? '',
-      slug: plan.slug ?? '',
-      priceMonthly: plan.priceMonthly ?? 0,
-      currency: plan.currency ?? 'USD',
-      interval: (plan.interval ?? 0) as 0 | 1,
-      sortOrder: plan.sortOrder ?? 0,
-      isActive: plan.isActive ?? true,
-      displayState: (plan.displayState ?? 0) as 0 | 1 | 2,
-      featureBullets: [...(plan.featureBullets ?? [])],
-      entitlements: {
-        maxProjects: numStr(ent.maxProjects),
-        maxSeats: numStr(ent.maxSeats),
-        maxCommentsPerMonth: numStr(ent.maxCommentsPerMonth),
-        extensionEnabled: ent.extensionEnabled ?? null,
-        maxExtensionSites: numStr(ent.maxExtensionSites),
-        maxPredefinedActionsPerProject: numStr(ent.maxPredefinedActionsPerProject),
-        maxTenantWidePredefinedActions: numStr(ent.maxTenantWidePredefinedActions),
-        retentionDays: numStr(ent.retentionDays),
-        maxEnvironments: numStr(ent.maxEnvironments),
-        maxActiveInvites: numStr(ent.maxActiveInvites),
-        emailsPerMonth: numStr(ent.emailsPerMonth),
-        extensionCommentsPerMonth: numStr(ent.extensionCommentsPerMonth),
-        maxPendingSuggestions: numStr(ent.maxPendingSuggestions),
-        exportImportEnabled: ent.exportImportEnabled ?? null,
-        promptSuggestionsEnabled: ent.promptSuggestionsEnabled ?? null,
-        customStatusesEnabled: ent.customStatusesEnabled ?? null,
-        prioritySupport: ent.prioritySupport ?? null,
-      },
-    };
-    this.dialogRef = this.dialog.open(this.planDialog(), { width: '640px', maxHeight: '90vh' });
+    this.form = planToForm(plan);
+    this.selectedTab.set('details');
+    this.dialogRef = this.appDialog.openRef(this.planDialog());
   }
 
-  addBullet(): void {
-    this.form.featureBullets = [...this.form.featureBullets, ''];
+  closeDialog(): void {
+    this.dialogRef.close();
   }
 
-  removeBullet(index: number): void {
-    this.form.featureBullets = this.form.featureBullets.filter((_, i) => i !== index);
+  updateBoolEntitlement(key: string, value: string): void {
+    const newVal = value === '' ? null : value === 'true';
+    (this.form.entitlements as unknown as Record<string, any>)[key] = newVal;
   }
 
-  /** Tri-state bool checkbox: unset (null) → true → false → unset. */
-  cycleTri(
-    field: 'extensionEnabled' | 'exportImportEnabled' | 'promptSuggestionsEnabled' | 'customStatusesEnabled' | 'prioritySupport',
-    event: Event,
-  ): void {
-    event.preventDefault();
-    const current = this.form.entitlements[field];
-    this.form.entitlements[field] = current === null ? true : current === true ? false : null;
+  updateNumEntitlement(key: string, event: Event): void {
+    const target = event.target as HTMLInputElement;
+    (this.form.entitlements as unknown as Record<string, any>)[key] = strToInt(target.value);
   }
 
   save(): void {
+    if (!this.form.name.trim()) return;
+
+    this.isSaving.set(true);
+    const dto = formToDto(this.form);
     const editing = this.editingPlan();
-    // Spec: empty number input → null (do NOT coerce to 0); -1 means unlimited.
-    const toNum = (v: string): number | null => (v.trim() === '' ? null : Number(v));
 
-    const e = this.form.entitlements;
-    const entitlements: PlanEntitlementsDto = {
-      maxProjects: toNum(e.maxProjects),
-      maxSeats: toNum(e.maxSeats),
-      maxCommentsPerMonth: toNum(e.maxCommentsPerMonth),
-      extensionEnabled: e.extensionEnabled,
-      maxExtensionSites: toNum(e.maxExtensionSites),
-      maxPredefinedActionsPerProject: toNum(e.maxPredefinedActionsPerProject),
-      maxTenantWidePredefinedActions: toNum(e.maxTenantWidePredefinedActions),
-      retentionDays: toNum(e.retentionDays),
-      maxEnvironments: toNum(e.maxEnvironments),
-      maxActiveInvites: toNum(e.maxActiveInvites),
-      emailsPerMonth: toNum(e.emailsPerMonth),
-      extensionCommentsPerMonth: toNum(e.extensionCommentsPerMonth),
-      maxPendingSuggestions: toNum(e.maxPendingSuggestions),
-      exportImportEnabled: e.exportImportEnabled,
-      promptSuggestionsEnabled: e.promptSuggestionsEnabled,
-      customStatusesEnabled: e.customStatusesEnabled,
-      prioritySupport: e.prioritySupport,
-    };
-
-    const body: PlanWriteDto = {
-      name: this.form.name.trim(),
-      slug: this.form.slug.trim(),
-      priceMonthly: Number(this.form.priceMonthly) || 0,
-      currency: this.form.currency.trim() || 'USD',
-      interval: this.form.interval,
-      sortOrder: Number(this.form.sortOrder) || 0,
-      isActive: this.form.isActive,
-      displayState: this.form.displayState,
-      featureBullets: this.form.featureBullets.map((b) => b.trim()).filter((b) => b),
-      entitlements,
-    };
-
-    this.saving.set(true);
     const call = editing
-      ? this.plansService.patchApiAdminPlansId(editing.id!, body)
-      : this.plansService.postApiAdminPlans(body);
+      ? this.plansService.patchApiAdminPlansId(editing.id!, dto)
+      : this.plansService.postApiAdminPlans(dto);
 
     call.subscribe({
       next: () => {
-        this.saving.set(false);
-        this.dialogRef?.close();
-        this.snack.open(this.transloco.translate('plans.saved'), 'OK', { duration: 3000 });
+        this.isSaving.set(false);
+        this.dialogRef.close();
+        this.toast.show(
+          this.transloco.translate(editing ? 'plans.updated' : 'plans.created'),
+          'success'
+        );
         this.plansResource.reload();
       },
       error: (err: unknown) => {
-        this.saving.set(false);
-        this.snack.open(extractMessage(err), 'OK', { duration: 4000 });
+        this.isSaving.set(false);
+        this.toast.show(extractMessage(err), 'danger');
       },
     });
   }
 
-  confirmDelete(plan: PlanAdminResponse): void {
-    this.dialog
-      .open(ConfirmDialogComponent, {
-        data: {
-          title: this.transloco.translate('plans.deleteTitle'),
-          message: this.transloco.translate('plans.deleteMessage', { name: plan.name }),
-          confirmLabel: this.transloco.translate('plans.delete'),
-          confirmColor: 'danger',
-        },
+  startDelete(plan: PlanAdminResponse): void {
+    this.confirm
+      .confirm({
+        message: this.transloco.translate('plans.deleteConfirm', { name: plan.name }),
+        confirmColor: 'danger',
       })
-      .afterClosed()
-      .subscribe((ok: boolean | undefined) => {
+      .subscribe((ok: boolean) => {
         if (ok) this.deletePlan(plan);
       });
   }
@@ -497,16 +535,16 @@ export class PlansComponent {
   private deletePlan(plan: PlanAdminResponse): void {
     this.plansService.deleteApiAdminPlansId(plan.id!).subscribe({
       next: () => {
-        this.snack.open(this.transloco.translate('plans.deleted'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('plans.deleted'), 'success');
         this.plansResource.reload();
       },
       error: (err: unknown) => {
-        // 409 Conflict = plan has active subscriptions. The interceptor rethrows the
-        // envelope message; if it's a conflict surface the friendly "in use" message.
         const raw = err as { status?: number; error?: { isConflict?: boolean } } | null;
         const isConflict = raw?.status === 409 || raw?.error?.isConflict === true;
-        const msg = isConflict ? this.transloco.translate('plans.deleteConflict') : extractMessage(err);
-        this.snack.open(msg, 'OK', { duration: 5000 });
+        const msg = isConflict
+          ? this.transloco.translate('plans.deleteConflict')
+          : extractMessage(err);
+        this.toast.show(msg, 'danger');
       },
     });
   }

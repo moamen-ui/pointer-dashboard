@@ -7,7 +7,7 @@ const props = defineProps<{ class?: string; colspan?: number }>();
 <template>
   <td
     :colspan="colspan"
-    :class="cn('p-2 align-middle [&:has([role=checkbox])]:pe-0', props.class)"
+    :class="cn('px-3 py-1.5 text-[14px] align-middle [&:has([role=checkbox])]:pe-0', props.class)"
   >
     <slot />
   </td>

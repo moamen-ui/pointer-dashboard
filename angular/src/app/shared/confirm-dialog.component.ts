@@ -1,8 +1,9 @@
 import { Component, computed, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { TranslocoModule } from '@jsverse/transloco';
+import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import type { Severity } from './severity';
+import { AppDialogComponent } from './ui/app-dialog.component';
+import { AppButtonDirective } from './ui/app-button.directive';
 
 export interface ConfirmData {
   /** Dialog title (defaults to common.confirm). */
@@ -18,47 +19,59 @@ export interface ConfirmData {
 }
 
 /**
- * Reusable Material confirmation dialog. Prefer `ConfirmService.confirm()` over opening this
- * directly — it wraps the same `MatDialog.open(...).afterClosed()` call in a one-line API.
+ * Reusable confirmation dialog using CDK Dialog and AppDialogComponent.
+ * Prefer `ConfirmService.confirm()` over opening this directly — it wraps the same
+ * `AppDialogService.open(...).closed()` call in a one-line API.
  */
 @Component({
   selector: 'app-confirm-dialog',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, TranslocoModule],
+  imports: [AppDialogComponent, AppButtonDirective, TranslocoModule],
   template: `
-    <h2 mat-dialog-title>{{ data.title || ('common.confirm' | transloco) }}</h2>
-    <mat-dialog-content>
-      <p class="m-0 min-w-80 whitespace-pre-line">{{ data.message }}</p>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button [mat-dialog-close]="false">
-        {{ data.cancelLabel || ('common.cancel' | transloco) }}
-      </button>
-      <button
-        mat-flat-button
-        [color]="materialColor()"
-        [class]="tintClass()"
-        [mat-dialog-close]="true"
-      >
-        {{ data.confirmLabel || ('common.confirm' | transloco) }}
-      </button>
-    </mat-dialog-actions>
+    <app-dialog [title]="title()">
+      <ng-template appDialogBody>
+        <p class="m-0 min-w-80 whitespace-pre-line text-[14px]">{{ data.message }}</p>
+      </ng-template>
+      <ng-template appDialogFooter>
+        <button
+          appButton
+          variant="secondary"
+          size="sm"
+          (click)="onCancel()"
+        >
+          {{ data.cancelLabel || ('common.cancel' | transloco) }}
+        </button>
+        <button
+          appButton
+          [variant]="buttonVariant()"
+          size="sm"
+          (click)="onConfirm()"
+        >
+          {{ data.confirmLabel || ('common.confirm' | transloco) }}
+        </button>
+      </ng-template>
+    </app-dialog>
   `,
 })
 export class ConfirmDialogComponent {
-  readonly data = inject<ConfirmData>(MAT_DIALOG_DATA);
+  readonly data = inject<ConfirmData>(DIALOG_DATA);
+  private readonly dialogRef = inject(DialogRef<boolean>);
+  private readonly transloco = inject(TranslocoService);
 
-  /** Material only has native primary/warn button roles — everything else falls back to a
-   *  Tailwind background tint via `tintClass()` instead. */
-  protected readonly materialColor = computed<'primary' | 'warn' | undefined>(() => {
+  protected readonly title = computed(() =>
+    this.data.title || this.transloco.translate('common.confirm')
+  );
+
+  protected readonly buttonVariant = computed<'primary' | 'destructive'>(() => {
     const severity = this.data.confirmColor ?? 'primary';
-    return severity === 'danger' ? 'warn' : severity === 'primary' ? 'primary' : undefined;
+    return severity === 'danger' ? 'destructive' : 'primary';
   });
 
-  protected readonly tintClass = computed(() => {
-    const severity = this.data.confirmColor ?? 'primary';
-    if (severity === 'success') return 'confirm-btn-success';
-    if (severity === 'warning') return 'confirm-btn-warning';
-    return '';
-  });
+  onCancel(): void {
+    this.dialogRef.close(false);
+  }
+
+  onConfirm(): void {
+    this.dialogRef.close(true);
+  }
 }

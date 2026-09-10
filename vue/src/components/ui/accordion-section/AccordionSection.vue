@@ -14,7 +14,7 @@ const props = defineProps<{ title?: string; defaultOpen?: boolean; class?: strin
 <template>
   <details
     :open="props.defaultOpen"
-    :class="cn('group rounded-lg border border-border bg-card', props.class)"
+    :class="cn('group rounded-md border border-border bg-card', props.class)"
   >
     <summary
       class="flex cursor-pointer list-none items-center gap-2 px-6 py-4 text-sm font-semibold [&::-webkit-details-marker]:hidden"

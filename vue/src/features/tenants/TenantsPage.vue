@@ -21,14 +21,12 @@ import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditC
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { Badge, type BadgeVariants } from '@/components/ui/badge';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -39,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import FormField from '@/components/shared/FormField.vue';
 import { extractMessage } from '@/lib/error';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -200,27 +199,40 @@ function formatExpiry(iso: string | null | undefined): string {
 
 // A computed so headers follow live language switches (Angular re-evaluates
 // its columns() every pass for the same reason).
+// Same columns, order and sortability as React/Angular: identity is one cell (email over
+// display name), and no tenant column sorts.
 const columns = computed<ColumnDef<typeof dataTableFeatures, TenantResponse>[]>(() => [
-  { accessorKey: 'displayName', header: t('tenants.displayName'), sortingFn: 'alphanumeric' },
-  { accessorKey: 'email', header: t('tenants.email'), sortingFn: 'alphanumeric' },
-  { id: 'approvalStatus', header: t('tenants.approvalStatus'), enableSorting: false },
-  { id: 'isActive', header: t('tenants.status'), enableSorting: false },
-  { accessorKey: 'projects', header: t('tenants.projects') },
-  { accessorKey: 'comments', header: t('tenants.comments') },
-  { id: 'plan', header: t('tenants.plan'), enableSorting: false },
+  { accessorKey: 'email', header: t('tenants.email'), enableSorting: false },
+  { id: 'approvalStatus', header: t('tenants.approval'), enableSorting: false },
+  { id: 'isActive', header: t('tenants.statusCol'), enableSorting: false },
+  { accessorKey: 'projects', header: t('tenants.projects'), enableSorting: false },
+  { accessorKey: 'comments', header: t('tenants.comments'), enableSorting: false },
+  { id: 'plan', header: t('tenants.planCol'), enableSorting: false },
   { id: 'demoExpiry', header: t('tenants.demoExpiry'), enableSorting: false },
 ]);
 
+// The API returns PascalCase ("Approved"), so normalize before comparing.
 function approvalSeverity(status: string | null | undefined): BadgeVariants['variant'] {
-  if (status === 'approved') return 'success';
-  if (status === 'rejected') return 'destructive';
-  return 'neutral';
+  switch ((status ?? '').toLowerCase()) {
+    case 'approved': return 'success';
+    case 'rejected': return 'destructive';
+    default: return 'warning';
+  }
+}
+
+function approvalLabel(status: string | null | undefined): string {
+  switch ((status ?? '').toLowerCase()) {
+    case 'approved': return t('common.approved');
+    case 'rejected': return t('common.rejected');
+    case 'pending': return t('common.pending');
+    default: return status ?? '—';
+  }
 }
 
 // Per-row action menu, conditional logic matching the Angular reference exactly.
 function actionsFor(tenant: TenantResponse): RowActionItem[] {
   const items: RowActionItem[] = [];
-  if (tenant.approvalStatus !== 'approved') {
+  if ((tenant.approvalStatus ?? '').toLowerCase() !== 'approved') {
     items.push({ label: t('tenants.approve'), icon: ShieldCheck, onClick: () => void approveTenant(tenant) });
   }
   if (tenant.isActive) {
@@ -272,15 +284,16 @@ async function saveChangePlan() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-lg font-semibold">{{ t('tenants.title') }}</h2>
+  <div class="mx-auto w-full max-w-[1120px]">
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ t('tenants.title') }}</h1>
       <Button @click="openAdd">
-        <Plus class="h-4 w-4" /> {{ t('tenants.addTenant') }}
+        <Plus class="h-4 w-4" />
+        {{ t('tenants.addTenant') }}
       </Button>
     </div>
 
-    <p v-if="isError" class="text-sm text-destructive">{{ t('tenants.loadError') }}</p>
+    <p v-if="isError" class="text-[14px] text-state-danger">{{ t('tenants.loadError') }}</p>
 
     <DataTable
       v-else
@@ -288,24 +301,34 @@ async function saveChangePlan() {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('tenants.actions')"
+      :actions-header="t('tenants.actions')"
+      gutter
       paginated
       :loading="isFetching"
       :empty-icon="Building2"
       :empty-message="t('tenants.empty')"
       :empty-hint="t('tenants.emptyHint')"
     >
-      <template #cell-displayName="{ row }">{{ row.displayName ?? '—' }}</template>
-      <template #cell-email="{ row }">{{ row.email ?? '—' }}</template>
+      <template #cell-email="{ row }">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-[14px] font-medium">{{ row.email }}</span>
+          <span class="text-[13px] text-muted-foreground">{{ row.displayName ?? '—' }}</span>
+        </div>
+      </template>
       <template #cell-approvalStatus="{ row }">
-        <Badge :variant="approvalSeverity(row.approvalStatus)">{{ row.approvalStatus ?? '—' }}</Badge>
+        <Badge :variant="approvalSeverity(row.approvalStatus)">{{ approvalLabel(row.approvalStatus) }}</Badge>
       </template>
       <template #cell-isActive="{ row }">
         <Badge :variant="row.isActive ? 'success' : 'destructive'">
           {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
         </Badge>
       </template>
-      <template #cell-projects="{ row }">{{ row.projects ?? 0 }}</template>
-      <template #cell-comments="{ row }">{{ row.comments ?? 0 }}</template>
+      <template #cell-projects="{ row }">
+        <span class="font-mono text-[14px]">{{ row.projects ?? 0 }}</span>
+      </template>
+      <template #cell-comments="{ row }">
+        <span class="font-mono text-[14px]">{{ row.comments ?? 0 }}</span>
+      </template>
       <template #cell-plan="{ row }">
         <Badge variant="neutral">{{ row.planName ?? t('tenants.noPlan') }}</Badge>
         <Badge v-if="row.subscriptionStatus" variant="success" class="ms-1 text-[10px]">
@@ -313,54 +336,52 @@ async function saveChangePlan() {
         </Badge>
       </template>
       <template #cell-demoExpiry="{ row }">
-        <template v-if="row.isDemo">{{ formatExpiry(row.expiresAt) }}</template>
-        <template v-else>—</template>
+        <span class="font-mono text-[13px] text-muted-foreground">
+          {{ row.isDemo ? formatExpiry(row.expiresAt) : '—' }}
+        </span>
       </template>
     </DataTable>
   </div>
 
   <!-- Create tenant dialog -->
   <Dialog v-model:open="addOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))]">
       <DialogHeader>
-        <DialogTitle>{{ t('tenants.addTenant') }}</DialogTitle>
+        <DialogTitle class="text-[16px] font-semibold leading-6">{{ t('tenants.addTenant') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-4 pt-2">
-        <div class="flex flex-col gap-2">
-          <Label for="tenant-email">{{ t('tenants.email') }}</Label>
+      <div class="space-y-4">
+        <FormField :label="t('tenants.email')" html-for="tenant-email">
           <Input id="tenant-email" v-model="newEmail" type="email" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="tenant-name">{{ t('tenants.displayName') }}</Label>
+        </FormField>
+        <FormField :label="t('tenants.displayName')" html-for="tenant-name">
           <Input id="tenant-name" v-model="newDisplayName" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="tenant-password">{{ t('tenants.password') }}</Label>
+        </FormField>
+        <FormField :label="t('tenants.password')" html-for="tenant-password">
           <PasswordInput id="tenant-password" v-model="newPassword" />
-        </div>
+        </FormField>
       </div>
-      <DialogFooter>
-        <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
+      <div class="flex justify-end gap-2 pt-2">
+        <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
         <Button
           :disabled="!newEmail.trim() || !newPassword || !newDisplayName.trim()"
           @click="doCreate"
         >
-          <Plus class="h-4 w-4" /> {{ t('tenants.addTenant') }}
+          <Plus class="h-4 w-4" />
+          {{ t('tenants.addTenant') }}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 
   <!-- Demo config dialog -->
   <Dialog v-model:open="demoConfigOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))]">
       <DialogHeader>
-        <DialogTitle>{{ t('tenants.editDemoConfig') }}</DialogTitle>
+        <DialogTitle class="text-[16px] font-semibold leading-6">{{ t('tenants.editDemoConfig') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-4 pt-2">
-        <p class="text-xs text-muted-foreground">{{ t('tenants.demoConfigHint') }}</p>
-        <div class="flex flex-col gap-2">
-          <Label for="demo-cap-override">{{ t('tenants.commentCapOverride') }}</Label>
+      <div class="space-y-4">
+        <p class="text-[12px] text-muted-foreground max-w-[72ch]">{{ t('tenants.demoConfigHint') }}</p>
+        <FormField :label="t('tenants.commentCapOverride')" html-for="demo-cap-override">
           <Input
             id="demo-cap-override"
             v-model="demoCapInput"
@@ -368,9 +389,8 @@ async function saveChangePlan() {
             :min="1"
             :placeholder="t('tenants.overridePlaceholder')"
           />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="demo-ttl-override">{{ t('tenants.ttlHoursOverride') }}</Label>
+        </FormField>
+        <FormField :label="t('tenants.ttlHoursOverride')" html-for="demo-ttl-override">
           <Input
             id="demo-ttl-override"
             v-model="demoTtlInput"
@@ -378,29 +398,28 @@ async function saveChangePlan() {
             :min="1"
             :placeholder="t('tenants.overridePlaceholder')"
           />
-        </div>
+        </FormField>
       </div>
-      <DialogFooter>
-        <Button variant="outline" @click="demoConfigOpen = false">{{ t('common.cancel') }}</Button>
+      <div class="flex justify-end gap-2 pt-2">
+        <Button variant="secondary" @click="demoConfigOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="patchDemoConfig.isPending.value" @click="saveDemoConfig">
           {{ t('common.save') }}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 
   <!-- Change plan dialog -->
   <Dialog v-model:open="changePlanOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))]">
       <DialogHeader>
-        <DialogTitle>{{ t('tenants.changePlan') }}</DialogTitle>
+        <DialogTitle class="text-[16px] font-semibold leading-6">{{ t('tenants.changePlan') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-4 pt-2">
-        <p class="text-sm text-muted-foreground">
+      <div class="space-y-4">
+        <p class="text-[14px] text-muted-foreground max-w-[72ch]">
           {{ t('tenants.changePlanFor', { name: changePlanTenant?.displayName ?? changePlanTenant?.email }) }}
         </p>
-        <div class="flex flex-col gap-2">
-          <Label for="change-plan-select">{{ t('tenants.plan') }}</Label>
+        <FormField :label="t('tenants.plan')" html-for="change-plan-select">
           <Select v-model="selectedPlanId">
             <SelectTrigger id="change-plan-select">
               <SelectValue :placeholder="t('tenants.selectPlan')" />
@@ -411,17 +430,17 @@ async function saveChangePlan() {
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
       </div>
-      <DialogFooter>
-        <Button variant="outline" @click="changePlanOpen = false">{{ t('common.cancel') }}</Button>
+      <div class="flex justify-end gap-2 pt-2">
+        <Button variant="secondary" @click="changePlanOpen = false">{{ t('common.cancel') }}</Button>
         <Button
           :disabled="!selectedPlanId || changePlanMut.isPending.value"
           @click="saveChangePlan"
         >
           {{ t('common.save') }}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 </template>

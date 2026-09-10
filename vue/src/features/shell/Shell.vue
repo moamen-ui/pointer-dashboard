@@ -23,6 +23,7 @@ import {
   Languages,
   Globe,
   Compass,
+  ChevronDown,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,9 +48,9 @@ const { startTour } = useTour();
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
-  { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/statuses', key: 'nav.statuses', icon: Tag },
+  { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
@@ -89,6 +90,7 @@ watchEffect(() => {
   if (
     shouldAutoOpen({
       isAdmin: isAdmin.value,
+      isSuperAdmin: isSuperAdmin.value,
       userId: u.id ?? null,
       commentsCount: commentsCount.value,
     })
@@ -107,7 +109,7 @@ function signOut() {
   <div class="flex h-screen flex-col">
     <!-- Header -->
     <header
-      class="z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-header px-4 shadow-sm"
+      class="z-10 h-12 flex flex-shrink-0 items-center gap-3 border-b border-border bg-background px-4"
     >
       <Button
         variant="ghost"
@@ -118,39 +120,67 @@ function signOut() {
       >
         <Menu class="h-5 w-5" />
       </Button>
-      <span class="flex items-center gap-2 font-bold">
+      <div class="flex items-center gap-2">
         <img
           v-if="branding.assets.logo"
           :src="branding.assets.logo"
           :alt="branding.productName"
-          class="h-7 max-w-[120px] object-contain"
+          class="h-6 max-w-[120px] object-contain"
         />
         <template v-else>
-          <Pin class="h-5 w-5 rotate-45 text-brand" />
-          {{ branding.productName }} Admin
+          <Pin class="h-4 w-4 rotate-45 text-brand" />
+          <span class="text-[14px] font-semibold text-foreground">
+            {{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}
+          </span>
         </template>
-      </span>
+      </div>
       <span class="flex-1" />
 
-      <!-- One profile menu instead of a row of loose header buttons: identity, the
-           install guide, theme, language and sign-out all live in here. The
-           install-guide dot rides on the trigger so the nudge is still visible
-           while the menu is closed. -->
+      <!-- Install steps button or icon -->
+      <Button
+        v-if="nothingCollectedYet"
+        variant="default"
+        size="sm"
+        @click="guideOpen = true"
+        data-tour="nav-install-guide"
+        class="flex items-center gap-1.5"
+      >
+        <Rocket class="h-4 w-4" />
+        <span>{{ t('install.title') }}</span>
+      </Button>
+      <Button
+        v-else
+        variant="ghost"
+        size="icon"
+        @click="guideOpen = true"
+        data-tour="nav-install-guide"
+      >
+        <Rocket class="h-4 w-4" />
+      </Button>
+
+      <!-- Account menu with identity, theme, language, sign-out -->
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" class="h-11 gap-1 px-2" :aria-label="t('header.account')">
+          <Button
+            variant="ghost"
+            class="flex items-center gap-1.5 px-2"
+            :aria-label="t('header.account')"
+          >
             <CircleUserRound class="h-5 w-5" />
-            <!-- Name with the role beneath it, right on the trigger: who you are signed
-                 in as is worth seeing without opening the menu (Pointer feedback #136). -->
-            <span
+            <!-- Name with the role beneath it, right on the trigger (sm+ only) -->
+            <div
               v-if="firstName"
-              class="ms-1 hidden flex-col items-start leading-tight sm:inline-flex"
+              class="hidden sm:flex flex-col items-start"
             >
-              <span class="text-[0.9rem] font-medium">{{ firstName }}</span>
-              <span v-if="user?.roleName" class="text-[0.7rem] font-normal text-muted-foreground">
+              <span class="text-[14px] font-medium leading-none">{{ firstName }}</span>
+              <span
+                v-if="user?.roleName"
+                class="text-[12px] text-muted-foreground leading-none"
+              >
                 {{ user.roleName }}
               </span>
-            </span>
+            </div>
+            <ChevronDown class="h-4 w-4 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -194,100 +224,111 @@ function signOut() {
     <InstallGuideDialog />
     <TourSpotlight />
 
-    <!-- Body: sidebar + content -->
-    <div class="flex flex-1 overflow-hidden bg-app">
+    <!-- Body: rail + content -->
+    <div class="flex flex-1 overflow-hidden">
       <!-- Backdrop (mobile only) -->
       <div
         v-if="sidebarOpen"
-        class="fixed inset-0 z-30 bg-black/40 md:hidden"
+        class="fixed inset-0 z-30 bg-overlay md:hidden"
         @click="sidebarOpen = false"
       />
 
+      <!-- Rail: 240px nav sidebar -->
       <aside
-        class="fixed bottom-0 start-0 top-14 z-40 flex w-[232px] flex-shrink-0 flex-col border-e border-border bg-sidebar py-2 transition-transform md:static md:top-auto md:z-auto md:translate-x-0"
-        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full'"
+        class="fixed bottom-0 start-0 top-12 z-40 w-[240px] flex flex-col border-e border-border bg-gutter py-3 transition-transform md:static md:top-auto md:z-auto"
+        :class="sidebarOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full max-md:rtl:translate-x-full'"
       >
-        <nav class="flex flex-1 flex-col gap-0.5 px-2.5">
+        <nav class="flex flex-1 flex-col">
           <!-- Admin-only nav items -->
-          <template v-if="isAdmin">
+          <div v-if="isAdmin">
             <RouterLink
               v-for="item in ADMIN_NAV"
               :key="item.to"
               :to="item.to"
               :data-tour="item.to === '/environments' ? 'nav-environments' : undefined"
-              class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-              active-class="bg-brand-tint font-semibold !text-brand"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              active-class="bg-brand-tint !text-brand font-semibold"
               @click="sidebarOpen = false"
             >
-              <component :is="item.icon" class="h-5 w-5" />
+              <component :is="item.icon" class="h-4 w-4" />
               <span>{{ t(item.key) }}</span>
             </RouterLink>
-          </template>
-          <!-- Super-admin-only nav items -->
-          <template v-if="isSuperAdmin">
+          </div>
+
+          <!-- Projects (available to all) with separator above -->
+          <div :class="isAdmin && 'my-2 border-t border-border-muted'">
+            <RouterLink
+              v-for="item in ALL_NAV"
+              :key="item.to"
+              :to="item.to"
+              :data-tour="item.to === '/projects' ? 'nav-projects' : undefined"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              active-class="bg-brand-tint !text-brand font-semibold"
+              @click="sidebarOpen = false"
+            >
+              <component :is="item.icon" class="h-4 w-4" />
+              <span>{{ t(item.key) }}</span>
+            </RouterLink>
+          </div>
+
+          <!-- Super-admin nav items with separator above -->
+          <div v-if="isSuperAdmin" class="my-2 border-t border-border-muted">
             <RouterLink
               v-for="item in SUPER_ADMIN_NAV"
               :key="item.to"
               :to="item.to"
-              class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-              active-class="bg-brand-tint font-semibold !text-brand"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              active-class="bg-brand-tint !text-brand font-semibold"
               @click="sidebarOpen = false"
             >
-              <component :is="item.icon" class="h-5 w-5" />
+              <component :is="item.icon" class="h-4 w-4" />
               <span>{{ t(item.key) }}</span>
             </RouterLink>
-          </template>
-          <!-- Available to all authenticated users -->
-          <RouterLink
-            v-for="item in ALL_NAV"
-            :key="item.to"
-            :to="item.to"
-            :data-tour="item.to === '/projects' ? 'nav-projects' : undefined"
-            class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-            active-class="bg-brand-tint font-semibold !text-brand"
-            @click="sidebarOpen = false"
-          >
-            <component :is="item.icon" class="h-5 w-5" />
-            <span>{{ t(item.key) }}</span>
-          </RouterLink>
-          <!-- Always visible: My profile -->
-          <RouterLink
-            to="/profile"
-            class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-            active-class="bg-brand-tint font-semibold !text-brand"
-            @click="sidebarOpen = false"
-          >
-            <UserRound class="h-5 w-5" />
-            <span>{{ t('nav.myProfile') }}</span>
-          </RouterLink>
+          </div>
+
+          <!-- My Profile with separator above (unless non-admin with no groups) -->
+          <div :class="(isAdmin || isSuperAdmin) && 'my-2 border-t border-border-muted'">
+            <RouterLink
+              to="/profile"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              active-class="bg-brand-tint !text-brand font-semibold"
+              @click="sidebarOpen = false"
+            >
+              <CircleUserRound class="h-4 w-4" />
+              <span>{{ t('nav.myProfile') }}</span>
+            </RouterLink>
+          </div>
         </nav>
 
         <!-- Quick tour + Installation steps in the footer -->
-        <div class="mt-auto flex flex-col gap-0.5 border-t border-border px-2.5 pt-2">
+        <div class="mt-auto flex flex-col border-t border-border-muted pt-2 px-2">
           <button
             type="button"
-            class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
             @click="sidebarOpen = false; startTour()"
           >
-            <Compass class="h-5 w-5" />
+            <Compass class="h-4 w-4" />
             <span>{{ t('tour.quickTour') }}</span>
           </button>
 
           <button
             type="button"
             data-tour="nav-install-guide"
-            class="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-start text-sm font-medium text-muted-foreground transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
             @click="sidebarOpen = false; guideOpen = true"
           >
-            <Rocket class="h-5 w-5" />
+            <Rocket class="h-4 w-4" />
             <span>{{ t('install.title') }}</span>
-            <span v-if="nothingCollectedYet" class="h-2 w-2 rounded-full bg-brand" />
+            <span v-if="nothingCollectedYet" class="h-1.5 w-1.5 rounded-full bg-brand ms-auto" />
           </button>
         </div>
       </aside>
 
-      <main class="h-full min-w-0 flex-1 overflow-auto bg-app p-4 sm:p-6">
-        <RouterView />
+      <!-- Main content -->
+      <main class="flex-1 min-w-0 overflow-auto bg-background p-6">
+        <div class="mx-auto w-full max-w-[1120px] ms-0">
+          <RouterView />
+        </div>
       </main>
     </div>
   </div>

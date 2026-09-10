@@ -7,12 +7,12 @@ import {
   usePostApiAuthRegisterAdmin,
   useGetApiPlans,
 } from '@moamen-ui/pointer-vue';
-import { Card, CardContent } from '@/components/ui/card';
+import { Pin } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import FormField from '@/components/shared/FormField.vue';
+import { useBranding } from '@/composables/useBranding';
 import { extractMessage } from '@/lib/error';
 import { isValidEmail } from '@/lib/validation';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
+const { branding } = useBranding();
 
 // Signup availability comes from the typed SignupEnabledResponse { enabled }.
 const { data: signupData, isPending: checking } = useGetApiAuthSignupEnabled();
@@ -156,115 +157,121 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-secondary p-4">
-    <Card class="w-[440px] max-w-[92vw]">
-      <CardContent class="flex flex-col gap-5 p-6">
-        <h1 class="text-center text-xl font-bold">{{ t('signup.title') }}</h1>
+  <div class="flex min-h-screen items-center justify-center bg-background p-4">
+    <div class="w-full max-w-[400px] flex flex-col gap-6">
+      <!-- Brand mark -->
+      <div class="flex items-center gap-2">
+        <Pin class="h-4 w-4 text-brand rotate-45" />
+        <span class="text-[20px] font-semibold text-foreground">{{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}</span>
+      </div>
 
-        <!-- Loading check -->
-        <div v-if="checking" class="text-center text-sm text-muted-foreground">
-          {{ t('signup.checking') }}
-        </div>
+      <!-- Loading check -->
+      <div v-if="checking" class="text-center text-[14px] text-muted-foreground">
+        {{ t('signup.checking') }}
+      </div>
 
-        <!-- Signup closed -->
-        <div v-else-if="signupClosed" class="flex flex-col gap-4 text-center">
-          <p class="text-sm text-muted-foreground">{{ t('signup.closed') }}</p>
-          <Button variant="outline" @click="router.push('/login')">
-            {{ t('signup.backToLogin') }}
-          </Button>
-        </div>
+      <!-- Signup closed -->
+      <div v-else-if="signupClosed" class="flex flex-col gap-4 text-center">
+        <p class="text-[14px] text-muted-foreground">{{ t('signup.closed') }}</p>
+        <Button variant="secondary" @click="router.push('/login')">
+          {{ t('signup.backToLogin') }}
+        </Button>
+      </div>
 
-        <!-- Success state -->
-        <div v-else-if="submitted" class="flex flex-col gap-4 text-center">
-          <p class="text-sm">{{ t('signup.pendingApproval') }}</p>
-          <Button variant="outline" @click="router.push('/login')">
-            {{ t('signup.backToLogin') }}
-          </Button>
-        </div>
+      <!-- Success state -->
+      <div v-else-if="submitted" class="flex flex-col gap-4 text-center">
+        <p class="text-[14px]">{{ t('signup.pendingApproval') }}</p>
+        <Button variant="secondary" @click="router.push('/login')">
+          {{ t('signup.backToLogin') }}
+        </Button>
+      </div>
 
-        <!-- Signup form -->
-        <form v-else-if="signupOpen" class="flex flex-col gap-4" @submit.prevent="onSubmit">
-          <FormField :label="t('signup.displayName')" html-for="signup-name" :error="displayNameError">
-            <Input
-              id="signup-name"
-              v-model="displayName"
-              autocomplete="name"
-              required
-              @blur="touched.displayName = true"
-            />
-          </FormField>
-          <FormField :label="t('signup.email')" html-for="signup-email" :error="emailError">
-            <Input
-              id="signup-email"
-              v-model="email"
-              type="email"
-              autocomplete="email"
-              required
-              @blur="touched.email = true"
-            />
-          </FormField>
-          <FormField :label="t('signup.password')" html-for="signup-password" :error="passwordError">
-            <PasswordInput
-              id="signup-password"
-              v-model="password"
-              autocomplete="new-password"
-              required
-              @blur="touched.password = true"
-            />
-          </FormField>
+      <!-- Signup form -->
+      <form v-else-if="signupOpen" class="flex flex-col gap-4" @submit.prevent="onSubmit">
+        <FormField :label="t('signup.displayName')" html-for="signup-name" :error="displayNameError">
+          <Input
+            id="signup-name"
+            v-model="displayName"
+            autocomplete="name"
+            required
+            @blur="touched.displayName = true"
+          />
+        </FormField>
+        <FormField :label="t('signup.email')" html-for="signup-email" :error="emailError">
+          <Input
+            id="signup-email"
+            v-model="email"
+            type="email"
+            autocomplete="email"
+            required
+            @blur="touched.email = true"
+          />
+        </FormField>
+        <FormField :label="t('signup.password')" html-for="signup-password" :error="passwordError">
+          <PasswordInput
+            id="signup-password"
+            v-model="password"
+            autocomplete="new-password"
+            required
+            @blur="touched.password = true"
+          />
+        </FormField>
 
-          <!-- Plan selector (marketing display only) -->
-          <div v-if="selectablePlans.length > 0" class="flex flex-col gap-2">
-            <Label class="text-sm font-medium">{{ t('signup.plan.choosePlan') }}</Label>
-            <div class="flex flex-col gap-2">
-              <button
-                v-for="plan in selectablePlans"
-                :key="plan.slug ?? plan.name ?? ''"
-                type="button"
-                :disabled="plan.displayState === 1"
-                :class="cn(
-                  'flex w-full flex-col gap-1 rounded-lg border px-3 py-3 text-start transition-colors',
-                  selectedSlug === plan.slug
-                    ? 'border-brand bg-brand-tint text-brand'
-                    : 'border-border bg-card text-card-foreground hover:border-brand/50',
-                  plan.displayState === 1 && 'cursor-not-allowed opacity-50',
-                )"
-                @click="plan.displayState !== 1 && (selectedSlug = plan.slug ?? null)"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm font-semibold">{{ plan.name }}</span>
-                  <span class="text-xs font-medium">{{ formatPlanPrice(plan) }}</span>
-                </div>
-                <span v-if="plan.displayState === 1" class="chip chip-neutral text-[10px]">
-                  {{ t('signup.plan.comingSoon') }}
-                </span>
-                <ul v-if="plan.featureBullets && plan.featureBullets.length > 0" class="mt-1 flex flex-col gap-0.5">
-                  <li
-                    v-for="(bullet, i) in plan.featureBullets.slice(0, 3)"
-                    :key="i"
-                    class="text-xs text-muted-foreground"
-                  >
-                    · {{ bullet }}
-                  </li>
-                </ul>
-              </button>
-            </div>
-            <p class="text-xs text-muted-foreground">{{ t('signup.plan.marketingNote') }}</p>
+        <!-- Plan selector (marketing display only) -->
+        <div v-if="selectablePlans.length > 0" class="flex flex-col gap-2">
+          <label class="text-[13px] font-medium text-foreground">{{ t('signup.plan.choosePlan') }}</label>
+          <div class="flex flex-col gap-2">
+            <button
+              v-for="plan in selectablePlans"
+              :key="plan.slug ?? plan.name ?? ''"
+              type="button"
+              :disabled="plan.displayState === 1"
+              :class="cn(
+                'flex w-full flex-col gap-1 rounded-md border px-3 py-3 text-start transition-colors text-[14px]',
+                selectedSlug === plan.slug
+                  ? 'border-brand bg-brand-tint text-brand'
+                  : 'border-border bg-background text-foreground hover:border-brand/50',
+                plan.displayState === 1 && 'cursor-not-allowed opacity-50',
+              )"
+              @click="plan.displayState !== 1 && (selectedSlug = plan.slug ?? null)"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-medium">{{ plan.name }}</span>
+                <span class="text-[13px] font-medium">{{ formatPlanPrice(plan) }}</span>
+              </div>
+              <span v-if="plan.displayState === 1" class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium text-state-ready bg-state-ready-tint border-state-ready/30">
+                {{ t('signup.plan.comingSoon') }}
+              </span>
+              <ul v-if="plan.featureBullets && plan.featureBullets.length > 0" class="mt-1 flex flex-col gap-0.5">
+                <li
+                  v-for="(bullet, i) in plan.featureBullets.slice(0, 3)"
+                  :key="i"
+                  class="text-[13px] text-muted-foreground"
+                >
+                  · {{ bullet }}
+                </li>
+              </ul>
+            </button>
           </div>
+          <p class="text-[12px] text-muted-foreground">{{ t('signup.plan.marketingNote') }}</p>
+        </div>
 
-          <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-          <Button
-            type="submit"
-            class="mt-1"
-            :disabled="loading || formInvalid"
-          >
-            {{ t('signup.submit') }}
-          </Button>
-          <Button variant="ghost" size="sm" @click="router.push('/login')">
-            {{ t('signup.backToLogin') }}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        <p v-if="error" class="text-[14px] text-state-danger">{{ error }}</p>
+        <Button
+          type="submit"
+          class="w-full"
+          :disabled="loading || formInvalid"
+        >
+          {{ t('signup.submit') }}
+        </Button>
+      </form>
+
+      <!-- Links -->
+      <div v-if="signupOpen && !submitted" class="flex flex-col gap-2 pt-2 border-t border-border">
+        <Button variant="ghost" size="sm" @click="router.push('/login')" class="w-full">
+          {{ t('signup.backToLogin') }}
+        </Button>
+      </div>
+    </div>
   </div>
 </template>

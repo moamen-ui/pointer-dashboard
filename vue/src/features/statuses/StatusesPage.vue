@@ -127,7 +127,12 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, EditRow>[]>(() => [
 
 function actionsFor(row: EditRow): RowActionItem[] {
   const items: RowActionItem[] = [
-    { label: t('statuses.save'), icon: Save, disabled: row.saving || row.resetting, onClick: () => void saveRow(row) },
+    {
+      label: t('statuses.save'),
+      icon: Save,
+      disabled: row.saving || row.resetting,
+      onClick: () => void saveRow(row),
+    },
   ];
   if (row.isOverridden) {
     items.push({
@@ -144,7 +149,7 @@ function actionsFor(row: EditRow): RowActionItem[] {
 
 <template>
   <div class="flex flex-col gap-4">
-    <h2 class="text-lg font-semibold">{{ t('statuses.title') }}</h2>
+    <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{{ t('statuses.title') }}</h1>
 
     <!-- Loading spinner (only when genuinely no data yet) -->
     <div
@@ -167,7 +172,9 @@ function actionsFor(row: EditRow): RowActionItem[] {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('statuses.colActions')"
+      :actions-header="t('statuses.colActions')"
       :loading="statusesQuery.isLoading.value"
+      gutter
       :empty-icon="Tag"
       :empty-message="t('statuses.empty')"
       :empty-hint="t('statuses.emptyHint')"

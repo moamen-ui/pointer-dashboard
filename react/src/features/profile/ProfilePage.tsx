@@ -15,13 +15,10 @@ import {
   type ProfileEnvironment,
 } from '@moamen-ui/pointer-react';
 import {
-  Folder,
-  MessageSquare,
   ChevronDown,
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -34,6 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useStatusCatalog } from '@/lib/status-catalog';
+import { CountCell, DiffstatLine, statusTone, toneTextClass } from '@/components/shared/CountCell';
 
 const ENV_LABEL: Record<number, string> = {
   1: 'Local',
@@ -46,46 +44,28 @@ function envLabel(env: number | undefined): string {
   return ENV_LABEL[env] ?? String(env);
 }
 
-// ---- Status bar (mini pie-like horizontal bar) ----
-function StatusBar({ project, catalog }: { project: ProfileProject; catalog: ReturnType<typeof useStatusCatalog> }) {
-  const counts = catalog.items.map((s) => ({
-    s,
-    count: getProjectStatusCount(project, s.value),
-  }));
-  const total = counts.reduce((acc, c) => acc + c.count, 0);
-  if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
-
-  return (
-    <div className="flex h-2 w-full overflow-hidden rounded-full" title="Status breakdown">
-      {counts.map(({ s, count }) =>
-        count > 0 ? (
-          <div
-            key={s.value}
-            style={{
-              width: `${(count / total) * 100}%`,
-              backgroundColor: s.color ?? '#6b7280',
-            }}
-            title={`${catalog.displayLabel(s)}: ${count}`}
-          />
-        ) : null,
-      )}
-    </div>
-  );
-}
-
 // ---- Expandable environment row ----
 function EnvRows({ environments, catalog }: { environments: ProfileEnvironment[]; catalog: ReturnType<typeof useStatusCatalog> }) {
   return (
     <>
       {environments.map((env) => (
-        <TableRow key={env.environment} className="bg-muted/30 text-xs">
-          <TableCell className="pl-12 text-muted-foreground italic">
+        <TableRow key={env.environment} className="h-11 border-t border-border-muted bg-gutter/30">
+          <TableCell className="w-10 px-3" />
+          <TableCell className="ps-12 text-[14px] text-muted-foreground italic">
             {envLabel(env.environment)}
           </TableCell>
-          <TableCell>{env.comments ?? 0}</TableCell>
-          <TableCell>{env.replies ?? 0}</TableCell>
+          <TableCell className="font-mono text-[14px]">{env.comments ?? 0}</TableCell>
+          <TableCell className="font-mono text-[14px]">{env.replies ?? 0}</TableCell>
           {catalog.items.map((s) => (
-            <TableCell key={s.value} style={{ color: getEnvStatusCount(env, s.value) > 0 ? (s.color ?? undefined) : undefined }}>
+            <TableCell
+              key={s.value}
+              className={cn(
+                'font-mono text-[14px]',
+                getEnvStatusCount(env, s.value) > 0
+                  ? toneTextClass(statusTone(s.value))
+                  : 'text-faint-foreground',
+              )}
+            >
               {getEnvStatusCount(env, s.value)}
             </TableCell>
           ))}
@@ -128,16 +108,37 @@ export function ProfilePage() {
     });
   }
 
+  // Build diffstat items: projects · comments · replies · open · ready · completed · archived
+  const diffstatItems = [
+    { label: t('profile.projects'), count: totals?.projectsInvolved ?? 0 },
+    { label: t('profile.comments'), count: totals?.comments ?? 0 },
+    { label: t('profile.replies'), count: totals?.replies ?? 0 },
+    ...[
+      [1, totals?.open ?? 0],
+      [2, totals?.readyToApply ?? 0],
+      [3, totals?.applied ?? 0],
+      [4, totals?.archived ?? 0],
+    ].map(([value, count]) => {
+      const status = catalog.items.find((x) => x.value === value);
+      return {
+        label: status ? catalog.displayLabel(status) : t(`overview.${['open', 'pending', 'completed', 'archived'][(value as number) - 1]}`),
+        count: count as number,
+        tone: statusTone(value as number),
+        color: status?.color ?? null,
+      };
+    }),
+  ];
+
   return (
     <div className="flex flex-col gap-8">
-      {/* Header */}
+      {/* Header with title and refresh */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-[20px] font-semibold">
             {profileUser?.displayName ?? t('profile.title')}
           </h1>
           {profileUser?.email && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <p className="mt-0.5 text-[14px] text-muted-foreground">
               {profileUser.email}
               {profileUser.roleName ? ` · ${profileUser.roleName}` : ''}
             </p>
@@ -154,114 +155,39 @@ export function ProfilePage() {
         </Button>
       </div>
 
-      {/* Headline stat cards */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4">
-        {/* Projects involved */}
-        <Card>
-          <CardContent className="flex items-center gap-3.5 p-4">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300">
-              <Folder className="h-6 w-6" />
-            </div>
-            <div className="flex flex-col">
-              <div className="text-[1.7rem] font-bold leading-tight">
-                {totals?.projectsInvolved ?? 0}
-              </div>
-              <div className="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-                {t('profile.projects')}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Diffstat line: projects · comments · replies · open · ready · completed · archived */}
+      <DiffstatLine items={diffstatItems} />
 
-        {/* Total comments */}
-        <Card>
-          <CardContent className="flex items-center gap-3.5 p-4">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300">
-              <MessageSquare className="h-6 w-6" />
-            </div>
-            <div className="flex flex-col">
-              <div className="text-[1.7rem] font-bold leading-tight">
-                {totals?.comments ?? 0}
-              </div>
-              <div className="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-                {t('profile.comments')}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total replies */}
-        <Card>
-          <CardContent className="flex items-center gap-3.5 p-4">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300">
-              <MessageSquare className="h-6 w-6" />
-            </div>
-            <div className="flex flex-col">
-              <div className="text-[1.7rem] font-bold leading-tight">
-                {totals?.replies ?? 0}
-              </div>
-              <div className="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-                {t('profile.replies')}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Per-status summary cards using catalog colors */}
-        {catalog.items.map((s) => (
-          <Card key={s.value}>
-            <CardContent className="flex items-center gap-3.5 p-4">
-              <div
-                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl"
-                style={{
-                  backgroundColor: s.color ? `${s.color}22` : undefined,
-                  color: s.color ?? undefined,
-                }}
-              >
-                <MessageSquare className="h-6 w-6" />
-              </div>
-              <div className="flex flex-col">
-                <div
-                  className="text-[1.7rem] font-bold leading-tight"
-                  style={{ color: s.color ?? undefined }}
-                >
-                  {getTotalsStatusCount(totals, s.value)}
-                </div>
-                <div className="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-                  {catalog.displayLabel(s)}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Per-project breakdown */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">{t('profile.breakdown')}</h2>
-        <Card>
+      {/* Projects section */}
+      <div className="space-y-3">
+        <h2 className="text-[16px] font-semibold leading-6">{t('overview.projects')}</h2>
+        <div className="rounded-md border border-border overflow-hidden">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('overview.name')}</TableHead>
-                <TableHead>{t('overview.comments')}</TableHead>
-                <TableHead>{t('profile.replies')}</TableHead>
+            <TableHeader className="[&_tr]:bg-gutter [&_tr]:border-0">
+              <TableRow className="h-10 bg-gutter">
+                <TableHead className="text-[13px] font-medium text-muted-foreground" />
+                <TableHead className="text-[13px] font-medium text-muted-foreground">{t('overview.name')}</TableHead>
+                <TableHead className="text-[13px] font-medium text-muted-foreground">{t('overview.comments')}</TableHead>
+                <TableHead className="text-[13px] font-medium text-muted-foreground">{t('profile.replies')}</TableHead>
                 {catalog.items.map((s) => (
-                  <TableHead key={s.value} style={{ color: s.color ?? undefined }}>
+                  <TableHead key={s.value} className={`text-[13px] font-medium ${toneTextClass(statusTone(s.value))}`}>
                     {catalog.displayLabel(s)}
                   </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {projects.map((proj: ProfileProject) => {
+            <TableBody className="[&_tr]:border-b-0">
+              {projects.map((proj: ProfileProject, idx: number) => {
                 const projId = proj.projectId ?? 0;
                 const hasEnvs = (proj.environments?.length ?? 0) > 0;
                 const isOpen = expanded.has(projId);
 
                 return [
-                  <TableRow key={projId}>
-                    <TableCell>
+                  <TableRow key={projId} className="h-11 border-t border-border-muted">
+                    <TableCell className="w-10 text-end font-mono text-[12px] text-faint-foreground">
+                      {idx + 1}
+                    </TableCell>
+                    <TableCell className="px-3">
                       <div className="flex items-center gap-2">
                         {hasEnvs ? (
                           <button
@@ -279,25 +205,21 @@ export function ProfilePage() {
                         ) : (
                           <span className="w-4" />
                         )}
-                        <span className="font-medium">{proj.name ?? proj.key}</span>
+                        <span className="text-[14px] font-medium">{proj.name ?? proj.key}</span>
                         {proj.key && proj.name && (
-                          <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          <code className="rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">
                             {proj.key}
                           </code>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{proj.comments ?? 0}</TableCell>
-                    <TableCell>{proj.replies ?? 0}</TableCell>
+                    <TableCell className="font-mono text-[14px]">{proj.comments ?? 0}</TableCell>
+                    <TableCell className="font-mono text-[14px]">{proj.replies ?? 0}</TableCell>
                     {catalog.items.map((s) => {
                       const count = getProjectStatusCount(proj, s.value);
                       return (
-                        <TableCell
-                          key={s.value}
-                          className="font-medium"
-                          style={{ color: count > 0 ? (s.color ?? undefined) : undefined }}
-                        >
-                          {count}
+                        <TableCell key={s.value} className="text-end">
+                          <CountCell count={count} tone={statusTone(s.value)} />
                         </TableCell>
                       );
                     })}
@@ -314,10 +236,10 @@ export function ProfilePage() {
                 ];
               })}
               {projects.length === 0 && !isFetching && (
-                <TableRow>
+                <TableRow className="h-11 border-t border-border-muted">
                   <TableCell
-                    colSpan={3 + catalog.items.length}
-                    className="py-10 text-center text-muted-foreground"
+                    colSpan={4 + catalog.items.length}
+                    className="px-3 text-center text-[14px] text-muted-foreground"
                   >
                     {t('profile.noProjects')}
                   </TableCell>
@@ -325,39 +247,8 @@ export function ProfilePage() {
               )}
             </TableBody>
           </Table>
-        </Card>
-      </div>
-
-      {/* Per-project mini status bars */}
-      {projects.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-          {projects.map((proj: ProfileProject) => (
-            <Card key={proj.projectId}>
-              <CardContent className="flex flex-col gap-2 p-4">
-                <div className="text-sm font-medium">{proj.name ?? proj.key}</div>
-                <StatusBar project={proj} catalog={catalog} />
-                <div className="flex flex-wrap gap-2">
-                  {catalog.items.map((s) => {
-                    const count = getProjectStatusCount(proj, s.value);
-                    return count > 0 ? (
-                      <span
-                        key={s.value}
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.7rem] font-medium"
-                        style={{
-                          backgroundColor: s.color ? `${s.color}22` : undefined,
-                          color: s.color ?? undefined,
-                        }}
-                      >
-                        {catalog.displayLabel(s)}: {count}
-                      </span>
-                    ) : null;
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -383,16 +274,3 @@ function getEnvStatusCount(env: ProfileEnvironment, value: number | undefined): 
   }
 }
 
-function getTotalsStatusCount(
-  totals: { open?: number; readyToApply?: number; applied?: number; archived?: number } | undefined,
-  value: number | undefined,
-): number {
-  if (!totals) return 0;
-  switch (value) {
-    case 1: return totals.open ?? 0;
-    case 2: return totals.readyToApply ?? 0;
-    case 3: return totals.applied ?? 0;
-    case 4: return totals.archived ?? 0;
-    default: return 0;
-  }
-}

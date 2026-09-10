@@ -5,8 +5,10 @@ export const environment = {
   production: true,
   apiBase: 'https://api.pointer.moamen.work',
   // Dogfoods the Pointer widget on the dashboard itself, pointed at the same API (apiBase).
+  // Gated to development/staging only — production apps must stay at parity across frameworks
+  // and should not show dogfooding widgets without explicit team decision.
   pointerFeedback: {
-    enabled: true,
+    enabled: false,
     project: 'pointer-dashboard',
     environment: 'production',
   },

@@ -1,204 +1,318 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { UsersService } from '@moamen-ui/pointer-angular';
-import { getApiAdminStatsResource } from '@moamen-ui/pointer-angular';
-import { getApiAdminUsersResource } from '@moamen-ui/pointer-angular';
-import { getApiAdminRolesResource } from '@moamen-ui/pointer-angular';
-import { getApiAdminAiRulesInsightsResource } from '@moamen-ui/pointer-angular';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
-import { extractMessage } from '../../core/api/extract-message';
+import { BidiModule } from '@angular/cdk/bidi';
+import {
+  getApiAdminStatsResource,
+  getApiAdminUsersResource,
+  getApiAdminRolesResource,
+  getApiAdminAiRulesInsightsResource,
+} from '@moamen-ui/pointer-angular';
+import type {
+  ProjectStats,
+  StatsResponse,
+  UserResponse,
+  RoleResponse,
+  AiInsightsResponse,
+  AiRuleResponse,
+  GetApiAdminAiRulesInsightsParams,
+} from '@moamen-ui/pointer-angular';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
+import { extractMessage } from '../../core/api/extract-message';
+import { UsersService } from '@moamen-ui/pointer-angular';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppCountCellComponent } from '../../shared/ui/app-count-cell.component';
+import { AppDiffstatComponent, type DiffstatItem } from '../../shared/ui/app-diffstat.component';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { BadgeComponent } from '../../shared/badge/badge.component';
-import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
-import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import { AppToastService } from '../../shared/ui/app-toast.service';
 import { AuthService } from '../../core/auth/auth.service';
-import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse, AiRuleResponse, GetApiAdminAiRulesInsightsParams } from '@moamen-ui/pointer-angular';
+import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
+import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
+import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 
 @Component({
   selector: 'app-overview',
   standalone: true,
   imports: [
-    MatCardModule,
-    MatButtonModule,
-    MatProgressBarModule,
-    MatIconModule,
-    MatMenuModule,
-    MatFormFieldModule,
-    MatSelectModule,
-    FormsModule,
-    DatePipe,
+    AppCountCellComponent,
+    AppDiffstatComponent,
+    BidiModule,
     TranslocoModule,
-    EmptyStateComponent,
-    DataTableComponent,
-    DataTableCellDirective,
+    DatePipe,
+    AppButtonDirective,
+    AppIconComponent,
     BadgeComponent,
+    AppDataTableComponent,
+    DataTableCellDirective,
   ],
   template: `
-    @if (loading()) {
-      <mat-progress-bar mode="indeterminate" class="fixed inset-x-0 top-0 z-[1000]"></mat-progress-bar>
-    }
-
-    @if (stats(); as s) {
-      <div class="mb-8 grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-4">
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>folder</mat-icon></div>
-            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1]">{{ s.totals?.projects }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.projects' | transloco }}</div></div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>group</mat-icon></div>
-            <div class="flex flex-col"><div class="text-[1.7rem] font-bold leading-[1.1]">{{ s.totals?.users }}</div><div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.users' | transloco }}</div></div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3.5 p-4">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stat-slate-bg text-stat-slate"><mat-icon>chat_bubble_outline</mat-icon></div>
-            <div class="flex flex-col">
-              <div class="text-[1.7rem] font-bold leading-[1.1]">{{ s.totals?.comments }}</div>
-              <div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'overview.comments' | transloco }}</div>
-              @if ((s.totals?.privateComments ?? 0) > 0) {
-                <div class="mt-1 inline-flex items-center gap-[3px] text-[0.7rem] text-muted">{{ 'overview.privateHidden' | transloco: { count: s.totals?.privateComments ?? 0 } }}</div>
-              }
-            </div>
-          </mat-card-content>
-        </mat-card>
-        <!-- Status summary cards driven by catalog -->
-        @for (st of statusCatalog.ordered(); track st.value) {
-          <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-            <mat-card-content class="flex items-center gap-3.5 p-4">
-              <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" [style.background-color]="st.color + '22'" [style.color]="st.color">
-                <mat-icon>radio_button_unchecked</mat-icon>
-              </div>
-              <div class="flex flex-col">
-                <div class="text-[1.7rem] font-bold leading-[1.1]" [style.color]="st.color">{{ statusTotal(s, st.value) }}</div>
-                <div class="mt-0.5 text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ statusCatalog.displayLabel(st) }}</div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        }
+    <div class="space-y-6">
+      <!-- Title row with refresh button -->
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
+          {{ 'overview.title' | transloco }}
+        </h1>
+        <button
+          appButton
+          variant="secondary"
+          size="sm"
+          (click)="reloadAll()"
+          [disabled]="loading()"
+          [attr.aria-label]="'common.refresh' | transloco"
+        >
+          @if (loading()) {
+            <app-icon name="loader-2" [size]="16" class="animate-spin"></app-icon>
+          } @else {
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+          }
+          {{ 'common.refresh' | transloco }}
+        </button>
       </div>
 
-      <mat-card class="mb-8 rounded-[14px] bg-panel text-ink" appearance="outlined">
-        <mat-card-header>
-          <mat-card-title class="flex items-center gap-2 text-[1.05rem]">
-            <mat-icon class="text-stat-amber">how_to_reg</mat-icon>
-            {{ 'overview.pendingApprovals' | transloco }}
-            <span class="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-stat-amber-bg px-[7px] text-[0.78rem] font-bold text-stat-amber">{{ pendingCount() }}</span>
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          @if (pendingUsers().length === 0) {
-            <app-empty-state icon="how_to_reg" [message]="'overview.noPending' | transloco" />
-          } @else {
-            <div class="flex flex-col">
-              @for (u of pendingUsers(); track u.id) {
-                <div class="flex flex-wrap items-center justify-between gap-4 border-t border-app-border py-3 first:border-t-0">
-                  <div>
-                    <div class="font-semibold">{{ u.displayName }}</div>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-2.5 text-[0.85rem] text-muted">
-                      <span>{{ u.email }}</span>
-                      <span class="chip chip-neutral">{{ u.roleName }}</span>
-                      @if ($any(u).createdAt) {
-                        <span class="text-[0.8rem]">
-                          {{ 'overview.requested' | transloco }}:
-                          {{ $any(u).createdAt | date:'dd-MM-yyyy HH:mm' }}
-                        </span>
-                      }
+      <!-- Diffstat line: comments · open · ready · completed · archived · projects · users -->
+      @if (stats(); as s) {
+        <app-diffstat [items]="totalsDiffstat(s)"></app-diffstat>
+
+        <!-- Pending approvals section (only when non-empty) -->
+        @if (pendingUsers().length > 0) {
+          <div>
+            <div class="flex items-center gap-2 mb-3">
+              <h2 class="text-[16px] font-semibold leading-6">
+                {{ 'overview.pendingApprovals' | transloco }}
+              </h2>
+              <div class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium text-state-ready bg-state-ready-tint border-state-ready/30">
+                <span class="inline-flex h-1.5 w-1.5 rounded-full bg-state-ready"></span>
+                {{ pendingUsers().length }}
+              </div>
+            </div>
+            <div class="rounded-md border border-border overflow-x-auto">
+              @for (user of pendingUsers(); track user.id) {
+                <div class="min-h-11 px-3 py-2 flex items-center gap-4 border-t border-border-muted first:border-t-0">
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[14px] font-medium text-foreground">{{ user.displayName }}</div>
+                    <div class="flex items-center gap-3 flex-wrap mt-1">
+                      <span class="text-[13px] text-muted-foreground">{{ user.email }}</span>
+                      <div class="inline-flex h-6 items-center gap-1 rounded-full border border-state-archived/30 px-2 text-[12px] font-medium text-state-archived bg-state-archived-tint">
+                        {{ user.roleName }}
+                      </div>
+                      <span class="text-[12px] text-faint-foreground">
+                        {{ 'overview.requested' | transloco }}: {{ user.createdAt | date:'dd-MM-yyyy HH:mm' }}
+                      </span>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <button mat-flat-button color="primary" [matMenuTriggerFor]="approveMenu"
-                      (menuOpened)="approveSelection[u.id!] = u.roleId ?? 0" [disabled]="busy()">
+                  <div class="flex items-center gap-2 shrink-0">
+                    <button
+                      appButton
+                      variant="primary"
+                      size="sm"
+                      (click)="openApproveDialog(user)"
+                      [disabled]="busy()"
+                    >
                       {{ 'overview.approve' | transloco }}
                     </button>
-                    <mat-menu #approveMenu="matMenu">
-                      <div class="flex min-w-[200px] flex-col gap-2.5 p-3" (click)="$event.stopPropagation()">
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="w-full">
-                          <mat-label>{{ 'overview.approveAs' | transloco }}</mat-label>
-                          <mat-select [(value)]="approveSelection[u.id!]">
-                            @for (r of activeRoles(); track r.id) {
-                              <mat-option [value]="r.id">{{ r.name }}</mat-option>
-                            }
-                          </mat-select>
-                        </mat-form-field>
-                        <button mat-flat-button color="primary" class="w-full"
-                          (click)="approve(u)" [disabled]="busy()">
-                          {{ 'overview.confirm' | transloco }}
-                        </button>
-                      </div>
-                    </mat-menu>
-                    <button mat-stroked-button color="warn" (click)="reject(u)" [disabled]="busy()">
+                    <button
+                      appButton
+                      variant="secondary"
+                      size="sm"
+                      (click)="openRejectConfirm(user)"
+                      [disabled]="busy()"
+                    >
                       {{ 'overview.reject' | transloco }}
                     </button>
                   </div>
                 </div>
               }
             </div>
-          }
-        </mat-card-content>
-      </mat-card>
+          </div>
+        }
 
-      <!-- AI Coding Tools & Rules Insights -->
-      @if (aiInsights(); as insights) {
-        <mat-card class="mb-8 rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-header>
-            <mat-card-title class="flex items-center gap-2 text-[1.05rem]">
-              <mat-icon class="text-primary">psychology</mat-icon>
-              {{ 'aiRules.insightsTitle' | transloco }}
-            </mat-card-title>
-            <mat-card-subtitle class="text-xs text-muted">
-              {{ 'aiRules.insightsSubtitle' | transloco }}
-            </mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content class="pt-4">
-            <!-- Rules Counts -->
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
-              <div class="rounded-lg border border-app-border p-3 flex flex-col">
-                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.totalRules' | transloco }}</span>
-                <span class="text-2xl font-bold mt-1">{{ insights.totalRulesCount ?? 0 }}</span>
-              </div>
-              <div class="rounded-lg border border-app-border p-3 flex flex-col">
-                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.tenantRules' | transloco }}</span>
-                <span class="text-2xl font-bold mt-1 text-primary">{{ insights.tenantRulesCount ?? 0 }}</span>
-              </div>
-              <div class="rounded-lg border border-app-border p-3 flex flex-col">
-                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.projectRules' | transloco }}</span>
-                <span class="text-2xl font-bold mt-1">{{ insights.projectRulesCount ?? 0 }}</span>
-              </div>
-              <div class="rounded-lg border border-app-border p-3 flex flex-col">
-                <span class="text-xs text-muted uppercase tracking-wider">{{ 'aiRules.userRules' | transloco }}</span>
-                <span class="text-2xl font-bold mt-1 text-stat-amber">{{ insights.userPersonalRulesCount ?? 0 }}</span>
-              </div>
+        <!-- Projects table section -->
+        <div>
+          <h2 class="text-[16px] font-semibold leading-6 mb-3">
+            {{ 'overview.projects' | transloco }}
+          </h2>
+          <div class="rounded-md border border-border overflow-x-auto">
+            @if (projectRows().length > 0) {
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="h-10 bg-gutter text-[13px] font-medium text-muted-foreground border-b border-border">
+                    <th class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3"></th>
+                    <th class="px-3 text-start" [attr.aria-sort]="ariaSort('name')">
+                      <button type="button" class="inline-flex items-center gap-1 transition-colors hover:text-foreground" (click)="toggleSort('name')">
+                        {{ 'overview.name' | transloco }}
+                        <app-icon [name]="sortGlyph('name')" [size]="14" [class.opacity-40]="sortKey() !== 'name'"></app-icon>
+                      </button>
+                    </th>
+                    <th class="px-3 text-start" [attr.aria-sort]="ariaSort('comments')">
+                      <button type="button" class="inline-flex items-center gap-1 transition-colors hover:text-foreground" (click)="toggleSort('comments')">
+                        {{ 'overview.comments' | transloco }}
+                        <app-icon [name]="sortGlyph('comments')" [size]="14" [class.opacity-40]="sortKey() !== 'comments'"></app-icon>
+                      </button>
+                    </th>
+                    <th class="w-8 px-3 text-start" [attr.aria-sort]="ariaSort('privateComments')">
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                        [attr.aria-label]="'overview.privateHiddenTooltip' | transloco"
+                        [title]="'overview.privateHiddenTooltip' | transloco"
+                        (click)="toggleSort('privateComments')"
+                      >
+                        <app-icon name="lock" [size]="14"></app-icon>
+                        <app-icon [name]="sortGlyph('privateComments')" [size]="14" [class.opacity-40]="sortKey() !== 'privateComments'"></app-icon>
+                      </button>
+                    </th>
+                    @for (st of statusCatalog.ordered(); track st.value) {
+                      <th class="px-3 text-start" [class]="toneTextClass(st.value)" [attr.aria-sort]="ariaSort('status_' + st.value)">
+                        <button type="button" class="inline-flex items-center gap-1" (click)="toggleSort('status_' + st.value)">
+                          {{ statusCatalog.displayLabel(st) }}
+                          <app-icon [name]="sortGlyph('status_' + st.value)" [size]="14" [class.opacity-40]="sortKey() !== 'status_' + st.value"></app-icon>
+                        </button>
+                      </th>
+                    }
+                    <th class="px-3 text-start" [attr.aria-sort]="ariaSort('isActive')">
+                      <button type="button" class="inline-flex items-center gap-1 transition-colors hover:text-foreground" (click)="toggleSort('isActive')">
+                        {{ 'overview.status' | transloco }}
+                        <app-icon [name]="sortGlyph('isActive')" [size]="14" [class.opacity-40]="sortKey() !== 'isActive'"></app-icon>
+                      </button>
+                    </th>
+                    <th class="w-4"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (project of sortedProjectRows(); track project.projectId; let idx = $index) {
+                    <tr
+                      class="h-11 border-t border-border-muted hover:bg-gutter/60 transition-colors cursor-pointer"
+                      (click)="navigateToProject(project)"
+                    >
+                      <td class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3">{{ idx + 1 }}</td>
+                      <td class="px-3">
+                        <div class="flex items-center gap-2 min-w-0">
+                          <span class="text-[14px] font-medium text-foreground truncate">{{ project.name }}</span>
+                          <code class="rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px] shrink-0">{{ project.key }}</code>
+                        </div>
+                      </td>
+                      <td class="px-3 font-mono text-[14px]">{{ project.comments ?? 0 }}</td>
+                      <td class="px-3">
+                        @if ((project.privateComments ?? 0) > 0) {
+                          <span
+                            class="inline-flex items-center gap-1 font-mono text-[14px]"
+                            [title]="'overview.privateHiddenTooltip' | transloco"
+                          >
+                            <app-icon name="lock" [size]="16"></app-icon>
+                            {{ project.privateComments }}
+                          </span>
+                        } @else {
+                          <span class="text-faint-foreground">—</span>
+                        }
+                      </td>
+                      @for (st of statusCatalog.ordered(); track st.value) {
+                        <td class="px-3">
+                          <app-count-cell [count]="getProjectStatusCount(project, st.value)" [state]="stateFor(st.value)"></app-count-cell>
+                        </td>
+                      }
+                      <td class="px-3">
+                        <app-badge [severity]="project.isActive ? 'success' : 'neutral'">
+                          {{ (project.isActive ? 'common.active' : 'common.disabled') | transloco }}
+                        </app-badge>
+                      </td>
+                      <td class="w-4 pe-3">
+                        <app-icon
+                          name="chevron-right"
+                          [size]="16"
+                          class="text-muted-foreground rtl:-scale-x-100"
+                        ></app-icon>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="h-10 bg-gutter text-[13px] font-medium text-muted-foreground border-b border-border">
+                    <th class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3"></th>
+                    <th class="px-3 text-start">{{ 'overview.name' | transloco }}</th>
+                    <th class="px-3 text-start">{{ 'overview.comments' | transloco }}</th>
+                    <th class="w-8"></th>
+                    @for (st of statusCatalog.ordered(); track st.value) {
+                      <th class="px-3 text-start" [class]="toneTextClass(st.value)">
+                        {{ statusCatalog.displayLabel(st) }}
+                      </th>
+                    }
+                    <th class="px-3 text-start">{{ 'overview.status' | transloco }}</th>
+                    <th class="w-4"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="h-11 border-t border-dashed border-border-muted">
+                    <td class="px-3 text-[14px] text-muted-foreground">
+                      {{ 'overview.emptyProjects' | transloco }}
+                    </td>
+                    <td colspan="100" class="text-end pe-3">
+                      <button
+                        appButton
+                        variant="primary"
+                        size="sm"
+                        (click)="openInstallGuide()"
+                      >
+                        {{ 'install.open' | transloco }}
+                      </button>
+                    </td>
+                  </tr>
+                  <tr class="h-11 border-t border-dashed border-border-muted"></tr>
+                  <tr class="h-11 border-t border-dashed border-border-muted"></tr>
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+
+        <!-- AI Insights section (only when data exists) -->
+        @if (aiInsights(); as insights) {
+          <div>
+            <div class="mb-3">
+              <h2 class="text-[16px] font-semibold leading-6">
+                {{ 'aiRules.insightsTitle' | transloco }}
+              </h2>
+              <p class="mt-1 text-[14px] text-muted-foreground">
+                {{ 'aiRules.insightsSubtitle' | transloco }}
+              </p>
             </div>
 
-            <!-- Active Tools and Developer Adoption (and Workspaces for Super Admin) -->
-            <div class="grid grid-cols-1 gap-4" [class.md:grid-cols-3]="auth.isSuperAdmin() && (insights.tenantSummaries?.length ?? 0) > 0" [class.md:grid-cols-2]="!auth.isSuperAdmin() || (insights.tenantSummaries?.length ?? 0) === 0">
-              <!-- Workspace adoption for Super Admin -->
+            <!-- Diffstat line for 4 counts -->
+            <app-diffstat [items]="rulesDiffstat(insights)"></app-diffstat>
+
+            <!-- Grid of bordered lists -->
+            <div
+              [class]="
+                auth.isSuperAdmin() && (insights.tenantSummaries?.length ?? 0) > 0
+                  ? 'grid gap-4 md:grid-cols-3'
+                  : 'grid gap-4 md:grid-cols-2'
+              "
+            >
+              <!-- Workspaces (super admin) -->
               @if (auth.isSuperAdmin() && (insights.tenantSummaries?.length ?? 0) > 0) {
-                <div class="rounded-lg border border-app-border p-4">
-                  <div class="font-semibold text-sm mb-3 flex items-center gap-2">
-                    <mat-icon class="text-muted text-base">domain</mat-icon>
-                    {{ 'aiRules.tenantSummaries' | transloco }}
+                <div class="rounded-md border border-border overflow-x-auto">
+                  <div class="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                    <app-icon name="building-2" [size]="16" class="text-muted-foreground"></app-icon>
+                    <span class="text-[14px] font-medium text-foreground">
+                      {{ 'aiRules.tenantSummaries' | transloco }}
+                    </span>
                   </div>
-                  <div class="flex flex-col gap-2">
-                    @for (tenant of insights.tenantSummaries ?? []; track tenant.tenantId ?? $index) {
-                      <div class="flex items-center justify-between text-xs py-1 border-b border-app-border last:border-0">
-                        <span class="font-medium text-ink">{{ tenant.tenantName }}</span>
-                        <div class="flex items-center gap-2 text-muted">
-                          <span>{{ tenant.projectsCount ?? 0 }} {{ 'overview.projects' | transloco }}</span>
-                          <span class="font-semibold text-stat-slate">{{ tenant.rulesCount ?? 0 }} {{ 'aiRules.section' | transloco }}</span>
+                  <div class="flex flex-col">
+                    @for (tenant of insights.tenantSummaries ?? []; track tenant.tenantId; let idx = $index) {
+                      <div
+                        class="min-h-11 px-3 py-2 flex items-center justify-between gap-4"
+                        [class.border-t]="idx > 0"
+                        [class.border-border-muted]="idx > 0"
+                      >
+                        <span class="text-[14px] font-medium text-foreground">
+                          {{ tenant.tenantName }}
+                        </span>
+                        <div class="text-[13px] text-muted-foreground">
+                          {{ tenant.projectsCount ?? 0 }} {{ 'overview.projects' | transloco }} · {{ tenant.rulesCount ?? 0 }} {{ 'aiRules.section' | transloco }}
                         </div>
                       </div>
                     }
@@ -206,21 +320,31 @@ import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse, AiRu
                 </div>
               }
 
-              <!-- Registered AI Tools -->
-              <div class="rounded-lg border border-app-border p-4">
-                <div class="font-semibold text-sm mb-3 flex items-center gap-2">
-                  <mat-icon class="text-muted text-base">smart_toy</mat-icon>
-                  {{ 'aiRules.activeTools' | transloco }}
+              <!-- Active tools -->
+              <div class="rounded-md border border-border overflow-x-auto">
+                <div class="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                  <app-icon name="bot" [size]="16" class="text-muted-foreground"></app-icon>
+                  <span class="text-[14px] font-medium text-foreground">
+                    {{ 'aiRules.activeTools' | transloco }}
+                  </span>
                 </div>
                 @if ((insights.toolUsage ?? []).length === 0) {
-                  <p class="text-xs text-muted">{{ 'aiRules.noToolsYet' | transloco }}</p>
+                  <div class="px-3 py-2 text-[13px] text-muted-foreground">
+                    {{ 'aiRules.noToolsYet' | transloco }}
+                  </div>
                 } @else {
-                  <div class="flex flex-col gap-2">
-                    @for (tool of insights.toolUsage ?? []; track tool.toolName ?? $index) {
-                      <div class="flex items-center justify-between text-xs py-1 border-b border-app-border last:border-0">
-                        <span class="font-medium font-mono text-ink">{{ tool.toolName }}</span>
-                        <div class="flex items-center gap-2 text-muted">
-                          <span>{{ tool.projectCount ?? 0 }} {{ 'overview.projects' | transloco }}</span>
+                  <div class="flex flex-col">
+                    @for (tool of insights.toolUsage ?? []; track tool.toolName; let idx = $index) {
+                      <div
+                        class="min-h-11 px-3 py-2 flex items-center justify-between gap-4"
+                        [class.border-t]="idx > 0"
+                        [class.border-border-muted]="idx > 0"
+                      >
+                        <span class="font-mono text-[13px] font-medium text-foreground">
+                          {{ tool.toolName }}
+                        </span>
+                        <div class="text-[13px] text-muted-foreground">
+                          {{ tool.projectCount ?? 0 }} {{ 'overview.projects' | transloco }}
                         </div>
                       </div>
                     }
@@ -229,19 +353,31 @@ import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse, AiRu
               </div>
 
               <!-- Developer adoption -->
-              <div class="rounded-lg border border-app-border p-4">
-                <div class="font-semibold text-sm mb-3 flex items-center gap-2">
-                  <mat-icon class="text-muted text-base">engineering</mat-icon>
-                  {{ 'aiRules.userSummaries' | transloco }}
+              <div class="rounded-md border border-border overflow-x-auto">
+                <div class="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                  <app-icon name="wrench" [size]="16" class="text-muted-foreground"></app-icon>
+                  <span class="text-[14px] font-medium text-foreground">
+                    {{ 'aiRules.userSummaries' | transloco }}
+                  </span>
                 </div>
                 @if ((insights.userRuleSummaries ?? []).length === 0) {
-                  <p class="text-xs text-muted">{{ 'aiRules.noPersonalRules' | transloco }}</p>
+                  <div class="px-3 py-2 text-[13px] text-muted-foreground">
+                    {{ 'aiRules.noPersonalRules' | transloco }}
+                  </div>
                 } @else {
-                  <div class="flex flex-col gap-2">
-                    @for (user of insights.userRuleSummaries ?? []; track user.userId ?? $index) {
-                      <div class="flex items-center justify-between text-xs py-1 border-b border-app-border last:border-0">
-                        <span class="font-medium text-ink">{{ user.userName }}</span>
-                        <span class="font-semibold text-stat-slate">{{ user.rulesCount ?? 0 }} {{ 'aiRules.section' | transloco }}</span>
+                  <div class="flex flex-col">
+                    @for (user of insights.userRuleSummaries ?? []; track user.userId; let idx = $index) {
+                      <div
+                        class="min-h-11 px-3 py-2 flex items-center justify-between gap-4"
+                        [class.border-t]="idx > 0"
+                        [class.border-border-muted]="idx > 0"
+                      >
+                        <span class="text-[14px] font-medium text-foreground">
+                          {{ user.userName }}
+                        </span>
+                        <div class="text-[13px] text-muted-foreground">
+                          {{ user.rulesCount ?? 0 }} {{ 'aiRules.section' | transloco }}
+                        </div>
                       </div>
                     }
                   </div>
@@ -251,167 +387,261 @@ import type { ProjectStats, UserResponse, RoleResponse, AiInsightsResponse, AiRu
 
             <!-- Super Admin Detailed Rules Inspection -->
             @if (auth.isSuperAdmin()) {
-              <div class="mt-5 pt-4 border-t border-app-border flex items-center justify-between">
-                <div class="flex items-center gap-2 text-xs text-muted">
-                  <mat-icon class="text-base text-primary">policy</mat-icon>
-                  <span class="font-medium">{{ 'aiRules.detailedRulesTitle' | transloco }}</span>
-                </div>
-                <button mat-stroked-button (click)="showDetailedRules.set(!showDetailedRules())">
-                  <mat-icon>{{ showDetailedRules() ? 'expand_less' : 'expand_more' }}</mat-icon>
-                  {{ (showDetailedRules() ? 'aiRules.hideDetails' : 'aiRules.inspectDetails') | transloco }}
-                </button>
-              </div>
-
-              @if (showDetailedRules()) {
-                <div class="mt-4 overflow-x-auto">
-                  <app-data-table
-                    [rows]="detailedRulesRows()"
-                    [columns]="detailedRulesColumns()"
-                    [search]="true"
-                    [searchPlaceholder]="'common.search' | transloco"
-                    [emptyIcon]="'psychology'"
-                    [emptyMessage]="'aiRules.emptyDetailedRules' | transloco"
+              <div class="space-y-3 border-t border-border pt-4 mt-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <app-icon name="shield-check" [size]="16" class="text-brand"></app-icon>
+                    <span class="text-[14px] font-medium text-foreground">
+                      {{ 'aiRules.detailedRulesTitle' | transloco }}
+                    </span>
+                  </div>
+                  <button
+                    appButton
+                    variant="secondary"
+                    size="sm"
+                    (click)="showDetailedRules.set(!showDetailedRules())"
                   >
-                    <ng-template appDataTableCell="scope" let-row>
-                      @if (row.isPersonal) {
-                        <app-badge severity="neutral">{{ 'aiRules.personalBadge' | transloco }}</app-badge>
-                      } @else if (row.isProjectAdminRule) {
-                        <app-badge severity="warning">{{ 'aiRules.projectBadge' | transloco }}</app-badge>
-                      } @else {
-                        <app-badge severity="primary">{{ 'aiRules.inheritedBadge' | transloco }}</app-badge>
-                      }
-                    </ng-template>
-                    <ng-template appDataTableCell="prompt" let-row>
-                      <span class="line-clamp-2 text-xs font-mono text-muted" [title]="row.prompt">{{ row.prompt }}</span>
-                    </ng-template>
-                    <ng-template appDataTableCell="status" let-row>
-                      <app-badge [severity]="row.isActive ? 'success' : 'danger'">
-                        {{ (row.isActive ? 'common.active' : 'common.disabled') | transloco }}
-                      </app-badge>
-                    </ng-template>
-                  </app-data-table>
+                    <app-icon
+                      [name]="showDetailedRules() ? 'chevron-up' : 'chevron-down'"
+                      [size]="16"
+                    ></app-icon>
+                    {{ (showDetailedRules() ? 'aiRules.hideDetails' : 'aiRules.inspectDetails') | transloco }}
+                  </button>
                 </div>
-              }
+
+                @if (showDetailedRules()) {
+                  <div class="overflow-x-auto">
+                    <app-data-table
+                      [rows]="detailedRulesRows()"
+                      [columns]="detailedRulesColumns()"
+                      [searchable]="true"
+                      [searchPlaceholder]="'common.search' | transloco"
+                      [emptyMessage]="'aiRules.emptyDetailedRules' | transloco"
+                    >
+                      <ng-template appDataTableCell="scope" let-row>
+                        @if (row.isPersonal) {
+                          <app-badge severity="neutral">{{ 'aiRules.personalBadge' | transloco }}</app-badge>
+                        } @else if (row.isProjectAdminRule) {
+                          <app-badge severity="warning">{{ 'aiRules.projectBadge' | transloco }}</app-badge>
+                        } @else {
+                          <app-badge severity="primary">{{ 'aiRules.inheritedBadge' | transloco }}</app-badge>
+                        }
+                      </ng-template>
+                      <ng-template appDataTableCell="prompt" let-row>
+                        <span class="line-clamp-2 text-xs font-mono text-muted-foreground" [title]="row.prompt">{{ row.prompt }}</span>
+                      </ng-template>
+                      <ng-template appDataTableCell="status" let-row>
+                        <app-badge [severity]="row.isActive ? 'success' : 'neutral'">
+                          {{ (row.isActive ? 'common.active' : 'common.disabled') | transloco }}
+                        </app-badge>
+                      </ng-template>
+                    </app-data-table>
+                  </div>
+                }
+              </div>
             }
-          </mat-card-content>
-        </mat-card>
+          </div>
+        }
+      } @else if (!loading()) {
+        <div class="p-12 text-center">
+          <p class="text-[14px] text-muted-foreground">{{ 'common.noData' | transloco }}</p>
+          <button appButton variant="secondary" (click)="reloadAll()" class="mt-4">
+            {{ 'common.refresh' | transloco }}
+          </button>
+        </div>
       }
-
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="m-0 text-[1.1rem] font-bold">{{ 'overview.breakdown' | transloco }}</h2>
-        <button mat-stroked-button (click)="reloadAll()" [disabled]="loading()">
-          <mat-icon>refresh</mat-icon> {{ 'common.refresh' | transloco }}
-        </button>
-      </div>
-
-      <div class="overflow-x-auto">
-        <app-data-table
-          [rows]="projectRows()"
-          [columns]="columns()"
-          [emptyIcon]="'folder_open'"
-          [emptyMessage]="'overview.emptyProjects' | transloco"
-          [emptyHint]="'overview.emptyProjectsHint' | transloco"
-        >
-          <ng-template appDataTableCell="key" let-row><code>{{ row.key }}</code></ng-template>
-          <ng-template appDataTableCell="privateComments" let-row>
-            @if (row.privateComments > 0) {
-              <span class="inline-flex items-center gap-[3px] rounded-[11px] bg-stat-slate-bg px-2 py-px text-[0.78rem] font-semibold text-stat-slate" [title]="'overview.privateHiddenTooltip' | transloco">
-                <mat-icon class="chip-icon !h-[14px] !w-[14px] !text-[14px] !leading-[14px]">lock</mat-icon>{{ row.privateComments }}
-              </span>
-            } @else {
-              <span class="text-muted">—</span>
-            }
-          </ng-template>
-          @for (st of statusCatalog.ordered(); track st.value) {
-            <ng-template [appDataTableCell]="'status_' + st.value" let-row>
-              <span [style.color]="st.color" class="font-medium">{{ statusCellValue(row, st.value) }}</span>
-            </ng-template>
-          }
-          <ng-template appDataTableCell="status" let-row>
-            <app-badge [severity]="row.isActive ? 'success' : 'danger'">
-              {{ (row.isActive ? 'common.active' : 'common.disabled') | transloco }}
-            </app-badge>
-          </ng-template>
-        </app-data-table>
-      </div>
-    } @else if (!loading()) {
-      <div class="p-12 text-center">
-        <p>No data available.</p>
-        <button mat-stroked-button (click)="reloadAll()">{{ 'common.refresh' | transloco }}</button>
-      </div>
-    }
+    </div>
   `,
 })
 export class OverviewComponent {
-  private usersService = inject(UsersService);
-  private snack = inject(MatSnackBar);
-  statusCatalog = inject(StatusCatalogService);
-  auth = inject(AuthService);
+  /** The diff hue for a status value as a text class — the vocabulary labels and counts share. */
+  toneTextClass(value: number | undefined): string {
+    switch (value) {
+      case 2: return 'text-state-ready';
+      case 3: return 'text-state-completed';
+      case 4: return 'text-state-archived';
+      default: return 'text-state-open';
+    }
+  }
 
-  statsResource = getApiAdminStatsResource();
-  pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
-  rolesResource = getApiAdminRolesResource();
-  aiInsightsParams = computed<GetApiAdminAiRulesInsightsParams>(() => ({
+  /** Built-in status values 1..4 mapped to the diff hue used by app-count-cell. */
+  stateFor(value: number | undefined): 'open' | 'ready' | 'completed' | 'archived' {
+    return value === 2 ? 'ready' : value === 3 ? 'completed' : value === 4 ? 'archived' : 'open';
+  }
+
+  private usersService = inject(UsersService);
+  private transloco = inject(TranslocoService);
+  private toast = inject(AppToastService);
+  readonly auth = inject(AuthService);
+  private installGuide = inject(InstallGuideService);
+  readonly statusCatalog = inject(StatusCatalogService);
+
+  readonly statsResource = getApiAdminStatsResource();
+  readonly pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
+  readonly rolesResource = getApiAdminRolesResource();
+  readonly aiInsightsParams = computed<GetApiAdminAiRulesInsightsParams>(() => ({
     includeDetails: this.auth.isSuperAdmin(),
   }));
-  aiInsightsResource = getApiAdminAiRulesInsightsResource(this.aiInsightsParams);
+  readonly aiInsightsResource = getApiAdminAiRulesInsightsResource(this.aiInsightsParams);
 
-  stats = computed(() => this.statsResource.value());
-  aiInsights = computed(() => this.aiInsightsResource.value() as unknown as AiInsightsResponse | undefined);
-  /** Rows behind the breakdown table — read as a signal so the empty state reacts. */
-  projectRows = computed<ProjectStats[]>(() => this.statsResource.value()?.projects ?? []);
-  pendingUsers = computed(() => this.pendingResource.value() ?? []);
-  pendingCount = computed(() => this.pendingResource.value()?.length ?? 0);
-  roles = computed(() => this.rolesResource.value() ?? []);
+  readonly stats = computed(() => this.statsResource.value());
+  readonly projectRows = computed<ProjectStats[]>(() => this.stats()?.projects ?? []);
 
-  showDetailedRules = signal(false);
-  detailedRulesRows = computed<AiRuleResponse[]>(() => this.aiInsights()?.detailedRules ?? []);
+  /** Overview totals as a diffstat line — same items, order and tones as React/Vue. */
+  totalsDiffstat(s: StatsResponse): DiffstatItem[] {
+    const t = s.totals;
+    const items: DiffstatItem[] = [
+      { label: this.transloco.translate('overview.comments'), count: t?.comments ?? 0, tone: 'open' },
+      { label: this.statusCatalog.displayLabelFor(1), count: t?.open ?? 0, tone: 'open' },
+      { label: this.statusCatalog.displayLabelFor(2), count: t?.pending ?? 0, tone: 'ready' },
+      { label: this.statusCatalog.displayLabelFor(3), count: t?.completed ?? 0, tone: 'completed' },
+      { label: this.statusCatalog.displayLabelFor(4), count: t?.archived ?? 0, tone: 'archived' },
+      { label: this.transloco.translate('overview.projects'), count: t?.projects ?? 0 },
+      { label: this.transloco.translate('overview.users'), count: t?.users ?? 0 },
+    ];
+    if ((t?.privateComments ?? 0) > 0) {
+      items.push({
+        label: this.transloco.translate('overview.private'),
+        count: t?.privateComments ?? 0,
+        icon: 'lock',
+        title: this.transloco.translate('overview.privateHiddenTooltip'),
+      });
+    }
+    return items;
+  }
 
-  busy = signal(false);
-  loading = computed(() => this.statsResource.isLoading() || this.busy());
+  /** Rules-insight counts as a diffstat line — same tones as React/Vue (workspace = open, developer = ready). */
+  rulesDiffstat(insights: AiInsightsResponse): DiffstatItem[] {
+    return [
+      { label: this.transloco.translate('aiRules.totalRules'), count: insights.totalRulesCount ?? 0 },
+      { label: this.transloco.translate('aiRules.tenantRules'), count: insights.tenantRulesCount ?? 0, tone: 'open' },
+      { label: this.transloco.translate('aiRules.projectRules'), count: insights.projectRulesCount ?? 0 },
+      { label: this.transloco.translate('aiRules.userRules'), count: insights.userPersonalRulesCount ?? 0, tone: 'ready' },
+    ];
+  }
 
-  approveSelection: Record<number, number> = {};
+  /** Overview table sorting — same three-step cycle as React/Vue (asc → desc → unsorted). */
+  readonly sortKey = signal<string | null>(null);
+  readonly sortDir = signal<'asc' | 'desc'>('asc');
+
+  readonly sortedProjectRows = computed<ProjectStats[]>(() => {
+    const rows = this.projectRows();
+    const key = this.sortKey();
+    if (!key) return rows;
+    const dir = this.sortDir() === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = this.sortValue(a, key);
+      const bv = this.sortValue(b, key);
+      if (typeof av === 'string' || typeof bv === 'string') {
+        return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' }) * dir;
+      }
+      return ((av as number) - (bv as number)) * dir;
+    });
+  });
+
+  private sortValue(row: ProjectStats, key: string): string | number {
+    if (key.startsWith('status_')) {
+      return this.getProjectStatusCount(row, Number(key.slice('status_'.length)));
+    }
+    switch (key) {
+      case 'name': return row.name ?? '';
+      case 'comments': return row.comments ?? 0;
+      case 'privateComments': return row.privateComments ?? 0;
+      case 'isActive': return row.isActive ? 1 : 0;
+      default: return '';
+    }
+  }
+
+  toggleSort(key: string): void {
+    if (this.sortKey() !== key) {
+      this.sortKey.set(key);
+      this.sortDir.set('asc');
+      return;
+    }
+    if (this.sortDir() === 'asc') {
+      this.sortDir.set('desc');
+      return;
+    }
+    this.sortKey.set(null);
+  }
+
+  /** Two-way arrow at 40% opacity until the column is sorted, then the direction arrow. */
+  sortGlyph(key: string): 'arrow-up' | 'arrow-down' | 'arrow-up-down' {
+    if (this.sortKey() !== key) return 'arrow-up-down';
+    return this.sortDir() === 'asc' ? 'arrow-up' : 'arrow-down';
+  }
+
+  ariaSort(key: string): 'ascending' | 'descending' | 'none' {
+    if (this.sortKey() !== key) return 'none';
+    return this.sortDir() === 'asc' ? 'ascending' : 'descending';
+  }
+  readonly pendingUsers = computed(() => this.pendingResource.value() ?? []);
+  readonly roles = computed(() => this.rolesResource.value() ?? []);
+  readonly aiInsights = computed(() => this.aiInsightsResource.value() as unknown as AiInsightsResponse | undefined);
+
+  readonly showDetailedRules = signal(false);
+  readonly detailedRulesRows = computed<AiRuleResponse[]>(() => this.aiInsights()?.detailedRules ?? []);
+
+  readonly busy = signal(false);
+  readonly loading = computed(() => this.statsResource.isLoading() || this.busy());
+
+  private approveSelection: Record<number, number> = {};
 
   reloadAll(): void {
     this.statsResource.reload();
     this.aiInsightsResource.reload();
   }
 
-  private transloco = inject(TranslocoService);
-
-  detailedRulesColumns(): DataTableColumn<AiRuleResponse>[] {
-    return [
-      { key: 'tenantName', header: this.transloco.translate('aiRules.workspace'), sortable: true },
-      { key: 'projectName', header: this.transloco.translate('overview.projects'), sortable: true },
-      { key: 'scope', header: this.transloco.translate('aiRules.ruleScope'), sortable: false },
-      { key: 'userName', header: this.transloco.translate('aiRules.author'), sortable: true },
-      { key: 'title', header: this.transloco.translate('aiRules.titleLabel'), sortable: true },
-      { key: 'prompt', header: this.transloco.translate('aiRules.instruction'), sortable: false },
-      { key: 'status', header: this.transloco.translate('overview.status'), sortable: true },
-    ];
+  navigateToProject(_: ProjectStats): void {
+    // Will be implemented when routing is set up
+    // For now, the row is clickable but does nothing
   }
 
-  /** Dynamic columns: key, name, comments, privateComments, status_1..N, status. A method (not a
-   *  stored field) so headers stay live if the app language changes. */
-  columns(): DataTableColumn<ProjectStats>[] {
-    const statusCols: DataTableColumn<ProjectStats>[] = this.statusCatalog.ordered().map((s) => ({
-      key: `status_${s.value}`,
-      header: this.statusCatalog.displayLabel(s),
-      sortable: true,
-      headerColor: s.color ?? undefined,
-    }));
-    return [
-      { key: 'key', header: this.transloco.translate('overview.key'), sortable: true },
-      { key: 'name', header: this.transloco.translate('overview.name'), sortable: true },
-      { key: 'comments', header: this.transloco.translate('overview.comments'), sortable: true },
-      { key: 'privateComments', header: this.transloco.translate('overview.private'), sortable: true },
-      ...statusCols,
-      { key: 'status', header: this.transloco.translate('overview.status'), sortable: true },
-    ];
+  openApproveDialog(user: UserResponse): void {
+    const activeRoles = this.roles().filter((r) => r.isActive);
+    this.approveSelection[user.id!] = user.roleId ?? activeRoles[0]?.id ?? 0;
+    // Will open the approve dialog when it's built
+    // For now, just approve with the current role
+    this.approve(user, this.approveSelection[user.id!]);
   }
 
-  /** Map status value → count field on ProjectStats. */
-  statusCellValue(row: ProjectStats, statusValue: number | undefined): number {
+  openRejectConfirm(user: UserResponse): void {
+    // Will open the reject confirmation dialog when it's built
+    // For now, just reject directly
+    this.reject(user);
+  }
+
+  approve(user: UserResponse, roleId: number): void {
+    this.busy.set(true);
+    this.usersService.postApiAdminUsersIdApprove(user.id!, { roleId }).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.pendingResource.reload();
+        this.statsResource.reload();
+      },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
+    });
+  }
+
+  reject(user: UserResponse): void {
+    this.busy.set(true);
+    this.usersService.postApiAdminUsersIdReject(user.id!).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.pendingResource.reload();
+        this.statsResource.reload();
+      },
+      error: (e: unknown) => {
+        this.busy.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
+    });
+  }
+
+  getProjectStatusCount(row: ProjectStats, statusValue: number | undefined): number {
     switch (statusValue) {
       case 1: return row.open ?? 0;
       case 2: return row.pending ?? 0;
@@ -421,41 +651,20 @@ export class OverviewComponent {
     }
   }
 
-  /** Map status value → total from StatsResponse totals. */
-  statusTotal(stats: NonNullable<ReturnType<typeof this.stats>>, statusValue: number | undefined): number {
-    switch (statusValue) {
-      case 1: return stats.totals?.open ?? 0;
-      case 2: return stats.totals?.pending ?? 0;
-      case 3: return stats.totals?.completed ?? 0;
-      case 4: return stats.totals?.archived ?? 0;
-      default: return 0;
-    }
+
+  detailedRulesColumns(): DataTableColumn<AiRuleResponse>[] {
+    return [
+      { key: 'tenantName', header: 'aiRules.workspace', sortable: true },
+      { key: 'projectName', header: 'overview.projects', sortable: true },
+      { key: 'scope', header: 'aiRules.ruleScope', sortable: false },
+      { key: 'userName', header: 'aiRules.author', sortable: true },
+      { key: 'title', header: 'aiRules.titleLabel', sortable: true },
+      { key: 'prompt', header: 'aiRules.instruction', sortable: false },
+      { key: 'status', header: 'overview.status', sortable: true },
+    ];
   }
 
-  activeRoles(): RoleResponse[] { return this.roles().filter(r => r.isActive); }
-
-  approve(user: UserResponse) {
-    const roleId = this.approveSelection[user.id!] ?? user.roleId;
-    this.busy.set(true);
-    this.usersService.postApiAdminUsersIdApprove(user.id!, { roleId }).subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.pendingResource.reload();
-        this.statsResource.reload();
-      },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
-    });
-  }
-
-  reject(user: UserResponse) {
-    this.busy.set(true);
-    this.usersService.postApiAdminUsersIdReject(user.id!).subscribe({
-      next: () => {
-        this.busy.set(false);
-        this.pendingResource.reload();
-        this.statsResource.reload();
-      },
-      error: (e: unknown) => { this.busy.set(false); this.snack.open(extractMessage(e), 'OK', { duration: 4000 }); },
-    });
+  openInstallGuide(): void {
+    this.installGuide.open();
   }
 }

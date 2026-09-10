@@ -1,290 +1,273 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@jsverse/transloco';
+import { BidiModule } from '@angular/cdk/bidi';
 import {
   getApiMeProfileResource,
   getApiAdminUsersIdProfileResource,
-  getApiMeApiKeyResource,
-  MeService,
 } from '@moamen-ui/pointer-angular';
-import { HttpResourceRef } from '@angular/common/http';
-import { AuthService } from '../../core/auth/auth.service';
+import type { ProfileProject, ProfileEnvironment } from '@moamen-ui/pointer-angular';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
-import type { ProfileProject, ProfileEnvironment, UserProfileResponse } from '@moamen-ui/pointer-angular';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
+import { AuthService } from '../../core/auth/auth.service';
 
-const ENV_LABELS: Record<number, string> = { 1: 'Local', 2: 'Staging', 3: 'Production' };
+const ENV_LABEL: Record<number, string> = {
+  1: 'Local',
+  2: 'Staging',
+  3: 'Production',
+};
+
+function envLabel(env: number | undefined): string {
+  if (env == null) return '—';
+  return ENV_LABEL[env] ?? String(env);
+}
 
 @Component({
   selector: 'app-profile',
   standalone: true,
   imports: [
-    MatCardModule,
-    MatProgressBarModule,
-    MatIconModule,
-    MatButtonModule,
-    MatTooltipModule,
+    BidiModule,
     TranslocoModule,
+    AppButtonDirective,
+    AppIconComponent,
   ],
   template: `
-    @if (loading()) {
-      <mat-progress-bar mode="indeterminate" class="fixed inset-x-0 top-0 z-[1000]"></mat-progress-bar>
-    }
-
-    @if (profile(); as p) {
-      <!-- Header -->
-      <div class="mb-6">
-        <h1 class="m-0 text-[1.6rem] font-bold">
-          @if (p.user?.displayName) { {{ p.user!.displayName }} } @else { {{ 'profile.title' | transloco }} }
-        </h1>
-        @if (p.user?.email) {
-          <p class="mt-1 text-[0.9rem] text-muted">{{ p.user!.email }} · {{ p.user!.roleName }}</p>
-        }
-      </div>
-
-      <!-- API key (own profile only — never shown when an admin views someone else's) -->
-      @if (isOwnProfile && apiKey(); as key) {
-        <mat-card class="mb-6 rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="p-4">
-            <div class="mb-2 text-[0.72rem] uppercase tracking-[0.04em] text-muted">
-              {{ 'profile.apiKey' | transloco }}
-            </div>
-            <p class="mb-3 text-[0.85rem] text-muted">{{ 'profile.apiKeyHint' | transloco }}</p>
-            <div class="flex flex-wrap items-center gap-2">
-              <code class="rounded bg-slate-100 px-2.5 py-1.5 text-[0.85rem] dark:bg-slate-800">{{ key.apiKey }}</code>
-              <button mat-icon-button [matTooltip]="'profile.copyApiKey' | transloco" (click)="copyApiKey(key.apiKey!)">
-                <mat-icon>content_copy</mat-icon>
-              </button>
-              <button mat-stroked-button (click)="regenerateApiKey()" [disabled]="regenerating()">
-                {{ 'profile.regenerateApiKey' | transloco }}
-              </button>
-            </div>
-            @if (copied()) {
-              <p class="mt-2 text-[0.8rem] text-brand">{{ 'profile.copied' | transloco }}</p>
-            }
-          </mat-card-content>
-        </mat-card>
-      }
-
-      <!-- Headline stats -->
-      <div class="mb-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3 p-4">
-            <mat-icon class="text-brand">folder</mat-icon>
-            <div>
-              <div class="text-[1.5rem] font-bold leading-[1.1]">{{ p.totals?.projectsInvolved ?? 0 }}</div>
-              <div class="text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'profile.projects' | transloco }}</div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3 p-4">
-            <mat-icon class="text-muted">chat_bubble_outline</mat-icon>
-            <div>
-              <div class="text-[1.5rem] font-bold leading-[1.1]">{{ p.totals?.comments ?? 0 }}</div>
-              <div class="text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'profile.comments' | transloco }}</div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-        <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-          <mat-card-content class="flex items-center gap-3 p-4">
-            <mat-icon class="text-muted">reply</mat-icon>
-            <div>
-              <div class="text-[1.5rem] font-bold leading-[1.1]">{{ p.totals?.replies ?? 0 }}</div>
-              <div class="text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ 'profile.replies' | transloco }}</div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-        <!-- Overall status split from catalog -->
-        @for (st of statusCatalog.ordered(); track st.value) {
-          <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-            <mat-card-content class="flex items-center gap-3 p-4">
-              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" [style.background-color]="st.color + '22'" [style.color]="st.color">
-                <mat-icon>radio_button_unchecked</mat-icon>
-              </div>
-              <div>
-                <div class="text-[1.5rem] font-bold leading-[1.1]" [style.color]="st.color">{{ totalForStatus(p, st.value) }}</div>
-                <div class="text-[0.72rem] uppercase tracking-[0.04em] text-muted">{{ statusCatalog.displayLabel(st) }}</div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        }
-      </div>
-
-      <!-- Projects breakdown -->
-      @if ((p.projects ?? []).length === 0) {
-        <p class="py-6 text-muted">{{ 'profile.noProjects' | transloco }}</p>
-      } @else {
-        <div class="flex flex-col gap-3">
-          @for (proj of p.projects ?? []; track proj.projectId) {
-            <mat-card class="rounded-[14px] bg-panel text-ink" appearance="outlined">
-              <mat-card-content class="p-4">
-                <!-- Project row header -->
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <span class="font-semibold">{{ proj.name ?? proj.key }}</span>
-                    @if (proj.key) { <code class="ms-2 rounded bg-slate-100 px-1.5 py-0.5 text-[0.78rem] text-muted dark:bg-slate-800">{{ proj.key }}</code> }
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2.5">
-                    <!-- Status badges -->
-                    @for (st of statusCatalog.ordered(); track st.value) {
-                      <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[0.78rem] font-semibold"
-                        [style.background-color]="st.color + '22'" [style.color]="st.color">
-                        {{ statusCatalog.displayLabel(st) }}: {{ projStatusValue(proj, st.value) }}
-                      </span>
-                    }
-                    <!-- Replies always separate -->
-                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[0.78rem] font-semibold text-muted dark:bg-slate-800">
-                      <mat-icon class="!h-[14px] !w-[14px] !text-[14px] !leading-[14px]">reply</mat-icon>
-                      {{ proj.replies ?? 0 }} {{ 'profile.replies' | transloco }}
-                    </span>
-                    <span class="text-[0.85rem] font-medium text-muted">
-                      {{ 'profile.total' | transloco }}: {{ proj.comments ?? 0 }}
-                    </span>
-                    <!-- Expand/collapse -->
-                    <button mat-icon-button (click)="toggleProject(proj.projectId!)"
-                      [attr.aria-label]="expandedProjects().has(proj.projectId!) ? 'Collapse' : 'Expand'">
-                      <mat-icon>{{ expandedProjects().has(proj.projectId!) ? 'expand_less' : 'expand_more' }}</mat-icon>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Expanded environment breakdown -->
-                @if (expandedProjects().has(proj.projectId!)) {
-                  <div class="mt-3 border-t border-app-border pt-3">
-                    <div class="mb-1.5 text-[0.78rem] uppercase tracking-[0.04em] text-muted">{{ 'profile.environment' | transloco }}</div>
-                    @if ((proj.environments ?? []).length === 0) {
-                      <p class="text-[0.85rem] text-muted">—</p>
-                    } @else {
-                      <div class="flex flex-col gap-2">
-                        @for (env of proj.environments ?? []; track env.environment) {
-                          <div class="flex flex-wrap items-center gap-2.5 rounded-lg bg-app px-3 py-2">
-                            <span class="w-24 shrink-0 text-[0.85rem] font-medium">{{ envLabel(env.environment) }}</span>
-                            @for (st of statusCatalog.ordered(); track st.value) {
-                              <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold"
-                                [style.background-color]="st.color + '22'" [style.color]="st.color">
-                                {{ statusCatalog.displayLabel(st) }}: {{ envStatusValue(env, st.value) }}
-                              </span>
-                            }
-                            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[0.75rem] font-semibold text-muted dark:bg-slate-800">
-                              <mat-icon class="!h-[12px] !w-[12px] !text-[12px] !leading-[12px]">reply</mat-icon>
-                              {{ env.replies ?? 0 }}
-                            </span>
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
+    <div class="flex flex-col gap-8">
+      <!-- Header with title and refresh -->
+      @if (profileData(); as profile) {
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">
+              {{ profile.user?.displayName ?? ('profile.title' | transloco) }}
+            </h1>
+            @if (profile.user?.email) {
+              <p class="mt-0.5 text-[14px] text-muted-foreground">
+                {{ profile.user?.email }}
+                @if (profile.user?.roleName) {
+                  <span> · {{ profile.user?.roleName }}</span>
                 }
-              </mat-card-content>
-            </mat-card>
-          }
+              </p>
+            }
+          </div>
+          <button
+            appButton
+            variant="secondary"
+            size="sm"
+            (click)="reload()"
+            [disabled]="loading()"
+            [attr.aria-label]="'common.refresh' | transloco"
+          >
+            @if (loading()) {
+              <app-icon name="loader-2" [size]="16" class="animate-spin"></app-icon>
+            } @else {
+              <app-icon name="refresh-cw" [size]="16"></app-icon>
+            }
+            {{ 'common.refresh' | transloco }}
+          </button>
+        </div>
+
+        <!-- Diffstat line: projects · comments · replies · open · ready · completed · archived -->
+        @if (profile.totals) {
+          <div class="text-[14px] flex flex-wrap items-center gap-2">
+            <span class="text-foreground font-mono tabular-nums">{{ profile.totals.projectsInvolved ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ 'profile.projects' | transloco }}</span>
+            <span class="text-faint-foreground">·</span>
+            <span class="text-foreground font-mono tabular-nums">{{ profile.totals.comments ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ 'profile.comments' | transloco }}</span>
+            <span class="text-faint-foreground">·</span>
+            <span class="text-foreground font-mono tabular-nums">{{ profile.totals.replies ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ 'profile.replies' | transloco }}</span>
+            <span class="text-faint-foreground">·</span>
+            <span class="text-state-open font-mono tabular-nums">{{ profile.totals.open ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ statusCatalog.displayLabelFor(1) }}</span>
+            <span class="text-faint-foreground">·</span>
+            <span class="text-state-ready font-mono tabular-nums">{{ profile.totals.readyToApply ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ statusCatalog.displayLabelFor(2) }}</span>
+            <span class="text-faint-foreground">·</span>
+            <span class="text-state-completed font-mono tabular-nums">{{ profile.totals.applied ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ statusCatalog.displayLabelFor(3) }}</span>
+            <span class="text-faint-foreground">·</span>
+            <span class="text-state-archived font-mono tabular-nums">{{ profile.totals.archived ?? 0 }}</span>
+            <span class="text-muted-foreground">{{ statusCatalog.displayLabelFor(4) }}</span>
+          </div>
+        }
+
+        <!-- Projects table section -->
+        <div class="space-y-3">
+          <h2 class="text-[16px] font-semibold leading-6">{{ 'overview.projects' | transloco }}</h2>
+          <div class="rounded-md border border-border overflow-x-auto">
+            @if ((profile.projects?.length ?? 0) > 0) {
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="h-10 bg-gutter text-[13px] font-medium text-muted-foreground border-b border-border">
+                    <th class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3"></th>
+                    <th class="px-3 text-start">{{ 'overview.name' | transloco }}</th>
+                    <th class="px-3 text-start">{{ 'overview.comments' | transloco }}</th>
+                    <th class="px-3 text-start">{{ 'profile.replies' | transloco }}</th>
+                    @for (st of statusCatalog.ordered(); track st.value) {
+                      <th class="px-3 text-start" [class]="toneTextClass(st.value)">
+                        {{ statusCatalog.displayLabel(st) }}
+                      </th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (project of profile.projects; track project.projectId; let idx = $index) {
+                    <ng-container>
+                      <tr class="h-11 border-t border-border-muted hover:bg-gutter/60 transition-colors cursor-pointer">
+                        <td class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3">{{ idx + 1 }}</td>
+                        <td class="px-3">
+                          <div class="flex items-center gap-2">
+                            <button
+                              type="button"
+                              class="text-muted-foreground hover:text-foreground p-0"
+                              (click)="toggleExpand(project.projectId!)"
+                              [attr.aria-label]="isExpanded(project.projectId!) ? 'Collapse environments' : 'Expand environments'"
+                            >
+                              @if ((project.environments?.length ?? 0) > 0) {
+                                <app-icon
+                                  [name]="isExpanded(project.projectId!) ? 'chevron-down' : 'chevron-right'"
+                                  [size]="16"
+                                ></app-icon>
+                              } @else {
+                                <span class="w-4"></span>
+                              }
+                            </button>
+                            <span class="text-[14px] font-medium">{{ project.name ?? project.key }}</span>
+                            @if (project.key && project.name) {
+                              <code class="rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">
+                                {{ project.key }}
+                              </code>
+                            }
+                          </div>
+                        </td>
+                        <td class="px-3 font-mono text-[14px]">{{ project.comments ?? 0 }}</td>
+                        <td class="px-3 font-mono text-[14px]">{{ project.replies ?? 0 }}</td>
+                        @for (st of statusCatalog.ordered(); track st.value) {
+                          <td class="px-3 font-mono text-[14px]" [class]="getProjectStatusCount(project, st.value) > 0 ? toneTextClass(st.value) : 'text-faint-foreground'">
+                            {{ getProjectStatusCount(project, st.value) }}
+                          </td>
+                        }
+                      </tr>
+                      <!-- Expandable environment rows -->
+                      @if (isExpanded(project.projectId!) && (project.environments?.length ?? 0) > 0) {
+                        @for (env of project.environments; track env.environment) {
+                          <tr class="h-11 border-t border-border-muted bg-gutter/30">
+                            <td class="w-10 px-3"></td>
+                            <td class="ps-12 text-[14px] text-muted-foreground italic">
+                              {{ envLabel(env.environment) }}
+                            </td>
+                            <td class="px-3 font-mono text-[14px]">{{ env.comments ?? 0 }}</td>
+                            <td class="px-3 font-mono text-[14px]">{{ env.replies ?? 0 }}</td>
+                            @for (st of statusCatalog.ordered(); track st.value) {
+                              <td
+                                class="px-3 font-mono text-[14px]"
+                                [class]="getEnvStatusCount(env, st.value) > 0 ? toneTextClass(st.value) : 'text-faint-foreground'"
+                                [style.opacity]="getEnvStatusCount(env, st.value) === 0 ? '0.6' : '1'"
+                              >
+                                {{ getEnvStatusCount(env, st.value) }}
+                              </td>
+                            }
+                          </tr>
+                        }
+                      }
+                    </ng-container>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <div class="px-3 py-12 text-center">
+                <p class="text-[14px] text-muted-foreground">{{ 'profile.noProjects' | transloco }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      } @else if (!loading()) {
+        <div class="p-12 text-center">
+          <p class="text-[14px] text-muted-foreground">{{ 'common.noData' | transloco }}</p>
         </div>
       }
-    } @else if (hasError()) {
-      <div class="p-12 text-center">
-        <p class="text-muted">{{ 'profile.error' | transloco }}</p>
-      </div>
-    }
+    </div>
   `,
 })
 export class ProfileComponent {
+  /** The diff hue for a status value as a text class — the vocabulary labels and counts share. */
+  toneTextClass(value: number | undefined): string {
+    switch (value) {
+      case 2: return 'text-state-ready';
+      case 3: return 'text-state-completed';
+      case 4: return 'text-state-archived';
+      default: return 'text-state-open';
+    }
+  }
+
   private route = inject(ActivatedRoute);
+  readonly statusCatalog = inject(StatusCatalogService);
   private auth = inject(AuthService);
-  private meService = inject(MeService);
-  statusCatalog = inject(StatusCatalogService);
 
-  /** The active resource — either the admin endpoint or the /me endpoint, never both. */
-  private readonly activeResource: HttpResourceRef<UserProfileResponse | undefined>;
+  readonly meResource = getApiMeProfileResource();
+  readonly adminResource = computed(() => {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id && this.auth.isAdmin()) {
+      return getApiAdminUsersIdProfileResource(signal(Number(id)));
+    }
+    return null;
+  });
 
-  /** Whether this is the caller's own profile — gates the API key section, which is always
-   * about the current caller (/api/me/api-key), never the viewed user when an admin looks at
-   * someone else's profile. */
-  readonly isOwnProfile: boolean;
+  readonly profileData = computed(() => {
+    const adminRes = this.adminResource();
+    if (adminRes) {
+      return adminRes.value();
+    }
+    return this.meResource.value();
+  });
 
-  private readonly apiKeyResource = getApiMeApiKeyResource();
-  apiKey = () => this.apiKeyResource.value();
-  regenerating = signal(false);
-  copied = signal(false);
+  readonly loading = computed(() => {
+    const adminRes = this.adminResource();
+    if (adminRes) {
+      return adminRes.isLoading();
+    }
+    return this.meResource.isLoading();
+  });
 
-  /** Set of expanded project ids — signal so OnPush/zoneless change detection picks up mutations. */
-  expandedProjects = signal(new Set<number>());
+  readonly expanded = signal<Set<number>>(new Set());
 
-  profile: () => UserProfileResponse | undefined;
-  loading: () => boolean;
-  hasError: () => boolean;
-
-  constructor() {
-    const rawId = this.route.snapshot.paramMap.get('id');
-    const numericId = rawId !== null ? parseInt(rawId, 10) : NaN;
-
-    if (!isNaN(numericId) && this.auth.isAdmin()) {
-      // Admin viewing another user's profile — use admin endpoint only.
-      this.activeResource = getApiAdminUsersIdProfileResource(signal(numericId));
-      this.isOwnProfile = false;
+  reload(): void {
+    const adminRes = this.adminResource();
+    if (adminRes) {
+      adminRes.reload();
     } else {
-      // Own profile (or non-admin) — use /me endpoint only.
-      this.activeResource = getApiMeProfileResource();
-      this.isOwnProfile = true;
+      this.meResource.reload();
     }
-
-    this.profile = () => this.activeResource.value();
-    this.loading = () => this.activeResource.isLoading();
-    this.hasError = computed(() => this.activeResource.error() != null);
   }
 
-  copyApiKey(key: string): void {
-    navigator.clipboard.writeText(key).then(() => {
-      this.copied.set(true);
-      setTimeout(() => this.copied.set(false), 2000);
-    });
+  isExpanded(projectId: number): boolean {
+    return this.expanded().has(projectId);
   }
 
-  regenerateApiKey(): void {
-    this.regenerating.set(true);
-    this.meService.postApiMeApiKeyRegenerate().subscribe({
-      next: () => {
-        this.regenerating.set(false);
-        this.apiKeyResource.reload();
-      },
-      error: () => this.regenerating.set(false),
-    });
+  toggleExpand(projectId: number): void {
+    const newSet = new Set(this.expanded());
+    if (newSet.has(projectId)) {
+      newSet.delete(projectId);
+    } else {
+      newSet.add(projectId);
+    }
+    this.expanded.set(newSet);
   }
 
-  toggleProject(projectId: number): void {
-    this.expandedProjects.update(s => {
-      const n = new Set(s);
-      n.has(projectId) ? n.delete(projectId) : n.add(projectId);
-      return n;
-    });
-  }
-
-  /** Map status value → count on a ProfileTotals-shaped object. */
-  totalForStatus(p: UserProfileResponse, statusValue: number | undefined): number {
+  getProjectStatusCount(project: ProfileProject, statusValue: number | undefined): number {
     switch (statusValue) {
-      case 1: return p.totals?.open ?? 0;
-      case 2: return p.totals?.readyToApply ?? 0;
-      case 3: return p.totals?.applied ?? 0;
-      case 4: return p.totals?.archived ?? 0;
+      case 1: return project.open ?? 0;
+      case 2: return project.readyToApply ?? 0;
+      case 3: return project.applied ?? 0;
+      case 4: return project.archived ?? 0;
       default: return 0;
     }
   }
 
-  projStatusValue(proj: ProfileProject, statusValue: number | undefined): number {
-    switch (statusValue) {
-      case 1: return proj.open ?? 0;
-      case 2: return proj.readyToApply ?? 0;
-      case 3: return proj.applied ?? 0;
-      case 4: return proj.archived ?? 0;
-      default: return 0;
-    }
-  }
 
-  envStatusValue(env: ProfileEnvironment, statusValue: number | undefined): number {
+  getEnvStatusCount(env: ProfileEnvironment, statusValue: number | undefined): number {
     switch (statusValue) {
       case 1: return env.open ?? 0;
       case 2: return env.readyToApply ?? 0;
@@ -294,8 +277,5 @@ export class ProfileComponent {
     }
   }
 
-  envLabel(env: number | undefined): string {
-    if (env == null) return '—';
-    return ENV_LABELS[env] ?? String(env);
-  }
+  protected readonly envLabel = envLabel;
 }

@@ -1,15 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatBadgeModule } from '@angular/material/badge';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   SettingsService,
@@ -25,6 +15,13 @@ import {
 import type { SettingsResponse, PredefinedActionResponse, SuggestionResponse, AiRuleResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { AuthService } from '../../core/auth/auth.service';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppSwitchComponent } from '../../shared/ui/app-switch.component';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { AppAccordionSectionComponent } from '../../shared/ui/app-accordion-section.component';
+import { AppToastService } from '../../shared/ui/app-toast.service';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
 
 type EditableAction = {
   id?: number;
@@ -52,402 +49,414 @@ type EditableRule = {
   imports: [
     FormsModule,
     ReactiveFormsModule,
-    MatExpansionModule,
-    MatButtonModule,
-    MatSelectModule,
-    MatSlideToggleModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
-    MatProgressBarModule,
-    MatBadgeModule,
     TranslocoModule,
+    AppButtonDirective,
+    AppInputDirective,
+    AppSwitchComponent,
+    AppFormFieldComponent,
+    AppAccordionSectionComponent,
+    AppIconComponent,
   ],
   template: `
-    <div class="p-6">
-      <h2 class="m-0 mb-4 text-[1.5em] font-bold">{{ 'settings.title' | transloco }}</h2>
-
-      <!-- Instance-wide settings (Access/Email/Demo) are super-admin only on the backend
-           (SettingsController is Policies.SuperAdmin) — hidden for a tenant admin, who only
-           reaches this page for the tenant-scoped sections below. -->
-      @if (auth.isSuperAdmin()) {
-      @if (settingsResource?.error()) {
-        <p class="text-red-500">{{ 'settings.loadError' | transloco }}</p>
-      } @else if (settingsResource?.isLoading()) {
-        <p class="text-muted">{{ 'settings.loading' | transloco }}</p>
-      } @else {
-        <div class="flex max-w-2xl flex-col gap-6">
-
-          <!-- Access section -->
-          <mat-expansion-panel [expanded]="true">
-            <mat-expansion-panel-header>
-              <mat-panel-title class="text-base font-semibold">
-                {{ 'settings.accessSection' | transloco }}
-              </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <div class="font-medium">{{ 'settings.signupEnabled' | transloco }}</div>
-                <div class="text-xs text-muted-foreground">{{ 'settings.signupEnabledHint' | transloco }}</div>
-              </div>
-              <mat-slide-toggle
-                [checked]="form().scopedAdminSignupEnabled"
-                (change)="setField('scopedAdminSignupEnabled', $event.checked)"
-              />
-            </div>
-          </mat-expansion-panel>
-
-          <!-- Email section -->
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title class="text-base font-semibold">
-                {{ 'settings.emailSection' | transloco }}
-              </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div class="flex flex-col gap-4">
-
-              <!-- emailEnabled -->
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <div class="font-medium">{{ 'settings.emailEnabled' | transloco }}</div>
-                  <div class="text-xs text-muted-foreground">{{ 'settings.emailEnabledHint' | transloco }}</div>
-                </div>
-                <mat-slide-toggle
-                  [checked]="form().emailEnabled"
-                  (change)="setField('emailEnabled', $event.checked)"
-                />
-              </div>
-
-              <!-- emailFromEmail -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.emailFrom' | transloco }}</mat-label>
-                  <input matInput type="email"
-                    [ngModel]="form().emailFromEmail"
-                    (ngModelChange)="setField('emailFromEmail', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.emailFromHint' | transloco }}</div>
-              </div>
-
-              <!-- emailFromName -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.emailFromName' | transloco }}</mat-label>
-                  <input matInput
-                    [ngModel]="form().emailFromName"
-                    (ngModelChange)="setField('emailFromName', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.emailFromNameHint' | transloco }}</div>
-              </div>
-
-              <!-- emailDailyCap -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.emailDailyCap' | transloco }}</mat-label>
-                  <input matInput type="number" min="1"
-                    [ngModel]="form().emailDailyCap"
-                    (ngModelChange)="setField('emailDailyCap', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.emailDailyCapHint' | transloco }}</div>
-              </div>
-
-              <!-- API key status (read-only) -->
-              <div>
-                <div class="font-medium">{{ 'settings.emailApiKey' | transloco }}</div>
-                <div class="text-xs text-muted-foreground">{{ 'settings.emailApiKeyHint' | transloco }}</div>
-                @if (settingsValue()?.emailApiKeyConfigured) {
-                  <div class="mt-1 text-sm font-medium text-green-600">
-                    ✓ {{ 'settings.emailApiKeyConfigured' | transloco }}
-                  </div>
-                } @else {
-                  <div class="mt-1 text-sm font-medium text-red-600">
-                    ✗ {{ 'settings.emailApiKeyMissing' | transloco }}
-                  </div>
-                }
-              </div>
-
-            </div>
-          </mat-expansion-panel>
-
-          <!-- Demo section -->
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title class="text-base font-semibold">
-                {{ 'settings.demoSection' | transloco }}
-              </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div class="flex flex-col gap-4">
-
-              <!-- demoMaxActive -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.demoMaxActive' | transloco }}</mat-label>
-                  <input matInput type="number" min="1"
-                    [ngModel]="form().demoMaxActive"
-                    (ngModelChange)="setField('demoMaxActive', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.demoMaxActiveHint' | transloco }}</div>
-              </div>
-
-              <!-- demoTtlHours -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.demoTtlHours' | transloco }}</mat-label>
-                  <input matInput type="number" min="1"
-                    [ngModel]="form().demoTtlHours"
-                    (ngModelChange)="setField('demoTtlHours', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.demoTtlHoursHint' | transloco }}</div>
-              </div>
-
-              <!-- demoPerEmailPerDay -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.demoPerEmailPerDay' | transloco }}</mat-label>
-                  <input matInput type="number" min="1"
-                    [ngModel]="form().demoPerEmailPerDay"
-                    (ngModelChange)="setField('demoPerEmailPerDay', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.demoPerEmailPerDayHint' | transloco }}</div>
-              </div>
-
-              <!-- demoCommentCap -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.demoCommentCap' | transloco }}</mat-label>
-                  <input matInput type="number" min="1"
-                    [ngModel]="form().demoCommentCap"
-                    (ngModelChange)="setField('demoCommentCap', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.demoCommentCapHint' | transloco }}</div>
-              </div>
-
-            </div>
-          </mat-expansion-panel>
-
-          <!-- Extension section -->
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title class="text-base font-semibold">
-                {{ 'settings.extensionSection' | transloco }}
-              </mat-panel-title>
-            </mat-expansion-panel-header>
-            <div class="flex flex-col gap-4">
-
-              <!-- extensionStoreUrl -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.extensionStoreUrl' | transloco }}</mat-label>
-                  <input matInput
-                    [ngModel]="form().extensionStoreUrl ?? ''"
-                    (ngModelChange)="setField('extensionStoreUrl', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.extensionStoreUrlHint' | transloco }}</div>
-              </div>
-
-              <!-- extensionZipUrl -->
-              <div>
-                <mat-form-field appearance="outline" class="w-full">
-                  <mat-label>{{ 'settings.extensionZipUrl' | transloco }}</mat-label>
-                  <input matInput
-                    [ngModel]="form().extensionZipUrl ?? ''"
-                    (ngModelChange)="setField('extensionZipUrl', $event)" />
-                </mat-form-field>
-                <div class="text-xs text-muted-foreground">{{ 'settings.extensionZipUrlHint' | transloco }}</div>
-              </div>
-
-            </div>
-          </mat-expansion-panel>
-
-          <!-- Save button -->
-          <div>
-            <button mat-flat-button color="primary" (click)="save()">
-              {{ 'settings.save' | transloco }}
-            </button>
-          </div>
-
+    <div class="flex-1 min-w-0 overflow-auto bg-background">
+      <div class="mx-auto w-full max-w-[1120px]">
+        <div class="flex items-center justify-between gap-4 mb-6">
+          <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ 'settings.title' | transloco }}</h1>
         </div>
-      }
-      }
 
-      <!-- Predefined actions section (tenant-wide) -->
-      <div class="mt-8 max-w-2xl">
-        <mat-expansion-panel>
-          <mat-expansion-panel-header>
-            <mat-panel-title class="text-base font-semibold">
-              {{ 'predefined.section' | transloco }}
-            </mat-panel-title>
-          </mat-expansion-panel-header>
-          <p class="mb-4 text-[0.85rem] text-muted">{{ 'predefined.tenantHelp' | transloco }}</p>
-
-          @if (actionsResource.isLoading()) {
-            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-          }
-
-          <div class="flex flex-col gap-4">
-            @for (action of tenantActions(); track action.id ?? $index) {
-              <div class="flex flex-col gap-2 rounded border border-app-border p-3">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
-                  <input matInput [ngModel]="action.text" (ngModelChange)="markDirty(action, 'text', $event)" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
-                  <textarea matInput rows="2" [ngModel]="action.prompt" (ngModelChange)="markDirty(action, 'prompt', $event)"></textarea>
-                </mat-form-field>
-                <div class="flex items-center gap-2">
-                  <button mat-flat-button color="primary" [disabled]="!action.dirty || action.saving" (click)="saveAction(action)">
-                    {{ 'common.save' | transloco }}
-                  </button>
-                  <button mat-stroked-button color="warn" [disabled]="action.saving" (click)="deleteAction(action)">
-                    <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
+        <!-- Instance-wide settings (super-admin only) -->
+        @if (auth.isSuperAdmin()) {
+          @if (settingsResource?.error()) {
+            <p class="text-[14px] text-state-danger mb-4">{{ 'settings.loadError' | transloco }}</p>
+          } @else if (settingsResource?.isLoading()) {
+            <p class="text-[14px] text-muted-foreground mb-4">{{ 'settings.loading' | transloco }}</p>
+          } @else {
+            <div class="flex flex-col gap-4">
+              <!-- Access section -->
+              <app-accordion-section [defaultOpen]="true" title="{{ 'settings.accessSection' | transloco }}">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <div class="text-[14px] font-medium text-foreground">{{ 'settings.signupEnabled' | transloco }}</div>
+                    <div class="text-[13px] text-muted-foreground mt-1.5">{{ 'settings.signupEnabledHint' | transloco }}</div>
+                  </div>
+                  <app-switch
+                    [checked]="form().scopedAdminSignupEnabled ?? false"
+                    (checkedChange)="setField('scopedAdminSignupEnabled', $event)"
+                  />
+                </div>
+                <div class="flex justify-end pt-4 border-t border-border-muted">
+                  <button appButton variant="primary" (click)="save()">
+                    {{ 'settings.save' | transloco }}
                   </button>
                 </div>
-              </div>
-            }
+              </app-accordion-section>
 
-            @if (tenantActions().length === 0 && !actionsResource.isLoading()) {
-              <p class="text-[0.85rem] text-muted">{{ 'predefined.empty' | transloco }}</p>
-            }
-          </div>
-
-          <!-- Add new action inline form -->
-          <div class="mt-4 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>{{ 'predefined.text' | transloco }}</mat-label>
-              <input matInput [formControl]="newActionText" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>{{ 'predefined.prompt' | transloco }}</mat-label>
-              <textarea matInput rows="2" [formControl]="newActionPrompt"></textarea>
-            </mat-form-field>
-            <div>
-              <button mat-flat-button color="primary" [disabled]="newActionBusy() || !newActionText.value.trim() || !newActionPrompt.value.trim()" (click)="createAction()">
-                <mat-icon>add</mat-icon> {{ 'predefined.add' | transloco }}
-              </button>
-            </div>
-          </div>
-        </mat-expansion-panel>
-      </div>
-
-      <!-- Prompt suggestions review (admins only) -->
-      @if (auth.isAdmin()) {
-        <div class="mt-8 max-w-2xl">
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title class="flex items-center gap-2 text-base font-semibold">
-                {{ 'suggestions.section' | transloco }}
-                <!-- Badge stays in the header so a pending count is visible while collapsed. -->
-                @if (pendingSuggestionsCount() > 0) {
-                  <span class="inline-flex items-center justify-center rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-white">
-                    {{ pendingSuggestionsCount() }}
-                  </span>
-                }
-              </mat-panel-title>
-            </mat-expansion-panel-header>
-
-            @if (suggestionsResource.isLoading()) {
-              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            }
-
-            @if (!suggestionsResource.isLoading() && pendingSuggestions().length === 0) {
-              <p class="text-[0.85rem] text-muted">{{ 'suggestions.empty' | transloco }}</p>
-            }
-
-            <div class="flex flex-col gap-3">
-              @for (s of pendingSuggestions(); track s.id) {
-                <div class="rounded border border-app-border p-3 flex flex-col gap-1">
-                  <div class="flex flex-wrap items-center gap-1 text-[0.8rem] text-muted mb-1">
-                    <span class="font-medium text-ink">{{ s.projectName }}</span>
-                    &nbsp;·&nbsp;
-                    <span>{{ 'suggestions.by' | transloco }}: {{ s.suggestedByName }}</span>
-                  </div>
-                  <div class="text-[0.85rem] font-semibold">{{ s.text }}</div>
-                  <div class="text-[0.8rem] text-muted whitespace-pre-wrap">{{ s.prompt }}</div>
-                  <div class="mt-2 flex gap-2">
-                    <button mat-flat-button color="primary" [disabled]="suggestionBusy()" (click)="approveSuggestion(s)">
-                      {{ 'suggestions.approve' | transloco }}
-                    </button>
-                    <button mat-stroked-button color="warn" [disabled]="suggestionBusy()" (click)="rejectSuggestion(s)">
-                      {{ 'suggestions.reject' | transloco }}
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-          </mat-expansion-panel>
-        </div>
-      }
-
-      <!-- AI Roles & Rules section (tenant-wide, admins/deputies only) -->
-      @if (auth.isAdmin()) {
-        <div class="mt-8 max-w-2xl">
-          <mat-expansion-panel>
-            <mat-expansion-panel-header>
-              <mat-panel-title class="flex items-center gap-2 text-base font-semibold">
-                <mat-icon class="text-primary">psychology</mat-icon>
-                {{ 'aiRules.section' | transloco }}
-              </mat-panel-title>
-            </mat-expansion-panel-header>
-            <p class="mb-4 text-[0.85rem] text-muted">{{ 'aiRules.tenantHelp' | transloco }}</p>
-
-            @if (tenantRulesResource.isLoading()) {
-              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            }
-
-            <div class="flex flex-col gap-4">
-              @for (rule of localRules; track rule.id ?? $index) {
-                <div class="flex flex-col gap-2 rounded border border-app-border p-3">
-                  <div class="flex items-center justify-between gap-2">
-                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="flex-1">
-                      <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
-                      <input matInput [ngModel]="rule.title" (ngModelChange)="markRuleDirty(rule, 'title', $event)" />
-                    </mat-form-field>
-                    <mat-slide-toggle
-                      [checked]="rule.isActive"
-                      (change)="markRuleDirty(rule, 'isActive', $event.checked)"
+              <!-- Email section -->
+              <app-accordion-section title="{{ 'settings.emailSection' | transloco }}">
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between gap-4">
+                    <div>
+                      <div class="text-[14px] font-medium text-foreground">{{ 'settings.emailEnabled' | transloco }}</div>
+                      <div class="text-[13px] text-muted-foreground mt-1.5">{{ 'settings.emailEnabledHint' | transloco }}</div>
+                    </div>
+                    <app-switch
+                      [checked]="form().emailEnabled ?? false"
+                      (checkedChange)="setField('emailEnabled', $event)"
                     />
                   </div>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
-                    <textarea matInput rows="2" [ngModel]="rule.prompt" (ngModelChange)="markRuleDirty(rule, 'prompt', $event)"></textarea>
-                  </mat-form-field>
-                  <div class="flex items-center gap-2">
-                    <button mat-flat-button color="primary" [disabled]="!rule.dirty || rule.saving" (click)="saveRule(rule)">
-                      {{ 'common.save' | transloco }}
-                    </button>
-                    <button mat-stroked-button color="warn" [disabled]="rule.saving" (click)="deleteRule(rule)">
-                      <mat-icon>delete</mat-icon> {{ 'common.delete' | transloco }}
-                    </button>
+
+                  <app-form-field label="{{ 'settings.emailFrom' | transloco }}" hint="{{ 'settings.emailFromHint' | transloco }}">
+                    <input
+                      appInput
+                      type="email"
+                      [ngModel]="form().emailFromEmail"
+                      (ngModelChange)="setField('emailFromEmail', $event)"
+                    />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'settings.emailFromName' | transloco }}" hint="{{ 'settings.emailFromNameHint' | transloco }}">
+                    <input
+                      appInput
+                      [ngModel]="form().emailFromName"
+                      (ngModelChange)="setField('emailFromName', $event)"
+                    />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'settings.emailDailyCap' | transloco }}" hint="{{ 'settings.emailDailyCapHint' | transloco }}">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="form().emailDailyCap"
+                      (ngModelChange)="setField('emailDailyCap', $event)"
+                    />
+                  </app-form-field>
+
+                  <div>
+                    <div class="text-[14px] font-medium text-foreground">{{ 'settings.emailApiKey' | transloco }}</div>
+                    <div class="text-[13px] text-muted-foreground mt-1.5">{{ 'settings.emailApiKeyHint' | transloco }}</div>
+                    @if (settingsValue()?.emailApiKeyConfigured) {
+                      <div class="mt-2 text-[13px] text-state-completed font-medium">
+                        ✓ {{ 'settings.emailApiKeyConfigured' | transloco }}
+                      </div>
+                    } @else {
+                      <div class="mt-2 text-[13px] text-state-danger font-medium">
+                        ✗ {{ 'settings.emailApiKeyMissing' | transloco }}
+                      </div>
+                    }
+                  </div>
+                </div>
+                <div class="flex justify-end pt-4 border-t border-border-muted">
+                  <button appButton variant="primary" (click)="save()">
+                    {{ 'settings.save' | transloco }}
+                  </button>
+                </div>
+              </app-accordion-section>
+
+              <!-- Demo section -->
+              <app-accordion-section title="{{ 'settings.demoSection' | transloco }}">
+                <div class="space-y-4">
+                  <app-form-field label="{{ 'settings.demoMaxActive' | transloco }}" hint="{{ 'settings.demoMaxActiveHint' | transloco }}">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="form().demoMaxActive"
+                      (ngModelChange)="setField('demoMaxActive', $event)"
+                    />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'settings.demoTtlHours' | transloco }}" hint="{{ 'settings.demoTtlHoursHint' | transloco }}">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="form().demoTtlHours"
+                      (ngModelChange)="setField('demoTtlHours', $event)"
+                    />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'settings.demoPerEmailPerDay' | transloco }}" hint="{{ 'settings.demoPerEmailPerDayHint' | transloco }}">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="form().demoPerEmailPerDay"
+                      (ngModelChange)="setField('demoPerEmailPerDay', $event)"
+                    />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'settings.demoCommentCap' | transloco }}" hint="{{ 'settings.demoCommentCapHint' | transloco }}">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="form().demoCommentCap"
+                      (ngModelChange)="setField('demoCommentCap', $event)"
+                    />
+                  </app-form-field>
+                </div>
+                <div class="flex justify-end pt-4 border-t border-border-muted">
+                  <button appButton variant="primary" (click)="save()">
+                    {{ 'settings.save' | transloco }}
+                  </button>
+                </div>
+              </app-accordion-section>
+
+              <!-- Extension section -->
+              <app-accordion-section title="{{ 'settings.extensionSection' | transloco }}">
+                <div class="space-y-4">
+                  <app-form-field label="{{ 'settings.extensionStoreUrl' | transloco }}" hint="{{ 'settings.extensionStoreUrlHint' | transloco }}">
+                    <input
+                      appInput
+                      [ngModel]="form().extensionStoreUrl ?? ''"
+                      (ngModelChange)="setField('extensionStoreUrl', $event)"
+                    />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'settings.extensionZipUrl' | transloco }}" hint="{{ 'settings.extensionZipUrlHint' | transloco }}">
+                    <input
+                      appInput
+                      [ngModel]="form().extensionZipUrl ?? ''"
+                      (ngModelChange)="setField('extensionZipUrl', $event)"
+                    />
+                  </app-form-field>
+                </div>
+                <div class="flex justify-end pt-4 border-t border-border-muted">
+                  <button appButton variant="primary" (click)="save()">
+                    {{ 'settings.save' | transloco }}
+                  </button>
+                </div>
+              </app-accordion-section>
+            </div>
+          }
+        }
+
+        <!-- Predefined actions section (tenant-wide) -->
+        <div class="mt-12">
+          <app-accordion-section title="{{ 'predefined.section' | transloco }}">
+            <p class="text-[14px] text-muted-foreground mb-4 max-w-[72ch]">{{ 'predefined.tenantHelp' | transloco }}</p>
+
+            <div class="space-y-4">
+              @for (action of tenantActions(); track action.id ?? $index) {
+                <div class="rounded-md border border-border p-3">
+                  <div class="space-y-3">
+                    <app-form-field label="{{ 'predefined.text' | transloco }}">
+                      <input
+                        appInput
+                        [ngModel]="action.text"
+                        (ngModelChange)="markDirty(action, 'text', $event)"
+                      />
+                    </app-form-field>
+
+                    <app-form-field label="{{ 'predefined.prompt' | transloco }}">
+                      <textarea
+                        appInput
+                        rows="3"
+                        [ngModel]="action.prompt"
+                        (ngModelChange)="markDirty(action, 'prompt', $event)"
+                      ></textarea>
+                    </app-form-field>
+
+                    <div class="flex gap-2 pt-2">
+                      <button
+                        appButton
+                        variant="primary"
+                        size="sm"
+                        [disabled]="!action.dirty || action.saving"
+                        (click)="saveAction(action)"
+                      >
+                        {{ 'common.save' | transloco }}
+                      </button>
+                      <button
+                        appButton
+                        variant="secondary"
+                        size="sm"
+                        [disabled]="action.saving"
+                        (click)="deleteAction(action)"
+                      >
+                        <app-icon icon="trash2" />
+                        {{ 'common.delete' | transloco }}
+                      </button>
+                    </div>
                   </div>
                 </div>
               }
 
-              @if (tenantRules().length === 0 && !tenantRulesResource.isLoading()) {
-                <p class="text-[0.85rem] text-muted">{{ 'aiRules.empty' | transloco }}</p>
+              @if (tenantActions().length === 0 && !actionsResource.isLoading()) {
+                <p class="text-[14px] text-muted-foreground">{{ 'predefined.empty' | transloco }}</p>
               }
             </div>
 
-            <!-- Add new rule inline form -->
-            <div class="mt-4 flex flex-col gap-2 rounded border border-dashed border-app-border p-3">
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>{{ 'aiRules.titleLabel' | transloco }}</mat-label>
-                <input matInput [formControl]="newRuleTitle" [placeholder]="'aiRules.titlePlaceholder' | transloco" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>{{ 'aiRules.promptLabel' | transloco }}</mat-label>
-                <textarea matInput rows="2" [formControl]="newRulePrompt" [placeholder]="'aiRules.promptPlaceholder' | transloco"></textarea>
-              </mat-form-field>
-              <div>
-                <button mat-flat-button color="primary" [disabled]="newRuleBusy() || !newRuleTitle.value.trim() || !newRulePrompt.value.trim()" (click)="createRule()">
-                  <mat-icon>add</mat-icon> {{ 'aiRules.addRule' | transloco }}
+            <!-- Add new action -->
+            <div class="mt-4 rounded-md border border-dashed border-border p-3">
+              <div class="space-y-3">
+                <app-form-field label="{{ 'predefined.text' | transloco }}">
+                  <input appInput [formControl]="newActionText" />
+                </app-form-field>
+
+                <app-form-field label="{{ 'predefined.prompt' | transloco }}">
+                  <textarea appInput rows="3" [formControl]="newActionPrompt"></textarea>
+                </app-form-field>
+
+                <button
+                  appButton
+                  variant="primary"
+                  size="sm"
+                  [disabled]="newActionBusy() || !newActionText.value.trim() || !newActionPrompt.value.trim()"
+                  (click)="createAction()"
+                >
+                  <app-icon icon="plus" />
+                  {{ 'predefined.add' | transloco }}
                 </button>
               </div>
             </div>
-          </mat-expansion-panel>
+          </app-accordion-section>
         </div>
-      }
 
+        <!-- Suggestions review (admins only) -->
+        @if (auth.isAdmin()) {
+          <div class="mt-12">
+            <app-accordion-section title="{{ 'suggestions.section' | transloco }}">
+              @if (suggestionsResource.isLoading()) {
+                <div class="h-2 bg-gutter rounded-md w-1/3"></div>
+              }
+
+              @if (!suggestionsResource.isLoading() && pendingSuggestions().length === 0) {
+                <p class="text-[14px] text-muted-foreground">{{ 'suggestions.empty' | transloco }}</p>
+              }
+
+              <div class="space-y-3">
+                @for (s of pendingSuggestions(); track s.id) {
+                  <div class="rounded-md border border-border p-3">
+                    <div class="flex-1 min-w-0">
+                      <div class="text-[14px] font-medium text-foreground">{{ s.projectName ?? '—' }}</div>
+                      <div class="text-[13px] text-muted-foreground mt-0.5">{{ s.suggestedByName ?? '—' }}</div>
+                      <div class="text-[14px] text-foreground mt-2">{{ s.text ?? '—' }}</div>
+                      <div class="text-[13px] text-muted-foreground mt-2 max-w-[72ch] break-words whitespace-pre-wrap">{{ s.prompt ?? '—' }}</div>
+                      <div class="flex gap-2 pt-3 mt-3 border-t border-border-muted">
+                        <button
+                          appButton
+                          variant="secondary"
+                          size="sm"
+                          (click)="approveSuggestion(s)"
+                          [disabled]="suggestionBusy()"
+                        >
+                          <app-icon icon="check-circle" />
+                          {{ 'suggestions.approve' | transloco }}
+                        </button>
+                        <button
+                          appButton
+                          variant="secondary"
+                          size="sm"
+                          (click)="rejectSuggestion(s)"
+                          [disabled]="suggestionBusy()"
+                        >
+                          <app-icon icon="x-circle" />
+                          {{ 'suggestions.reject' | transloco }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </app-accordion-section>
+          </div>
+        }
+
+        <!-- AI Rules section (admins only) -->
+        @if (auth.isAdmin()) {
+          <div class="mt-12">
+            <app-accordion-section title="{{ 'aiRules.section' | transloco }}">
+              <p class="text-[14px] text-muted-foreground mb-4 max-w-[72ch]">{{ 'aiRules.tenantHelp' | transloco }}</p>
+
+              <div class="space-y-4">
+                @for (rule of localRules; track rule.id ?? $index) {
+                  <div class="rounded-md border border-border p-3">
+                    <div class="space-y-3">
+                      <div class="flex items-start gap-3">
+                        <div class="flex-1 min-w-0">
+                          <app-form-field label="{{ 'aiRules.titleLabel' | transloco }}">
+                            <input
+                              appInput
+                              [ngModel]="rule.title"
+                              (ngModelChange)="markRuleDirty(rule, 'title', $event)"
+                            />
+                          </app-form-field>
+                        </div>
+                        <app-switch
+                          [checked]="rule.isActive ?? true"
+                          (checkedChange)="markRuleDirty(rule, 'isActive', $event)"
+                          class="mt-6"
+                        />
+                      </div>
+
+                      <app-form-field label="{{ 'aiRules.promptLabel' | transloco }}">
+                        <textarea
+                          appInput
+                          rows="3"
+                          [ngModel]="rule.prompt"
+                          (ngModelChange)="markRuleDirty(rule, 'prompt', $event)"
+                        ></textarea>
+                      </app-form-field>
+
+                      <div class="flex gap-2 pt-2">
+                        <button
+                          appButton
+                          variant="primary"
+                          size="sm"
+                          [disabled]="!rule.dirty || rule.saving"
+                          (click)="saveRule(rule)"
+                        >
+                          {{ 'common.save' | transloco }}
+                        </button>
+                        <button
+                          appButton
+                          variant="secondary"
+                          size="sm"
+                          [disabled]="rule.saving"
+                          (click)="deleteRule(rule)"
+                        >
+                          <app-icon icon="trash2" />
+                          {{ 'common.delete' | transloco }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                @if (tenantRules().length === 0 && !tenantRulesResource.isLoading()) {
+                  <p class="text-[14px] text-muted-foreground">{{ 'aiRules.empty' | transloco }}</p>
+                }
+              </div>
+
+              <!-- Add new rule -->
+              <div class="mt-4 rounded-md border border-dashed border-border p-3">
+                <div class="space-y-3">
+                  <app-form-field label="{{ 'aiRules.titleLabel' | transloco }}">
+                    <input appInput [formControl]="newRuleTitle" />
+                  </app-form-field>
+
+                  <app-form-field label="{{ 'aiRules.promptLabel' | transloco }}">
+                    <textarea appInput rows="3" [formControl]="newRulePrompt"></textarea>
+                  </app-form-field>
+
+                  <button
+                    appButton
+                    variant="primary"
+                    size="sm"
+                    [disabled]="newRuleBusy() || !newRuleTitle.value.trim() || !newRulePrompt.value.trim()"
+                    (click)="createRule()"
+                  >
+                    <app-icon icon="plus" />
+                    {{ 'aiRules.addRule' | transloco }}
+                  </button>
+                </div>
+              </div>
+            </app-accordion-section>
+          </div>
+        }
+      </div>
     </div>
   `,
 })
@@ -455,7 +464,8 @@ export class SettingsComponent {
   private settingsService = inject(SettingsService);
   private predefinedService = inject(PredefinedActionsService);
   private suggestionsService = inject(SuggestionsService);
-  private snack = inject(MatSnackBar);
+  private aiRulesService = inject(AiRulesService);
+  private toast = inject(AppToastService);
   private transloco = inject(TranslocoService);
   private fb = inject(FormBuilder);
   auth = inject(AuthService);
@@ -463,20 +473,19 @@ export class SettingsComponent {
   settingsResource = this.auth.isSuperAdmin() ? getApiAdminSettingsResource() : undefined;
   actionsResource = getApiAdminPredefinedActionsResource();
   suggestionsResource = getApiAdminPredefinedActionSuggestionsResource();
+  tenantRulesResource = getApiAdminAiRulesTenantResource();
 
-  // Pending suggestions (SuggestionStatus.NUMBER_1 = Pending)
+  // Pending suggestions
   pendingSuggestions = computed(() =>
     ((this.suggestionsResource.value() ?? []) as SuggestionResponse[]).filter(
       (s) => s.status === SuggestionStatus.NUMBER_1
     )
   );
-  pendingSuggestionsCount = computed(() => this.pendingSuggestions().length);
   suggestionBusy = signal(false);
 
-  // The HTTP interceptor unwraps the API envelope, so the runtime value is SettingsResponse.
   settingsValue = computed(() => this.settingsResource?.value() as unknown as SettingsResponse | undefined);
 
-  // Tenant-wide actions: filter to those where projectId == null.
+  // Tenant-wide actions
   rawActions = computed(() => (this.actionsResource.value() ?? []) as PredefinedActionResponse[]);
   tenantActions = computed<EditableAction[]>(() =>
     this.rawActions()
@@ -492,14 +501,12 @@ export class SettingsComponent {
       }))
   );
 
-  // Local form state — initialised from the loaded settings, updated by each field change.
   private _form = signal<Partial<SettingsResponse>>({});
 
   form = computed(() => {
     const loaded = this.settingsValue();
     const overrides = this._form();
     if (!loaded) return overrides;
-    // Merge: loaded values are the base, local overrides win.
     return { ...loaded, ...overrides };
   });
 
@@ -526,9 +533,9 @@ export class SettingsComponent {
       next: () => {
         this._form.set({});
         this.settingsResource?.reload();
-        this.snack.open(this.transloco.translate('settings.saved'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('settings.saved'), 'success');
       },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
   }
 
@@ -538,26 +545,14 @@ export class SettingsComponent {
   newActionPrompt = this.fb.nonNullable.control('');
   newActionBusy = signal(false);
 
-  // Mutable local copy for editing existing actions.
   private _editableActions = signal<EditableAction[]>([]);
-
-  constructor() {
-    // Keep local editable list in sync with the loaded resource.
-    // We use a computed -> effect pattern: on first load populate _editableActions.
-  }
-
-  // The UI binds to localActions which is the mutable editable signal, seeded from resource.
   private _seeded = signal(false);
 
-  // We expose a merged list: prefer _editableActions if seeded, else fall back to computed.
   get localActions(): EditableAction[] {
     return this._seeded() ? this._editableActions() : this.tenantActions();
   }
 
   markDirty(action: EditableAction, field: 'text' | 'prompt', value: string): void {
-    // Mutate in place by reconstructing the signal array.
-    // Since tenantActions() is a computed derived from the resource, we maintain
-    // a separate _editableActions signal for user edits.
     const current = this._seeded()
       ? this._editableActions()
       : this.tenantActions().map((a) => ({ ...a }));
@@ -599,7 +594,7 @@ export class SettingsComponent {
           list[i] = { ...list[i], saving: false };
           this._editableActions.set([...list]);
         }
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -612,7 +607,7 @@ export class SettingsComponent {
         this._editableActions.set([]);
         this.actionsResource.reload();
       },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
   }
 
@@ -635,7 +630,7 @@ export class SettingsComponent {
       },
       error: (e: unknown) => {
         this.newActionBusy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -649,11 +644,11 @@ export class SettingsComponent {
       next: () => {
         this.suggestionBusy.set(false);
         this.suggestionsResource.reload();
-        this.snack.open(this.transloco.translate('suggestions.approved'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('suggestions.approved'), 'success');
       },
       error: (e: unknown) => {
         this.suggestionBusy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -665,18 +660,16 @@ export class SettingsComponent {
       next: () => {
         this.suggestionBusy.set(false);
         this.suggestionsResource.reload();
-        this.snack.open(this.transloco.translate('suggestions.rejected'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('suggestions.rejected'), 'success');
       },
       error: (e: unknown) => {
         this.suggestionBusy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
 
-  // --- AI Roles & Rules (Tenant-wide) ---
-  private aiRulesService = inject(AiRulesService);
-  tenantRulesResource = getApiAdminAiRulesTenantResource();
+  // --- AI Rules ---
 
   rawTenantRules = computed(() => (this.tenantRulesResource.value() ?? []) as AiRuleResponse[]);
   tenantRules = computed<EditableRule[]>(() =>
@@ -744,7 +737,7 @@ export class SettingsComponent {
           list[i] = { ...list[i], saving: false };
           this._editableRules.set([...list]);
         }
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
@@ -757,7 +750,7 @@ export class SettingsComponent {
         this._editableRules.set([]);
         this.tenantRulesResource.reload();
       },
-      error: (e: unknown) => this.snack.open(extractMessage(e), 'OK', { duration: 4000 }),
+      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
   }
 
@@ -779,9 +772,8 @@ export class SettingsComponent {
       },
       error: (e: unknown) => {
         this.newRuleBusy.set(false);
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }
-
 }

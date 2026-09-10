@@ -1,0 +1,275 @@
+/*
+ * Pointer dashboard — shared design foundation (canonical copy).
+ *
+ * This file is the single source of truth for tokens and base styles in ALL three apps.
+ * Do not edit the per-app copies (react/src/styles/foundation.css, vue/src/styles/foundation.css,
+ * angular/src/styles/foundation.css); edit this file and run `design/sync-foundation.sh`.
+ *
+ * Each app imports it right after `@import 'tailwindcss'`. It defines:
+ *   1. CSS custom properties for light (:root) and dark (html.dark)
+ *   2. A Tailwind v4 `@theme inline` block exposing them as utilities (bg-background, text-brand …)
+ *   3. Base styles the browser would otherwise draw itself (selection, caret, scrollbar, focus ring)
+ *
+ * Runtime branding may override --brand / --brand-foreground / --brand-tint on :root (operator
+ * primary color). Everything else is fixed. Status hues that come from the status catalog are
+ * applied inline per status (see the build brief); the diff hues below are the defaults for
+ * built-in states (open / ready / completed / archived) and for approval / severity states.
+ */
+
+/* ── Fonts (free, self-hosted): IBM Plex Sans Arabic (UI, Arabic + Latin) and IBM Plex Mono (data) ── */
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Thin.woff2') format('woff2'); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-ExtraLight.woff2') format('woff2'); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Light.woff2') format('woff2'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexSansArabic'; src: url('/assets/fonts/IBMPlexSansArabic-Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexMono'; src: url('/assets/fonts/IBMPlexMono-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexMono'; src: url('/assets/fonts/IBMPlexMono-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IBMPlexMono'; src: url('/assets/fonts/IBMPlexMono-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+
+/* ── Light ─────────────────────────────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+
+  --font-sans: 'IBMPlexSansArabic', 'Segoe UI', Tahoma, system-ui, sans-serif;
+  --font-mono: 'IBMPlexMono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Surfaces */
+  --background: #ffffff;          /* canvas: page, cards, table body, dialogs */
+  --gutter: #f6f8fa;              /* nav rail, table header, row gutter, code/key chips, inset panels */
+  --gutter-strong: #eaeef2;       /* hover on gutter surfaces, pressed secondary buttons */
+  --overlay: rgba(31, 35, 40, 0.5);
+
+  /* Ink */
+  --foreground: #1f2328;
+  --muted-foreground: #59636e;    /* 5.6:1 on white */
+  --faint-foreground: #818b98;    /* placeholders, disabled — 3.6:1, large/secondary only */
+
+  /* Lines */
+  --border: #d0d7de;              /* hairline everywhere */
+  --border-muted: #e6eaef;        /* row separators inside a bordered table */
+
+  /* Brand (operator-overridable at runtime) */
+  --brand: #0969da;
+  --brand-foreground: #ffffff;
+  --brand-tint: #ddf4ff;
+  --brand-hover: #0860ca;
+
+  /* Diff vocabulary — built-in state hues */
+  --state-open: #0969da;        --state-open-tint: #ddf4ff;
+  --state-ready: #9a6700;       --state-ready-tint: #fff8c5;
+  --state-completed: #1a7f37;   --state-completed-tint: #dafbe1;
+  --state-archived: #59636e;    --state-archived-tint: #eaeef2;
+  --state-danger: #d1242f;      --state-danger-tint: #ffebe9;
+
+  /* Actions */
+  --destructive: #cf222e;
+  --destructive-hover: #a40e26;
+  --destructive-foreground: #ffffff;
+
+  /* Focus */
+  --ring: var(--brand);
+
+  /* Geometry */
+  --radius: 6px;
+  --control-h: 32px;            /* buttons, inputs, selects, segmented controls */
+  --control-h-sm: 28px;
+  --row-h: 44px;                /* table and list rows */
+  --rail-w: 240px;
+  --header-h: 48px;
+  --content-max: 1120px;
+
+  /* Depth (only for floating layers; nothing at rest) */
+  --shadow-menu: 0 8px 24px rgba(31, 35, 40, 0.12), 0 1px 2px rgba(31, 35, 40, 0.08);
+  --shadow-dialog: 0 16px 32px rgba(31, 35, 40, 0.18), 0 2px 6px rgba(31, 35, 40, 0.1);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur: 150ms;
+  --dur-flash: 600ms;
+}
+
+/* ── Dark: a light-table negative, not gray on gray ────────────────────────────────────────── */
+html.dark {
+  color-scheme: dark;
+
+  --background: #0d1117;
+  --gutter: #161b22;
+  --gutter-strong: #21262d;
+  --overlay: rgba(1, 4, 9, 0.7);
+
+  --foreground: #e6edf3;
+  --muted-foreground: #9198a1;
+  --faint-foreground: #6e7681;
+
+  --border: #3d444d;
+  --border-muted: #262c36;
+
+  --brand: #4493f8;
+  /* Filled brand surfaces carry ink, not white: white on #4493f8 is 3.1:1 and fails AA. */
+  --brand-foreground: #0d1117;
+  --brand-tint: rgba(56, 139, 253, 0.15);
+  --brand-hover: #58a6ff;
+
+  --state-open: #4493f8;        --state-open-tint: rgba(56, 139, 253, 0.15);
+  --state-ready: #d29922;       --state-ready-tint: rgba(187, 128, 9, 0.15);
+  --state-completed: #3fb950;   --state-completed-tint: rgba(46, 160, 67, 0.15);
+  --state-archived: #9198a1;    --state-archived-tint: rgba(110, 118, 129, 0.2);
+  --state-danger: #f85149;      --state-danger-tint: rgba(248, 81, 73, 0.12);
+
+  --destructive: #da3633;
+  --destructive-hover: #f85149;
+  --destructive-foreground: #ffffff;
+
+  --shadow-menu: 0 8px 24px rgba(1, 4, 9, 0.6), 0 1px 2px rgba(1, 4, 9, 0.5);
+  --shadow-dialog: 0 16px 32px rgba(1, 4, 9, 0.7), 0 2px 6px rgba(1, 4, 9, 0.5);
+}
+
+/* ── Tailwind v4 utilities (identical class names in every app) ────────────────────────────── */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-background: var(--background);
+  --color-gutter: var(--gutter);
+  --color-gutter-strong: var(--gutter-strong);
+  --color-overlay: var(--overlay);
+
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+
+  --color-border: var(--border);
+  --color-border-muted: var(--border-muted);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-tint: var(--brand-tint);
+  --color-brand-hover: var(--brand-hover);
+
+  --color-state-open: var(--state-open);
+  --color-state-open-tint: var(--state-open-tint);
+  --color-state-ready: var(--state-ready);
+  --color-state-ready-tint: var(--state-ready-tint);
+  --color-state-completed: var(--state-completed);
+  --color-state-completed-tint: var(--state-completed-tint);
+  --color-state-archived: var(--state-archived);
+  --color-state-archived-tint: var(--state-archived-tint);
+  --color-state-danger: var(--state-danger);
+  --color-state-danger-tint: var(--state-danger-tint);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-ring: var(--ring);
+
+  /* shadcn-compatible aliases so existing ui/* primitives keep compiling while they are restyled */
+  --color-card: var(--background);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--background);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--brand);
+  --color-primary-foreground: var(--brand-foreground);
+  --color-secondary: var(--gutter);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--gutter);
+  --color-accent: var(--brand-tint);
+  --color-accent-foreground: var(--brand);
+  --color-input: var(--border);
+  --color-success: var(--state-completed);
+  --color-success-foreground: #ffffff;
+  --color-warning: var(--state-ready);
+  --color-warning-foreground: #ffffff;
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --shadow-menu: var(--shadow-menu);
+  --shadow-dialog: var(--shadow-dialog);
+
+  --ease-out: var(--ease-out);
+}
+
+/* ── Base: the surfaces the browser would otherwise draw ───────────────────────────────────── */
+html {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4286; /* 20px */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'tnum' 1; /* tabular numerals everywhere: counts line up */
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+  caret-color: var(--brand);
+  accent-color: var(--brand);
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Every hairline is the token hairline: a bare `border` utility must never fall back to currentColor. */
+*, ::before, ::after {
+  border-color: var(--border);
+}
+
+::selection {
+  background: var(--brand-tint);
+  color: var(--foreground);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: var(--muted-foreground); background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* One focus treatment for every interactive element: 2px brand ring outside the shape. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+:where(input, select, textarea):focus-visible {
+  outline-offset: 0;
+}
+
+/* Rows inside a popup listbox or menu: the focus ring hugs the row instead of floating 2px
+   clear of it, which read as a detached box drawn inside the panel. */
+:where([role='option'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']):focus-visible {
+  outline-offset: 0;
+}
+
+a {
+  color: var(--brand);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+code, kbd, pre, samp, .font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+/* Signature interaction: a changed count lights up like a changed diff line and settles. */
+@keyframes ds-flash {
+  from { background-color: var(--flash-tint, var(--brand-tint)); }
+  to   { background-color: transparent; }
+}
+.ds-flash {
+  animation: ds-flash var(--dur-flash) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

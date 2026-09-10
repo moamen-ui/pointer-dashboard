@@ -9,7 +9,7 @@ import { delay } from 'rxjs/operators';
 import { signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth/auth.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { AppToastService } from '../ui/app-toast.service';
 import { InstallGuideService } from './install-guide.service';
 import {
   API_KEY_PLACEHOLDER,
@@ -178,7 +178,7 @@ describe('InstallGuideComponent extension tab', () => {
           loader: InlineLoader,
         }),
         { provide: AuthService, useValue: { user: signal({ id: 1, email: 'admin@example.test' }) } },
-        { provide: MatSnackBar, useValue: { open: () => ({}) } },
+        { provide: AppToastService, useValue: { show: () => undefined } },
         { provide: InstallGuideService, useValue: { projects: signal([]), markShown: () => {}, isSuppressed: () => false } },
       ],
     }).compileComponents();

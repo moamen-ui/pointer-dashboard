@@ -373,32 +373,27 @@ function actionsFor(row: Row): RowActionItem[] {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-lg font-semibold">{{ t('users.title') }}</h2>
+    <div class="flex items-center justify-between">
+      <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{{ t('users.title') }}</h1>
       <Button @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('users.addUser') }}
       </Button>
     </div>
 
-    <div v-if="loading" class="h-0.5 w-full overflow-hidden rounded bg-muted">
-      <div class="h-full w-1/3 animate-pulse bg-primary" />
-    </div>
-
-    <!-- Filter bar -->
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="text-sm text-muted-foreground">{{ t('users.filter') }}</span>
-      <div class="inline-flex overflow-hidden rounded-md border border-input">
+    <!-- Filter bar — segmented control -->
+    <div class="flex items-center gap-3 mb-3">
+      <span class="text-[13px] text-muted-foreground">{{ t('common.show') }}</span>
+      <div class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
         <button
-          v-for="(f, i) in FILTERS"
+          v-for="f in FILTERS"
           :key="f"
           type="button"
           :class="
             cn(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors',
-              i > 0 && 'border-s border-input',
+              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
               filter === f
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background hover:bg-accent hover:text-accent-foreground',
+                ? 'bg-background text-foreground border border-border'
+                : 'text-muted-foreground hover:text-foreground',
             )
           "
           @click="setFilter(f)"
@@ -406,7 +401,7 @@ function actionsFor(row: Row): RowActionItem[] {
           {{ t('users.filter' + f) }}
           <span
             v-if="f === 'Pending' && pendingCount"
-            class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500/90 px-1 text-[0.7rem] font-bold text-white"
+            class="ms-1 inline-flex h-5 items-center justify-center rounded-full bg-state-ready px-1.5 text-[10px] font-medium text-white"
           >
             {{ pendingCount }}
           </span>
@@ -434,7 +429,9 @@ function actionsFor(row: Row): RowActionItem[] {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('users.actions')"
+      :actions-header="t('users.actions')"
       :loading="loading"
+      gutter
     >
       <template #cell-email="{ row }">
         {{ row.kind === 'invite' ? (row.email ?? t('invite.anyone')) : row.email }}
@@ -466,8 +463,25 @@ function actionsFor(row: Row): RowActionItem[] {
         {{ row.kind === 'invite' ? `${t('invite.expires')}: ${formatInviteDate(row.expiresAt)}` : formatRequestedAt(requestedAt(row)) }}
       </template>
       <template #cell-status="{ row }">
-        <span v-if="row.kind === 'invite'" class="chip chip-neutral">{{ t('invite.invited') }}</span>
-        <span v-else :class="cn('chip', row.isActive ? 'chip-active' : 'chip-disabled')">
+        <span
+          v-if="row.kind === 'invite'"
+          class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none text-state-archived bg-state-archived-tint border-state-archived/30"
+        >
+          {{ t('invite.invited') }}
+        </span>
+        <span
+          v-else
+          :class="
+            cn(
+              'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none',
+              row.isActive
+                ? 'text-state-completed bg-state-completed-tint border-state-completed/30'
+                : 'text-state-danger bg-state-danger-tint border-state-danger/30'
+            )
+          "
+        >
+          <CheckCircle2 v-if="row.isActive" class="h-3 w-3" />
+          <Ban v-else class="h-3 w-3" />
           {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
         </span>
       </template>
@@ -476,23 +490,23 @@ function actionsFor(row: Row): RowActionItem[] {
 
   <!-- Add user dialog — "Send invite" (default) or "Create directly" (secondary) -->
   <Dialog v-model:open="addOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('users.addUser') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('users.addUser') }}</DialogTitle>
       </DialogHeader>
 
       <div
         v-if="!createdInvite"
-        class="inline-flex self-start overflow-hidden rounded-md border border-input"
+        class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5"
       >
         <button
           type="button"
           :class="
             cn(
-              'px-3 py-1.5 text-sm transition-colors',
+              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
               addMode === 'invite'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background hover:bg-accent hover:text-accent-foreground',
+                ? 'bg-background text-foreground border border-border'
+                : 'text-muted-foreground hover:text-foreground',
             )
           "
           @click="addMode = 'invite'"
@@ -503,10 +517,10 @@ function actionsFor(row: Row): RowActionItem[] {
           type="button"
           :class="
             cn(
-              'border-s border-input px-3 py-1.5 text-sm transition-colors',
+              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
               addMode === 'direct'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-background hover:bg-accent hover:text-accent-foreground',
+                ? 'bg-background text-foreground border border-border'
+                : 'text-muted-foreground hover:text-foreground',
             )
           "
           @click="addMode = 'direct'"
@@ -516,66 +530,71 @@ function actionsFor(row: Row): RowActionItem[] {
       </div>
 
       <template v-if="addMode === 'invite'">
-        <div v-if="createdInvite" class="flex flex-col gap-3 pt-2">
+        <div v-if="createdInvite" class="flex flex-col gap-3 py-2">
           <div
             v-if="createdInvite.emailSent"
-            class="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300"
+            class="flex items-center gap-2 rounded-md border border-state-completed/30 bg-state-completed-tint p-3 text-sm text-state-completed"
           >
             <MailCheck class="h-4 w-4 shrink-0" />
             <span>{{ t('invite.emailSent', { email: createdInvite.emailSent }) }}</span>
           </div>
-          <div class="flex items-center gap-2 rounded-md bg-muted p-3">
+          <div class="flex items-center gap-2 rounded-md bg-gutter p-3">
             <span class="flex-1 truncate text-sm font-mono">{{ createdInvite.url }}</span>
-            <Button type="button" size="sm" variant="outline" @click="copyUrl(createdInvite.url)">
-              <Copy class="h-4 w-4 mr-1" />{{ t('invite.copy') }}
+            <Button type="button" size="sm" variant="secondary" @click="copyUrl(createdInvite.url)">
+              <Copy class="h-4 w-4" />{{ t('invite.copy') }}
             </Button>
           </div>
         </div>
-        <form v-else class="flex flex-col gap-3 pt-2" @submit.prevent="sendInvite">
+        <form v-else class="flex flex-col gap-4 py-2 space-y-4" @submit.prevent="sendInvite">
           <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
-          <div class="flex flex-col gap-1">
-            <Label for="invite-role">{{ t('invite.role') }}</Label>
-            <select
-              id="invite-role"
-              v-model="inviteRoleId"
-              class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          <div class="flex flex-col gap-1.5">
+            <Label for="invite-role" class="text-[13px] font-medium">{{ t('invite.role') }}</Label>
+            <Select
+              :model-value="inviteRoleId != null ? String(inviteRoleId) : undefined"
+              @update:model-value="(v) => (inviteRoleId = v ? Number(v) : null)"
             >
-              <option :value="null" disabled>— {{ t('invite.role') }} —</option>
-              <option v-for="r in nonAdminActiveRoles" :key="r.id" :value="r.id">{{ r.name }}</option>
-            </select>
+              <SelectTrigger id="invite-role">
+                <SelectValue :placeholder="t('invite.role')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="r in nonAdminActiveRoles" :key="r.id" :value="String(r.id)">
+                  {{ r.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div class="flex flex-col gap-1">
-            <Label for="invite-email">{{ t('invite.email') }}</Label>
+          <div class="flex flex-col gap-1.5">
+            <Label for="invite-email" class="text-[13px] font-medium">{{ t('invite.email') }}</Label>
             <Input id="invite-email" v-model="inviteEmail" type="email" placeholder="teammate@example.com" />
           </div>
           <div class="flex gap-3">
-            <div class="flex flex-1 flex-col gap-1">
-              <Label for="invite-expires">{{ t('invite.expiresDays') }}</Label>
+            <div class="flex flex-1 flex-col gap-1.5">
+              <Label for="invite-expires" class="text-[13px] font-medium">{{ t('invite.expiresDays') }}</Label>
               <Input id="invite-expires" v-model.number="inviteExpiresDays" type="number" :min="1" />
             </div>
-            <div class="flex flex-1 flex-col gap-1">
-              <Label for="invite-maxuses">{{ t('invite.maxUses') }}</Label>
+            <div class="flex flex-1 flex-col gap-1.5">
+              <Label for="invite-maxuses" class="text-[13px] font-medium">{{ t('invite.maxUses') }}</Label>
               <Input id="invite-maxuses" v-model.number="inviteMaxUses" type="number" :min="1" placeholder="∞" />
             </div>
           </div>
         </form>
       </template>
 
-      <form v-else class="flex flex-col gap-3 pt-2" @submit.prevent="addUser">
-        <div class="flex flex-col gap-2">
-          <Label for="u-email">{{ t('users.email') }}</Label>
+      <form v-else class="flex flex-col gap-4 py-2 space-y-4" @submit.prevent="addUser">
+        <div class="flex flex-col gap-1.5">
+          <Label for="u-email" class="text-[13px] font-medium">{{ t('users.email') }}</Label>
           <Input id="u-email" v-model="addForm.email" type="email" />
         </div>
-        <div class="flex flex-col gap-2">
-          <Label for="u-name">{{ t('users.displayName') }}</Label>
+        <div class="flex flex-col gap-1.5">
+          <Label for="u-name" class="text-[13px] font-medium">{{ t('users.displayName') }}</Label>
           <Input id="u-name" v-model="addForm.displayName" />
         </div>
-        <div class="flex flex-col gap-2">
-          <Label for="u-pass">{{ t('users.password') }}</Label>
+        <div class="flex flex-col gap-1.5">
+          <Label for="u-pass" class="text-[13px] font-medium">{{ t('users.password') }}</Label>
           <PasswordInput id="u-pass" v-model="addForm.password" />
         </div>
-        <div class="flex flex-col gap-2">
-          <Label>{{ t('users.role') }}</Label>
+        <div class="flex flex-col gap-1.5">
+          <Label class="text-[13px] font-medium">{{ t('users.role') }}</Label>
           <Select
             :model-value="addForm.roleId ? String(addForm.roleId) : undefined"
             @update:model-value="(v: any) => (addForm.roleId = v != null ? Number(v) : 0)"
@@ -617,30 +636,38 @@ function actionsFor(row: Row): RowActionItem[] {
     :open="approveOpenFor !== null"
     @update:open="(o: boolean) => { if (!o) approveOpenFor = null; }"
   >
-    <DialogContent class="max-w-[360px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('users.approveAs') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('users.approveAs') }}</DialogTitle>
       </DialogHeader>
       <template v-for="user in users" :key="'ap-' + user.id">
-        <div v-if="approveOpenFor === user.id" class="flex flex-col gap-3 pt-2">
-          <Select
-            :model-value="approveSelection[user.id!] ? String(approveSelection[user.id!]) : undefined"
-            @update:model-value="(v: any) => v != null && (approveSelection[user.id!] = Number(v))"
-          >
-            <SelectTrigger>
-              <SelectValue :placeholder="t('users.approveAs')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="r in activeRoles()" :key="r.id" :value="String(r.id)">
-                {{ r.name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Button :disabled="loading" @click="approve(user)">
-            {{ t('users.confirm') }}
-          </Button>
+        <div v-if="approveOpenFor === user.id" class="flex flex-col gap-4 py-2 space-y-4">
+          <div class="flex flex-col gap-1.5">
+            <Label class="text-[13px] font-medium">{{ t('users.role') }}</Label>
+            <Select
+              :model-value="approveSelection[user.id!] ? String(approveSelection[user.id!]) : undefined"
+              @update:model-value="(v: any) => v != null && (approveSelection[user.id!] = Number(v))"
+            >
+              <SelectTrigger>
+                <SelectValue :placeholder="t('users.approveAs')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="r in activeRoles()" :key="r.id" :value="String(r.id)">
+                  {{ r.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </template>
+      <DialogFooter>
+        <Button variant="secondary" @click="approveOpenFor = null">{{ t('common.cancel') }}</Button>
+        <template v-for="user in users" :key="'ap-confirm-' + user.id">
+          <Button v-if="approveOpenFor === user.id" :disabled="loading" @click="approve(user)">
+            {{ t('users.confirm') }}
+          </Button>
+        </template>
+      </DialogFooter>
     </DialogContent>
   </Dialog>
 </template>

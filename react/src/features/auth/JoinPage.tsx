@@ -9,7 +9,6 @@ import {
   usePostApiAuthRegisterInvite,
   getApiAuthMe,
 } from '@moamen-ui/pointer-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -18,6 +17,7 @@ import { emailError, passwordError, requiredError } from '@/lib/validators';
 import { setAuthHeader } from '@/lib/api';
 import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
+import { AuthLayout } from '@/components/AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -29,14 +29,12 @@ export function JoinPage() {
   // If no code in URL, show invalid link immediately.
   if (!code) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-        <Card className="w-[420px] max-w-[92vw]">
-          <CardContent className="flex flex-col gap-5 p-6">
-            <h1 className="text-center text-xl font-bold">{t('invite.section')}</h1>
-            <p className="text-center text-sm text-destructive">{t('invite.invalidLink')}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthLayout>
+        <div className="flex flex-col gap-5">
+          <h1 className="text-center text-xl font-bold">{t('invite.section')}</h1>
+          <p className="text-center text-sm text-destructive">{t('invite.invalidLink')}</p>
+        </div>
+      </AuthLayout>
     );
   }
 
@@ -78,26 +76,20 @@ function JoinForm({ code }: { code: string }) {
 
   if (previewLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-        <Card className="w-[420px] max-w-[92vw]">
-          <CardContent className="flex flex-col gap-5 p-6">
-            <p className="text-center text-sm text-muted-foreground">{t('settings.loading')}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthLayout>
+        <p className="text-center text-sm text-muted-foreground">{t('settings.loading')}</p>
+      </AuthLayout>
     );
   }
 
   if (previewError || !preview) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-        <Card className="w-[420px] max-w-[92vw]">
-          <CardContent className="flex flex-col gap-5 p-6">
-            <h1 className="text-center text-xl font-bold">{t('invite.section')}</h1>
-            <p className="text-center text-sm text-destructive">{t('invite.invalidOrExpired')}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthLayout>
+        <div className="flex flex-col gap-5">
+          <h1 className="text-center text-xl font-bold">{t('invite.section')}</h1>
+          <p className="text-center text-sm text-destructive">{t('invite.invalidOrExpired')}</p>
+        </div>
+      </AuthLayout>
     );
   }
 
@@ -143,19 +135,18 @@ function JoinForm({ code }: { code: string }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="w-[420px] max-w-[92vw]">
-        <CardContent className="flex flex-col gap-5 p-6">
-          <h1 className="text-center text-xl font-bold">
-            {t('invite.joinTitle', { workspace: workspaceName })}
-          </h1>
-          {roleName && (
-            <p className="text-center text-sm text-muted-foreground">
-              {t('invite.joinRole', { role: roleName })}
-            </p>
-          )}
+    <AuthLayout>
+      <div className="flex flex-col gap-5">
+        <h1 className="text-center text-xl font-bold">
+          {t('invite.joinTitle', { workspace: workspaceName })}
+        </h1>
+        {roleName && (
+          <p className="text-center text-sm text-muted-foreground">
+            {t('invite.joinRole', { role: roleName })}
+          </p>
+        )}
 
-          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
             {/* Email */}
             <FormField
               label={t('login.email')}
@@ -237,8 +228,7 @@ function JoinForm({ code }: { code: string }) {
               {t('invite.join')}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </AuthLayout>
   );
 }
