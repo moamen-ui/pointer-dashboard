@@ -22,6 +22,7 @@ import { extractMessage } from '../../core/api/extract-message';
 import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const pwd = control.get('password');
@@ -40,6 +41,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     AppAuthLayoutComponent,
     AppInputDirective,
     AppButtonDirective,
+    AppFormFieldComponent,
   ],
   template: `
     <app-auth-layout>
@@ -80,71 +82,43 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
           }
 
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
-            <div class="flex flex-col gap-2">
-              <label for="email" class="text-[14px] font-medium text-foreground">
-                {{ t('invite.email') }}
-              </label>
+            <app-form-field [label]="t('invite.email')" [error]="emailTouched() && emailError() ? emailError() : ''">
               <input
                 appInput
-                id="email"
                 type="email"
                 formControlName="email"
                 (blur)="emailTouched.set(true)"
                 autocomplete="email"
               />
-              @if (emailTouched() && emailError()) {
-                <p class="text-[12px] text-state-danger">{{ emailError() }}</p>
-              }
-            </div>
+            </app-form-field>
 
-            <div class="flex flex-col gap-2">
-              <label for="name" class="text-[14px] font-medium text-foreground">
-                {{ t('invite.displayName') }}
-              </label>
+            <app-form-field [label]="t('invite.displayName')" [error]="nameTouched() && form.controls.displayName.hasError('required') ? t('common.fieldRequired') : ''">
               <input
                 appInput
-                id="name"
                 formControlName="displayName"
                 (blur)="nameTouched.set(true)"
               />
-              @if (nameTouched() && form.controls.displayName.hasError('required')) {
-                <p class="text-[12px] text-state-danger">{{ t('common.fieldRequired') }}</p>
-              }
-            </div>
+            </app-form-field>
 
-            <div class="flex flex-col gap-2">
-              <label for="password" class="text-[14px] font-medium text-foreground">
-                {{ t('invite.password') }}
-              </label>
+            <app-form-field [label]="t('invite.password')" [error]="passwordTouched() && passwordError() ? passwordError() : ''">
               <input
                 appInput
-                id="password"
                 type="password"
                 formControlName="password"
                 (blur)="passwordTouched.set(true)"
                 autocomplete="new-password"
               />
-              @if (passwordTouched() && passwordError()) {
-                <p class="text-[12px] text-state-danger">{{ passwordError() }}</p>
-              }
-            </div>
+            </app-form-field>
 
-            <div class="flex flex-col gap-2">
-              <label for="confirm" class="text-[14px] font-medium text-foreground">
-                {{ t('invite.confirmPassword') }}
-              </label>
+            <app-form-field [label]="t('invite.confirmPassword')" [error]="confirmTouched() && form.hasError('passwordsMismatch') ? t('invite.passwordMismatch') : ''">
               <input
                 appInput
-                id="confirm"
                 type="password"
                 formControlName="confirmPassword"
                 (blur)="confirmTouched.set(true)"
                 autocomplete="new-password"
               />
-              @if (confirmTouched() && form.hasError('passwordsMismatch')) {
-                <p class="text-[12px] text-state-danger">{{ t('invite.passwordMismatch') }}</p>
-              }
-            </div>
+            </app-form-field>
 
             <button
               appButton

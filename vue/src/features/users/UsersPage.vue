@@ -34,7 +34,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -547,8 +547,7 @@ function actionsFor(row: Row): RowActionItem[] {
         </div>
         <form v-else class="flex flex-col gap-4 py-2 space-y-4" @submit.prevent="sendInvite">
           <p class="text-xs text-muted-foreground">{{ t('invite.sectionHint') }}</p>
-          <div class="flex flex-col gap-1.5">
-            <Label for="invite-role" class="text-[13px] font-medium">{{ t('invite.role') }}</Label>
+          <FormField :label="t('invite.role')" html-for="invite-role">
             <Select
               :model-value="inviteRoleId != null ? String(inviteRoleId) : undefined"
               @update:model-value="(v) => (inviteRoleId = v ? Number(v) : null)"
@@ -562,44 +561,37 @@ function actionsFor(row: Row): RowActionItem[] {
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div class="flex flex-col gap-1.5">
-            <Label for="invite-email" class="text-[13px] font-medium">{{ t('invite.email') }}</Label>
+          </FormField>
+          <FormField :label="t('invite.email')" html-for="invite-email">
             <Input id="invite-email" v-model="inviteEmail" type="email" placeholder="teammate@example.com" />
-          </div>
+          </FormField>
           <div class="flex gap-3">
-            <div class="flex flex-1 flex-col gap-1.5">
-              <Label for="invite-expires" class="text-[13px] font-medium">{{ t('invite.expiresDays') }}</Label>
+            <FormField :label="t('invite.expiresDays')" html-for="invite-expires" class="flex-1">
               <Input id="invite-expires" v-model.number="inviteExpiresDays" type="number" :min="1" />
-            </div>
-            <div class="flex flex-1 flex-col gap-1.5">
-              <Label for="invite-maxuses" class="text-[13px] font-medium">{{ t('invite.maxUses') }}</Label>
+            </FormField>
+            <FormField :label="t('invite.maxUses')" html-for="invite-maxuses" class="flex-1">
               <Input id="invite-maxuses" v-model.number="inviteMaxUses" type="number" :min="1" placeholder="∞" />
-            </div>
+            </FormField>
           </div>
         </form>
       </template>
 
       <form v-else class="flex flex-col gap-4 py-2 space-y-4" @submit.prevent="addUser">
-        <div class="flex flex-col gap-1.5">
-          <Label for="u-email" class="text-[13px] font-medium">{{ t('users.email') }}</Label>
+        <FormField :label="t('users.email')" html-for="u-email">
           <Input id="u-email" v-model="addForm.email" type="email" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <Label for="u-name" class="text-[13px] font-medium">{{ t('users.displayName') }}</Label>
+        </FormField>
+        <FormField :label="t('users.displayName')" html-for="u-name">
           <Input id="u-name" v-model="addForm.displayName" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <Label for="u-pass" class="text-[13px] font-medium">{{ t('users.password') }}</Label>
+        </FormField>
+        <FormField :label="t('users.password')" html-for="u-pass">
           <PasswordInput id="u-pass" v-model="addForm.password" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <Label class="text-[13px] font-medium">{{ t('users.role') }}</Label>
+        </FormField>
+        <FormField :label="t('users.role')" html-for="u-role">
           <Select
             :model-value="addForm.roleId ? String(addForm.roleId) : undefined"
             @update:model-value="(v: any) => (addForm.roleId = v != null ? Number(v) : 0)"
           >
-            <SelectTrigger>
+            <SelectTrigger id="u-role">
               <SelectValue :placeholder="t('users.role')" />
             </SelectTrigger>
             <SelectContent>
@@ -608,7 +600,7 @@ function actionsFor(row: Row): RowActionItem[] {
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
       </form>
 
       <DialogFooter>
@@ -642,13 +634,12 @@ function actionsFor(row: Row): RowActionItem[] {
       </DialogHeader>
       <template v-for="user in users" :key="'ap-' + user.id">
         <div v-if="approveOpenFor === user.id" class="flex flex-col gap-4 py-2 space-y-4">
-          <div class="flex flex-col gap-1.5">
-            <Label class="text-[13px] font-medium">{{ t('users.role') }}</Label>
+          <FormField :label="t('users.role')" :html-for="'approve-role-' + user.id">
             <Select
               :model-value="approveSelection[user.id!] ? String(approveSelection[user.id!]) : undefined"
               @update:model-value="(v: any) => v != null && (approveSelection[user.id!] = Number(v))"
             >
-              <SelectTrigger>
+              <SelectTrigger :id="'approve-role-' + user.id">
                 <SelectValue :placeholder="t('users.approveAs')" />
               </SelectTrigger>
               <SelectContent>
@@ -657,7 +648,7 @@ function actionsFor(row: Row): RowActionItem[] {
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
         </div>
       </template>
       <DialogFooter>

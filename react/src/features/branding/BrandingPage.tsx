@@ -12,7 +12,7 @@ import {
 import { Upload, RotateCcw, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { useToast } from '@/components/ui/toast';
 import { useBranding, type BrandingData } from '@/lib/branding';
 import { extractMessage } from '@/lib/error';
@@ -334,33 +334,24 @@ export function BrandingPage() {
         <div className="rounded-md border border-border">
           <div className="space-y-4 p-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="b-product-name" className="text-[13px] font-medium text-foreground">
-                  {t('branding.productName')}
-                </Label>
+              <FormField label={t('branding.productName')} htmlFor="b-product-name">
                 <Input
                   id="b-product-name"
                   value={form.productName}
                   onChange={(e) => setForm({ ...form, productName: e.target.value })}
                 />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="b-tagline" className="text-[13px] font-medium text-foreground">
-                  {t('branding.tagline')}
-                </Label>
+              </FormField>
+              <FormField label={t('branding.tagline')} htmlFor="b-tagline">
                 <Input
                   id="b-tagline"
                   value={form.tagline}
                   onChange={(e) => setForm({ ...form, tagline: e.target.value })}
                 />
-              </div>
+              </FormField>
             </div>
 
             {/* Primary color: 24px swatch button next to mono hex input */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-[13px] font-medium text-foreground">
-                {t('branding.primaryColor')}
-              </Label>
+            <FormField label={t('branding.primaryColor')} htmlFor="b-color">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -385,7 +376,7 @@ export function BrandingPage() {
                 onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
                 className="hidden"
               />
-            </div>
+            </FormField>
 
             {/* Four URLs in a grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -397,17 +388,14 @@ export function BrandingPage() {
                   { id: 'b-url-landing', key: 'urlLanding', labelKey: 'branding.urlLanding' },
                 ] as { id: string; key: keyof FormState; labelKey: string }[]
               ).map(({ id, key, labelKey }) => (
-                <div key={key} className="flex flex-col gap-1.5">
-                  <Label htmlFor={id} className="text-[13px] font-medium text-foreground">
-                    {t(labelKey)}
-                  </Label>
+                <FormField key={key} label={t(labelKey)} htmlFor={id}>
                   <Input
                     id={id}
                     type="url"
                     value={form[key] as string}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                   />
-                </div>
+                </FormField>
               ))}
             </div>
           </div>

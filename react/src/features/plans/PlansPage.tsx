@@ -20,6 +20,7 @@ import { Plus, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
@@ -356,31 +357,22 @@ export function PlansPage() {
             <TabsContent value="details" className="space-y-4 py-2">
               {/* Basic fields */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-name" className="text-[13px] font-medium text-foreground">
-                    {t('plans.colName')}
-                  </Label>
+                <FormField label={t('plans.colName')} htmlFor="plan-name">
                   <Input
                     id="plan-name"
                     value={form.name}
                     autoFocus
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-slug" className="text-[13px] font-medium text-foreground">
-                    {t('plans.colSlug')}
-                  </Label>
+                </FormField>
+                <FormField label={t('plans.colSlug')} htmlFor="plan-slug">
                   <Input
                     id="plan-slug"
                     value={form.slug}
                     onChange={(e) => setForm({ ...form, slug: e.target.value })}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-price" className="text-[13px] font-medium text-foreground">
-                    {t('plans.priceMonthly')}
-                  </Label>
+                </FormField>
+                <FormField label={t('plans.priceMonthly')} htmlFor="plan-price">
                   <Input
                     id="plan-price"
                     type="number"
@@ -388,21 +380,15 @@ export function PlansPage() {
                     value={form.priceMonthly}
                     onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-currency" className="text-[13px] font-medium text-foreground">
-                    {t('plans.currency')}
-                  </Label>
+                </FormField>
+                <FormField label={t('plans.currency')} htmlFor="plan-currency">
                   <Input
                     id="plan-currency"
                     value={form.currency}
                     onChange={(e) => setForm({ ...form, currency: e.target.value })}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-interval" className="text-[13px] font-medium text-foreground">
-                    {t('plans.interval')}
-                  </Label>
+                </FormField>
+                <FormField label={t('plans.interval')} htmlFor="plan-interval">
                   <Select
                     value={form.interval}
                     onValueChange={(v) => setForm({ ...form, interval: v })}
@@ -415,22 +401,16 @@ export function PlansPage() {
                       <SelectItem value="1">{t('plans.intervalYearly')}</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-sort" className="text-[13px] font-medium text-foreground">
-                    {t('plans.sortOrder')}
-                  </Label>
+                </FormField>
+                <FormField label={t('plans.sortOrder')} htmlFor="plan-sort">
                   <Input
                     id="plan-sort"
                     type="number"
                     value={form.sortOrder}
                     onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="plan-display" className="text-[13px] font-medium text-foreground">
-                    {t('plans.displayStateLabel')}
-                  </Label>
+                </FormField>
+                <FormField label={t('plans.displayStateLabel')} htmlFor="plan-display">
                   <Select
                     value={form.displayState}
                     onValueChange={(v) => setForm({ ...form, displayState: v })}
@@ -444,7 +424,7 @@ export function PlansPage() {
                       <SelectItem value="2">{t('plans.displayState.hidden')}</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </FormField>
               </div>
               <div className="flex items-center gap-2 pt-2">
                 <input
@@ -459,10 +439,7 @@ export function PlansPage() {
                 </Label>
               </div>
               {/* Feature bullets (one per line) */}
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="plan-bullets" className="text-[13px] font-medium text-foreground">
-                  {t('plans.featureBullets')}
-                </Label>
+              <FormField label={t('plans.featureBullets')} htmlFor="plan-bullets">
                 <textarea
                   id="plan-bullets"
                   rows={4}
@@ -471,7 +448,7 @@ export function PlansPage() {
                   value={form.featureBullets}
                   onChange={(e) => setForm({ ...form, featureBullets: e.target.value })}
                 />
-              </div>
+              </FormField>
             </TabsContent>
             <TabsContent value="enforced" className="space-y-4 py-2">
               {/* Enforced entitlements only */}
@@ -489,10 +466,7 @@ export function PlansPage() {
                     const key = field.key as keyof PlanEntitlementsDto;
                     const isBool = 'isBool' in field && field.isBool;
                     return (
-                      <div key={key} className="flex flex-col gap-1.5">
-                        <Label htmlFor={`ent-${key}`} className="text-[13px] font-medium text-foreground">
-                          {t(field.label)}
-                        </Label>
+                      <FormField key={key} label={t(field.label)} htmlFor={`ent-${key}`}>
                         {isBool ? (
                           <Select
                             value={form.entitlements[key] == null ? '' : form.entitlements[key] ? 'true' : 'false'}
@@ -526,7 +500,7 @@ export function PlansPage() {
                             }
                           />
                         )}
-                      </div>
+                      </FormField>
                     );
                   })}
                 </div>
@@ -552,10 +526,7 @@ export function PlansPage() {
                     const key = field.key as keyof PlanEntitlementsDto;
                     const isBool = 'isBool' in field && field.isBool;
                     return (
-                      <div key={key} className="flex flex-col gap-1.5">
-                        <Label htmlFor={`ent-${key}`} className="text-[13px] font-medium text-foreground">
-                          {t(field.label)}
-                        </Label>
+                      <FormField key={key} label={t(field.label)} htmlFor={`ent-${key}`}>
                         {isBool ? (
                           <Select
                             value={form.entitlements[key] == null ? '' : form.entitlements[key] ? 'true' : 'false'}
@@ -589,7 +560,7 @@ export function PlansPage() {
                             }
                           />
                         )}
-                      </div>
+                      </FormField>
                     );
                   })}
                 </div>

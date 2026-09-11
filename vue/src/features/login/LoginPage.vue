@@ -157,8 +157,7 @@ async function onTryDemo() {
 
       <!-- Demo section -->
       <div class="flex flex-col gap-3">
-        <div class="flex flex-col gap-2">
-          <label for="demo-email" class="text-[13px] font-medium text-foreground">{{ t('login.demoEmailLabel') }}</label>
+        <FormField :label="t('login.demoEmailLabel')" html-for="demo-email" :error="demoEmailError ?? undefined">
           <Input
             id="demo-email"
             v-model="demoEmail"
@@ -166,10 +165,7 @@ async function onTryDemo() {
             autocomplete="email"
             :placeholder="t('login.demoEmailLabel')"
           />
-          <p v-if="demoEmailError" class="text-[12px] text-state-danger">
-            {{ t('login.demoEmailLabel') }} — {{ t('login.failed').toLowerCase() }}
-          </p>
-        </div>
+        </FormField>
         <p v-if="demoEmailSent" class="text-[14px] text-state-completed">
           {{ t('login.demoEmailSent') }}
         </p>

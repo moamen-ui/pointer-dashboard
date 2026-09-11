@@ -20,6 +20,7 @@ import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-select.component';
 import { AppMenuComponent, type MenuItem } from '../../shared/ui/app-menu.component';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
 import type { UserResponse, RoleResponse, InviteResponse } from '@moamen-ui/pointer-angular';
@@ -48,6 +49,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
     AppInputDirective,
     AppSelectComponent,
     AppMenuComponent,
+    AppFormFieldComponent,
     BadgeComponent,
   ],
   template: `
@@ -305,56 +307,65 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
               <div class="flex flex-col gap-3">
                 <p class="text-[13px] text-muted-foreground">{{ (auth.isSuperAdmin() ? 'users.deputyHint' : 'invite.sectionHint') | transloco }}</p>
                 @if (auth.isSuperAdmin()) {
-                  <app-select
-                    [options]="tenantSelectOptions()"
-                    [value]="inviteTargetOwnerId()"
-                    (valueChange)="inviteTargetOwnerId.set($event)"
-                  ></app-select>
+                  <app-form-field [label]="'users.tenant' | transloco">
+                    <app-select
+                      [options]="tenantSelectOptions()"
+                      [value]="inviteTargetOwnerId()"
+                      (valueChange)="inviteTargetOwnerId.set($event)"
+                    ></app-select>
+                  </app-form-field>
                 } @else {
-                  <app-select
-                    [options]="roleSelectOptions2()"
-                    [value]="inviteRoleId()"
-                    (valueChange)="inviteRoleId.set($event)"
-                  ></app-select>
+                  <app-form-field [label]="'users.role' | transloco">
+                    <app-select
+                      [options]="roleSelectOptions2()"
+                      [value]="inviteRoleId()"
+                      (valueChange)="inviteRoleId.set($event)"
+                    ></app-select>
+                  </app-form-field>
                 }
 
                 @if (isQuickAccessInvite()) {
-                  <app-select
-                    [options]="projectSelectOptions()"
-                    [value]="inviteProjectId()"
-                    (valueChange)="inviteProjectId.set($event)"
-                  ></app-select>
+                  <app-form-field [label]="'users.project' | transloco">
+                    <app-select
+                      [options]="projectSelectOptions()"
+                      [value]="inviteProjectId()"
+                      (valueChange)="inviteProjectId.set($event)"
+                    ></app-select>
+                  </app-form-field>
                   @if (quickAccessAppUrlMissing()) {
                     <p class="m-0 text-[12px] text-state-danger">{{ 'invite.quickAccessAppUrlMissing' | transloco }}</p>
                   }
                   <p class="m-0 text-[13px] text-muted-foreground">{{ 'invite.quickAccessHint' | transloco }}</p>
                 }
 
-                <input
-                  appInput
-                  type="email"
-                  placeholder="{{ 'invite.email' | transloco }}"
-                  [ngModel]="inviteEmail()"
-                  (ngModelChange)="inviteEmail.set($event)"
-                />
+                <app-form-field [label]="'invite.email' | transloco">
+                  <input
+                    appInput
+                    type="email"
+                    [ngModel]="inviteEmail()"
+                    (ngModelChange)="inviteEmail.set($event)"
+                  />
+                </app-form-field>
 
                 <div class="flex gap-3">
-                  <input
-                    appInput
-                    type="number"
-                    min="1"
-                    placeholder="{{ 'invite.expiresDays' | transloco }}"
-                    [ngModel]="inviteExpiresInDays()"
-                    (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)"
-                  />
-                  <input
-                    appInput
-                    type="number"
-                    min="1"
-                    placeholder="{{ 'invite.maxUses' | transloco }}"
-                    [ngModel]="inviteMaxUses()"
-                    (ngModelChange)="inviteMaxUses.set($event ? +$event : null)"
-                  />
+                  <app-form-field [label]="'invite.expiresDays' | transloco" class="flex-1">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="inviteExpiresInDays()"
+                      (ngModelChange)="inviteExpiresInDays.set($event ? +$event : null)"
+                    />
+                  </app-form-field>
+                  <app-form-field [label]="'invite.maxUses' | transloco" class="flex-1">
+                    <input
+                      appInput
+                      type="number"
+                      min="1"
+                      [ngModel]="inviteMaxUses()"
+                      (ngModelChange)="inviteMaxUses.set($event ? +$event : null)"
+                    />
+                  </app-form-field>
                 </div>
               </div>
             }
@@ -363,39 +374,46 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
               @if (auth.isSuperAdmin()) {
                 <p class="text-[13px] text-muted-foreground">{{ 'users.deputyHint' | transloco }}</p>
               }
-              <input
-                appInput
-                type="email"
-                placeholder="{{ 'users.email' | transloco }}"
-                formControlName="email"
-              />
-              <input
-                appInput
-                type="text"
-                placeholder="{{ 'users.displayName' | transloco }}"
-                formControlName="displayName"
-              />
-              <div class="relative">
+              <app-form-field [label]="'users.email' | transloco">
                 <input
                   appInput
-                  [type]="pwToggle.type()"
-                  placeholder="{{ 'users.password' | transloco }}"
-                  formControlName="password"
+                  type="email"
+                  formControlName="email"
                 />
-                <app-password-toggle #pwToggle class="absolute end-3 top-1/2 -translate-y-1/2"></app-password-toggle>
-              </div>
+              </app-form-field>
+              <app-form-field [label]="'users.displayName' | transloco">
+                <input
+                  appInput
+                  type="text"
+                  formControlName="displayName"
+                />
+              </app-form-field>
+              <app-form-field [label]="'users.password' | transloco">
+                <div class="relative">
+                  <input
+                    appInput
+                    [type]="pwToggle.type()"
+                    formControlName="password"
+                  />
+                  <app-password-toggle #pwToggle class="absolute end-3 top-1/2 -translate-y-1/2"></app-password-toggle>
+                </div>
+              </app-form-field>
               @if (auth.isSuperAdmin()) {
-                <app-select
-                  [options]="tenantSelectOptions()"
-                  [value]="addForm.get('targetOwnerId')?.value"
-                  (valueChange)="addForm.patchValue({ targetOwnerId: $event })"
-                ></app-select>
+                <app-form-field [label]="'users.tenant' | transloco">
+                  <app-select
+                    [options]="tenantSelectOptions()"
+                    [value]="addForm.get('targetOwnerId')?.value"
+                    (valueChange)="addForm.patchValue({ targetOwnerId: $event })"
+                  ></app-select>
+                </app-form-field>
               } @else {
-                <app-select
-                  [options]="directModeRoleSelectOptions()"
-                  [value]="addForm.get('roleId')?.value"
-                  (valueChange)="addForm.patchValue({ roleId: $event })"
-                ></app-select>
+                <app-form-field [label]="'users.role' | transloco">
+                  <app-select
+                    [options]="directModeRoleSelectOptions()"
+                    [value]="addForm.get('roleId')?.value"
+                    (valueChange)="addForm.patchValue({ roleId: $event })"
+                  ></app-select>
+                </app-form-field>
               }
             </form>
           }

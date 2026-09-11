@@ -15,7 +15,7 @@ import { Plus, Pencil, Trash2, Globe } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import FormField from '@/components/shared/FormField.vue';
 import {
   Dialog,
   DialogContent,
@@ -191,14 +191,15 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
       <DialogHeader>
         <DialogTitle class="text-base font-semibold leading-6">{{ t('environments.addEnvironment') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-1.5 py-2">
-        <Label for="environment-name" class="text-[13px] font-medium">{{ t('environments.name') }}</Label>
-        <Input
-          id="environment-name"
-          v-model="newName"
-          placeholder="e.g. qa"
-          @keydown.enter="addEnvironment"
-        />
+      <div class="py-2">
+        <FormField :label="t('environments.name')" html-for="environment-name">
+          <Input
+            id="environment-name"
+            v-model="newName"
+            placeholder="e.g. qa"
+            @keydown.enter="addEnvironment"
+          />
+        </FormField>
       </div>
       <DialogFooter>
         <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
@@ -215,13 +216,14 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
       <DialogHeader>
         <DialogTitle class="text-base font-semibold leading-6">{{ t('common.rename') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-1.5 py-2">
-        <Label for="rename-environment-name" class="text-[13px] font-medium">{{ t('environments.name') }}</Label>
-        <Input
-          id="rename-environment-name"
-          v-model="editName"
-          @keydown.enter="saveRename"
-        />
+      <div class="py-2">
+        <FormField :label="t('environments.name')" html-for="rename-environment-name">
+          <Input
+            id="rename-environment-name"
+            v-model="editName"
+            @keydown.enter="saveRename"
+          />
+        </FormField>
       </div>
       <DialogFooter>
         <Button variant="secondary" @click="renameOpen = false">{{ t('common.cancel') }}</Button>

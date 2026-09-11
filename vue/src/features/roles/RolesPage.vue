@@ -14,8 +14,8 @@ import {
 import { Plus, Pencil, Ban, CheckCircle2, Trash2, UserCog } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import FormField from '@/components/shared/FormField.vue';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -335,10 +335,9 @@ async function deleteRole() {
         <DialogTitle class="text-base font-semibold leading-6">{{ t('roles.addRole') }}</DialogTitle>
       </DialogHeader>
       <div class="flex flex-col gap-4 py-2 space-y-4">
-        <div class="flex flex-col gap-1.5">
-          <Label for="role-name" class="text-[13px] font-medium">{{ t('roles.name') }}</Label>
+        <FormField :label="t('roles.name')" html-for="role-name">
           <Input id="role-name" v-model="newName" @keydown.enter="addRole" />
-        </div>
+        </FormField>
         <label class="flex items-center gap-2 text-[14px]">
           <Checkbox v-model="newGrantsAdmin" />
           {{ t('roles.grantsAdmin') }}
@@ -359,9 +358,10 @@ async function deleteRole() {
       <DialogHeader>
         <DialogTitle class="text-base font-semibold leading-6">{{ t('common.rename') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-1.5 py-2">
-        <Label for="rename-name" class="text-[13px] font-medium">{{ t('roles.name') }}</Label>
-        <Input id="rename-name" v-model="editName" @keydown.enter="saveRename" />
+      <div class="py-2">
+        <FormField :label="t('roles.name')" html-for="rename-name">
+          <Input id="rename-name" v-model="editName" @keydown.enter="saveRename" />
+        </FormField>
       </div>
       <DialogFooter>
         <Button variant="secondary" @click="renameOpen = false">{{ t('common.cancel') }}</Button>
@@ -378,13 +378,12 @@ async function deleteRole() {
       </DialogHeader>
       <div class="flex flex-col gap-4 py-2">
         <p class="text-[14px]">{{ t('roles.deleteIntro', { name: deletingRole?.name }) }}</p>
-        <div v-if="targetRoles.length > 0" class="flex flex-col gap-1.5">
-          <Label class="text-[13px] font-medium">{{ t('roles.reassignLabel') }}</Label>
+        <FormField v-if="targetRoles.length > 0" :label="t('roles.reassignLabel')" html-for="reassign-role">
           <Select
             :model-value="reassignTargetId != null ? String(reassignTargetId) : undefined"
             @update:model-value="(v: any) => (reassignTargetId = v != null ? Number(v) : null)"
           >
-            <SelectTrigger>
+            <SelectTrigger id="reassign-role">
               <SelectValue :placeholder="t('roles.reassignLabel')" />
             </SelectTrigger>
             <SelectContent>
@@ -393,7 +392,7 @@ async function deleteRole() {
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
         <p v-else class="text-[14px] text-muted-foreground">{{ t('roles.noTargets') }}</p>
       </div>
       <DialogFooter>

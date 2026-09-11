@@ -8,6 +8,7 @@ import { extractMessage } from '../../core/api/extract-message';
 import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
@@ -23,48 +24,31 @@ const DEMO_SESSION_KEY = 'pointer_demo';
     AppAuthLayoutComponent,
     AppInputDirective,
     AppButtonDirective,
+    AppFormFieldComponent,
   ],
   template: `
     <app-auth-layout>
       <div *transloco="let t">
         <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
-          <div class="flex flex-col gap-2">
-            <label for="email" class="text-[14px] font-medium text-foreground">
-              {{ t('login.email') }}
-            </label>
+          <app-form-field [label]="t('login.email')" [error]="(emailTouched() || submitted()) && emailError() ? emailError() : ''">
             <input
               appInput
-              id="email"
               type="email"
               formControlName="email"
               (blur)="emailTouched.set(true)"
               autocomplete="email"
             />
-            @if (emailTouched() || submitted()) {
-              @if (emailError()) {
-                <p class="text-[12px] text-state-danger">{{ emailError() }}</p>
-              }
-            }
-          </div>
+          </app-form-field>
 
-          <div class="flex flex-col gap-2">
-            <label for="password" class="text-[14px] font-medium text-foreground">
-              {{ t('login.password') }}
-            </label>
+          <app-form-field [label]="t('login.password')" [error]="(passwordTouched() || submitted()) && passwordError() ? passwordError() : ''">
             <input
               appInput
-              id="password"
               type="password"
               formControlName="password"
               (blur)="passwordTouched.set(true)"
               autocomplete="current-password"
             />
-            @if (passwordTouched() || submitted()) {
-              @if (passwordError()) {
-                <p class="text-[12px] text-state-danger">{{ passwordError() }}</p>
-              }
-            }
-          </div>
+          </app-form-field>
 
           @if (error()) {
             <p class="text-[14px] text-state-danger">{{ error() }}</p>
@@ -97,23 +81,16 @@ const DEMO_SESSION_KEY = 'pointer_demo';
         </div>
 
         <!-- Demo email input -->
-        <div class="flex flex-col gap-2">
-          <label for="demo-email" class="text-[14px] font-medium text-foreground">
-            {{ t('login.demoEmailLabel') }}
-          </label>
+        <app-form-field [label]="t('login.demoEmailLabel')" [error]="demoEmailError() ? t('login.demoEmailLabel') + ' ' + t('common.fieldRequired') : ''">
           <input
             appInput
-            id="demo-email"
             type="email"
             [(ngModel)]="demoEmail"
             [ngModelOptions]="{standalone: true}"
             placeholder="you@example.com"
             autocomplete="email"
           />
-          @if (demoEmailError()) {
-            <p class="text-[12px] text-state-danger">{{ t('login.demoEmailLabel') }} {{ t('common.fieldRequired') }}</p>
-          }
-        </div>
+        </app-form-field>
 
         @if (demoError()) {
           <p class="text-[14px] text-state-danger">{{ demoError() }}</p>

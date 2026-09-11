@@ -45,7 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -607,23 +607,24 @@ export function OverviewPage() {
           <DialogHeader>
             <DialogTitle>{t('overview.approve')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label>{t('overview.approveAs')}</Label>
-            <Select
-              value={approveRoleId ? String(approveRoleId) : undefined}
-              onValueChange={(v) => setApproveRoleId(Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('overview.approveAs')} />
-              </SelectTrigger>
-              <SelectContent>
-                {activeRoles.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="pt-1">
+            <FormField label={t('overview.approveAs')} htmlFor="approve-role">
+              <Select
+                value={approveRoleId ? String(approveRoleId) : undefined}
+                onValueChange={(v) => setApproveRoleId(Number(v))}
+              >
+                <SelectTrigger id="approve-role">
+                  <SelectValue placeholder={t('overview.approveAs')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeRoles.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="secondary" onClick={() => setApproveUserState(null)}>

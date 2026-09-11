@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/shared/FormField';
 import {
   Table,
   TableBody,
@@ -332,11 +333,13 @@ function AiRulesCard() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-1 flex-col gap-1.5">
-                    <Label className="text-[13px] font-medium text-foreground">{t('aiRules.titleLabel')}</Label>
-                    <Input
-                      value={edit.title}
-                      onChange={(e) => updateRule(rule.id!, 'title', e.target.value)}
-                    />
+                    <FormField label={t('aiRules.titleLabel')} htmlFor={`admin-rule-title-${rule.id}`}>
+                      <Input
+                        id={`admin-rule-title-${rule.id}`}
+                        value={edit.title}
+                        onChange={(e) => updateRule(rule.id!, 'title', e.target.value)}
+                      />
+                    </FormField>
                   </div>
                   <div className="flex items-center gap-2 pt-6">
                     <label className="flex items-center gap-1.5 text-[13px] font-medium cursor-pointer">
@@ -362,15 +365,15 @@ function AiRulesCard() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-[13px] font-medium text-foreground">{t('aiRules.promptLabel')}</Label>
+                <FormField label={t('aiRules.promptLabel')} htmlFor={`admin-rule-prompt-${rule.id}`}>
                   <textarea
+                    id={`admin-rule-prompt-${rule.id}`}
                     value={edit.prompt}
                     onChange={(e) => updateRule(rule.id!, 'prompt', e.target.value)}
                     rows={2}
                     className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                </div>
+                </FormField>
 
                 {edit.dirty && (
                   <div className="flex justify-end">
@@ -391,24 +394,24 @@ function AiRulesCard() {
 
         {/* Add new rule */}
         <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px] font-medium text-foreground">{t('aiRules.titleLabel')}</Label>
+          <FormField label={t('aiRules.titleLabel')} htmlFor="new-admin-rule-title">
             <Input
+              id="new-admin-rule-title"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder={t('aiRules.titlePlaceholder')}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px] font-medium text-foreground">{t('aiRules.promptLabel')}</Label>
+          </FormField>
+          <FormField label={t('aiRules.promptLabel')} htmlFor="new-admin-rule-prompt">
             <textarea
+              id="new-admin-rule-prompt"
               value={newPrompt}
               onChange={(e) => setNewPrompt(e.target.value)}
               rows={2}
               placeholder={t('aiRules.promptPlaceholder')}
               className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-          </div>
+          </FormField>
           <div className="flex justify-end">
             <Button
               size="sm"
@@ -685,37 +688,38 @@ export function SettingsPage() {
           </div>
 
           {/* emailFromEmail */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email-from" className="text-[13px] font-medium text-foreground">
-              {t('settings.emailFrom')}
-            </Label>
+          <FormField
+            label={t('settings.emailFrom')}
+            hint={t('settings.emailFromHint')}
+            htmlFor="email-from"
+          >
             <Input
               id="email-from"
               type="email"
               value={emailFromEmail}
               onChange={(e) => setEmailFromEmail(e.target.value)}
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailFromHint')}</p>
-          </div>
+          </FormField>
 
           {/* emailFromName */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email-from-name" className="text-[13px] font-medium text-foreground">
-              {t('settings.emailFromName')}
-            </Label>
+          <FormField
+            label={t('settings.emailFromName')}
+            hint={t('settings.emailFromNameHint')}
+            htmlFor="email-from-name"
+          >
             <Input
               id="email-from-name"
               value={emailFromName}
               onChange={(e) => setEmailFromName(e.target.value)}
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailFromNameHint')}</p>
-          </div>
+          </FormField>
 
           {/* emailDailyCap */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email-daily-cap" className="text-[13px] font-medium text-foreground">
-              {t('settings.emailDailyCap')}
-            </Label>
+          <FormField
+            label={t('settings.emailDailyCap')}
+            hint={t('settings.emailDailyCapHint')}
+            htmlFor="email-daily-cap"
+          >
             <Input
               id="email-daily-cap"
               type="number"
@@ -724,8 +728,7 @@ export function SettingsPage() {
               onChange={(e) => setEmailDailyCap(Number(e.target.value))}
               className="max-w-[12rem]"
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.emailDailyCapHint')}</p>
-          </div>
+          </FormField>
 
           {/* API key — read-only status line */}
           <div className="flex flex-col gap-1.5">
@@ -755,10 +758,11 @@ export function SettingsPage() {
       <AccordionSection title={t('settings.demoSection')}>
         <div className="space-y-4">
           {/* demoMaxActive */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="demo-max-active" className="text-[13px] font-medium text-foreground">
-              {t('settings.demoMaxActive')}
-            </Label>
+          <FormField
+            label={t('settings.demoMaxActive')}
+            hint={t('settings.demoMaxActiveHint')}
+            htmlFor="demo-max-active"
+          >
             <Input
               id="demo-max-active"
               type="number"
@@ -767,14 +771,14 @@ export function SettingsPage() {
               onChange={(e) => setDemoMaxActive(Number(e.target.value))}
               className="max-w-[12rem]"
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoMaxActiveHint')}</p>
-          </div>
+          </FormField>
 
           {/* demoTtlHours */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="demo-ttl-hours" className="text-[13px] font-medium text-foreground">
-              {t('settings.demoTtlHours')}
-            </Label>
+          <FormField
+            label={t('settings.demoTtlHours')}
+            hint={t('settings.demoTtlHoursHint')}
+            htmlFor="demo-ttl-hours"
+          >
             <Input
               id="demo-ttl-hours"
               type="number"
@@ -783,14 +787,14 @@ export function SettingsPage() {
               onChange={(e) => setDemoTtlHours(Number(e.target.value))}
               className="max-w-[12rem]"
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoTtlHoursHint')}</p>
-          </div>
+          </FormField>
 
           {/* demoPerEmailPerDay */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="demo-per-email" className="text-[13px] font-medium text-foreground">
-              {t('settings.demoPerEmailPerDay')}
-            </Label>
+          <FormField
+            label={t('settings.demoPerEmailPerDay')}
+            hint={t('settings.demoPerEmailPerDayHint')}
+            htmlFor="demo-per-email"
+          >
             <Input
               id="demo-per-email"
               type="number"
@@ -799,14 +803,14 @@ export function SettingsPage() {
               onChange={(e) => setDemoPerEmailPerDay(Number(e.target.value))}
               className="max-w-[12rem]"
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoPerEmailPerDayHint')}</p>
-          </div>
+          </FormField>
 
           {/* demoCommentCap */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="demo-comment-cap" className="text-[13px] font-medium text-foreground">
-              {t('settings.demoCommentCap')}
-            </Label>
+          <FormField
+            label={t('settings.demoCommentCap')}
+            hint={t('settings.demoCommentCapHint')}
+            htmlFor="demo-comment-cap"
+          >
             <Input
               id="demo-comment-cap"
               type="number"
@@ -815,8 +819,7 @@ export function SettingsPage() {
               onChange={(e) => setDemoCommentCap(Number(e.target.value))}
               className="max-w-[12rem]"
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.demoCommentCapHint')}</p>
-          </div>
+          </FormField>
         </div>
         <div className="flex justify-end pt-4 border-t border-border-muted">
           <Button variant="default" disabled={updateMut.isPending} onClick={save}>
@@ -829,30 +832,30 @@ export function SettingsPage() {
       <AccordionSection title={t('settings.extensionSection')}>
         <div className="space-y-4">
           {/* extensionStoreUrl */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="extension-store-url" className="text-[13px] font-medium text-foreground">
-              {t('settings.extensionStoreUrl')}
-            </Label>
+          <FormField
+            label={t('settings.extensionStoreUrl')}
+            hint={t('settings.extensionStoreUrlHint')}
+            htmlFor="extension-store-url"
+          >
             <Input
               id="extension-store-url"
               value={extensionStoreUrl}
               onChange={(e) => setExtensionStoreUrl(e.target.value)}
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.extensionStoreUrlHint')}</p>
-          </div>
+          </FormField>
 
           {/* extensionZipUrl */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="extension-zip-url" className="text-[13px] font-medium text-foreground">
-              {t('settings.extensionZipUrl')}
-            </Label>
+          <FormField
+            label={t('settings.extensionZipUrl')}
+            hint={t('settings.extensionZipUrlHint')}
+            htmlFor="extension-zip-url"
+          >
             <Input
               id="extension-zip-url"
               value={extensionZipUrl}
               onChange={(e) => setExtensionZipUrl(e.target.value)}
             />
-            <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('settings.extensionZipUrlHint')}</p>
-          </div>
+          </FormField>
         </div>
         <div className="flex justify-end pt-4 border-t border-border-muted">
           <Button variant="default" disabled={updateMut.isPending} onClick={save}>

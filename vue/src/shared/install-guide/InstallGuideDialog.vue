@@ -21,8 +21,8 @@ import {
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import FormField from '@/components/shared/FormField.vue';
 import {
   Dialog,
   DialogContent,
@@ -275,33 +275,32 @@ const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
         </div>
 
         <div v-if="projects.length > 0 && !isCreatingInline" class="rounded-lg border border-border bg-background p-4">
-          <label class="text-xs font-medium text-foreground">
-            {{ t('install.wizard.selectProjectPrompt') }}
-          </label>
-          <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div class="flex-1">
-              <Select v-model="projectKey">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="p in projects" :key="p.key" :value="p.key">
-                    {{ p.name }} ({{ p.key }})
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+          <FormField :label="t('install.wizard.selectProjectPrompt')" html-for="wiz-project-select">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div class="flex-1">
+                <Select v-model="projectKey">
+                  <SelectTrigger id="wiz-project-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="p in projects" :key="p.key" :value="p.key">
+                      {{ p.name }} ({{ p.key }})
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                v-if="isAdmin"
+                variant="secondary"
+                size="sm"
+                class="gap-1.5 shrink-0"
+                @click="createRequested = true; isCreatingInline = true"
+              >
+                <FolderPlus class="h-4 w-4" />
+                {{ t('install.wizard.createNewProject') }}
+              </Button>
             </div>
-            <Button
-              v-if="isAdmin"
-              variant="secondary"
-              size="sm"
-              class="gap-1.5 shrink-0"
-              @click="createRequested = true; isCreatingInline = true"
-            >
-              <FolderPlus class="h-4 w-4" />
-              {{ t('install.wizard.createNewProject') }}
-            </Button>
-          </div>
+          </FormField>
 
           <div class="mt-4 flex justify-end">
             <Button
@@ -319,30 +318,24 @@ const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
         <!-- Inline Creation Form -->
         <div v-else class="rounded-lg border border-border bg-background p-4">
           <div class="flex flex-col gap-3">
-            <div>
-              <Label for="wiz-vue-name" class="text-xs">{{ t('install.wizard.projectName') }}</Label>
+            <FormField :label="t('install.wizard.projectName')" html-for="wiz-vue-name">
               <Input
                 id="wiz-vue-name"
                 :value="newProjectName"
                 :placeholder="t('install.wizard.projectNamePlaceholder')"
-                class="mt-1"
                 autofocus
                 @input="onNameInput"
               />
-            </div>
+            </FormField>
 
-            <div>
-              <Label for="wiz-vue-key" class="text-xs">{{ t('install.wizard.projectKey') }}</Label>
+            <FormField :label="t('install.wizard.projectKey')" html-for="wiz-vue-key" :hint="t('install.wizard.projectKeyHint')">
               <Input
                 id="wiz-vue-key"
                 :value="newProjectKey"
-                class="mt-1 font-mono text-xs"
+                class="font-mono text-xs"
                 @input="onKeyInput"
               />
-              <p class="mt-1 text-[0.7rem] text-muted-foreground">
-                {{ t('install.wizard.projectKeyHint') }}
-              </p>
-            </div>
+            </FormField>
 
             <div class="mt-2 flex items-center justify-between pt-2">
               <Button

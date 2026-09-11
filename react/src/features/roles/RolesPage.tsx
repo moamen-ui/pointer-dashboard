@@ -17,8 +17,8 @@ import {
 import { Plus, Pencil, Ban, CheckCircle2, Trash2, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/shared/FormField';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -381,8 +381,7 @@ export function RolesPage() {
             <DialogTitle>{t('roles.addRole')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="role-name">{t('roles.name')}</Label>
+            <FormField label={t('roles.name')} htmlFor="role-name">
               <Input
                 id="role-name"
                 value={newName}
@@ -390,7 +389,7 @@ export function RolesPage() {
                 onKeyDown={(e) => e.key === 'Enter' && addRole()}
                 autoFocus
               />
-            </div>
+            </FormField>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -419,15 +418,16 @@ export function RolesPage() {
           <DialogHeader>
             <DialogTitle>{t('common.rename')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label htmlFor="role-rename">{t('roles.name')}</Label>
-            <Input
-              id="role-rename"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && saveRename()}
-              autoFocus
-            />
+          <div className="pt-1">
+            <FormField label={t('roles.name')} htmlFor="role-rename">
+              <Input
+                id="role-rename"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveRename()}
+                autoFocus
+              />
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRenameOpen(false)}>
@@ -451,13 +451,12 @@ export function RolesPage() {
               {t('roles.deleteIntro', { name: deletingRole?.name })}
             </p>
             {targetRoles.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <Label>{t('roles.reassignLabel')}</Label>
+              <FormField label={t('roles.reassignLabel')} htmlFor="reassign-role">
                 <Select
                   value={reassignTargetId != null ? String(reassignTargetId) : undefined}
                   onValueChange={(v) => setReassignTargetId(Number(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="reassign-role">
                     <SelectValue placeholder={t('roles.reassignLabel')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -468,7 +467,7 @@ export function RolesPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             ) : (
               <p className="text-sm text-muted-foreground">{t('roles.noTargets')}</p>
             )}

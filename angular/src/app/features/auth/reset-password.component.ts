@@ -7,6 +7,7 @@ import { extractMessage } from '../../core/api/extract-message';
 import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
@@ -26,6 +27,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     AppAuthLayoutComponent,
     AppInputDirective,
     AppButtonDirective,
+    AppFormFieldComponent,
   ],
   template: `
     <app-auth-layout>
@@ -37,39 +39,25 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
           </a>
         } @else {
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
-            <div class="flex flex-col gap-2">
-              <label for="password" class="text-[14px] font-medium text-foreground">
-                {{ t('auth.newPassword') }}
-              </label>
+            <app-form-field [label]="t('auth.newPassword')" [error]="passwordTouched() && newPasswordError() ? newPasswordError() : ''">
               <input
                 appInput
-                id="password"
                 type="password"
                 formControlName="newPassword"
                 (blur)="passwordTouched.set(true)"
                 autocomplete="new-password"
               />
-              @if (passwordTouched() && newPasswordError()) {
-                <p class="text-[12px] text-state-danger">{{ newPasswordError() }}</p>
-              }
-            </div>
+            </app-form-field>
 
-            <div class="flex flex-col gap-2">
-              <label for="confirm" class="text-[14px] font-medium text-foreground">
-                {{ t('auth.confirmPassword') }}
-              </label>
+            <app-form-field [label]="t('auth.confirmPassword')" [error]="confirmTouched() && form.hasError('passwordsMismatch') ? t('auth.passwordMismatch') : ''">
               <input
                 appInput
-                id="confirm"
                 type="password"
                 formControlName="confirmPassword"
                 (blur)="confirmTouched.set(true)"
                 autocomplete="new-password"
               />
-              @if (confirmTouched() && form.hasError('passwordsMismatch')) {
-                <p class="text-[12px] text-state-danger">{{ t('auth.passwordMismatch') }}</p>
-              }
-            </div>
+            </app-form-field>
 
             <button
               appButton

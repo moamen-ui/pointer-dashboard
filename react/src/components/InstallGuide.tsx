@@ -35,7 +35,7 @@ import {
 } from '@moamen-ui/pointer-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -354,10 +354,11 @@ function InstallGuideWizardDialog({
               /* Inline Project Creation Form */
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-col gap-3">
-                  <div>
-                    <Label htmlFor="wiz-project-name" className="text-xs">
-                      {t('install.wizard.projectName')}
-                    </Label>
+                  <FormField
+                    label={t('install.wizard.projectName')}
+                    htmlFor="wiz-project-name"
+                    error={undefined}
+                  >
                     <Input
                       id="wiz-project-name"
                       value={newProjectName}
@@ -366,15 +367,16 @@ function InstallGuideWizardDialog({
                         if (!keyEdited) setNewProjectKey(slugifyKey(e.target.value));
                       }}
                       placeholder={t('install.wizard.projectNamePlaceholder')}
-                      className="mt-1"
                       autoFocus
                     />
-                  </div>
+                  </FormField>
 
-                  <div>
-                    <Label htmlFor="wiz-project-key" className="text-xs">
-                      {t('install.wizard.projectKey')}
-                    </Label>
+                  <FormField
+                    label={t('install.wizard.projectKey')}
+                    htmlFor="wiz-project-key"
+                    error={keyError || undefined}
+                    hint={!keyError ? t('install.wizard.projectKeyHint') : undefined}
+                  >
                     <Input
                       id="wiz-project-key"
                       value={newProjectKey}
@@ -382,12 +384,9 @@ function InstallGuideWizardDialog({
                         setKeyEdited(true);
                         setNewProjectKey(e.target.value.toLowerCase().trim());
                       }}
-                      className="mt-1 font-mono text-xs"
+                      className="font-mono text-xs"
                     />
-                    <p className="mt-1 text-[0.7rem] text-muted-foreground">
-                      {t('install.wizard.projectKeyHint')}
-                    </p>
-                  </div>
+                  </FormField>
 
                   <div className="mt-2 flex items-center justify-between pt-2">
                     {projects.length > 0 ? (

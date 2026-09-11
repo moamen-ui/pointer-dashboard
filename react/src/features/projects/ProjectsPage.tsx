@@ -69,6 +69,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/shared/FormField';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -468,24 +469,24 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
           {canManageAdminRules && (
             <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
               <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addRule')}</div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+              <FormField label={t('aiRules.titleLabel')} htmlFor="project-rule-title">
                 <Input
+                  id="project-rule-title"
                   value={newProjectRuleTitle}
                   onChange={(e) => setNewProjectRuleTitle(e.target.value)}
                   placeholder={t('aiRules.titlePlaceholder')}
                 />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+              </FormField>
+              <FormField label={t('aiRules.promptLabel')} htmlFor="project-rule-prompt">
                 <textarea
+                  id="project-rule-prompt"
                   value={newProjectRulePrompt}
                   onChange={(e) => setNewProjectRulePrompt(e.target.value)}
                   rows={2}
                   placeholder={t('aiRules.promptPlaceholder')}
                   className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
-              </div>
+              </FormField>
               <div className="flex justify-end">
                 <Button
                   size="sm"
@@ -594,24 +595,24 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
           {/* Add Personal Rule Form */}
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
             <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addPersonalRule')}</div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+            <FormField label={t('aiRules.titleLabel')} htmlFor="personal-rule-title">
               <Input
+                id="personal-rule-title"
                 value={newPersonalRuleTitle}
                 onChange={(e) => setNewPersonalRuleTitle(e.target.value)}
                 placeholder={t('aiRules.titlePlaceholder')}
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+            </FormField>
+            <FormField label={t('aiRules.promptLabel')} htmlFor="personal-rule-prompt">
               <textarea
+                id="personal-rule-prompt"
                 value={newPersonalRulePrompt}
                 onChange={(e) => setNewPersonalRulePrompt(e.target.value)}
                 rows={2}
                 placeholder={t('aiRules.promptPlaceholder')}
                 className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
-            </div>
+            </FormField>
             <div className="flex justify-end">
               <Button
                 size="sm"
@@ -1296,10 +1297,7 @@ export function ProjectsPage() {
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2" data-tour="project-modal-sections">
             {/* Name first: the key is derived from it (Pointer feedback #138). */}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-name" className="text-[13px] font-medium">
-                {t('projects.name')}
-              </Label>
+            <FormField label={t('projects.name')} htmlFor="project-name">
               <Input
                 id="project-name"
                 value={name}
@@ -1312,11 +1310,13 @@ export function ProjectsPage() {
                 onKeyDown={(e) => e.key === 'Enter' && addProject()}
                 autoFocus
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-key" className="text-[13px] font-medium">
-                {t('projects.key')}
-              </Label>
+            </FormField>
+            <FormField
+              label={t('projects.key')}
+              htmlFor="project-key"
+              error={keyErrorMessage || undefined}
+              hint={t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')}
+            >
               <Input
                 id="project-key"
                 value={key}
@@ -1331,13 +1331,7 @@ export function ProjectsPage() {
                 spellCheck={false}
                 aria-invalid={keyError ? true : undefined}
               />
-              {keyErrorMessage && (
-                <p className="text-[12px] text-state-danger">{keyErrorMessage}</p>
-              )}
-              <p className="text-[12px] text-muted-foreground">
-                {t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')}
-              </p>
-            </div>
+            </FormField>
 
             {/* Capture console/network context switch */}
             <div className="flex items-center justify-between gap-4">
@@ -1389,15 +1383,14 @@ export function ProjectsPage() {
           >
           <TabsContent value="details" className="flex flex-col gap-4 pt-1">
             {!editReadOnly && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="edit-project-name">{t('projects.name')}</Label>
+              <FormField label={t('projects.name')} htmlFor="edit-project-name">
                 <Input
                   id="edit-project-name"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   autoFocus
                 />
-              </div>
+              </FormField>
             )}
 
 

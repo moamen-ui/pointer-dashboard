@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/shared/FormField';
 import { emailError, requiredError } from '@/lib/validators';
 import { useAuth } from '@/lib/auth';
@@ -207,10 +206,11 @@ export function LoginPage() {
       </div>
 
       {/* Demo email input */}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="demo-email" className="text-[14px]">
-          {t('login.demoEmailLabel')}
-        </Label>
+      <FormField
+        label={t('login.demoEmailLabel')}
+        htmlFor="demo-email"
+        error={demoEmailError || undefined}
+      >
         <Input
           id="demo-email"
           type="email"
@@ -222,10 +222,7 @@ export function LoginPage() {
             setDemoEmailError(null);
           }}
         />
-        {demoEmailError && (
-          <p className="text-[12px] text-state-danger">{t('login.demoEmailLabel')} is required.</p>
-        )}
-      </div>
+      </FormField>
 
       {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
 

@@ -27,9 +27,9 @@ import { Plus, Ban, CheckCircle2, UserCheck, User, Users, Link, Copy, MailCheck 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
+import { FormField } from '@/components/shared/FormField';
 import { EmptyState } from '@/components/EmptyState';
 import {
   Dialog,
@@ -534,10 +534,9 @@ export function UsersPage() {
             ) : (
               <div className="flex flex-col gap-3 pt-1">
                 <p className="text-xs text-muted-foreground">{t('invite.sectionHint')}</p>
-                <div className="flex flex-col gap-2">
-                  <Label className="text-xs">{t('invite.role')}</Label>
+                <FormField label={t('invite.role')} htmlFor="invite-role">
                   <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
-                    <SelectTrigger>
+                    <SelectTrigger id="invite-role">
                       <SelectValue placeholder={t('invite.role')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -548,43 +547,46 @@ export function UsersPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label className="text-xs">{t('invite.email')}</Label>
+                </FormField>
+                <FormField label={t('invite.email')} htmlFor="invite-email">
                   <Input
+                    id="invite-email"
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="teammate@example.com"
                   />
-                </div>
+                </FormField>
                 <div className="flex gap-3">
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Label className="text-xs">{t('invite.expiresDays')}</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={inviteExpiresDays}
-                      onChange={(e) => setInviteExpiresDays(e.target.value)}
-                    />
+                  <div className="flex-1">
+                    <FormField label={t('invite.expiresDays')} htmlFor="invite-expires-days">
+                      <Input
+                        id="invite-expires-days"
+                        type="number"
+                        min={1}
+                        value={inviteExpiresDays}
+                        onChange={(e) => setInviteExpiresDays(e.target.value)}
+                      />
+                    </FormField>
                   </div>
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Label className="text-xs">{t('invite.maxUses')}</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={inviteMaxUses}
-                      onChange={(e) => setInviteMaxUses(e.target.value)}
-                      placeholder="∞"
-                    />
+                  <div className="flex-1">
+                    <FormField label={t('invite.maxUses')} htmlFor="invite-max-uses">
+                      <Input
+                        id="invite-max-uses"
+                        type="number"
+                        min={1}
+                        value={inviteMaxUses}
+                        onChange={(e) => setInviteMaxUses(e.target.value)}
+                        placeholder="∞"
+                      />
+                    </FormField>
                   </div>
                 </div>
               </div>
             )
           ) : (
             <div className="flex flex-col gap-3 pt-1">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="u-email">{t('users.email')}</Label>
+              <FormField label={t('users.email')} htmlFor="u-email">
                 <Input
                   id="u-email"
                   type="email"
@@ -592,30 +594,27 @@ export function UsersPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoFocus
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="u-name">{t('users.displayName')}</Label>
+              </FormField>
+              <FormField label={t('users.displayName')} htmlFor="u-name">
                 <Input
                   id="u-name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="u-pass">{t('users.password')}</Label>
+              </FormField>
+              <FormField label={t('users.password')} htmlFor="u-pass">
                 <PasswordInput
                   id="u-pass"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>{t('users.role')}</Label>
+              </FormField>
+              <FormField label={t('users.role')} htmlFor="u-role">
                 <Select
                   value={roleId ? String(roleId) : undefined}
                   onValueChange={(v) => setRoleId(Number(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="u-role">
                     <SelectValue placeholder={t('users.role')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -626,7 +625,7 @@ export function UsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             </div>
           )}
 
@@ -666,23 +665,24 @@ export function UsersPage() {
           <DialogHeader>
             <DialogTitle>{t('users.approve')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label>{t('users.approveAs')}</Label>
-            <Select
-              value={approveRoleId ? String(approveRoleId) : undefined}
-              onValueChange={(v) => setApproveRoleId(Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('users.approveAs')} />
-              </SelectTrigger>
-              <SelectContent>
-                {activeRoles.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="pt-1">
+            <FormField label={t('users.approveAs')} htmlFor="approve-user-role">
+              <Select
+                value={approveRoleId ? String(approveRoleId) : undefined}
+                onValueChange={(v) => setApproveRoleId(Number(v))}
+              >
+                <SelectTrigger id="approve-user-role">
+                  <SelectValue placeholder={t('users.approveAs')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeRoles.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setApproveUserState(null)}>

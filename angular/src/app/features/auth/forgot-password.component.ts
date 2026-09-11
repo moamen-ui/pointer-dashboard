@@ -6,6 +6,7 @@ import { AuthService as ApiAuthService, ForgotPasswordRequest } from '@moamen-ui
 import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 
 @Component({
   selector: 'app-forgot-password',
@@ -17,6 +18,7 @@ import { AppButtonDirective } from '../../shared/ui/app-button.directive';
     AppAuthLayoutComponent,
     AppInputDirective,
     AppButtonDirective,
+    AppFormFieldComponent,
   ],
   template: `
     <app-auth-layout>
@@ -28,22 +30,15 @@ import { AppButtonDirective } from '../../shared/ui/app-button.directive';
           </a>
         } @else {
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
-            <div class="flex flex-col gap-2">
-              <label for="email" class="text-[14px] font-medium text-foreground">
-                {{ t('login.email') }}
-              </label>
+            <app-form-field [label]="t('login.email')" [error]="emailTouched() && emailError() ? emailError() : ''">
               <input
                 appInput
-                id="email"
                 type="email"
                 formControlName="email"
                 (blur)="emailTouched.set(true)"
                 autocomplete="email"
               />
-              @if (emailTouched() && emailError()) {
-                <p class="text-[12px] text-state-danger">{{ emailError() }}</p>
-              }
-            </div>
+            </app-form-field>
 
             <button
               appButton

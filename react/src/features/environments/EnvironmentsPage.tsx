@@ -10,7 +10,7 @@ import { Pencil, Plus, Trash2, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import {
   Dialog,
   DialogContent,
@@ -198,16 +198,17 @@ export function EnvironmentsPage() {
           <DialogHeader>
             <DialogTitle>{t('environments.addEnvironment')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label htmlFor="environment-name">{t('environments.name')}</Label>
-            <Input
-              id="environment-name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addEnvironment()}
-              placeholder="e.g. qa"
-              autoFocus
-            />
+          <div className="pt-1">
+            <FormField label={t('environments.name')} htmlFor="environment-name">
+              <Input
+                id="environment-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addEnvironment()}
+                placeholder="e.g. qa"
+                autoFocus
+              />
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setAddOpen(false)}>
@@ -227,15 +228,16 @@ export function EnvironmentsPage() {
           <DialogHeader>
             <DialogTitle>{t('common.rename')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label htmlFor="environment-rename">{t('environments.name')}</Label>
-            <Input
-              id="environment-rename"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && saveRename()}
-              autoFocus
-            />
+          <div className="pt-1">
+            <FormField label={t('environments.name')} htmlFor="environment-rename">
+              <Input
+                id="environment-rename"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveRename()}
+                autoFocus
+              />
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRenameOpen(false)}>

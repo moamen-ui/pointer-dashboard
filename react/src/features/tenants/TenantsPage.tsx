@@ -23,9 +23,9 @@ import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditC
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/data-table/DataTable';
+import { FormField } from '@/components/shared/FormField';
 import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
@@ -395,12 +395,12 @@ export function TenantsPage() {
             <DialogTitle>{t('tenants.changePlan')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-[13px] font-medium text-foreground">
-                {changePlanTarget?.email ?? changePlanTarget?.displayName ?? ''}
-              </Label>
+            <FormField
+              label={changePlanTarget?.email ?? changePlanTarget?.displayName ?? ''}
+              htmlFor="change-plan-select"
+            >
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                <SelectTrigger>
+                <SelectTrigger id="change-plan-select">
                   <SelectValue placeholder={t('tenants.selectPlanPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -411,7 +411,7 @@ export function TenantsPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setChangePlanTarget(null)}>
@@ -434,10 +434,7 @@ export function TenantsPage() {
             <DialogTitle>{t('tenants.addTenant')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tenant-email" className="text-[13px] font-medium text-foreground">
-                {t('tenants.email')}
-              </Label>
+            <FormField label={t('tenants.email')} htmlFor="tenant-email">
               <Input
                 id="tenant-email"
                 type="email"
@@ -445,27 +442,21 @@ export function TenantsPage() {
                 onChange={(e) => setNewEmail(e.target.value)}
                 autoFocus
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tenant-password" className="text-[13px] font-medium text-foreground">
-                {t('tenants.password')}
-              </Label>
+            </FormField>
+            <FormField label={t('tenants.password')} htmlFor="tenant-password">
               <PasswordInput
                 id="tenant-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tenant-name" className="text-[13px] font-medium text-foreground">
-                {t('tenants.displayName')}
-              </Label>
+            </FormField>
+            <FormField label={t('tenants.displayName')} htmlFor="tenant-name">
               <Input
                 id="tenant-name"
                 value={newDisplayName}
                 onChange={(e) => setNewDisplayName(e.target.value)}
               />
-            </div>
+            </FormField>
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setAddOpen(false)}>
@@ -489,10 +480,7 @@ export function TenantsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-[12px] text-muted-foreground">{t('tenants.demoConfigHint')}</p>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="demo-cap-override" className="text-[13px] font-medium text-foreground">
-                {t('tenants.commentCapOverride')}
-              </Label>
+            <FormField label={t('tenants.commentCapOverride')} htmlFor="demo-cap-override">
               <Input
                 id="demo-cap-override"
                 type="number"
@@ -501,11 +489,8 @@ export function TenantsPage() {
                 placeholder={t('tenants.overridePlaceholder')}
                 onChange={(e) => setCapInput(e.target.value)}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="demo-ttl-override" className="text-[13px] font-medium text-foreground">
-                {t('tenants.ttlHoursOverride')}
-              </Label>
+            </FormField>
+            <FormField label={t('tenants.ttlHoursOverride')} htmlFor="demo-ttl-override">
               <Input
                 id="demo-ttl-override"
                 type="number"
@@ -514,7 +499,7 @@ export function TenantsPage() {
                 placeholder={t('tenants.overridePlaceholder')}
                 onChange={(e) => setTtlInput(e.target.value)}
               />
-            </div>
+            </FormField>
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDemoConfigTarget(null)}>

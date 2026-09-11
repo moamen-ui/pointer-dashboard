@@ -29,9 +29,9 @@ import {
 } from '@moamen-ui/pointer-vue';
 import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, X, Check, Brain } from 'lucide-vue-next';
 import ProjectAiRules from './ProjectAiRules.vue';
+import FormField from '@/components/shared/FormField.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -777,12 +777,10 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle class="text-base font-semibold leading-6">{{ t('projects.addProject') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-4 py-2 space-y-4" data-tour="project-modal-sections" @submit.prevent="addProject">
-        <div class="flex flex-col gap-1.5">
-          <Label for="p-name" class="text-[13px] font-medium">{{ t('projects.name') }}</Label>
+        <FormField :label="t('projects.name')" html-for="p-name">
           <Input id="p-name" v-model="addForm.name" @input="syncKeyFromName" />
-        </div>
-        <div class="flex flex-col gap-1.5">
-          <Label for="p-key" class="text-[13px] font-medium">{{ t('projects.key') }}</Label>
+        </FormField>
+        <FormField :label="t('projects.key')" html-for="p-key" :error="keyError ?? undefined" :hint="keyError ? '' : t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')">
           <Input
             id="p-key"
             v-model="addForm.key"
@@ -791,11 +789,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             spellcheck="false"
             @input="onKeyEdited"
           />
-          <p v-if="keyError" class="text-[12px] font-medium text-state-danger">{{ keyError }}</p>
-          <p v-else class="text-[12px] text-muted-foreground">
-            {{ t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint') }}
-          </p>
-        </div>
+        </FormField>
 
         <div class="flex items-start justify-between gap-4">
           <div class="flex flex-col gap-1">
@@ -821,10 +815,9 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle>{{ t('projects.editTitle') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="saveEdit">
-        <div class="flex flex-col gap-2">
-          <Label for="edit-name">{{ t('projects.name') }}</Label>
+        <FormField :label="t('projects.name')" html-for="edit-name">
           <Input id="edit-name" v-model="editName" />
-        </div>
+        </FormField>
 
         <!-- Every environment with a saved URL shows as a row, "default" included;
              one inline add-row at a time for the rest. -->
@@ -974,22 +967,24 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             </Button>
           </div>
           <p v-if="editActions.length === 0" class="text-xs text-muted-foreground italic">{{ t('predefined.empty') }}</p>
-          <div v-for="(action, idx) in editActions" :key="idx" class="flex flex-col gap-1 rounded-md border p-2">
+          <div v-for="(action, idx) in editActions" :key="idx" class="flex flex-col gap-2 rounded-md border p-2">
             <div class="flex items-center justify-between">
               <span class="text-xs text-muted-foreground">#{{ idx + 1 }}</span>
               <Button type="button" variant="ghost" size="icon" @click="removeEditActionRow(idx)">
                 <Trash2 class="h-4 w-4 text-destructive" />
               </Button>
             </div>
-            <Label :for="'edit-act-text-' + idx">{{ t('predefined.text') }}</Label>
-            <Input :id="'edit-act-text-' + idx" v-model="action.text" />
-            <Label :for="'edit-act-prompt-' + idx">{{ t('predefined.prompt') }}</Label>
-            <textarea
-              :id="'edit-act-prompt-' + idx"
-              v-model="action.prompt"
-              rows="2"
-              class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
-            />
+            <FormField :label="t('predefined.text')" :html-for="'edit-act-text-' + idx">
+              <Input :id="'edit-act-text-' + idx" v-model="action.text" />
+            </FormField>
+            <FormField :label="t('predefined.prompt')" :html-for="'edit-act-prompt-' + idx">
+              <textarea
+                :id="'edit-act-prompt-' + idx"
+                v-model="action.prompt"
+                rows="2"
+                class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+              />
+            </FormField>
           </div>
         </div>
 
@@ -1019,8 +1014,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
       </DialogHeader>
       <p class="text-sm text-muted-foreground">{{ t('exportImport.importHint') }}</p>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitImport">
-        <div class="flex flex-col gap-2">
-          <Label for="import-file">{{ t('exportImport.import') }}</Label>
+        <FormField :label="t('exportImport.import')" html-for="import-file">
           <input
             id="import-file"
             type="file"
@@ -1028,7 +1022,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
             @change="(e) => { importFile = (e.target as HTMLInputElement).files?.[0] ?? null; }"
           />
-        </div>
+        </FormField>
       </form>
       <DialogFooter>
         <Button variant="outline" @click="importDialogOpen = false">{{ t('common.cancel') }}</Button>
@@ -1046,19 +1040,17 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle>{{ t('projects.suggest') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitSuggest">
-        <div class="flex flex-col gap-2">
-          <Label for="suggest-text">{{ t('predefined.text') }}</Label>
+        <FormField :label="t('predefined.text')" html-for="suggest-text">
           <Input id="suggest-text" v-model="suggestForm.text" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="suggest-prompt">{{ t('predefined.prompt') }}</Label>
+        </FormField>
+        <FormField :label="t('predefined.prompt')" html-for="suggest-prompt">
           <textarea
             id="suggest-prompt"
             v-model="suggestForm.prompt"
             rows="3"
             class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
           />
-        </div>
+        </FormField>
       </form>
       <DialogFooter>
         <Button variant="outline" @click="suggestOpen = false">{{ t('common.cancel') }}</Button>

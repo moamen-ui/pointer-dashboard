@@ -37,6 +37,7 @@ import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-select.component';
 import { AppSwitchComponent } from '../../shared/ui/app-switch.component';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 import { AppDialogService } from '../../shared/ui/app-dialog.service';
 import type { Severity } from '../../shared/severity';
@@ -89,6 +90,7 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
     AppInputDirective,
     AppSelectComponent,
     AppSwitchComponent,
+    AppFormFieldComponent,
   ],
   template: `
     <div class="space-y-6">
@@ -151,19 +153,19 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
         <div class="px-5 py-2 pb-3 space-y-4 overflow-y-auto">
           <form [formGroup]="addForm" class="space-y-4">
             <!-- Name -->
-            <div class="space-y-1.5">
-              <label class="text-[13px] font-medium text-foreground">{{ 'projects.name' | transloco }}</label>
+            <app-form-field [label]="'projects.name' | transloco">
               <input
                 appInput
                 formControlName="name"
                 (input)="syncKeyFromName($event)"
-                class="w-full"
               />
-            </div>
+            </app-form-field>
 
             <!-- Key -->
-            <div class="space-y-1.5">
-              <label class="text-[13px] font-medium text-foreground">{{ 'projects.key' | transloco }}</label>
+            <app-form-field
+              [label]="'projects.key' | transloco"
+              [hint]="keyControl.hasError('required') || keyControl.hasError('pattern') || keyControl.hasError('maxlength') || keyControl.hasError('keyTaken') ? '' : (keyEdited() ? 'projects.keyHint' : 'projects.keyAutoHint') | transloco"
+              [error]="keyControl.hasError('required') ? ('projects.keyRequired' | transloco) : keyControl.hasError('pattern') ? ('projects.keyPattern' | transloco) : keyControl.hasError('maxlength') ? ('projects.keyMaxLength' | transloco: { max: KEY_MAX_LENGTH }) : keyControl.hasError('keyTaken') ? ('projects.keyTaken' | transloco) : ''">
               <input
                 appInput
                 formControlName="key"
@@ -171,33 +173,8 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
                 autocapitalize="none"
                 spellcheck="false"
                 (input)="onKeyEdited($event)"
-                class="w-full"
               />
-              <div class="text-[12px] text-muted-foreground">
-                {{ (keyEdited() ? 'projects.keyHint' : 'projects.keyAutoHint') | transloco }}
-              </div>
-              @if (keyControl.hasError('required')) {
-                <div class="text-[12px] text-state-danger flex items-center gap-1">
-                  <app-icon name="alert-circle" [size]="12"></app-icon>
-                  {{ 'projects.keyRequired' | transloco }}
-                </div>
-              } @else if (keyControl.hasError('pattern')) {
-                <div class="text-[12px] text-state-danger flex items-center gap-1">
-                  <app-icon name="alert-circle" [size]="12"></app-icon>
-                  {{ 'projects.keyPattern' | transloco }}
-                </div>
-              } @else if (keyControl.hasError('maxlength')) {
-                <div class="text-[12px] text-state-danger flex items-center gap-1">
-                  <app-icon name="alert-circle" [size]="12"></app-icon>
-                  {{ 'projects.keyMaxLength' | transloco: { max: KEY_MAX_LENGTH } }}
-                </div>
-              } @else if (keyControl.hasError('keyTaken')) {
-                <div class="text-[12px] text-state-danger flex items-center gap-1">
-                  <app-icon name="alert-circle" [size]="12"></app-icon>
-                  {{ 'projects.keyTaken' | transloco }}
-                </div>
-              }
-            </div>
+            </app-form-field>
 
             <!-- Page Context Capture switch -->
             <div class="space-y-2">
@@ -232,10 +209,9 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
         <div class="px-5 py-2 overflow-y-auto flex-1">
           <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="space-y-4">
             <!-- Name -->
-            <div class="space-y-1.5">
-              <label class="text-[13px] font-medium text-foreground">{{ 'projects.name' | transloco }}</label>
-              <input appInput formControlName="name" class="w-full" />
-            </div>
+            <app-form-field [label]="'projects.name' | transloco">
+              <input appInput formControlName="name" />
+            </app-form-field>
 
             <!-- Page Context Capture -->
             <div class="space-y-2">
@@ -432,14 +408,12 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
           <h2 class="text-[16px] font-semibold leading-6">{{ 'projects.suggest' | transloco }}</h2>
         </div>
         <form [formGroup]="suggestForm" class="px-5 py-2 overflow-y-auto flex-1 space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-[13px] font-medium text-foreground">{{ 'predefined.text' | transloco }}</label>
-            <input appInput formControlName="text" class="w-full" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-[13px] font-medium text-foreground">{{ 'predefined.prompt' | transloco }}</label>
-            <textarea formControlName="prompt" class="w-full h-20 px-3 py-2 rounded-md border border-border bg-background text-[14px] resize-none"></textarea>
-          </div>
+          <app-form-field [label]="'predefined.text' | transloco">
+            <input appInput formControlName="text" />
+          </app-form-field>
+          <app-form-field [label]="'predefined.prompt' | transloco">
+            <textarea formControlName="prompt" class="h-20 resize-none"></textarea>
+          </app-form-field>
         </form>
         <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
           <button appButton variant="secondary" size="sm" (click)="dialogRef?.close()">

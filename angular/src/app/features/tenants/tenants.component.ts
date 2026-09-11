@@ -135,10 +135,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
       <app-dialog [title]="'tenants.addTenant' | transloco">
         <ng-template appDialogBody>
           <div class="space-y-4">
-            <app-form-field>
-              <label class="text-[13px] font-medium text-foreground">
-                {{ 'tenants.email' | transloco }}
-              </label>
+            <app-form-field [label]="'tenants.email' | transloco">
               <input
                 appInput
                 type="email"
@@ -147,10 +144,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
               />
             </app-form-field>
 
-            <app-form-field>
-              <label class="text-[13px] font-medium text-foreground">
-                {{ 'tenants.displayName' | transloco }}
-              </label>
+            <app-form-field [label]="'tenants.displayName' | transloco">
               <input
                 appInput
                 [(ngModel)]="newDisplayName"
@@ -158,10 +152,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
               />
             </app-form-field>
 
-            <app-form-field>
-              <label class="text-[13px] font-medium text-foreground">
-                {{ 'tenants.password' | transloco }}
-              </label>
+            <app-form-field [label]="'tenants.password' | transloco">
               <input
                 appInput
                 type="password"
@@ -199,10 +190,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
               {{ 'tenants.demoConfigHint' | transloco }}
             </p>
 
-            <app-form-field>
-              <label class="text-[13px] font-medium text-foreground">
-                {{ 'tenants.commentCapOverride' | transloco }}
-              </label>
+            <app-form-field [label]="'tenants.commentCapOverride' | transloco">
               <input
                 appInput
                 type="number"
@@ -212,10 +200,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
               />
             </app-form-field>
 
-            <app-form-field>
-              <label class="text-[13px] font-medium text-foreground">
-                {{ 'tenants.ttlHoursOverride' | transloco }}
-              </label>
+            <app-form-field [label]="'tenants.ttlHoursOverride' | transloco">
               <input
                 appInput
                 type="number"
@@ -252,10 +237,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
             <div class="text-[13px] font-medium text-foreground">
               {{ changePlanTenant()?.email ?? changePlanTenant()?.displayName ?? '' }}
             </div>
-            <app-form-field>
-              <label class="text-[13px] font-medium text-foreground">
-                {{ 'tenants.selectPlan' | transloco }}
-              </label>
+            <app-form-field [label]="'tenants.selectPlan' | transloco">
               <app-select
                 [value]="changePlanSelectedId()"
                 (valueChange)="changePlanSelectedId.set($event)"
