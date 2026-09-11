@@ -402,3 +402,30 @@ browser rather than judging by eye. A probe over Overview and Profile returned 1
 - The same contrast probe now returns 0 failures on Overview and Profile (was 15).
 - `impeccable detect`: 0 findings across Overview, Profile and Statuses in all three apps.
 - Builds: react ✓, vue ✓ (`vue-tsc` clean), angular ✓. Light and dark both captured and composed.
+
+## Round: colorize follow-up — full-app contrast sweep + React parity fix
+
+### Scope check
+Confirmed the colorize round's contrast probe had run on Overview and Profile only. Everything else in
+the round (faint-ink token, toast anatomy, Vue toast tagging) reaches every page through the shared
+foundation and toast host, but had not been measured directly outside those two pages.
+
+### React parity gap found
+`CountCell` and `DiffstatLine` (react/src/components/shared/CountCell.tsx) still carried a `color` prop —
+a status-catalog hex that overrode the fixed-tone class via an inline `style`. Vue's and Angular's
+equivalents never had this path. No caller in the app passed `color` (grepped both call sites: Overview
+and Profile), so it was dead code, but it stood as a live contradiction of the Fixed Diff rule and a
+three-way parity break. Removed the prop and the inline-style branch from both functions; doc comments
+updated to match. `tsc --noEmit` and `npm run build` both clean afterward.
+
+### Sweep
+Ran the same in-browser contrast probe (WCAG relative-luminance, 4.5:1 normal / 3:1 large text,
+composited through actual ancestor backgrounds) across every remaining route in all three apps, logged
+in as the local super admin:
+
+Light: overview, profile, roles, users, statuses, environments, settings, projects, tenants, plans,
+branding, login, signup — 13 pages × 3 apps, 39 checks, 0 failures.
+Dark: overview, projects, statuses (the pages carrying state colour) × 3 apps, 9 checks, 0 failures.
+
+No new failures found. The fixed-token sweep from the colorize round holds across the whole surface, not
+just the two pages it was verified on.

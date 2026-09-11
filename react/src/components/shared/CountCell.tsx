@@ -55,17 +55,15 @@ export function statusTone(value: number | undefined): StateTone {
 
 /**
  * Count cell content (§3): mono number; when > 0 it takes the state hue and a 12px glyph, when 0 it is
- * faint with no glyph. `color` (a status-catalog hex) overrides the tone hue; the glyph still follows the tone.
+ * faint with no glyph.
  */
 export function CountCell({
   count,
   tone = 'neutral',
-  color,
   className,
 }: {
   count: number;
   tone?: StateTone;
-  color?: string | null;
   className?: string;
 }) {
   if (count === 0) {
@@ -73,10 +71,7 @@ export function CountCell({
   }
   const Icon = toneIcons[tone];
   return (
-    <span
-      className={cn('inline-flex items-center gap-1 font-mono text-[14px]', !color && toneClasses[tone], className)}
-      style={color ? { color } : undefined}
-    >
+    <span className={cn('inline-flex items-center gap-1 font-mono text-[14px]', toneClasses[tone], className)}>
       {Icon && <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />}
       {count}
     </span>
@@ -84,8 +79,8 @@ export function CountCell({
 }
 
 /**
- * Diffstat line (§3): `6 comments · 2 open · 1 ready …` — mono numbers in their state hue (or the
- * catalog color), sans labels in muted ink, faint middots between items.
+ * Diffstat line (§3): `6 comments · 2 open · 1 ready …` — mono numbers in their state hue, sans
+ * labels in muted ink, faint middots between items.
  */
 export function DiffstatLine({
   items,
@@ -96,7 +91,6 @@ export function DiffstatLine({
     count: number | string;
     icon?: ReactNode;
     tone?: StateTone;
-    color?: string | null;
   }>;
   className?: string;
 }) {
@@ -106,10 +100,7 @@ export function DiffstatLine({
         <div key={idx} className="flex items-center gap-1">
           {idx > 0 && <span className="text-faint-foreground" aria-hidden="true">·</span>}
           {item.icon && <span className="flex items-center">{item.icon}</span>}
-          <span
-            className={cn('font-mono tabular-nums', !item.color && toneClasses[item.tone ?? 'neutral'])}
-            style={item.color ? { color: item.color } : undefined}
-          >
+          <span className={cn('font-mono tabular-nums', toneClasses[item.tone ?? 'neutral'])}>
             {item.count}
           </span>
           <span>{item.label}</span>
