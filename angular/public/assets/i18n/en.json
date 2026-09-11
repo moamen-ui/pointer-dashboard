@@ -147,7 +147,14 @@
     "search": "Search…",
     "show": "Show",
     "showPassword": "Show password",
-    "yes": "Yes"
+    "yes": "Yes",
+    "sendInvite": "Send Invite",
+    "resend": "Resend",
+    "revoke": "Revoke",
+    "copyLink": "Copy Link",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "close": "Close"
   },
   "demo": {
     "back": "Back",
@@ -256,7 +263,7 @@
     "noProjects": "Create a project first, then come back for the snippet —",
     "open": "View installation steps",
     "project": "Project",
-    "stepAgentHint": "Paste this to your agent (Claude Code, Cursor, …). It runs the pointer-init skill that step 1 installed: it detects your stack — Vite, Angular, Next, CRA, static HTML, Swagger — and wires the loader and env vars the way that stack expects.",
+    "stepAgentHint": "Only if the CLI told you to (Next.js/Angular/monorepo): run the pointer-init skill",
     "stepAgentTitle": "Let your AI agent wire it in",
     "tabCode": "Code",
     "tabExtension": "Chrome extension",
@@ -316,8 +323,15 @@
       "stepMethod": "2. Method",
       "stepProject": "1. Project",
       "stepVerify": "4. See it live",
-      "viewComments": "View comments in dashboard"
-    }
+      "viewComments": "View comments in dashboard",
+      "reveal": "Reveal key",
+      "hide": "Hide key"
+    },
+    "stepInitTitle": "Run the installer in your project",
+    "stepInitHint": "One command: installs the skills, stores your key, picks the project and mounts the widget for Vite/static apps. Needs Node 18+. The `-y` skips npx's first-run prompt.",
+    "stepCurlTitle": "Alternative without Node",
+    "stepCurlHint": "Installs the skills only; you fill the key by hand.",
+    "stepInitHintNoKey": "One command: installs the skills, picks the project and mounts the widget for Vite/static apps. Generate your key in Profile → API key or the CLI will ask for it. Needs Node 18+."
   },
   "invite": {
     "anyone": "Anyone with the link",
@@ -658,7 +672,10 @@
     "signupEnabledDesc": "When enabled, new admins can request access via the sign-up page.",
     "signupEnabledHint": "Allow new admins to register themselves; accounts require approval before they can log in.",
     "signupStatus": "Current status:",
-    "title": "Settings"
+    "title": "Settings",
+    "appBaseUrl": "App base URL",
+    "appBaseUrlHint": "Optional. If blank, invitation links will use the server's public URL.",
+    "effectiveAppBaseUrl": "Invitation links will use"
   },
   "signup": {
     "backToLogin": "Back to login",
@@ -787,7 +804,18 @@
     "statusUpdated": "Status updated.",
     "title": "Tenants",
     "ttlHoursOverride": "Demo period (hours)",
-    "updated": "Tenant updated."
+    "updated": "Tenant updated.",
+    "inviteWorkspace": "Invite Workspace",
+    "emailToInvite": "Email to invite",
+    "pendingInvites": "Pending Invites",
+    "invitedOn": "Invited on {{date}}",
+    "manualCreate": "Manual Creation (Legacy)",
+    "manualCreateHint": "Directly create a workspace with a temporary password.",
+    "createDirectly": "Create Directly",
+    "invited": "Invite sent successfully.",
+    "inviteResent": "Invite resent.",
+    "revokeConfirm": "Revoke invite for {{email}}?",
+    "inviteRevoked": "Invite revoked."
   },
   "tour": {
     "back": "Back",

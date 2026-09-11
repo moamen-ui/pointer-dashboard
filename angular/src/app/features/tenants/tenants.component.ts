@@ -1,8 +1,8 @@
 import { Component, computed, inject, signal, TemplateRef, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { TenantsService, getApiAdminTenantsResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
-import type { TenantResponse, PlanAdminResponse } from '@moamen-ui/pointer-angular';
+import { TenantsService, getApiAdminTenantsResource, getApiAdminTenantsInvitesResource, getApiAdminPlansResource } from '@moamen-ui/pointer-angular';
+import type { TenantResponse, TenantInviteResponse, CreateTenantInviteRequest, PlanAdminResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
 import { ConfirmService } from '../../core/confirm.service';
 import { AppDialogService } from '../../shared/ui/app-dialog.service';
@@ -46,7 +46,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
           </h1>
           <button appButton variant="primary" size="sm" (click)="openAdd()">
             <app-icon name="plus" [size]="16"></app-icon>
-            {{ 'tenants.addTenant' | transloco }}
+            {{ 'tenants.inviteWorkspace' | transloco }}
           </button>
         </div>
 
@@ -123,59 +123,107 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
             </ng-template>
             <button appButton variant="primary" size="sm" (click)="openAdd()" emptyAction>
               <app-icon name="plus" [size]="16"></app-icon>
-              {{ 'tenants.addTenant' | transloco }}
+              {{ 'tenants.inviteWorkspace' | transloco }}
             </button>
           </app-data-table>
         }
       </div>
     </div>
 
-    <!-- Add tenant dialog -->
+    <!-- Invite workspace dialog -->
     <ng-template #addDialog>
-      <app-dialog [title]="'tenants.addTenant' | transloco">
+      <app-dialog [title]="'tenants.inviteWorkspace' | transloco">
         <ng-template appDialogBody>
-          <div class="space-y-4">
-            <app-form-field [label]="'tenants.email' | transloco">
-              <input
-                appInput
-                type="email"
-                [(ngModel)]="newEmail"
-                [placeholder]="'tenants.email' | transloco"
-              />
-            </app-form-field>
+          <div class="space-y-6">
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <app-form-field [label]="'tenants.emailToInvite' | transloco">
+                  <input
+                    appInput
+                    type="email"
+                    [(ngModel)]="newInviteEmail"
+                    [placeholder]="'tenants.email' | transloco"
+                    (keyup.enter)="inviteTenant()"
+                  />
+                </app-form-field>
+              </div>
+              <button
+                appButton
+                variant="primary"
+                [disabled]="!newInviteEmail.trim() || inviteCreating()"
+                (click)="inviteTenant()"
+                class="mb-[2px]"
+              >
+                <app-icon name="mail" [size]="16"></app-icon>
+                {{ 'common.sendInvite' | transloco }}
+              </button>
+            </div>
 
-            <app-form-field [label]="'tenants.displayName' | transloco">
-              <input
-                appInput
-                [(ngModel)]="newDisplayName"
-                [placeholder]="'tenants.displayName' | transloco"
-              />
-            </app-form-field>
+            <!-- Pending Invites List -->
+            @if (invites().length > 0) {
+              <div class="space-y-2 mt-4">
+                <div class="text-[13px] font-medium text-foreground">{{ 'tenants.pendingInvites' | transloco }}</div>
+                <div class="rounded-md border border-border divide-y divide-border">
+                  @for (inv of invites(); track inv.id) {
+                    <div class="flex items-center justify-between p-3 text-[13px]">
+                      <div>
+                        <div class="font-medium">{{ inv.email }}</div>
+                        <div class="text-[12px] text-muted-foreground mt-0.5">
+                          {{ 'tenants.invitedOn' | transloco: { date: formatExpiry(inv.createdAt) } }}
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        @if (inv.url) {
+                          <button appButton variant="ghost" size="sm" (click)="copyInviteLink(inv.url)" [title]="'common.copyLink' | transloco">
+                            <app-icon name="link" [size]="16"></app-icon>
+                          </button>
+                        }
+                        <button appButton variant="ghost" size="sm" (click)="resendInvite(inv, false)" [title]="'common.resend' | transloco">
+                          <app-icon name="mail" [size]="16"></app-icon>
+                        </button>
+                        <button appButton variant="ghost" size="sm" class="text-state-danger hover:text-state-danger" (click)="revokeInvite(inv)" [title]="'common.revoke' | transloco">
+                          <app-icon name="trash-2" [size]="16"></app-icon>
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
 
-            <app-form-field [label]="'tenants.password' | transloco">
-              <input
-                appInput
-                type="password"
-                [(ngModel)]="newPassword"
-                [placeholder]="'tenants.password' | transloco"
-              />
-            </app-form-field>
+            <div class="border-t border-border pt-4">
+              <button type="button" class="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1" (click)="showManualCreate.set(!showManualCreate())">
+                <app-icon [name]="showManualCreate() ? 'chevron-down' : 'chevron-right'" [size]="14"></app-icon>
+                {{ 'tenants.manualCreate' | transloco }}
+              </button>
+              
+              @if (showManualCreate()) {
+                <div class="mt-4 space-y-4 rounded-md bg-gutter p-4 border border-border">
+                  <div class="text-[13px] text-muted-foreground mb-2">{{ 'tenants.manualCreateHint' | transloco }}</div>
+                  <app-form-field [label]="'tenants.email' | transloco">
+                    <input appInput type="email" [(ngModel)]="newEmail" [placeholder]="'tenants.email' | transloco" />
+                  </app-form-field>
+                  <app-form-field [label]="'tenants.displayName' | transloco">
+                    <input appInput [(ngModel)]="newDisplayName" [placeholder]="'tenants.displayName' | transloco" />
+                  </app-form-field>
+                  <app-form-field [label]="'tenants.password' | transloco">
+                    <input appInput type="password" [(ngModel)]="newPassword" [placeholder]="'tenants.password' | transloco" />
+                  </app-form-field>
+                  <div class="flex justify-end pt-2">
+                    <button appButton variant="secondary" size="sm" [disabled]="!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim() || addCreating()" (click)="addTenant()">
+                      <app-icon name="plus" [size]="16"></app-icon>
+                      {{ 'tenants.createDirectly' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
           </div>
         </ng-template>
 
         <ng-template appDialogFooter>
           <button appButton variant="secondary" size="sm" (click)="closeAddDialog()">
-            {{ 'common.cancel' | transloco }}
-          </button>
-          <button
-            appButton
-            variant="primary"
-            size="sm"
-            [disabled]="!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim() || addCreating()"
-            (click)="addTenant()"
-          >
-            <app-icon name="plus" [size]="16"></app-icon>
-            {{ 'tenants.addTenant' | transloco }}
+            {{ 'common.close' | transloco }}
           </button>
         </ng-template>
       </app-dialog>
@@ -280,6 +328,14 @@ export class TenantsComponent {
   // Tenants data
   tenantsResource = getApiAdminTenantsResource();
   tenants = computed(() => (this.tenantsResource.value() as unknown as TenantResponse[]) ?? []);
+
+  readonly invitesResource = getApiAdminTenantsInvitesResource();
+  readonly invites = computed(() => (this.invitesResource.value() ?? []) as TenantInviteResponse[]);
+
+  newInviteEmail = '';
+  inviteCreating = signal(false);
+  showManualCreate = signal(false);
+
 
   // Plans data
   plansResource = getApiAdminPlansResource();
@@ -407,12 +463,75 @@ export class TenantsComponent {
   };
 
   openAdd() {
+    this.newInviteEmail = '';
     this.newEmail = '';
     this.newDisplayName = '';
     this.newPassword = '';
+    this.inviteCreating.set(false);
+    this.showManualCreate.set(false);
     this.addCreating.set(false);
     this.appDialog.openRef(this.addDialog());
   }
+
+  inviteTenant() {
+    const email = this.newInviteEmail.trim();
+    if (!email) return;
+
+    this.inviteCreating.set(true);
+    (this.tenantsService as any).postApiAdminTenantsInvites({ email }).subscribe({
+      next: () => {
+        this.inviteCreating.set(false);
+        this.newInviteEmail = '';
+        this.invitesResource.reload();
+        this.toast.show(this.transloco.translate('tenants.invited'), 'success');
+      },
+      error: (e: unknown) => {
+        this.inviteCreating.set(false);
+        this.toast.show(extractMessage(e), 'danger');
+      },
+    });
+  }
+
+  resendInvite(invite: TenantInviteResponse, rotate: boolean) {
+    (this.tenantsService as any).postApiAdminTenantsInvitesIdResend(invite.id!, { rotate }).subscribe({
+      next: (res: TenantInviteResponse) => {
+        this.invitesResource.reload();
+        this.toast.show(this.transloco.translate('tenants.inviteResent'), 'success');
+        if (rotate && res.url) {
+          this.copyInviteLink(res.url);
+        }
+      },
+      error: (e: unknown) => {
+        this.toast.show(extractMessage(e), 'danger');
+      },
+    });
+  }
+
+  revokeInvite(invite: TenantInviteResponse) {
+    this.confirm.confirm({
+      message: this.transloco.translate('tenants.revokeConfirm', { email: invite.email }),
+      confirmLabel: this.transloco.translate('common.revoke'),
+      confirmColor: 'danger',
+    }).subscribe((ok: boolean) => {
+      if (!ok) return;
+      (this.tenantsService as any).deleteApiAdminTenantsInvitesId(invite.id!).subscribe({
+        next: () => {
+          this.invitesResource.reload();
+          this.toast.show(this.transloco.translate('tenants.inviteRevoked'), 'success');
+        },
+        error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
+      });
+    });
+  }
+
+  copyInviteLink(link: string | undefined) {
+    if (!link) return;
+    navigator.clipboard?.writeText(link).then(
+      () => this.toast.show(this.transloco.translate('common.copied'), 'success'),
+      () => this.toast.show(this.transloco.translate('common.copyFailed'), 'danger'),
+    );
+  }
+
 
   closeAddDialog() {
     this.appDialog.closeAll();

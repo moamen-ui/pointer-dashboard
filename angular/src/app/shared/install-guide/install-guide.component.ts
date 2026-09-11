@@ -76,6 +76,14 @@ export async function checkLocalhostWidgetStatus(server: string, projectKey: str
   }
 }
 
+export function initCommand(i: { server: string; apiKey: string | null; projectKey: string | null; environment?: 'local'|'staging'|'production' }): string {
+  const parts = ['npx -y pointer-feedback init', `--server ${i.server}`];
+  if (i.apiKey) parts.push(`--key ${i.apiKey}`);
+  if (i.projectKey) parts.push(`--project ${i.projectKey}`);
+  if (i.environment) parts.push(`--environment ${i.environment}`);
+  return parts.join(' ');
+}
+
 export function buildSteps(input: {
   server: string;
   projectKey: string | null;
@@ -88,21 +96,30 @@ export function buildSteps(input: {
   const projectKey = input.projectKey || PROJECT_KEY_PLACEHOLDER;
   const credentials = credentialsSnippet(input);
 
+  const primary: SetupStep[] = [
+    { titleKey: 'install.stepInitTitle', hintKey: 'install.stepInitHint', code: initCommand({ server, apiKey: input.apiKey, projectKey: input.projectKey !== PROJECT_KEY_PLACEHOLDER ? input.projectKey : null }) },
+  ];
+
+  if (!input.apiKey && demo) {
+    primary.push({ titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: credentials });
+  }
+
+  primary.push(
+    {
+      titleKey: 'install.stepAgentTitle',
+      hintKey: 'install.stepAgentHint',
+      code: `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${projectKey}, Pointer server URL: ${server}, environment: local`,
+    },
+    { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
+    { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' }
+  );
+
   return {
-    primary: [
-      { titleKey: 'demo.step3Title', hintKey: 'demo.step3Hint', code: `curl -fsSL ${server}/install.sh | sh` },
-      { titleKey: 'demo.step4Title', hintKey: 'demo.step4Hint', code: credentials },
-      {
-        titleKey: 'install.stepAgentTitle',
-        hintKey: 'install.stepAgentHint',
-        code: `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${projectKey}, Pointer server URL: ${server}, environment: local`,
-      },
-      { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
-      { titleKey: 'demo.step6Title', hintKey: 'demo.step6Hint', code: 'What are the new Pointer comments?' },
-    ],
+    primary,
     manual: [
       { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/pointer.js" defer></script>` },
       { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${projectKey}" server="${server}"></pointer-feedback>` },
+      { titleKey: 'install.stepCurlTitle', hintKey: 'install.stepCurlHint', code: `curl -fsSL ${server}/install.sh | sh` }
     ],
   };
 }
@@ -377,23 +394,58 @@ export function buildExtensionSteps(input: {
             <div class="flex flex-col gap-4">
               <div class="space-y-2">
                 <div class="text-[13px] font-medium text-foreground">
-                  {{ 'install.wizard.curlTitle' | transloco }}
+                  {{ 'install.stepInitTitle' | transloco }}
                 </div>
                 <div class="text-[12px] text-muted-foreground">
-                  {{ 'install.wizard.curlHint' | transloco }}
+                  {{ initHintKey() | transloco }}
                 </div>
-                <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
-                  <pre class="m-0"><code>curl -fsSL {{ serverUrl() }}/install.sh | sh</code></pre>
-                  <button
-                    appButton
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    (click)="copy('curl -fsSL ' + serverUrl() + '/install.sh | sh')"
-                    class="absolute top-3 end-3"
-                  >
-                    <app-icon name="copy" [size]="16"></app-icon>
+                <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-24 overflow-x-auto">
+                  <pre class="m-0"><code>{{ maskedInitCommandSnippet() }}</code></pre>
+                  
+                  <div class="absolute top-3 end-3 flex gap-1">
+                    @if (apiKeyResource.value()?.apiKey) {
+                      <button
+                        appButton
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        (click)="revealKey.set(!revealKey())"
+                        class="text-muted-foreground hover:text-foreground"
+                      >
+                        {{ revealKey() ? ('install.wizard.hide' | transloco) : ('install.wizard.reveal' | transloco) }}
+                      </button>
+                    }
+                    <button
+                      appButton
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      (click)="copy(initCommandSnippet())"
+                    >
+                      <app-icon name="copy" [size]="16"></app-icon>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="mt-4 border-t border-border pt-3">
+                  <button type="button" class="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1" (click)="showCurl.set(!showCurl())">
+                    <app-icon [name]="showCurl() ? 'chevron-down' : 'chevron-right'" [size]="14"></app-icon>
+                    {{ 'install.stepCurlTitle' | transloco }}
                   </button>
+                  
+                  @if (showCurl()) {
+                    <div class="mt-2 space-y-2">
+                      <div class="text-[12px] text-muted-foreground">
+                        {{ 'install.stepCurlHint' | transloco }}
+                      </div>
+                      <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
+                        <pre class="m-0"><code>curl -fsSL {{ serverUrl() }}/install.sh | sh</code></pre>
+                        <button appButton variant="ghost" size="sm" type="button" (click)="copy('curl -fsSL ' + serverUrl() + '/install.sh | sh')" class="absolute top-3 end-3">
+                          <app-icon name="copy" [size]="16"></app-icon>
+                        </button>
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
 
@@ -699,7 +751,7 @@ export class InstallGuideComponent {
   private projectsService = inject(ProjectsService);
   private router = inject(Router);
 
-  private readonly apiKeyResource = getApiMeApiKeyResource();
+  readonly apiKeyResource = getApiMeApiKeyResource();
   private translationEvents = toSignal(this.transloco.events$, { initialValue: null });
 
   readonly demo = signal<DemoSession | null>(this.readDemoSession());
@@ -711,6 +763,23 @@ export class InstallGuideComponent {
 
   /** Step 1 shows the picker by default; this switches to the inline create form. */
   readonly isCreatingInline = signal(false);
+
+  readonly initHintKey = computed(() => this.apiKeyResource.value()?.apiKey ? 'install.stepInitHint' : 'install.stepInitHintNoKey');
+  readonly revealKey = signal(false);
+  readonly showCurl = signal(false);
+  
+  readonly initCommandSnippet = computed(() => initCommand({ 
+    server: this.serverUrl(), 
+    apiKey: this.apiKeyResource.value()?.apiKey ?? null, 
+    projectKey: this.effectiveProjectKey() !== PROJECT_KEY_PLACEHOLDER ? this.effectiveProjectKey() : null 
+  }));
+  
+  readonly maskedInitCommandSnippet = computed(() => {
+    const cmd = this.initCommandSnippet();
+    const key = this.apiKeyResource.value()?.apiKey;
+    if (!key || this.revealKey()) return cmd;
+    return cmd.replace(key, 'ptr_••••••••');
+  });
 
   readonly suppressed = signal(this.guide.isSuppressed(this.auth.user()?.id ?? null));
 
