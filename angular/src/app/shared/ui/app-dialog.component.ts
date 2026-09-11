@@ -1,9 +1,29 @@
-import { Component, contentChild, input, TemplateRef } from '@angular/core';
+import { Component, Directive, TemplateRef, contentChild, input } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
+
+/**
+ * Marks an `<ng-template appDialogBody>` as the dialog's body slot.
+ * Use as: <ng-template appDialogBody> ... </ng-template>
+ */
+@Directive({ selector: 'ng-template[appDialogBody]', standalone: true })
+export class AppDialogBodyDirective {}
+
+/**
+ * Marks an `<ng-template appDialogFooter>` as the dialog's footer slot.
+ * Use as: <ng-template appDialogFooter> ... </ng-template>
+ */
+@Directive({ selector: 'ng-template[appDialogFooter]', standalone: true })
+export class AppDialogFooterDirective {}
 
 /**
  * Dialog shell: header (title + optional description), an optional body template and an optional
  * footer template, projected by ref so pages keep their own markup inline.
+ *
+ * The body/footer slots are matched by the `appDialogBody`/`appDialogFooter` attribute directives
+ * above (content-query by directive type, `read: TemplateRef`) — not by a template reference
+ * variable, since `<ng-template appDialogBody>` has no `#appDialogBody` ref for `contentChild()`'s
+ * string-locator form to find. Any consumer template using these attributes must import the two
+ * directives itself (standalone components only resolve selectors they import).
  */
 @Component({
   selector: 'app-dialog',
@@ -34,18 +54,6 @@ export class AppDialogComponent {
   readonly title = input('');
   readonly description = input<string | undefined>(undefined);
 
-  readonly bodyTemplate = contentChild<TemplateRef<unknown>>('appDialogBody');
-  readonly footerTemplate = contentChild<TemplateRef<unknown>>('appDialogFooter');
+  readonly bodyTemplate = contentChild(AppDialogBodyDirective, { read: TemplateRef });
+  readonly footerTemplate = contentChild(AppDialogFooterDirective, { read: TemplateRef });
 }
-
-/**
- * Template reference for the dialog body section.
- * Use as: <ng-template appDialogBody> ... </ng-template>
- */
-export const appDialogBody = 'appDialogBody';
-
-/**
- * Template reference for the dialog footer section.
- * Use as: <ng-template appDialogFooter> ... </ng-template>
- */
-export const appDialogFooter = 'appDialogFooter';

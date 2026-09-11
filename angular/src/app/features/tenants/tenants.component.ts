@@ -16,7 +16,7 @@ import { BadgeComponent } from '../../shared/badge/badge.component';
 import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import { type RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
-import { AppDialogComponent } from '../../shared/ui/app-dialog.component';
+import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } from '../../shared/ui/app-dialog.component';
 
 @Component({
   selector: 'app-tenants',
@@ -33,6 +33,8 @@ import { AppDialogComponent } from '../../shared/ui/app-dialog.component';
     AppDataTableComponent,
     DataTableCellDirective,
     AppDialogComponent,
+    AppDialogBodyDirective,
+    AppDialogFooterDirective,
   ],
   template: `
     <div class="flex-1 min-w-0 overflow-auto bg-background">

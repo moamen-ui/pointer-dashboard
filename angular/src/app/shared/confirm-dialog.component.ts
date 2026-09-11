@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { DialogRef, DIALOG_DATA } from '@angular/cdk/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import type { Severity } from './severity';
-import { AppDialogComponent } from './ui/app-dialog.component';
+import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } from './ui/app-dialog.component';
 import { AppButtonDirective } from './ui/app-button.directive';
 
 export interface ConfirmData {
@@ -26,7 +26,7 @@ export interface ConfirmData {
 @Component({
   selector: 'app-confirm-dialog',
   standalone: true,
-  imports: [AppDialogComponent, AppButtonDirective, TranslocoModule],
+  imports: [AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective, AppButtonDirective, TranslocoModule],
   template: `
     <app-dialog [title]="title()">
       <ng-template appDialogBody>
