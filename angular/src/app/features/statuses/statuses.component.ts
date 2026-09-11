@@ -1,16 +1,17 @@
 import { Component, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDialog } from '@angular/material/dialog';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { StatusesService, getApiAdminStatusesResource } from '@moamen-ui/pointer-angular';
 import type { StatusAdminItem } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
-import { ConfirmDialogComponent } from '../../shared/confirm-dialog.component';
+import { ConfirmService } from '../../core/confirm.service';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
-import { DataTableComponent, type DataTableColumn } from '../../shared/data-table/data-table.component';
+import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
+import { AppToastService } from '../../shared/ui/app-toast.service';
+import { BadgeComponent } from '../../shared/badge/badge.component';
+import type { Severity } from '../../shared/severity';
 
 interface StatusRow {
   item: StatusAdminItem;
@@ -27,19 +28,22 @@ interface StatusRow {
   imports: [
     FormsModule,
     TranslocoModule,
-    DataTableComponent,
+    AppDataTableComponent,
     DataTableCellDirective,
+    BadgeComponent,
   ],
   template: `
-    <div class="p-6">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <h2 class="m-0 text-[1.5em] font-bold">{{ 'statuses.title' | transloco }}</h2>
+    <div class="space-y-6">
+      <div class="flex items-center justify-between gap-4">
+        <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
+          {{ 'statuses.title' | transloco }}
+        </h1>
       </div>
 
       @if (statusesResource.error()) {
-        <p class="text-red-500">{{ 'statuses.loadError' | transloco }}</p>
+        <p class="text-state-danger text-[14px]">{{ 'statuses.loadError' | transloco }}</p>
       } @else if (statusesResource.isLoading() && rows().length === 0) {
-        <p class="text-muted">{{ 'statuses.loading' | transloco }}</p>
+        <p class="text-muted-foreground text-[14px]">{{ 'statuses.loading' | transloco }}</p>
       } @else {
         <!-- Escape hatch: every row is its own inline-edit form (label/color/order),
              so this table drives page-local state through appDataTableCell instead of
@@ -47,16 +51,20 @@ interface StatusRow {
         <app-data-table
           [rows]="rows()"
           [columns]="columns()"
-          [actionsColumn]="{ items: actionsFor, ariaLabel: 'statuses.colActions' | transloco }"
+          [actions]="actionsFor"
+          [actionsAriaLabel]="'statuses.colActions' | transloco"
+          [actionsHeader]="'statuses.colActions' | transloco"
+          [gutter]="true"
           [paginated]="false"
-          emptyIcon="label"
           [emptyMessage]="'statuses.empty' | transloco"
           [emptyHint]="'statuses.emptyHint' | transloco"
         >
           <ng-template appDataTableCell="name" let-row>
-            <span class="font-medium">{{ row.item.name }}</span>
+            <app-badge [severity]="severityForStatus(row.item.value)" class="font-medium">
+              {{ row.item.name }}
+            </app-badge>
             @if (row.item.isOverridden) {
-              <span class="chip chip-active ms-2 text-[10px]">Overridden</span>
+              <app-badge severity="warning" class="ms-2">{{ 'statuses.overridden' | transloco }}</app-badge>
             }
           </ng-template>
 
@@ -112,13 +120,11 @@ interface StatusRow {
     </div>
   `,
   styles: [`
-    /* Every in-table control — label, colour, order — is the same slim box. Material's
-       outlined form field is much taller than the colour swatch it sat next to, which
-       made the row look mismatched. */
+    /* Every in-table control — label, colour, order — is the same slim box. */
     .table-field {
       display: inline-flex;
       align-items: center;
-      height: 36px;
+      height: 32px;
       padding-inline: 8px;
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -135,11 +141,11 @@ interface StatusRow {
       border: 0;
       padding: 0;
       background: transparent;
-      color: var(--ink);
+      color: var(--foreground);
       font-size: 0.8rem;
       outline: none;
     }
-    .table-field-input::placeholder { color: var(--muted); }
+    .table-field-input::placeholder { color: var(--faint-foreground); }
 
     /* Native colour input: drop the browser's chrome so it reads as a plain
        swatch inside the merged colour control. */
@@ -150,10 +156,20 @@ interface StatusRow {
   `],
 })
 export class StatusesComponent {
+  /** Built-in status values map onto the badge severities that carry their diff hue and glyph. */
+  severityForStatus(value: number | undefined): Severity {
+    switch (value) {
+      case 2: return 'warning';
+      case 3: return 'success';
+      case 4: return 'archived';
+      default: return 'primary';
+    }
+  }
+
   private statusesService = inject(StatusesService);
   private catalogService = inject(StatusCatalogService);
-  private snack = inject(MatSnackBar);
-  private dialog = inject(MatDialog);
+  private toast = inject(AppToastService);
+  private confirm = inject(ConfirmService);
   private transloco = inject(TranslocoService);
 
   statusesResource = getApiAdminStatusesResource();
@@ -252,27 +268,24 @@ export class StatusesComponent {
           this.rows.update((rows) => { rows[index].saving = false; return [...rows]; });
           this.statusesResource.reload();
           this.catalogService.reload();
-          this.snack.open(this.transloco.translate('statuses.saveSuccess'), 'OK', { duration: 3000 });
+          this.toast.show(this.transloco.translate('statuses.saveSuccess'), 'success');
         },
         error: (e: unknown) => {
           this.rows.update((rows) => { rows[index].saving = false; return [...rows]; });
-          this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+          this.toast.show(extractMessage(e), 'danger');
         },
       });
   }
 
   confirmReset(row: StatusRow): void {
     if (this.indexOf(row) < 0) return;
-    this.dialog
-      .open(ConfirmDialogComponent, {
-        data: {
-          message: this.transloco.translate('statuses.resetConfirmMessage', { name: row.item.name }),
-          confirmLabel: this.transloco.translate('statuses.reset'),
-          confirmColor: 'danger',
-        },
+    this.confirm
+      .confirm({
+        message: this.transloco.translate('statuses.resetConfirmMessage', { name: row.item.name }),
+        confirmLabel: this.transloco.translate('statuses.reset'),
+        confirmColor: 'danger',
       })
-      .afterClosed()
-      .subscribe((ok: boolean | undefined) => {
+      .subscribe((ok: boolean) => {
         if (ok) this.resetStatus(row);
       });
   }
@@ -291,11 +304,11 @@ export class StatusesComponent {
         this.rows.update((rows) => { rows[index].resetting = false; return [...rows]; });
         this.statusesResource.reload();
         this.catalogService.reload();
-        this.snack.open(this.transloco.translate('statuses.resetSuccess'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('statuses.resetSuccess'), 'success');
       },
       error: (e: unknown) => {
         this.rows.update((rows) => { rows[index].resetting = false; return [...rows]; });
-        this.snack.open(extractMessage(e), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(e), 'danger');
       },
     });
   }

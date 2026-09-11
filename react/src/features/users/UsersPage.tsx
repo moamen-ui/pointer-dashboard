@@ -27,9 +27,9 @@ import { Plus, Ban, CheckCircle2, UserCheck, User, Users, Link, Copy, MailCheck 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
+import { FormField } from '@/components/shared/FormField';
 import { EmptyState } from '@/components/EmptyState';
 import {
   Dialog,
@@ -350,14 +350,35 @@ export function UsersPage() {
     id: 'status',
     enableSorting: false,
     header: t('users.status'),
-    cell: ({ row }) =>
-      row.original.kind === 'invite' ? (
-        <span className="chip chip-neutral">{t('invite.invited')}</span>
-      ) : (
-        <span className={cn('chip', row.original.isActive ? 'chip-active' : 'chip-disabled')}>
-          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+    cell: ({ row }) => {
+      if (row.original.kind === 'invite') {
+        return (
+          <span className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none text-state-archived bg-state-archived-tint border-state-archived/30">
+            {t('invite.invited')}
+          </span>
+        );
+      }
+      return (
+        <span className={cn(
+          'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none',
+          row.original.isActive
+            ? 'text-state-completed bg-state-completed-tint border-state-completed/30'
+            : 'text-state-danger bg-state-danger-tint border-state-danger/30'
+        )}>
+          {row.original.isActive ? (
+            <>
+              <CheckCircle2 className="h-3 w-3" />
+              {t('common.active')}
+            </>
+          ) : (
+            <>
+              <Ban className="h-3 w-3" />
+              {t('common.disabled')}
+            </>
+          )}
         </span>
-      ),
+      );
+    },
   });
 
   function actionsFor(row: Row): RowActionItem[] {
@@ -394,28 +415,28 @@ export function UsersPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t('users.title')}</h2>
+      <div className="flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('users.title')}</h1>
         <Button onClick={openAdd}>
           <Plus className="h-4 w-4" />
           {t('users.addUser')}
         </Button>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm text-muted-foreground">{t('users.filter')}</span>
-        <div className="inline-flex overflow-hidden rounded-md border border-border">
+      {/* Filter bar — label + segmented control */}
+      <div className="flex items-center gap-3">
+        <span className="text-[13px] text-muted-foreground">{t('common.show')}</span>
+        <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
           {filters.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors',
+                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
                 filter === f
-                  ? 'bg-brand-tint font-semibold text-brand'
-                  : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                  ? 'bg-background text-foreground border border-border'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {t(
@@ -426,7 +447,9 @@ export function UsersPage() {
                     : 'users.filterRejected',
               )}
               {f === 'Pending' && pendingCount > 0 && (
-                <span className="chip chip-neutral text-[10px]">{pendingCount}</span>
+                <span className="ms-1 inline-flex h-5 items-center justify-center rounded-full bg-state-ready px-1.5 text-[10px] font-medium text-white">
+                  {pendingCount}
+                </span>
               )}
             </button>
           ))}
@@ -451,26 +474,27 @@ export function UsersPage() {
           actions={actionsFor}
           actionsAriaLabel={t('users.actions')}
           actionsHeader={t('users.actions')}
+          gutter
         />
       )}
 
       {/* Add user dialog — "Send invite" (default) or "Create directly" (secondary) */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
           <DialogHeader>
-            <DialogTitle>{t('users.addUser')}</DialogTitle>
+            <DialogTitle className="text-base font-semibold leading-6">{t('users.addUser')}</DialogTitle>
           </DialogHeader>
 
           {!createdInvite && (
-            <div className="inline-flex self-start overflow-hidden rounded-md border border-border">
+            <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
               <button
                 type="button"
                 onClick={() => setAddMode('invite')}
                 className={cn(
-                  'px-3 py-1.5 text-sm transition-colors',
+                  'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
                   addMode === 'invite'
-                    ? 'bg-brand-tint font-semibold text-brand'
-                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                    ? 'bg-background text-foreground border border-border'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t('users.modeInvite')}
@@ -479,10 +503,10 @@ export function UsersPage() {
                 type="button"
                 onClick={() => setAddMode('direct')}
                 className={cn(
-                  'border-s border-border px-3 py-1.5 text-sm transition-colors',
+                  'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
                   addMode === 'direct'
-                    ? 'bg-brand-tint font-semibold text-brand'
-                    : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5',
+                    ? 'bg-background text-foreground border border-border'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t('users.modeDirect')}
@@ -494,7 +518,7 @@ export function UsersPage() {
             createdInvite ? (
               <div className="flex flex-col gap-3 pt-1">
                 {createdInvite.emailSent && (
-                  <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-300">
+                  <div className="flex items-center gap-2 rounded-md border border-state-completed/30 bg-state-completed-tint px-3 py-2 text-sm text-state-completed">
                     <MailCheck className="h-4 w-4 shrink-0" />
                     <span>{t('invite.emailSent', { email: createdInvite.emailSent })}</span>
                   </div>
@@ -510,10 +534,9 @@ export function UsersPage() {
             ) : (
               <div className="flex flex-col gap-3 pt-1">
                 <p className="text-xs text-muted-foreground">{t('invite.sectionHint')}</p>
-                <div className="flex flex-col gap-2">
-                  <Label className="text-xs">{t('invite.role')}</Label>
+                <FormField label={t('invite.role')} htmlFor="invite-role">
                   <Select value={inviteRoleId} onValueChange={setInviteRoleId}>
-                    <SelectTrigger>
+                    <SelectTrigger id="invite-role">
                       <SelectValue placeholder={t('invite.role')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -524,43 +547,46 @@ export function UsersPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label className="text-xs">{t('invite.email')}</Label>
+                </FormField>
+                <FormField label={t('invite.email')} htmlFor="invite-email">
                   <Input
+                    id="invite-email"
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="teammate@example.com"
                   />
-                </div>
+                </FormField>
                 <div className="flex gap-3">
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Label className="text-xs">{t('invite.expiresDays')}</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={inviteExpiresDays}
-                      onChange={(e) => setInviteExpiresDays(e.target.value)}
-                    />
+                  <div className="flex-1">
+                    <FormField label={t('invite.expiresDays')} htmlFor="invite-expires-days">
+                      <Input
+                        id="invite-expires-days"
+                        type="number"
+                        min={1}
+                        value={inviteExpiresDays}
+                        onChange={(e) => setInviteExpiresDays(e.target.value)}
+                      />
+                    </FormField>
                   </div>
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Label className="text-xs">{t('invite.maxUses')}</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={inviteMaxUses}
-                      onChange={(e) => setInviteMaxUses(e.target.value)}
-                      placeholder="∞"
-                    />
+                  <div className="flex-1">
+                    <FormField label={t('invite.maxUses')} htmlFor="invite-max-uses">
+                      <Input
+                        id="invite-max-uses"
+                        type="number"
+                        min={1}
+                        value={inviteMaxUses}
+                        onChange={(e) => setInviteMaxUses(e.target.value)}
+                        placeholder="∞"
+                      />
+                    </FormField>
                   </div>
                 </div>
               </div>
             )
           ) : (
             <div className="flex flex-col gap-3 pt-1">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="u-email">{t('users.email')}</Label>
+              <FormField label={t('users.email')} htmlFor="u-email">
                 <Input
                   id="u-email"
                   type="email"
@@ -568,30 +594,27 @@ export function UsersPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoFocus
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="u-name">{t('users.displayName')}</Label>
+              </FormField>
+              <FormField label={t('users.displayName')} htmlFor="u-name">
                 <Input
                   id="u-name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="u-pass">{t('users.password')}</Label>
+              </FormField>
+              <FormField label={t('users.password')} htmlFor="u-pass">
                 <PasswordInput
                   id="u-pass"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label>{t('users.role')}</Label>
+              </FormField>
+              <FormField label={t('users.role')} htmlFor="u-role">
                 <Select
                   value={roleId ? String(roleId) : undefined}
                   onValueChange={(v) => setRoleId(Number(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="u-role">
                     <SelectValue placeholder={t('users.role')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -602,7 +625,7 @@ export function UsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             </div>
           )}
 
@@ -642,23 +665,24 @@ export function UsersPage() {
           <DialogHeader>
             <DialogTitle>{t('users.approve')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label>{t('users.approveAs')}</Label>
-            <Select
-              value={approveRoleId ? String(approveRoleId) : undefined}
-              onValueChange={(v) => setApproveRoleId(Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('users.approveAs')} />
-              </SelectTrigger>
-              <SelectContent>
-                {activeRoles.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="pt-1">
+            <FormField label={t('users.approveAs')} htmlFor="approve-user-role">
+              <Select
+                value={approveRoleId ? String(approveRoleId) : undefined}
+                onValueChange={(v) => setApproveRoleId(Number(v))}
+              >
+                <SelectTrigger id="approve-user-role">
+                  <SelectValue placeholder={t('users.approveAs')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeRoles.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setApproveUserState(null)}>

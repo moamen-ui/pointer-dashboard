@@ -80,4 +80,9 @@ describe('InstallGuideService.shouldAutoOpen', () => {
   it('never opens without a user id', () => {
     expect(guide.shouldAutoOpen({ ...admin, userId: null, commentsCount: 0 })).toBe(false);
   });
+
+  it('never opens for a super admin, who owns no project', () => {
+    expect(guide.shouldAutoOpen({ ...admin, isSuperAdmin: true })).toBe(false);
+    expect(guide.shouldAutoOpen({ ...admin, isSuperAdmin: true, commentsCount: 0 })).toBe(false);
+  });
 });

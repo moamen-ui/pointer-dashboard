@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "angular/src/app/features/shell/shell.component.ts"
+        ],
+        "createdAt": "2026-09-11T10:18:43.027Z",
+        "reason": "Agent: img is guarded by @if (branding.logo()) and bound to the tenant's uploaded white-label logo URL, never rendered empty; alt='' is intentional since it sits beside the visible product-name text"
+      }
+    ]
+  }
+}

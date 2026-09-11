@@ -10,7 +10,7 @@ const props = defineProps<TabsListProps & { class?: string }>();
     v-bind="props"
     :class="
       cn(
-        'inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground',
+        'h-9 flex gap-4 border-b border-border overflow-x-auto',
         props.class,
       )
     "

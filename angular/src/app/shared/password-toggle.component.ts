@@ -1,31 +1,33 @@
 import { Component, computed, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { TranslocoModule } from '@jsverse/transloco';
+import { AppButtonDirective } from './ui/app-button.directive';
+import { AppIconComponent } from './ui/app-icon.component';
 
 /**
- * Show/hide toggle for password inputs. Place it inside a mat-form-field as a
- * suffix and bind the input's [type] to the exposed `type()` signal — one
- * instance per field so each toggles independently:
+ * Show/hide toggle for password inputs (§3 ghost icon button, 16px lucide eye / eye-off).
+ * Bind the input's `[type]` to `toggle.type()`:
  *
- *   <mat-form-field appearance="outline">
- *     <mat-label>...</mat-label>
- *     <input matInput [type]="pw.type()" formControlName="password" />
- *     <app-password-toggle matSuffix #pw />
- *   </mat-form-field>
+ *   <div class="relative">
+ *     <input appInput [type]="pw.type()" class="pe-9" />
+ *     <app-password-toggle #pw class="absolute end-1 top-1" />
+ *   </div>
  */
 @Component({
   selector: 'app-password-toggle',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, TranslocoModule],
+  imports: [TranslocoModule, AppButtonDirective, AppIconComponent],
   template: `
     <button
-      mat-icon-button
+      appButton
+      variant="ghost"
+      size="icon"
       type="button"
+      class="h-6 w-6"
       (click)="toggle()"
       [attr.aria-label]="(hidden() ? 'common.showPassword' : 'common.hidePassword') | transloco"
-      [attr.aria-pressed]="!hidden()">
-      <mat-icon>{{ hidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+      [attr.aria-pressed]="!hidden()"
+    >
+      <app-icon [name]="hidden() ? 'eye' : 'eye-off'" [size]="16"></app-icon>
     </button>
   `,
 })

@@ -14,15 +14,16 @@ import {
   PlanDisplayState,
   BillingInterval,
 } from '@moamen-ui/pointer-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/shared/FormField';
 import { emailError, passwordError, requiredError } from '@/lib/validators';
 import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
+import { AuthLayout } from '@/components/AuthLayout';
 
 const SIGNUP_MIN_PASSWORD_LENGTH = 6;
 
@@ -64,7 +65,7 @@ function PlanCard({
         <span className="text-xs font-medium">{formatPlanPrice(plan)}</span>
       </div>
       {plan.displayState === PlanDisplayState.NUMBER_1 && (
-        <span className="chip chip-neutral text-[10px]">{t('signup.plan.comingSoon')}</span>
+        <Badge variant="neutral" className="text-[10px]">{t('signup.plan.comingSoon')}</Badge>
       )}
       {plan.featureBullets && plan.featureBullets.length > 0 && (
         <ul className="mt-1 flex flex-col gap-0.5">
@@ -173,36 +174,35 @@ export function SignupPage() {
 
   if (checkingEnabled) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+      <AuthLayout>
         <p className="text-sm text-muted-foreground">{t('signup.checking')}</p>
-      </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="w-[440px] max-w-[92vw]">
-        <CardContent className="flex flex-col gap-5 p-6">
-          <h1 className="text-center text-xl font-bold">{t('signup.title')}</h1>
+    <AuthLayout>
+      <div className="flex flex-col gap-5">
+        <h1 className="text-center text-xl font-bold">{t('signup.title')}</h1>
 
-          {!signupEnabled ? (
-            <>
-              <p className="text-center text-sm text-muted-foreground">{t('signup.closed')}</p>
-              <Link to="/login" className="text-center text-sm text-brand hover:underline">
-                {t('signup.backToLogin')}
-              </Link>
-            </>
-          ) : done ? (
-            <>
-              <p className="text-center text-sm text-muted-foreground">
-                {t('signup.pending')}
-              </p>
-              <Link to="/login" className="text-center text-sm text-brand hover:underline">
-                {t('signup.backToLogin')}
-              </Link>
-            </>
-          ) : (
-            <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        {!signupEnabled ? (
+          <>
+            <p className="text-center text-sm text-muted-foreground">{t('signup.closed')}</p>
+            <Link to="/login" className="text-center text-sm text-brand hover:underline">
+              {t('signup.backToLogin')}
+            </Link>
+          </>
+        ) : done ? (
+          <>
+            <p className="text-center text-sm text-muted-foreground">
+              {t('signup.pending')}
+            </p>
+            <Link to="/login" className="text-center text-sm text-brand hover:underline">
+              {t('signup.backToLogin')}
+            </Link>
+          </>
+        ) : (
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
               <FormField
                 label={t('signup.displayName')}
                 htmlFor="signup-name"
@@ -280,8 +280,7 @@ export function SignupPage() {
               </Link>
             </form>
           )}
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </AuthLayout>
   );
 }

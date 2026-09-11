@@ -10,18 +10,31 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { X } from 'lucide-react';
+import { CircleAlert, CircleCheck, CircleHelp, Clock, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** `error` is kept as an alias of `danger` so existing call sites keep working. */
+export type ToastTone = 'default' | 'info' | 'success' | 'warning' | 'danger' | 'error';
 
 interface ToastItem {
   id: number;
   message: string;
-  tone: 'default' | 'error';
+  tone: ToastTone;
 }
 
 interface ToastValue {
-  toast: (message: string, tone?: ToastItem['tone']) => void;
+  toast: (message: string, tone?: ToastTone) => void;
 }
+
+// A toast is a floating layer, so it keeps the canvas-and-menu-shadow grammar; the state hue
+// lands on the glyph and the hairline rather than filling the surface. Rarity gives it force.
+const TONES: Record<Exclude<ToastTone, 'error'>, { border: string; icon: string; Glyph: React.ComponentType<{ className?: string }> | null }> = {
+  default: { border: 'border-border', icon: '', Glyph: null },
+  info: { border: 'border-state-open/40', icon: 'text-state-open', Glyph: CircleHelp },
+  success: { border: 'border-state-completed/40', icon: 'text-state-completed', Glyph: CircleCheck },
+  warning: { border: 'border-state-ready/40', icon: 'text-state-ready', Glyph: Clock },
+  danger: { border: 'border-state-danger/40', icon: 'text-state-danger', Glyph: CircleAlert },
+};
 
 const ToastContext = createContext<ToastValue | null>(null);
 
@@ -36,7 +49,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (message: string, tone: ToastItem['tone'] = 'default') => {
+    (message: string, tone: ToastTone = 'default') => {
       const id = nextId.current++;
       setItems((cur) => [...cur, { id, message, tone }]);
       window.setTimeout(() => dismiss(id), DURATION);
@@ -50,27 +63,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div className="pointer-events-none fixed bottom-4 end-4 z-[100] flex w-[min(360px,92vw)] flex-col gap-2">
-        {items.map((t) => (
-          <div
-            key={t.id}
-            className={cn(
-              'pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg',
-              t.tone === 'error'
-                ? 'border-destructive/40 bg-destructive text-destructive-foreground'
-                : 'border-border bg-card text-card-foreground',
-            )}
-          >
-            <span className="flex-1">{t.message}</span>
-            <button
-              type="button"
-              onClick={() => dismiss(t.id)}
-              className="opacity-70 transition-opacity hover:opacity-100"
-              aria-label="Dismiss"
+        {items.map((t) => {
+          const tone = TONES[t.tone === 'error' ? 'danger' : t.tone];
+          const Glyph = tone.Glyph;
+          return (
+            <div
+              key={t.id}
+              role="status"
+              aria-live="polite"
+              className={cn(
+                'pointer-events-auto flex items-start gap-2 rounded-md border bg-card px-4 py-3 text-[14px] text-card-foreground shadow-menu',
+                tone.border,
+              )}
             >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+              {Glyph && <Glyph className={cn('mt-0.5 h-4 w-4 shrink-0', tone.icon)} />}
+              <span className="flex-1">{t.message}</span>
+              <button
+                type="button"
+                onClick={() => dismiss(t.id)}
+                className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Badge } from '@/components/ui/badge';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
@@ -79,10 +80,10 @@ async function saveRow(row: EditRow) {
       value: row.value,
       data: { label: row.label, color: row.color, order: row.order },
     });
-    toast(t('statuses.savedOk'));
+    toast(t('statuses.savedOk'), 'success');
     invalidateCatalog();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     row.saving = false;
   }
@@ -108,10 +109,10 @@ async function resetRow(row: EditRow) {
   row.resetting = true;
   try {
     await deleteMutation.mutateAsync({ value: row.value });
-    toast(t('statuses.resetOk'));
+    toast(t('statuses.resetOk'), 'success');
     invalidateCatalog();
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     row.resetting = false;
   }
@@ -127,7 +128,12 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, EditRow>[]>(() => [
 
 function actionsFor(row: EditRow): RowActionItem[] {
   const items: RowActionItem[] = [
-    { label: t('statuses.save'), icon: Save, disabled: row.saving || row.resetting, onClick: () => void saveRow(row) },
+    {
+      label: t('statuses.save'),
+      icon: Save,
+      disabled: row.saving || row.resetting,
+      onClick: () => void saveRow(row),
+    },
   ];
   if (row.isOverridden) {
     items.push({
@@ -140,11 +146,21 @@ function actionsFor(row: EditRow): RowActionItem[] {
   }
   return items;
 }
+// Built-in status values map onto the badge variants that carry their diff hue and glyph.
+function badgeVariantForStatus(value: number | undefined) {
+  switch (value) {
+    case 2: return 'warning' as const;
+    case 3: return 'success' as const;
+    case 4: return 'archived' as const;
+    default: return 'open' as const;
+  }
+}
+
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
-    <h2 class="text-lg font-semibold">{{ t('statuses.title') }}</h2>
+    <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{{ t('statuses.title') }}</h1>
 
     <!-- Loading spinner (only when genuinely no data yet) -->
     <div
@@ -167,13 +183,17 @@ function actionsFor(row: EditRow): RowActionItem[] {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('statuses.colActions')"
+      :actions-header="t('statuses.colActions')"
       :loading="statusesQuery.isLoading.value"
+      gutter
       :empty-icon="Tag"
       :empty-message="t('statuses.empty')"
       :empty-hint="t('statuses.emptyHint')"
     >
       <template #cell-name="{ row }">
-        <span class="font-medium">{{ row.name }}</span>
+        <Badge :variant="badgeVariantForStatus(row.value)" class="font-medium">
+          {{ row.name ?? String(row.value) }}
+        </Badge>
       </template>
 
       <!-- Label — same slim box as the colour control below -->

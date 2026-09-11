@@ -1,0 +1,6 @@
+{
+  "files": ["react/index.html", "vue/index.html", "angular/src/index.html"],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

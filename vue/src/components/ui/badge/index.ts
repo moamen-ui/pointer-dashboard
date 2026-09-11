@@ -3,15 +3,24 @@ export { default as Badge } from './Badge.vue';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 export const badgeVariants = cva(
-  'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold leading-6',
+  'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none whitespace-nowrap',
   {
     variants: {
       variant: {
-        default: 'bg-primary/10 text-primary',
-        success: 'bg-success/15 text-success dark:bg-success/20',
-        warning: 'bg-warning/15 text-warning dark:bg-warning/20',
-        destructive: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
-        neutral: 'bg-muted text-muted-foreground',
+        default: 'bg-brand-tint text-brand border-brand/30',
+        open: 'bg-state-open-tint text-state-open border-state-open/30',
+        ready: 'bg-state-ready-tint text-state-ready border-state-ready/30',
+        pending: 'bg-state-ready-tint text-state-ready border-state-ready/30',
+        warning: 'bg-state-ready-tint text-state-ready border-state-ready/30',
+        completed: 'bg-state-completed-tint text-state-completed border-state-completed/30',
+        success: 'bg-state-completed-tint text-state-completed border-state-completed/30',
+        active: 'bg-state-completed-tint text-state-completed border-state-completed/30',
+        archived: 'bg-state-archived-tint text-state-archived border-state-archived/30',
+        neutral: 'bg-state-archived-tint text-state-archived border-state-archived/30',
+        disabled: 'bg-state-danger-tint text-state-danger border-state-danger/30',
+        rejected: 'bg-state-danger-tint text-state-danger border-state-danger/30',
+        danger: 'bg-state-danger-tint text-state-danger border-state-danger/30',
+        destructive: 'bg-state-danger-tint text-state-danger border-state-danger/30',
       },
     },
     defaultVariants: {

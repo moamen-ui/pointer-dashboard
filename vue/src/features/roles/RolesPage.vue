@@ -14,10 +14,8 @@ import {
 import { Plus, Pencil, Ban, CheckCircle2, Trash2, UserCog } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+import FormField from '@/components/shared/FormField.vue';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -84,7 +82,7 @@ function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminRolesQueryKey() });
 }
 function fail(e: unknown) {
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 
 // A computed so headers follow live language switches (Angular re-evaluates
@@ -240,7 +238,7 @@ async function deleteRole() {
     const res = await removeRole.mutateAsync({ id: role.id!, params });
     deleteOpen.value = false;
     const moved = res?.reassignedUsers ?? 0;
-    toast(t('roles.deleted') + (moved ? ` (${moved})` : ''));
+    toast(t('roles.deleted') + (moved ? ` (${moved})` : ''), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -250,8 +248,8 @@ async function deleteRole() {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-lg font-semibold">{{ t('roles.title') }}</h2>
+    <div class="flex items-center justify-between">
+      <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{{ t('roles.title') }}</h1>
       <Button @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
       </Button>
@@ -262,7 +260,9 @@ async function deleteRole() {
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('roles.actions')"
+      :actions-header="t('roles.actions')"
       paginated
+      gutter
       :empty-icon="UserCog"
       :empty-message="t('roles.empty')"
       :empty-hint="t('roles.emptyHint')"
@@ -270,57 +270,83 @@ async function deleteRole() {
     >
       <template #cell-name="{ row }">
         {{ row.name }}
-        <span v-if="row.isSystem" class="chip chip-neutral ms-2 text-[10px]">
+        <span v-if="row.isSystem" class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none text-state-archived bg-state-archived-tint border-state-archived/30 ms-2">
           {{ t('roles.system') }}
         </span>
       </template>
       <template #cell-grantsAdmin="{ row }">
-        <!-- Compact switch for the table cell (~28×16 track, 12px thumb) -->
-        <Switch
-          :model-value="row.grantsAdmin"
-          :disabled="row.isSystem || !canManage(row)"
-          class="h-4 w-7 [&_span]:h-3 [&_span]:w-3 [&_span[data-state=checked]]:translate-x-3 rtl:[&_span[data-state=checked]]:-translate-x-3"
-          @update:model-value="(v: boolean) => toggleGrantsAdmin(row, v)"
-        />
+        <!-- Toggle button: the glyph shows the state, a click flips it (keeps the old inline switch behavior). -->
+        <button
+          v-if="canManage(row) && !row.isSystem"
+          type="button"
+          role="switch"
+          :aria-checked="!!row.grantsAdmin"
+          :aria-label="t('roles.grantsAdmin')"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+          @click="toggleGrantsAdmin(row, !row.grantsAdmin)"
+        >
+          <CheckCircle2 v-if="row.grantsAdmin" class="h-4 w-4 text-state-completed" />
+          <span v-else aria-hidden="true">—</span>
+        </button>
+        <span v-else-if="row.grantsAdmin" class="inline-flex h-8 w-8 items-center justify-center"><CheckCircle2 class="h-4 w-4 text-state-completed" /></span>
+        <span v-else class="inline-flex h-8 w-8 items-center justify-center text-faint-foreground">—</span>
       </template>
       <template #cell-quickAccess="{ row }">
-        <Switch
-          :model-value="row.quickAccess"
-          :disabled="row.isSystem || !canManage(row)"
-          class="h-4 w-7 [&_span]:h-3 [&_span]:w-3 [&_span[data-state=checked]]:translate-x-3 rtl:[&_span[data-state=checked]]:-translate-x-3"
-          @update:model-value="(v: boolean) => toggleQuickAccess(row, v)"
-        />
+        <!-- Toggle button: the glyph shows the state, a click flips it (keeps the old inline switch behavior). -->
+        <button
+          v-if="canManage(row) && !row.isSystem"
+          type="button"
+          role="switch"
+          :aria-checked="!!row.quickAccess"
+          :aria-label="t('roles.quickAccess')"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+          @click="toggleQuickAccess(row, !row.quickAccess)"
+        >
+          <CheckCircle2 v-if="row.quickAccess" class="h-4 w-4 text-state-completed" />
+          <span v-else aria-hidden="true">—</span>
+        </button>
+        <span v-else-if="row.quickAccess" class="inline-flex h-8 w-8 items-center justify-center"><CheckCircle2 class="h-4 w-4 text-state-completed" /></span>
+        <span v-else class="inline-flex h-8 w-8 items-center justify-center text-faint-foreground">—</span>
       </template>
       <template #cell-status="{ row }">
-        <Badge :variant="row.isActive ? 'success' : 'destructive'">
+        <span
+          :class="{
+            'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none': true,
+            'text-state-completed bg-state-completed-tint border-state-completed/30': row.isActive,
+            'text-state-danger bg-state-danger-tint border-state-danger/30': !row.isActive,
+          }"
+        >
+          <CheckCircle2 v-if="row.isActive" class="h-3 w-3" />
+          <Ban v-else class="h-3 w-3" />
           {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
-        </Badge>
+        </span>
       </template>
       <!-- Empty-state CTA (only rendered while the table is empty) -->
-      <Button @click="openAdd">
-        <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
-      </Button>
+      <template #empty-action>
+        <Button @click="openAdd">
+          <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
+        </Button>
+      </template>
     </DataTable>
   </div>
 
   <!-- Add role dialog -->
   <Dialog v-model:open="addOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('roles.addRole') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('roles.addRole') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-4 pt-2">
-        <div class="flex flex-col gap-2">
-          <Label for="role-name">{{ t('roles.name') }}</Label>
+      <div class="flex flex-col gap-4 py-2 space-y-4">
+        <FormField :label="t('roles.name')" html-for="role-name">
           <Input id="role-name" v-model="newName" @keydown.enter="addRole" />
-        </div>
-        <label class="flex items-center gap-2 text-sm">
+        </FormField>
+        <label class="flex items-center gap-2 text-[14px]">
           <Checkbox v-model="newGrantsAdmin" />
           {{ t('roles.grantsAdmin') }}
         </label>
       </div>
       <DialogFooter>
-        <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
+        <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="!newName.trim()" @click="addRole">
           <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
         </Button>
@@ -330,16 +356,17 @@ async function deleteRole() {
 
   <!-- Rename role dialog -->
   <Dialog v-model:open="renameOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('common.rename') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('common.rename') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-2 pt-2">
-        <Label for="rename-name">{{ t('roles.name') }}</Label>
-        <Input id="rename-name" v-model="editName" @keydown.enter="saveRename" />
+      <div class="py-2">
+        <FormField :label="t('roles.name')" html-for="rename-name">
+          <Input id="rename-name" v-model="editName" @keydown.enter="saveRename" />
+        </FormField>
       </div>
       <DialogFooter>
-        <Button variant="outline" @click="renameOpen = false">{{ t('common.cancel') }}</Button>
+        <Button variant="secondary" @click="renameOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="!editName.trim()" @click="saveRename">{{ t('common.save') }}</Button>
       </DialogFooter>
     </DialogContent>
@@ -347,19 +374,18 @@ async function deleteRole() {
 
   <!-- Delete role + delegate users dialog -->
   <Dialog v-model:open="deleteOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('roles.deleteTitle') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('roles.deleteTitle') }}</DialogTitle>
       </DialogHeader>
-      <div class="flex flex-col gap-4 pt-2">
-        <p class="text-sm">{{ t('roles.deleteIntro', { name: deletingRole?.name }) }}</p>
-        <div v-if="targetRoles.length > 0" class="flex flex-col gap-2">
-          <Label>{{ t('roles.reassignLabel') }}</Label>
+      <div class="flex flex-col gap-4 py-2">
+        <p class="text-[14px]">{{ t('roles.deleteIntro', { name: deletingRole?.name }) }}</p>
+        <FormField v-if="targetRoles.length > 0" :label="t('roles.reassignLabel')" html-for="reassign-role">
           <Select
             :model-value="reassignTargetId != null ? String(reassignTargetId) : undefined"
             @update:model-value="(v: any) => (reassignTargetId = v != null ? Number(v) : null)"
           >
-            <SelectTrigger>
+            <SelectTrigger id="reassign-role">
               <SelectValue :placeholder="t('roles.reassignLabel')" />
             </SelectTrigger>
             <SelectContent>
@@ -368,11 +394,11 @@ async function deleteRole() {
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <p v-else class="text-sm text-muted-foreground">{{ t('roles.noTargets') }}</p>
+        </FormField>
+        <p v-else class="text-[14px] text-muted-foreground">{{ t('roles.noTargets') }}</p>
       </div>
       <DialogFooter>
-        <Button variant="outline" @click="deleteOpen = false">{{ t('common.cancel') }}</Button>
+        <Button variant="secondary" @click="deleteOpen = false">{{ t('common.cancel') }}</Button>
         <Button
           variant="destructive"
           :disabled="targetRoles.length > 0 && !reassignTargetId"

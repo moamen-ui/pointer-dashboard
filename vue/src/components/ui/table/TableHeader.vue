@@ -5,7 +5,7 @@ const props = defineProps<{ class?: string }>();
 </script>
 
 <template>
-  <thead :class="cn('[&_tr]:border-b [&_tr]:bg-muted/60 [&_tr]:hover:bg-muted/60', props.class)">
+  <thead :class="cn('[&_tr]:h-10 [&_tr]:bg-gutter [&_tr]:hover:bg-gutter', props.class)">
     <slot />
   </thead>
 </template>

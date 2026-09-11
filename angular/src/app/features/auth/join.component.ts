@@ -7,12 +7,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import {
   InvitesService,
   getApiInvitesCodeResource,
@@ -24,7 +19,10 @@ import type {
 } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
-import { FormFieldComponent } from '../../shared/form-field/form-field.component';
+import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const pwd = control.get('password');
@@ -39,91 +37,102 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatProgressBarModule,
     TranslocoModule,
-    FormFieldComponent,
+    AppAuthLayoutComponent,
+    AppInputDirective,
+    AppButtonDirective,
+    AppFormFieldComponent,
   ],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-slate-100">
-      <mat-card class="flex w-[420px] max-w-[92vw] flex-col gap-3 p-6">
-
+    <app-auth-layout>
+      <div *transloco="let t">
         @if (!code()) {
-          <p class="text-[0.95rem] text-warn">{{ 'invite.invalidLink' | transloco }}</p>
-          <a mat-button routerLink="/login" class="mt-1 text-center text-[0.9rem]">
-            {{ 'auth.backToLogin' | transloco }}
+          <p class="text-[14px] text-state-danger">{{ t('invite.invalidLink') }}</p>
+          <a routerLink="/login" appButton variant="primary" class="w-full">
+            {{ t('auth.backToLogin') }}
           </a>
         } @else if (previewResource.isLoading()) {
-          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          <div class="space-y-2">
+            <div class="h-4 bg-gutter rounded-md w-3/4"></div>
+            <div class="h-3 bg-gutter rounded-md w-1/2"></div>
+          </div>
         } @else if (previewResource.error()) {
-          <p class="text-[0.95rem] text-warn">{{ 'invite.invalidOrExpired' | transloco }}</p>
-          <a mat-button routerLink="/login" class="mt-1 text-center text-[0.9rem]">
-            {{ 'auth.backToLogin' | transloco }}
+          <p class="text-[14px] text-state-danger">{{ t('invite.invalidOrExpired') }}</p>
+          <a routerLink="/login" appButton variant="primary" class="w-full">
+            {{ t('auth.backToLogin') }}
           </a>
         } @else if (preview()) {
-          <h1 class="my-[0.67em] text-[1.8em] font-bold">
-            @if (preview()!.isNewWorkspace) {
-              {{ 'invite.createWorkspaceTitle' | transloco }}
-            } @else {
-              {{ 'invite.joinTitle' | transloco: { workspace: preview()!.workspaceName ?? '' } }}
+          <div class="mb-4">
+            <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
+              @if (preview()!.isNewWorkspace) {
+                {{ t('invite.createWorkspaceTitle') }}
+              } @else {
+                {{ t('invite.joinTitle', { workspace: preview()!.workspaceName ?? '' }) }}
+              }
+            </h1>
+            @if (preview()!.roleName) {
+              <p class="text-[14px] text-muted-foreground mt-2">
+                {{ t('invite.joinRole', { role: preview()!.roleName }) }}
+              </p>
             }
-          </h1>
-          @if (preview()!.roleName) {
-            <p class="m-0 text-[0.95rem] text-muted">
-              {{ 'invite.joinRole' | transloco: { role: preview()!.roleName } }}
-            </p>
-          }
+          </div>
 
           @if (errorMsg()) {
-            <p class="text-[0.9rem] text-red-600">{{ errorMsg() }}</p>
+            <p class="text-[14px] text-state-danger mb-4">{{ errorMsg() }}</p>
           }
 
-          <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-3">
-            <app-form-field
-              [control]="form.controls.email"
-              [label]="'invite.email' | transloco"
-              type="email"
-              [errorMessage]="emailError()"
-            />
+          <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
+            <app-form-field [label]="t('invite.email')" [error]="emailTouched() && emailError() ? emailError() : ''">
+              <input
+                appInput
+                type="email"
+                formControlName="email"
+                (blur)="emailTouched.set(true)"
+                autocomplete="email"
+              />
+            </app-form-field>
 
-            <app-form-field
-              [control]="form.controls.displayName"
-              [label]="'invite.displayName' | transloco"
-              [errorMessage]="'common.fieldRequired' | transloco"
-            />
+            <app-form-field [label]="t('invite.displayName')" [error]="nameTouched() && form.controls.displayName.hasError('required') ? t('common.fieldRequired') : ''">
+              <input
+                appInput
+                formControlName="displayName"
+                (blur)="nameTouched.set(true)"
+              />
+            </app-form-field>
 
-            <app-form-field
-              [control]="form.controls.password"
-              [label]="'invite.password' | transloco"
-              type="password"
-              [errorMessage]="passwordError()"
-            />
+            <app-form-field [label]="t('invite.password')" [error]="passwordTouched() && passwordError() ? passwordError() : ''">
+              <input
+                appInput
+                type="password"
+                formControlName="password"
+                (blur)="passwordTouched.set(true)"
+                autocomplete="new-password"
+              />
+            </app-form-field>
 
-            <app-form-field
-              [control]="form.controls.confirmPassword"
-              [label]="'invite.confirmPassword' | transloco"
-              type="password"
-            />
-            <!-- Cross-field validator lives on the FormGroup, not confirmPassword itself. -->
-            @if (form.hasError('passwordsMismatch') && form.get('confirmPassword')?.touched) {
-              <p class="m-0 -mt-2 text-[0.8rem] text-danger">{{ 'invite.passwordMismatch' | transloco }}</p>
-            }
+            <app-form-field [label]="t('invite.confirmPassword')" [error]="confirmTouched() && form.hasError('passwordsMismatch') ? t('invite.passwordMismatch') : ''">
+              <input
+                appInput
+                type="password"
+                formControlName="confirmPassword"
+                (blur)="confirmTouched.set(true)"
+                autocomplete="new-password"
+              />
+            </app-form-field>
 
             <button
-              mat-flat-button
-              color="primary"
-              class="mt-1"
-              [disabled]="form.invalid || joining()">
-              {{ (preview()!.isNewWorkspace ? 'invite.createWorkspace' : 'invite.join') | transloco }}
+              appButton
+              variant="primary"
+              type="submit"
+              class="w-full mt-2"
+              [disabled]="form.invalid || joining()"
+            >
+              {{ preview()!.isNewWorkspace ? t('invite.createWorkspace') : t('invite.join') }}
             </button>
           </form>
         }
-
-      </mat-card>
-    </div>
+      </div>
+    </app-auth-layout>
   `,
 })
 export class JoinComponent implements OnInit {
@@ -132,11 +141,14 @@ export class JoinComponent implements OnInit {
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private transloco = inject(TranslocoService);
 
   code = signal<string>('');
   joining = signal(false);
   errorMsg = signal<string | null>(null);
+  emailTouched = signal(false);
+  nameTouched = signal(false);
+  passwordTouched = signal(false);
+  confirmTouched = signal(false);
 
   previewResource = getApiInvitesCodeResource(this.code);
 
@@ -159,15 +171,15 @@ export class JoinComponent implements OnInit {
 
   emailError(): string {
     const ctrl = this.form.controls.email;
-    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
-    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    if (ctrl.hasError('required')) return 'Email is required.';
+    if (ctrl.hasError('email')) return 'Enter a valid email address.';
     return '';
   }
 
   passwordError(): string {
     const ctrl = this.form.controls.password;
-    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
-    if (ctrl.hasError('minlength')) return this.transloco.translate('common.passwordMinLength', { min: 8 });
+    if (ctrl.hasError('required')) return 'Password is required.';
+    if (ctrl.hasError('minlength')) return 'Password must be at least 8 characters.';
     return '';
   }
 
@@ -175,7 +187,7 @@ export class JoinComponent implements OnInit {
     if (this.form.invalid || !this.code()) return;
 
     if (this.form.hasError('passwordsMismatch')) {
-      this.errorMsg.set(this.transloco.translate('invite.passwordMismatch'));
+      this.errorMsg.set('Passwords do not match.');
       return;
     }
 

@@ -69,6 +69,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/shared/FormField';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -84,6 +85,8 @@ import {
 } from '@/components/ui/select';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
+import { AppTabs } from '@/components/shared/Tabs';
+import { TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -466,24 +469,24 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
           {canManageAdminRules && (
             <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
               <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addRule')}</div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+              <FormField label={t('aiRules.titleLabel')} htmlFor="project-rule-title">
                 <Input
+                  id="project-rule-title"
                   value={newProjectRuleTitle}
                   onChange={(e) => setNewProjectRuleTitle(e.target.value)}
                   placeholder={t('aiRules.titlePlaceholder')}
                 />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+              </FormField>
+              <FormField label={t('aiRules.promptLabel')} htmlFor="project-rule-prompt">
                 <textarea
+                  id="project-rule-prompt"
                   value={newProjectRulePrompt}
                   onChange={(e) => setNewProjectRulePrompt(e.target.value)}
                   rows={2}
                   placeholder={t('aiRules.promptPlaceholder')}
                   className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
-              </div>
+              </FormField>
               <div className="flex justify-end">
                 <Button
                   size="sm"
@@ -592,24 +595,24 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
           {/* Add Personal Rule Form */}
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
             <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addPersonalRule')}</div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{t('aiRules.titleLabel')}</Label>
+            <FormField label={t('aiRules.titleLabel')} htmlFor="personal-rule-title">
               <Input
+                id="personal-rule-title"
                 value={newPersonalRuleTitle}
                 onChange={(e) => setNewPersonalRuleTitle(e.target.value)}
                 placeholder={t('aiRules.titlePlaceholder')}
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
+            </FormField>
+            <FormField label={t('aiRules.promptLabel')} htmlFor="personal-rule-prompt">
               <textarea
+                id="personal-rule-prompt"
                 value={newPersonalRulePrompt}
                 onChange={(e) => setNewPersonalRulePrompt(e.target.value)}
                 rows={2}
                 placeholder={t('aiRules.promptPlaceholder')}
                 className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
-            </div>
+            </FormField>
             <div className="flex justify-end">
               <Button
                 size="sm"
@@ -647,7 +650,7 @@ export function ProjectsPage() {
   const [name, setName] = useState('');
   // True once the user edits the key by hand — auto-fill stops deferring to the name.
   const [keyEdited, setKeyEdited] = useState(false);
-  const [addActions, setAddActions] = useState<PredefinedActionRow[]>([]);
+  const [captureContextEnabled, setCaptureContextEnabled] = useState(false);
 
   const keyError = keyErrorFor(key, projects);
   const keyErrorMessage =
@@ -663,11 +666,16 @@ export function ProjectsPage() {
 
   const addMut = usePostApiAdminProjects({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (created) => {
+        // The create request has no capture flag; apply the dialog's switch with a follow-up patch.
+        if (captureContextEnabled && created?.id) {
+          patchMut.mutate({ id: created.id, data: { pageContextCaptureEnabled: true } });
+        }
+        toast(t('projects.createdHint'));
         setAddOpen(false);
         setKey('');
         setName('');
-        setAddActions([]);
+        setCaptureContextEnabled(false);
         reload();
       },
       onError,
@@ -678,23 +686,16 @@ export function ProjectsPage() {
     setKey('');
     setName('');
     setKeyEdited(false);
-    setAddActions([]);
+    setCaptureContextEnabled(false);
     setAddOpen(true);
   }
 
   function addProject() {
     if (keyError || !name.trim()) return;
-    const predefinedActions: PredefinedActionInput[] = addActions.map((row, idx) => ({
-      text: row.text,
-      prompt: row.prompt,
-      sortOrder: idx,
-      isActive: true,
-    }));
     addMut.mutate({
       data: {
         key: key.trim(),
         name: name.trim(),
-        predefinedActions: predefinedActions.length > 0 ? predefinedActions : null,
       },
     });
   }
@@ -703,10 +704,10 @@ export function ProjectsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectResponse | null>(null);
   const [editName, setEditName] = useState('');
-  const [editAppUrl, setEditAppUrl] = useState('');
   const [editActions, setEditActions] = useState<PredefinedActionRow[]>([]);
   // readOnly = true when canEdit is false (view mode)
   const [editReadOnly, setEditReadOnly] = useState(false);
+  const [editTab, setEditTab] = useState('details');
   const [editPageContextCaptureEnabled, setEditPageContextCaptureEnabled] = useState(false);
   // Which roles see the widget's environment switcher (empty = default: everyone except Client).
   const [editEnvSelectorRoleIds, setEditEnvSelectorRoleIds] = useState<number[]>([]);
@@ -744,13 +745,11 @@ export function ProjectsPage() {
   // the tenant has ever defined. "default" is covered by the ordinary "App URL" field
   // above (the backend keeps them in sync), so it's excluded to avoid showing the
   // same value twice.
-  const configuredEnvironments = appUrls.filter((u) => u.environmentName !== 'default');
+  const configuredEnvironments = appUrls;
 
   // Environments not yet configured for this project — the "add new" row's options.
   const availableEnvironmentsToAdd = environments.filter(
-    (e) =>
-      e.name !== 'default' &&
-      !configuredEnvironments.some((u) => u.appEnvironmentId != null && u.appEnvironmentId === e.id),
+    (e) => !configuredEnvironments.some((u) => u.appEnvironmentId != null && u.appEnvironmentId === e.id),
   );
 
   type EnvDraft = { url: string; isActive: boolean };
@@ -935,8 +934,8 @@ export function ProjectsPage() {
   function openEdit(project: ProjectResponse, readOnly = false) {
     setEditProject(project);
     setEditName(project.name ?? '');
-    setEditAppUrl(project.appUrl ?? '');
     setEditReadOnly(readOnly);
+    setEditTab('details');
     setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
     setEditEnvSelectorRoleIds(project.environmentSelectorRoleIds ?? []);
     // Discard any unsaved per-environment draft from a prior project.
@@ -968,7 +967,6 @@ export function ProjectsPage() {
         id: editProject.id!,
         data: {
           name: editName.trim(),
-          appUrl: editAppUrl.trim(),
           predefinedActions: predefinedActions,
           pageContextCaptureEnabled: editPageContextCaptureEnabled,
           // Always sent as the full array (empty = the default visibility).
@@ -1174,12 +1172,13 @@ export function ProjectsPage() {
   }
 
   const columns: ColumnDef<ProjectResponse>[] = [
-    { accessorKey: 'key', enableSorting: false, header: t('projects.key'),
-      cell: ({ row }) => <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.original.key}</code> },
-    { accessorKey: 'name', enableSorting: false, header: t('projects.name') },
-    { accessorKey: 'createdByName', enableSorting: false, header: t('projects.createdBy'),
+    { accessorKey: 'key', header: t('projects.key'),
+      cell: ({ row }) => <code className="whitespace-nowrap rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">{row.original.key}</code> },
+    { accessorKey: 'name', header: t('projects.name'),
+      cell: ({ row }) => <span className="whitespace-nowrap">{row.original.name}</span> },
+    { accessorKey: 'createdByName', header: t('projects.createdBy'),
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.createdByName ?? '—'}</span> },
-    { accessorKey: 'commentsCount', enableSorting: false, header: t('projects.comments'),
+    { accessorKey: 'commentsCount', header: t('projects.comments'),
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.commentsCount ?? 0}</span> },
     {
       accessorKey: 'activationState',
@@ -1252,8 +1251,8 @@ export function ProjectsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t('projects.title')}</h2>
+      <div className="flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('projects.title')}</h1>
         {!isSuperAdmin && (
           <Button onClick={openAdd} data-tour="add-project-btn">
             <Plus className="h-4 w-4" />
@@ -1276,6 +1275,7 @@ export function ProjectsPage() {
         actionsAriaLabel={t('projects.actions')}
         actionsHeader={t('projects.actions')}
         paginated
+        gutter
         emptyIcon={FolderOpen}
         emptyMessage={t('projects.empty')}
         emptyHint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
@@ -1291,14 +1291,13 @@ export function ProjectsPage() {
 
       {/* Add project dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
           <DialogHeader>
-            <DialogTitle>{t('projects.addProject')}</DialogTitle>
+            <DialogTitle className="text-base font-semibold leading-6">{t('projects.addProject')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1" data-tour="project-modal-sections">
+          <div className="flex flex-col gap-4 py-2" data-tour="project-modal-sections">
             {/* Name first: the key is derived from it (Pointer feedback #138). */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-name">{t('projects.name')}</Label>
+            <FormField label={t('projects.name')} htmlFor="project-name">
               <Input
                 id="project-name"
                 value={name}
@@ -1311,19 +1310,17 @@ export function ProjectsPage() {
                 onKeyDown={(e) => e.key === 'Enter' && addProject()}
                 autoFocus
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-key">{t('projects.key')}</Label>
+            </FormField>
+            <FormField
+              label={t('projects.key')}
+              htmlFor="project-key"
+              error={keyErrorMessage || undefined}
+              hint={t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')}
+            >
               <Input
                 id="project-key"
                 value={key}
                 onChange={(e) => {
-                  // Typing in the key takes ownership of it: the name stops
-                  // driving it. Lowercase + trim while typing. Lowercasing does
-                  // not change length, so the caret stays where the user left
-                  // it; syncing the DOM value covers the case where the
-                  // normalised value equals the previous state (React would
-                  // keep the raw input).
                   setKeyEdited(true);
                   const normalized = normalizeKey(e.target.value);
                   e.target.value = normalized;
@@ -1334,68 +1331,27 @@ export function ProjectsPage() {
                 spellCheck={false}
                 aria-invalid={keyError ? true : undefined}
               />
-              {keyErrorMessage && (
-                <p className="text-xs text-destructive">{keyErrorMessage}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')}
-              </p>
-            </div>
+            </FormField>
 
-            {/* Predefined actions */}
-            <div className="flex flex-col gap-2">
-              <h4 className="text-sm font-semibold">{t('predefined.section')}</h4>
-              <p className="text-xs text-muted-foreground">{t('predefined.projectHelp')}</p>
-              {addActions.length === 0 && (
-                <p className="text-xs text-muted-foreground">{t('predefined.empty')}</p>
-              )}
-              {addActions.map((row) => (
-                <div key={row._localId} className="flex flex-col gap-1 rounded-md border border-border p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <Label className="text-xs">{t('predefined.text')}</Label>
-                      <Input
-                        value={row.text}
-                        onChange={(e) =>
-                          updateActionRow(addActions, setAddActions, row._localId, 'text', e.target.value)
-                        }
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="mt-5 h-7 w-7 shrink-0 text-destructive"
-                      onClick={() => removeActionRow(addActions, setAddActions, row._localId)}
-                      type="button"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <Label className="text-xs">{t('predefined.prompt')}</Label>
-                  <textarea
-                    value={row.prompt}
-                    onChange={(e) =>
-                      updateActionRow(addActions, setAddActions, row._localId, 'prompt', e.target.value)
-                    }
-                    rows={2}
-                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addActionRow(addActions, setAddActions)}
-              >
-                <Plus className="h-4 w-4" />
-                {t('predefined.add')}
-              </Button>
+            {/* Capture console/network context switch */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="add-project-capture" className="text-[13px] font-medium">
+                  {t('projects.pageContextCapture')}
+                </Label>
+                <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('projects.pageContextCaptureHint')}</p>
+              </div>
+              <input
+                id="add-project-capture"
+                type="checkbox"
+                checked={captureContextEnabled}
+                onChange={(e) => setCaptureContextEnabled(e.target.checked)}
+                className="h-4 w-4 cursor-pointer"
+              />
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>
               {t('common.cancel')}
             </Button>
             <Button
@@ -1417,31 +1373,26 @@ export function ProjectsPage() {
               {editReadOnly ? t('projects.viewPrompts') : t('projects.editTitle')}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
+          <AppTabs
+            tabs={[
+              { value: 'details', label: t('projects.editTitle') },
+              { value: 'prompts', label: t('predefined.section') },
+            ]}
+            value={editTab}
+            onValueChange={setEditTab}
+          >
+          <TabsContent value="details" className="flex flex-col gap-4 pt-1">
             {!editReadOnly && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="edit-project-name">{t('projects.name')}</Label>
+              <FormField label={t('projects.name')} htmlFor="edit-project-name">
                 <Input
                   id="edit-project-name"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   autoFocus
                 />
-              </div>
+              </FormField>
             )}
 
-            {!editReadOnly && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="edit-project-app-url">{t('projects.appUrl')}</Label>
-                <Input
-                  id="edit-project-app-url"
-                  value={editAppUrl}
-                  onChange={(e) => setEditAppUrl(e.target.value)}
-                  placeholder="https://staging.example.com"
-                />
-                <p className="text-xs text-muted-foreground">{t('projects.appUrlHint')}</p>
-              </div>
-            )}
 
             {/* Other environments — only ones already configured for this project
                 show as rows; one inline add-row at a time for the rest. */}
@@ -1567,17 +1518,25 @@ export function ProjectsPage() {
                     </tbody>
                   </table>
                 )}
-                {!showAddEnvRow && availableEnvironmentsToAdd.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 self-start"
-                    onClick={startAddEnvironment}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t('projects.addEnvironment')}
-                  </Button>
+                {!showAddEnvRow && (
+                  <div className="mt-2 flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="self-start"
+                      disabled={availableEnvironmentsToAdd.length === 0}
+                      onClick={startAddEnvironment}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t('projects.addEnvironment')}
+                    </Button>
+                    {availableEnvironmentsToAdd.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('projects.allEnvironmentsConfigured')}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -1644,8 +1603,10 @@ export function ProjectsPage() {
                 </DropdownMenu>
               </div>
             )}
+          </TabsContent>
 
             {/* Predefined actions */}
+          <TabsContent value="prompts" className="flex flex-col gap-4 pt-1">
             <div className="flex flex-col gap-2">
               <h4 className="text-sm font-semibold">{t('predefined.section')}</h4>
               {!editReadOnly && (
@@ -1739,7 +1700,8 @@ export function ProjectsPage() {
                 )}
               </div>
             )}
-          </div>
+          </TabsContent>
+          </AppTabs>
           <DialogFooter className="gap-2">
             {editReadOnly && editProject && (
               <Button

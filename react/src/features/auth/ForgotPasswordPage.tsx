@@ -4,11 +4,11 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePostApiAuthForgotPassword } from '@moamen-ui/pointer-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/shared/FormField';
 import { emailError } from '@/lib/validators';
+import { AuthLayout } from '@/components/AuthLayout';
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
@@ -37,20 +37,19 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="w-[380px] max-w-[92vw]">
-        <CardContent className="flex flex-col gap-5 p-6">
-          <h1 className="text-center text-xl font-bold">{t('auth.forgotTitle')}</h1>
+    <AuthLayout>
+      <div className="flex flex-col gap-5">
+        <h1 className="text-center text-xl font-bold">{t('auth.forgotTitle')}</h1>
 
-          {done ? (
-            <>
-              <p className="text-center text-sm text-muted-foreground">{t('auth.forgotSent')}</p>
-              <Link to="/login" className="text-center text-sm text-brand hover:underline">
-                {t('auth.backToLogin')}
-              </Link>
-            </>
-          ) : (
-            <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        {done ? (
+          <>
+            <p className="text-center text-sm text-muted-foreground">{t('auth.forgotSent')}</p>
+            <Link to="/login" className="text-center text-sm text-brand hover:underline">
+              {t('auth.backToLogin')}
+            </Link>
+          </>
+        ) : (
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
               <FormField
                 label={t('login.email')}
                 htmlFor="forgot-email"
@@ -78,8 +77,7 @@ export function ForgotPasswordPage() {
               </Link>
             </form>
           )}
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </AuthLayout>
   );
 }

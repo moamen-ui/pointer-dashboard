@@ -35,7 +35,7 @@ import {
 } from '@moamen-ui/pointer-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -94,7 +94,7 @@ export function useInstallGuide(): InstallGuideValue {
 }
 
 export function InstallGuideProvider({ children }: { children: ReactNode }) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const userId = user?.id ?? null;
   const [open, setOpen] = useState(false);
 
@@ -119,8 +119,8 @@ export function InstallGuideProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (projectsQuery.isLoading) return;
     if (!userId) return;
-    if (shouldAutoOpen({ isAdmin, userId, commentsCount })) openGuide();
-  }, [projectsQuery.isLoading, userId, isAdmin, commentsCount, openGuide]);
+    if (shouldAutoOpen({ isAdmin, isSuperAdmin, userId, commentsCount })) openGuide();
+  }, [projectsQuery.isLoading, userId, isAdmin, isSuperAdmin, commentsCount, openGuide]);
 
   const value = useMemo<InstallGuideValue>(
     () => ({ open: openGuide, projects, nothingCollectedYet }),
@@ -256,24 +256,18 @@ function InstallGuideWizardDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto p-6">
-        {/* Header with Rocket Icon */}
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <Rocket className="h-5 w-5 text-brand" />
-              {t('install.title')}
-            </DialogTitle>
-            <Badge variant="neutral" className="text-xs">
-              {stepsList[currentStepIdx]?.label}
-            </Badge>
-          </div>
+      <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto p-0">
+        {/* Header */}
+        <DialogHeader className="border-b border-border px-5 pt-5 pb-3">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+            <Rocket className="h-5 w-5 text-brand" />
+            {t('install.title')}
+          </DialogTitle>
         </DialogHeader>
 
-        {/* Stepper Progress Indicator */}
-        <div className="my-3 grid grid-cols-4 gap-2 border-b border-border/60 pb-3">
+        {/* Underline tabs stepper */}
+        <div className="flex h-9 gap-4 overflow-x-auto border-b border-border px-5">
           {stepsList.map((stepItem, idx) => {
-            const isDone = idx < currentStepIdx;
             const isCurrent = idx === currentStepIdx;
             return (
               <button
@@ -284,28 +278,13 @@ function InstallGuideWizardDialog({
                     setCurrentStep(stepItem.id);
                   }
                 }}
-                className={`flex flex-col items-start gap-1 rounded-md p-1.5 text-start transition-colors ${
+                className={`whitespace-nowrap text-[14px] pb-2 border-b-2 border-transparent -mb-px transition-colors ${
                   isCurrent
-                    ? 'bg-brand/10 font-semibold text-brand'
-                    : isDone
-                      ? 'text-foreground hover:bg-muted'
-                      : 'text-muted-foreground/60'
+                    ? 'text-foreground border-brand font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <div className="flex items-center gap-1.5 text-xs">
-                  {isDone ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-brand" />
-                  ) : (
-                    <span
-                      className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
-                        isCurrent ? 'bg-brand text-white' : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
-                  )}
-                  <span className="truncate">{stepItem.label.split('. ')[1] ?? stepItem.label}</span>
-                </div>
+                {stepItem.label}
               </button>
             );
           })}
@@ -315,7 +294,7 @@ function InstallGuideWizardDialog({
         {/* STEP 1: PROJECT SELECTION & INLINE CREATION                                */}
         {/* ========================================================================= */}
         {currentStep === 'project' && (
-          <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-4 px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold">{t('install.wizard.createProjectTitle')}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -325,7 +304,7 @@ function InstallGuideWizardDialog({
 
             {/* If projects exist and not creating inline */}
             {projects.length > 0 && !isCreatingInline ? (
-              <div className="rounded-xl border border-border bg-card p-4">
+              <div className="rounded-md border border-border bg-card p-4">
                 <label className="text-xs font-medium text-foreground">
                   {t('install.wizard.selectProjectPrompt')}
                 </label>
@@ -375,10 +354,11 @@ function InstallGuideWizardDialog({
               /* Inline Project Creation Form */
               <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-col gap-3">
-                  <div>
-                    <Label htmlFor="wiz-project-name" className="text-xs">
-                      {t('install.wizard.projectName')}
-                    </Label>
+                  <FormField
+                    label={t('install.wizard.projectName')}
+                    htmlFor="wiz-project-name"
+                    error={undefined}
+                  >
                     <Input
                       id="wiz-project-name"
                       value={newProjectName}
@@ -387,15 +367,16 @@ function InstallGuideWizardDialog({
                         if (!keyEdited) setNewProjectKey(slugifyKey(e.target.value));
                       }}
                       placeholder={t('install.wizard.projectNamePlaceholder')}
-                      className="mt-1"
                       autoFocus
                     />
-                  </div>
+                  </FormField>
 
-                  <div>
-                    <Label htmlFor="wiz-project-key" className="text-xs">
-                      {t('install.wizard.projectKey')}
-                    </Label>
+                  <FormField
+                    label={t('install.wizard.projectKey')}
+                    htmlFor="wiz-project-key"
+                    error={keyError || undefined}
+                    hint={!keyError ? t('install.wizard.projectKeyHint') : undefined}
+                  >
                     <Input
                       id="wiz-project-key"
                       value={newProjectKey}
@@ -403,12 +384,9 @@ function InstallGuideWizardDialog({
                         setKeyEdited(true);
                         setNewProjectKey(e.target.value.toLowerCase().trim());
                       }}
-                      className="mt-1 font-mono text-xs"
+                      className="font-mono text-xs"
                     />
-                    <p className="mt-1 text-[0.7rem] text-muted-foreground">
-                      {t('install.wizard.projectKeyHint')}
-                    </p>
-                  </div>
+                  </FormField>
 
                   <div className="mt-2 flex items-center justify-between pt-2">
                     {projects.length > 0 ? (
@@ -442,7 +420,7 @@ function InstallGuideWizardDialog({
         {/* STEP 2: CHOOSE INTEGRATION METHOD                                         */}
         {/* ========================================================================= */}
         {currentStep === 'method' && (
-          <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-4 px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold">{t('install.wizard.methodTitle')}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -505,7 +483,7 @@ function InstallGuideWizardDialog({
                   selectedMethod === 'extension' ? 'border-brand bg-brand/5 ring-1 ring-brand' : 'border-border bg-card'
                 }`}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-state-ready-tint text-state-ready">
                   <Chrome className="h-5 w-5" />
                 </div>
                 <div className="font-semibold text-sm">{t('install.wizard.methodExtTitle')}</div>
@@ -531,77 +509,76 @@ function InstallGuideWizardDialog({
         {/* STEP 3: ADD CODE TO LOCAL PROJECT                                         */}
         {/* ========================================================================= */}
         {currentStep === 'install' && (
-          <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-4 px-5 py-4">
             {/* 3A: AI Coding Agent Path */}
             {selectedMethod === 'agent' && (
               <div className="flex flex-col gap-3">
                 {/* Skill install */}
-                <div className="rounded-lg border border-border bg-card p-3.5">
+                <div>
                   <div className="text-xs font-semibold text-foreground">
                     {t('install.wizard.curlTitle')}
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     {t('install.wizard.curlHint')}
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <pre className="m-0 flex-1 overflow-x-auto rounded bg-app px-2.5 py-2 text-xs font-mono">
+                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
+                    <pre className="m-0 font-mono text-[13px]">
                       <code>{`curl -fsSL ${server}/install.sh | sh`}</code>
                     </pre>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => copy(`curl -fsSL ${server}/install.sh | sh`)}
+                      className="absolute top-3 end-3"
                     >
-                      <Copy className="h-3.5 w-3.5" />
-                      {t('demo.copy')}
+                      <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
                 {/* Credentials */}
-                <div className="rounded-lg border border-border bg-card p-3.5">
+                <div>
                   <div className="text-xs font-semibold text-foreground">
                     {t('install.wizard.credsTitle')}
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     {t('install.wizard.credsHint')}
                   </div>
-                  <div className="mt-2 flex items-start gap-2">
-                    <pre className="m-0 flex-1 overflow-x-auto rounded bg-app px-2.5 py-2 text-xs font-mono">
+                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
+                    <pre className="m-0 font-mono text-[13px]">
                       <code>{credentialsSnippet}</code>
                     </pre>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => copy(credentialsSnippet)}
+                      className="absolute top-3 end-3"
                     >
-                      <Copy className="h-3.5 w-3.5" />
-                      {t('demo.copy')}
+                      <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
                 {/* AI Agent Prompt */}
-                <div className="rounded-lg border border-brand/40 bg-brand/5 p-3.5">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-brand">
-                    <Bot className="h-4 w-4" />
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <Bot className="h-4 w-4 text-brand" />
                     {t('install.wizard.agentPromptTitle')}
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     {t('install.wizard.agentPromptHint')}
                   </div>
-                  <div className="mt-2 flex items-start gap-2">
-                    <pre className="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-card px-2.5 py-2 text-xs font-mono text-foreground">
+                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
+                    <pre className="m-0 font-mono text-[13px] whitespace-pre-wrap">
                       <code>{agentPrompt}</code>
                     </pre>
                     <Button
-                      variant="default"
+                      variant="ghost"
                       size="sm"
                       onClick={() => copy(agentPrompt)}
-                      className="shrink-0"
+                      className="absolute top-3 end-3"
                     >
-                      <Copy className="h-3.5 w-3.5" />
-                      {t('demo.copy')}
+                      <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -627,18 +604,17 @@ function InstallGuideWizardDialog({
                 >
                   {(['html', 'react', 'vue', 'angular'] as const).map((stack) => (
                     <TabsContent key={stack} value={stack}>
-                      <div className="mt-2 flex items-start gap-2 rounded-lg border border-border bg-card p-3">
-                        <pre className="m-0 flex-1 overflow-x-auto whitespace-pre-wrap rounded bg-app px-2.5 py-2 text-xs font-mono text-foreground">
+                      <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
+                        <pre className="m-0 font-mono text-[13px] whitespace-pre-wrap">
                           <code>{stackSnippets[stack]}</code>
                         </pre>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
                           onClick={() => copy(stackSnippets[stack])}
-                          className="shrink-0"
+                          className="absolute top-3 end-3"
                         >
-                          <Copy className="h-3.5 w-3.5" />
-                          {t('demo.copy')}
+                          <Copy className="h-4 w-4" />
                         </Button>
                       </div>
                     </TabsContent>
@@ -650,7 +626,7 @@ function InstallGuideWizardDialog({
             {/* 3C: Chrome Extension Path */}
             {selectedMethod === 'extension' && (
               <div className="flex flex-col gap-3">
-                <div className="rounded-lg border border-border bg-card p-4">
+                <div>
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-semibold">{t('install.extDownloadTitle')}</div>
@@ -658,20 +634,20 @@ function InstallGuideWizardDialog({
                     </div>
                     <Button asChild size="sm">
                       <a href={EXTENSION_ZIP_URL} download>
-                        <Download className="h-3.5 w-3.5" />
+                        <Download className="h-4 w-4" />
                         {t('install.extDownloadButton')}
                       </a>
                     </Button>
                   </div>
 
                   <ol className="mt-4 flex list-none flex-col gap-3 p-0 text-xs">
-                    <li className="rounded bg-app/50 p-2.5">
+                    <li>
                       <span className="font-semibold">1. {t('install.extUnzipTitle')}</span>: {t('install.extUnzipHint')}
                     </li>
-                    <li className="rounded bg-app/50 p-2.5">
+                    <li>
                       <span className="font-semibold">2. {t('install.extLoadTitle')}</span>: {t('install.extLoadHint')}
                     </li>
-                    <li className="rounded bg-app/50 p-2.5">
+                    <li>
                       <span className="font-semibold">3. {t('install.extSignInTitle')}</span>: {t('install.extSignInHint')}
                     </li>
                   </ol>
@@ -695,7 +671,7 @@ function InstallGuideWizardDialog({
         {/* STEP 4: LAUNCH & SEE IT LIVE!                                             */}
         {/* ========================================================================= */}
         {currentStep === 'verify' && (
-          <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-col gap-4 px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold">{t('install.wizard.step4Title')}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -767,7 +743,7 @@ function InstallGuideWizardDialog({
               )}
 
               {checkStatus === 'inactive' && (
-                <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-500/10 p-2 text-xs text-amber-600 font-medium">
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-state-ready-tint p-2 text-xs text-state-ready font-medium">
                   <AlertCircle className="h-4 w-4" />
                   {t('install.wizard.connectionInactive')}
                 </div>
@@ -776,9 +752,9 @@ function InstallGuideWizardDialog({
 
             {/* Celebration Card (if comments already arrived) */}
             {projects.some((p) => (p.commentsCount ?? 0) > 0) && (
-              <div className="flex items-center justify-between rounded-xl border border-brand/50 bg-brand/10 p-4">
-                <div className="flex items-center gap-3">
-                  <PartyPopper className="h-6 w-6 text-brand" />
+              <div className="flex flex-col gap-3 rounded-md border border-brand/50 bg-brand-tint p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <PartyPopper className="h-6 w-6 shrink-0 text-brand" />
                   <div>
                     <div className="text-sm font-bold text-foreground">
                       {t('install.wizard.celebrationTitle')}
@@ -790,6 +766,7 @@ function InstallGuideWizardDialog({
                 </div>
                 <Button
                   size="sm"
+                  className="shrink-0 self-start sm:self-auto"
                   onClick={() => {
                     onClose();
                     navigate('/projects');
@@ -800,8 +777,8 @@ function InstallGuideWizardDialog({
               </div>
             )}
 
-            {/* Footer options */}
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-3 pt-2">
+            {/* Footer with checkbox and button */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3">
               <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
@@ -809,14 +786,14 @@ function InstallGuideWizardDialog({
                   checked={suppressed}
                   onChange={(e) => onSuppressedChange(e.target.checked)}
                 />
-                <span className="text-xs text-muted-foreground">{t('install.dontShowAgain')}</span>
+                <span className="text-[14px] text-muted-foreground">{t('install.dontShowAgain')}</span>
               </label>
 
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setCurrentStep('install')}>
+                <Button variant="secondary" size="sm" onClick={() => setCurrentStep('install')}>
                   {t('install.wizard.back')}
                 </Button>
-                <Button onClick={onClose}>{t('install.wizard.finish')}</Button>
+                <Button size="sm" onClick={onClose}>{t('install.wizard.finish')}</Button>
               </div>
             </div>
           </div>

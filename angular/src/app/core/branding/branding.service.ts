@@ -55,9 +55,14 @@ function toLocal(api: ApiBrandingResponse | null | undefined): BrandingResponse 
 export class BrandingService {
   private readonly resource = getApiBrandingResource();
 
-  private readonly _data = computed<BrandingResponse>(() =>
-    toLocal(this.resource.value()?.data)
-  );
+  // The auth interceptor unwraps `Result<T>`, but the generated resource type still declares
+  // the envelope — accept either shape so tenant branding actually reaches the UI.
+  private readonly _data = computed<BrandingResponse>(() => {
+    const value = this.resource.value() as
+      | (ApiBrandingResponse & { data?: ApiBrandingResponse })
+      | undefined;
+    return toLocal(value?.data ?? value);
+  });
 
   readonly productName = computed(() => this._data().productName || 'Pointer');
   readonly tagline = computed(() => this._data().tagline);

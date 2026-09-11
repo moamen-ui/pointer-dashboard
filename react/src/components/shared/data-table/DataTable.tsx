@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Search,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useTranslation } from 'react-i18next';
-import { EmptyState } from '@/components/EmptyState';
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu';
 import type { RowActionItem } from '@/components/shared/types';
 
@@ -54,6 +54,10 @@ export type DataTableProps<TData> = {
   searchPlaceholder?: string;
   /** Renders a small pagination footer under the table. */
   paginated?: boolean;
+  /** When true, adds a gutter column (w-10, 1-based row numbers, mono, muted). */
+  gutter?: boolean;
+  /** Declared for callers migrating from an icon-based empty state; never rendered —
+   *  DESIGN.md bans icon-in-circle empty states, so the ghost-row grammar stays text only. */
   emptyIcon?: React.ComponentType<{ className?: string }>;
   emptyMessage?: string;
   emptyHint?: string;
@@ -76,21 +80,38 @@ export function DataTable<TData>({
   searchable = false,
   searchPlaceholder,
   paginated = false,
-  emptyIcon,
+  gutter = false,
   emptyMessage = '',
-  emptyHint,
+  emptyHint = '',
   emptyAction,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
+  // Leading gutter column (row numbers, 1-based) if enabled.
   // Trailing synthetic actions column — right-aligned, never sortable.
   const effectiveColumns = useMemo<ColumnDef<TData>[]>(() => {
-    if (!actions) return columns;
-    return [
-      ...columns,
-      {
+    const cols: ColumnDef<TData>[] = [];
+
+    if (gutter) {
+      cols.push({
+        id: '__gutter__',
+        enableSorting: false,
+        enableGlobalFilter: false,
+        header: () => '',
+        cell: ({ row }) => (
+          <div className="w-10 text-end font-mono text-[12px] text-faint-foreground">
+            {row.index + 1}
+          </div>
+        ),
+      });
+    }
+
+    cols.push(...columns);
+
+    if (actions) {
+      cols.push({
         id: '__actions__',
         enableSorting: false,
         enableGlobalFilter: false,
@@ -103,9 +124,11 @@ export function DataTable<TData>({
             />
           </div>
         ),
-      },
-    ];
-  }, [columns, actions, actionsAriaLabel, actionsHeader]);
+      });
+    }
+
+    return cols;
+  }, [columns, actions, actionsAriaLabel, actionsHeader, gutter]);
 
   const table = useReactTable({
     data,
@@ -121,15 +144,76 @@ export function DataTable<TData>({
     initialState: { pagination: { pageSize: 10 } },
   });
 
+  // When data is empty, render ghost rows in the table (§3 empty state grammar)
   if (data.length === 0) {
     return (
-      <EmptyState
-        icon={emptyIcon as Parameters<typeof EmptyState>[0]['icon']}
-        message={emptyMessage}
-        hint={emptyHint}
-      >
-        {emptyAction}
-      </EmptyState>
+      <div className="flex flex-col gap-3">
+        {searchable && (
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder={searchPlaceholder ?? t('common.search')}
+              className="ps-9"
+            />
+          </div>
+        )}
+
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className={cn(
+                        header.id === '__gutter__'
+                          ? 'w-10'
+                          : header.id === '__actions__'
+                            ? actionsHeader
+                              ? 'text-right'
+                              : 'w-12'
+                            : undefined,
+                        (header.column.columnDef.meta as { headerClass?: string } | undefined)?.headerClass,
+                      )}
+                    >
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {/* Three ghost rows (dashed borders) */}
+              {[0, 1, 2].map((idx) => (
+                <TableRow key={`ghost-${idx}`} className="border-dashed">
+                  {effectiveColumns.map((col, colIdx) => (
+                    <TableCell key={col.id ?? ('accessorKey' in col ? String(col.accessorKey) : colIdx)}>
+                      {idx === 0 && col.id === '__actions__' ? (
+                        <div className="flex justify-end">
+                          {emptyAction}
+                        </div>
+                      ) : idx === 0 && emptyMessage && col.id !== '__gutter__' && col.id !== '__actions__' ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[14px] text-muted-foreground">{emptyMessage}</span>
+                          {emptyHint && (
+                            <span className="text-[12px] text-muted-foreground">{emptyHint}</span>
+                          )}
+                        </div>
+                      ) : null}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
     );
   }
 
@@ -161,13 +245,16 @@ export function DataTable<TData>({
                   return (
                     <TableHead
                       key={header.id}
-                      className={
-                        header.id === '__actions__'
-                          ? actionsHeader
-                            ? 'text-right'
-                            : 'w-12'
-                          : undefined
-                      }
+                      className={cn(
+                        header.id === '__gutter__'
+                          ? 'w-10'
+                          : header.id === '__actions__'
+                            ? actionsHeader
+                              ? 'text-right'
+                              : 'w-12'
+                            : undefined,
+                        (header.column.columnDef.meta as { headerClass?: string } | undefined)?.headerClass,
+                      )}
                       aria-sort={
                         dir === 'asc'
                           ? 'ascending'
@@ -208,19 +295,34 @@ export function DataTable<TData>({
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={effectiveColumns.length}
-                  className="p-4 text-center text-muted-foreground"
-                >
-                  No matching rows
+              // No search match: rows exist, the filter just found none of them — a single
+              // row at normal height, start-aligned, distinct from the three-ghost-row
+              // true-empty state above (that means "nothing here yet"; this means "try a
+              // different search").
+              <TableRow className="h-11">
+                <TableCell colSpan={effectiveColumns.length} className="px-3">
+                  <div className="flex items-center gap-2 text-[14px] text-muted-foreground">
+                    <span>{t('table.noResultsFor', { query: globalFilter })}</span>
+                    <span className="text-faint-foreground" aria-hidden="true">·</span>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 text-[14px]"
+                      onClick={() => setGlobalFilter('')}
+                    >
+                      {t('table.clearSearch')}
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className="h-11">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={cell.column.id === '__gutter__' ? 'w-10' : undefined}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -230,30 +332,28 @@ export function DataTable<TData>({
           </TableBody>
         </Table>
 
-        {paginated && (
-          <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2">
-            <span className="text-xs text-muted-foreground">
-              {rows.length} of {data.length} rows
+        {paginated && pageCount > 1 && (
+          <div className="h-11 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
+            <span>
+              {t('table.rowsOf', { shown: rows.length, total: table.getFilteredRowModel().rows.length })}
             </span>
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                aria-label="Previous page"
+                variant="secondary"
+                size="sm"
+                aria-label={t('table.previousPage')}
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
                 <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
               </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {table.getState().pagination.pageIndex + 1} of {pageCount}
+              <span>
+                {t('table.pageOf', { page: table.getState().pagination.pageIndex + 1, pages: pageCount })}
               </span>
               <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7"
-                aria-label="Next page"
+                variant="secondary"
+                size="sm"
+                aria-label={t('table.nextPage')}
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >

@@ -8,12 +8,13 @@ import {
   usePostApiAuthRegisterInvite,
   type InvitePreviewResponse,
 } from '@moamen-ui/pointer-vue';
-import { Card, CardContent } from '@/components/ui/card';
+import { Pin } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import FormField from '@/components/shared/FormField.vue';
 import { useAuth } from '@/composables/useAuth';
+import { useBranding } from '@/composables/useBranding';
 import { extractMessage } from '@/lib/error';
 import { isValidEmail } from '@/lib/validation';
 
@@ -21,6 +22,7 @@ const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const { loginWithToken } = useAuth();
+const { branding } = useBranding();
 
 const code = computed(() => (route.query.code as string | undefined) ?? '');
 
@@ -113,109 +115,117 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-secondary p-4">
-    <Card class="w-[420px] max-w-[92vw]">
-      <CardContent class="flex flex-col gap-5 p-6">
+  <div class="flex min-h-screen items-center justify-center bg-background p-4">
+    <div class="w-full max-w-[400px] flex flex-col gap-6">
+      <!-- Brand mark -->
+      <div class="flex items-center gap-2">
+        <Pin class="h-4 w-4 text-brand rotate-45" />
+        <span class="text-[20px] font-semibold text-foreground">{{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}</span>
+      </div>
 
-        <!-- Missing code -->
-        <div v-if="!code" class="flex flex-col gap-4 text-center">
-          <p class="text-sm text-destructive">{{ t('invite.invalidLink') }}</p>
-          <Button variant="outline" @click="router.push('/login')">
-            {{ t('auth.backToLogin') }}
-          </Button>
-        </div>
+      <!-- Missing code -->
+      <div v-if="!code" class="flex flex-col gap-4 text-center">
+        <p class="text-[14px] text-state-danger">{{ t('invite.invalidLink') }}</p>
+        <Button variant="secondary" @click="router.push('/login')">
+          {{ t('auth.backToLogin') }}
+        </Button>
+      </div>
 
-        <!-- Loading preview -->
-        <div v-else-if="previewQuery.isPending.value" class="text-center text-sm text-muted-foreground py-4">
-          …
-        </div>
+      <!-- Loading preview -->
+      <div v-else-if="previewQuery.isPending.value" class="text-center text-[14px] text-muted-foreground py-4">
+        …
+      </div>
 
-        <!-- Preview error / invalid -->
-        <div v-else-if="previewQuery.isError.value" class="flex flex-col gap-4 text-center">
-          <p class="text-sm text-destructive">{{ t('invite.invalidOrExpired') }}</p>
-          <Button variant="outline" @click="router.push('/login')">
-            {{ t('auth.backToLogin') }}
-          </Button>
-        </div>
+      <!-- Preview error / invalid -->
+      <div v-else-if="previewQuery.isError.value" class="flex flex-col gap-4 text-center">
+        <p class="text-[14px] text-state-danger">{{ t('invite.invalidOrExpired') }}</p>
+        <Button variant="secondary" @click="router.push('/login')">
+          {{ t('auth.backToLogin') }}
+        </Button>
+      </div>
 
-        <!-- Join form -->
-        <template v-else-if="preview">
-          <h1 class="text-center text-xl font-bold">
+      <!-- Join form -->
+      <template v-else-if="preview">
+        <div class="flex flex-col gap-1">
+          <h1 class="text-[20px] font-semibold text-foreground">
             {{ t('invite.joinTitle', { workspace: preview.workspaceName ?? '' }) }}
           </h1>
-          <p v-if="preview.roleName" class="text-center text-sm text-muted-foreground">
+          <p v-if="preview.roleName" class="text-[14px] text-muted-foreground">
             {{ t('invite.joinRole', { role: preview.roleName }) }}
           </p>
+        </div>
 
-          <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
-            <!-- Email -->
-            <FormField :label="t('login.email')" html-for="join-email" :error="emailError">
-              <Input
-                id="join-email"
-                v-model="email"
-                type="email"
-                autocomplete="email"
-                required
-                @blur="touched.email = true"
-              />
-            </FormField>
+        <form class="flex flex-col gap-4" @submit.prevent="onSubmit">
+          <!-- Email -->
+          <FormField :label="t('login.email')" html-for="join-email" :error="emailError">
+            <Input
+              id="join-email"
+              v-model="email"
+              type="email"
+              autocomplete="email"
+              required
+              @blur="touched.email = true"
+            />
+          </FormField>
 
-            <!-- Display name -->
-            <FormField :label="t('invite.displayName')" html-for="join-name" :error="displayNameError">
-              <Input
-                id="join-name"
-                v-model="displayName"
-                autocomplete="name"
-                required
-                @blur="touched.displayName = true"
-              />
-            </FormField>
+          <!-- Display name -->
+          <FormField :label="t('invite.displayName')" html-for="join-name" :error="displayNameError">
+            <Input
+              id="join-name"
+              v-model="displayName"
+              autocomplete="name"
+              required
+              @blur="touched.displayName = true"
+            />
+          </FormField>
 
-            <!-- Password -->
-            <FormField :label="t('invite.password')" html-for="join-password" :error="passwordError">
-              <PasswordInput
-                id="join-password"
-                v-model="password"
-                autocomplete="new-password"
-                required
-                @blur="touched.password = true"
-              />
-            </FormField>
+          <!-- Password -->
+          <FormField :label="t('invite.password')" html-for="join-password" :error="passwordError">
+            <PasswordInput
+              id="join-password"
+              v-model="password"
+              autocomplete="new-password"
+              required
+              @blur="touched.password = true"
+            />
+          </FormField>
 
-            <!-- Confirm password -->
-            <FormField :label="t('invite.confirmPassword')" html-for="join-confirm">
-              <PasswordInput
-                id="join-confirm"
-                v-model="confirmPassword"
-                autocomplete="new-password"
-                required
-                @blur="touched.confirmPassword = true"
-              />
-            </FormField>
+          <!-- Confirm password -->
+          <FormField :label="t('invite.confirmPassword')" html-for="join-confirm">
+            <PasswordInput
+              id="join-confirm"
+              v-model="confirmPassword"
+              autocomplete="new-password"
+              required
+              @blur="touched.confirmPassword = true"
+            />
+          </FormField>
 
-            <!-- Cross-field check spans both fields, so it can't live in either
-                 FormField's per-field error slot — separate paragraph below them. -->
-            <p v-if="passwordsMismatch" class="text-sm text-destructive">
-              {{ t('invite.passwordMismatch') }}
-            </p>
+          <!-- Cross-field check spans both fields, so it can't live in either
+               FormField's per-field error slot — separate paragraph below them. -->
+          <p v-if="passwordsMismatch" class="text-[14px] text-state-danger">
+            {{ t('invite.passwordMismatch') }}
+          </p>
 
-            <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+          <p v-if="error" class="text-[14px] text-state-danger">{{ error }}</p>
 
-            <Button
-              type="submit"
-              class="mt-1"
-              :disabled="loading || !canSubmit"
-            >
-              {{ t('invite.join') }}
-            </Button>
-          </form>
-
-          <Button variant="ghost" size="sm" @click="router.push('/login')">
-            {{ t('auth.backToLogin') }}
+          <Button
+            type="submit"
+            class="w-full"
+            :disabled="loading || !canSubmit"
+          >
+            {{ t('invite.join') }}
           </Button>
-        </template>
+        </form>
 
-      </CardContent>
-    </Card>
+        <!-- Links -->
+        <div class="flex flex-col gap-2 pt-2 border-t border-border">
+          <RouterLink to="/login" class="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+            {{ t('auth.backToLogin') }}
+          </RouterLink>
+        </div>
+      </template>
+
+    </div>
   </div>
 </template>

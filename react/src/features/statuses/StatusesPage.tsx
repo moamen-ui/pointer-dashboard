@@ -13,6 +13,7 @@ import {
 } from '@moamen-ui/pointer-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Save, RotateCcw, Tag } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
@@ -32,6 +33,16 @@ function initRow(s: StatusAdminItem): RowState {
     color: s.color ?? s.defaultColor ?? '#6b7280',
     order: s.order ?? s.defaultOrder ?? 0,
   };
+}
+
+/** Built-in status values map onto the badge variants that carry their diff hue and glyph. */
+function badgeVariantForStatus(value: number | undefined) {
+  switch (value) {
+    case 2: return 'warning' as const;
+    case 3: return 'success' as const;
+    case 4: return 'archived' as const;
+    default: return 'open' as const;
+  }
 }
 
 export function StatusesPage() {
@@ -145,7 +156,9 @@ export function StatusesPage() {
       enableSorting: false,
       header: t('statuses.colName'),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name ?? String(row.original.value)}</span>
+        <Badge variant={badgeVariantForStatus(row.original.value)} className="font-medium">
+          {row.original.name ?? String(row.original.value)}
+        </Badge>
       ),
     },
     {
@@ -232,7 +245,7 @@ export function StatusesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">{t('statuses.title')}</h2>
+      <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('statuses.title')}</h1>
 
       <DataTable
         data={statuses}
@@ -240,6 +253,7 @@ export function StatusesPage() {
         actions={actionsFor}
         actionsAriaLabel={t('statuses.colActions')}
         actionsHeader={t('statuses.colActions')}
+        gutter
         emptyIcon={Tag}
         emptyMessage={t('statuses.empty')}
         emptyHint={t('statuses.emptyHint')}

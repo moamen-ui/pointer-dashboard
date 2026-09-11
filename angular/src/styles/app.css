@@ -1,0 +1,6 @@
+/* Tailwind entry (plain CSS so Tailwind's PostCSS plugin resolves the imports itself). */
+@import 'tailwindcss';
+@import './foundation.css';
+
+/* Dark mode is driven by `html.dark` (PreferencesService), not the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));

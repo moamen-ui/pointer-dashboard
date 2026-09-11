@@ -20,9 +20,12 @@ import { Plus, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
+import { AppTabs } from '@/components/shared/Tabs';
+import { TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -96,100 +99,6 @@ function strToInt(s: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-// ---- Entitlements form subcomponent ----------------------------------------
-
-interface EntitlementsFormProps {
-  value: PlanEntitlementsDto;
-  onChange: (v: PlanEntitlementsDto) => void;
-}
-
-function EntitlementsForm({ value, onChange }: EntitlementsFormProps) {
-  const { t } = useTranslation();
-
-  function setInt(key: keyof PlanEntitlementsDto, raw: string) {
-    onChange({ ...value, [key]: strToInt(raw) });
-  }
-  function setBool(key: keyof PlanEntitlementsDto, checked: boolean | null) {
-    onChange({ ...value, [key]: checked });
-  }
-
-  const intField = (key: keyof PlanEntitlementsDto, labelKey: string) => (
-    <div className="flex flex-col gap-1" key={key}>
-      <Label htmlFor={`ent-${key}`} className="text-xs">
-        {t(labelKey)}
-      </Label>
-      <Input
-        id={`ent-${key}`}
-        type="number"
-        className="h-8 text-sm"
-        placeholder={t('plans.entNull')}
-        value={intToStr(value[key] as number | null)}
-        onChange={(e) => setInt(key, e.target.value)}
-      />
-    </div>
-  );
-
-  // Tri-state bool: null (unset/default), true, false
-  const boolField = (key: keyof PlanEntitlementsDto, labelKey: string) => {
-    const raw = value[key] as boolean | null;
-    const triVal = raw == null ? '' : raw ? 'true' : 'false';
-    return (
-      <div className="flex flex-col gap-1" key={key}>
-        <Label htmlFor={`ent-${key}`} className="text-xs">
-          {t(labelKey)}
-        </Label>
-        <Select
-          value={triVal}
-          onValueChange={(v) =>
-            setBool(key, v === '' ? null : v === 'true')
-          }
-        >
-          <SelectTrigger id={`ent-${key}`} className="h-8 text-sm">
-            <SelectValue placeholder={t('plans.entNull')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">{t('plans.entNull')}</SelectItem>
-            <SelectItem value="true">{t('common.yes')}</SelectItem>
-            <SelectItem value="false">{t('common.no')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('plans.enforcedSection')}
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        {intField('maxProjects', 'plans.ent.maxProjects')}
-        {intField('maxSeats', 'plans.ent.maxSeats')}
-        {intField('maxCommentsPerMonth', 'plans.ent.maxCommentsPerMonth')}
-        {boolField('extensionEnabled', 'plans.ent.extensionEnabled')}
-        {intField('maxExtensionSites', 'plans.ent.maxExtensionSites')}
-        {intField('maxPredefinedActionsPerProject', 'plans.ent.maxPredefinedActionsPerProject')}
-        {intField('maxTenantWidePredefinedActions', 'plans.ent.maxTenantWidePredefinedActions')}
-      </div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('plans.displayOnlySection')}
-      </p>
-      <div className="grid grid-cols-2 gap-3">
-        {intField('retentionDays', 'plans.ent.retentionDays')}
-        {intField('maxEnvironments', 'plans.ent.maxEnvironments')}
-        {intField('maxActiveInvites', 'plans.ent.maxActiveInvites')}
-        {intField('emailsPerMonth', 'plans.ent.emailsPerMonth')}
-        {intField('extensionCommentsPerMonth', 'plans.ent.extensionCommentsPerMonth')}
-        {intField('maxPendingSuggestions', 'plans.ent.maxPendingSuggestions')}
-        {boolField('exportImportEnabled', 'plans.ent.exportImportEnabled')}
-        {boolField('promptSuggestionsEnabled', 'plans.ent.promptSuggestionsEnabled')}
-        {boolField('customStatusesEnabled', 'plans.ent.customStatusesEnabled')}
-        {boolField('prioritySupport', 'plans.ent.prioritySupport')}
-      </div>
-    </div>
-  );
-}
-
 // ---- blank form state -------------------------------------------------------
 
 interface PlanFormState {
@@ -259,8 +168,9 @@ export function PlansPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [tabValue, setTabValue] = useState('details');
 
-  const { data, isLoading, isError, isFetching } = useGetApiAdminPlans();
+  const { data, isLoading, isError } = useGetApiAdminPlans();
   // The generated hook resolves via the customInstance unwrapper; data may be
   // the inner array directly or still wrapped.
   const plans: PlanAdminResponse[] =
@@ -345,18 +255,19 @@ export function PlansPage() {
   }
 
   const columns: ColumnDef<PlanAdminResponse>[] = [
-    { accessorKey: 'name', enableSorting: false, header: t('plans.colName') },
+    { accessorKey: 'name', enableSorting: false, header: t('plans.colName'),
+      cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
     { accessorKey: 'slug', enableSorting: false, header: t('plans.colSlug'),
-      cell: ({ row }) => <span className="text-muted-foreground">{row.original.slug}</span> },
+      cell: ({ row }) => <span className="font-mono text-[13px] text-muted-foreground">{row.original.slug}</span> },
     { accessorKey: 'price', enableSorting: false, header: t('plans.colPrice'),
-      cell: ({ row }) => formatPrice(row.original) },
+      cell: ({ row }) => <span className="font-mono text-[14px]">{formatPrice(row.original)}</span> },
     {
       accessorKey: 'isActive',
       enableSorting: false,
       header: t('plans.colActive'),
       cell: ({ row }) => (
         <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
-          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
+          <span>{t(row.original.isActive ? 'common.active' : 'common.disabled')}</span>
         </Badge>
       ),
     },
@@ -371,7 +282,7 @@ export function PlansPage() {
       ),
     },
     { accessorKey: 'activeSubscriptions', enableSorting: false, header: t('plans.colSubs'),
-      cell: ({ row }) => row.original.activeSubscriptions ?? 0 },
+      cell: ({ row }) => <span className="font-mono text-[14px]">{row.original.activeSubscriptions ?? 0}</span> },
   ];
 
   const actionsFor = (plan: PlanAdminResponse): RowActionItem[] => [
@@ -396,17 +307,12 @@ export function PlansPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
           {t('plans.title')}
-          {isFetching && (
-            <span className="ms-2 text-xs font-normal text-muted-foreground">
-              {t('common.refresh')}…
-            </span>
-          )}
-        </h2>
-        <Button onClick={openCreate}>
+        </h1>
+        <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4" />
           {t('plans.addPlan')}
         </Button>
@@ -419,18 +325,19 @@ export function PlansPage() {
         actionsAriaLabel={t('tenants.actions')}
         actionsHeader={t('tenants.actions')}
         paginated
+        gutter
         emptyIcon={CreditCard}
         emptyMessage={t('plans.empty')}
         emptyHint={t('plans.emptyHint')}
         emptyAction={
-          <Button onClick={openCreate}>
+          <Button onClick={openCreate} size="sm">
             <Plus className="h-4 w-4" />
             {t('plans.addPlan')}
           </Button>
         }
       />
 
-      {/* Create / Edit dialog */}
+      {/* Create / Edit dialog with Tabs: Details / Enforced / Display-only */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
@@ -438,85 +345,88 @@ export function PlansPage() {
               {editingPlan ? t('plans.editPlan') : t('plans.addPlan')}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 pt-1">
-            {/* Basic fields */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-name">{t('plans.colName')}</Label>
-                <Input
-                  id="plan-name"
-                  value={form.name}
-                  autoFocus
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
+          <AppTabs
+            tabs={[
+              { value: 'details', label: t('plans.details') },
+              { value: 'enforced', label: t('plans.enforcedSection') },
+              { value: 'display', label: t('plans.displayOnlySection') },
+            ]}
+            value={tabValue}
+            onValueChange={setTabValue}
+          >
+            <TabsContent value="details" className="space-y-4 py-2">
+              {/* Basic fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label={t('plans.colName')} htmlFor="plan-name">
+                  <Input
+                    id="plan-name"
+                    value={form.name}
+                    autoFocus
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </FormField>
+                <FormField label={t('plans.colSlug')} htmlFor="plan-slug">
+                  <Input
+                    id="plan-slug"
+                    value={form.slug}
+                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  />
+                </FormField>
+                <FormField label={t('plans.priceMonthly')} htmlFor="plan-price">
+                  <Input
+                    id="plan-price"
+                    type="number"
+                    min={0}
+                    value={form.priceMonthly}
+                    onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })}
+                  />
+                </FormField>
+                <FormField label={t('plans.currency')} htmlFor="plan-currency">
+                  <Input
+                    id="plan-currency"
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  />
+                </FormField>
+                <FormField label={t('plans.interval')} htmlFor="plan-interval">
+                  <Select
+                    value={form.interval}
+                    onValueChange={(v) => setForm({ ...form, interval: v })}
+                  >
+                    <SelectTrigger id="plan-interval">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t('plans.intervalMonthly')}</SelectItem>
+                      <SelectItem value="1">{t('plans.intervalYearly')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label={t('plans.sortOrder')} htmlFor="plan-sort">
+                  <Input
+                    id="plan-sort"
+                    type="number"
+                    value={form.sortOrder}
+                    onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                  />
+                </FormField>
+                <FormField label={t('plans.displayStateLabel')} htmlFor="plan-display">
+                  <Select
+                    value={form.displayState}
+                    onValueChange={(v) => setForm({ ...form, displayState: v })}
+                  >
+                    <SelectTrigger id="plan-display">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t('plans.displayState.visible')}</SelectItem>
+                      <SelectItem value="1">{t('plans.displayState.coming-soon')}</SelectItem>
+                      <SelectItem value="2">{t('plans.displayState.hidden')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormField>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-slug">{t('plans.colSlug')}</Label>
-                <Input
-                  id="plan-slug"
-                  value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-price">{t('plans.priceMonthly')}</Label>
-                <Input
-                  id="plan-price"
-                  type="number"
-                  min={0}
-                  value={form.priceMonthly}
-                  onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-currency">{t('plans.currency')}</Label>
-                <Input
-                  id="plan-currency"
-                  value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-interval">{t('plans.interval')}</Label>
-                <Select
-                  value={form.interval}
-                  onValueChange={(v) => setForm({ ...form, interval: v })}
-                >
-                  <SelectTrigger id="plan-interval">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">{t('plans.intervalMonthly')}</SelectItem>
-                    <SelectItem value="1">{t('plans.intervalYearly')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-sort">{t('plans.sortOrder')}</Label>
-                <Input
-                  id="plan-sort"
-                  type="number"
-                  value={form.sortOrder}
-                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="plan-display">{t('plans.displayStateLabel')}</Label>
-                <Select
-                  value={form.displayState}
-                  onValueChange={(v) => setForm({ ...form, displayState: v })}
-                >
-                  <SelectTrigger id="plan-display">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">{t('plans.displayState.visible')}</SelectItem>
-                    <SelectItem value="1">{t('plans.displayState.coming-soon')}</SelectItem>
-                    <SelectItem value="2">{t('plans.displayState.hidden')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2 pt-6">
+              <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
                   id="plan-active"
@@ -524,29 +434,142 @@ export function PlansPage() {
                   checked={form.isActive}
                   onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
                 />
-                <Label htmlFor="plan-active">{t('plans.isActive')}</Label>
+                <Label htmlFor="plan-active" className="text-[13px] font-medium text-foreground">
+                  {t('plans.isActive')}
+                </Label>
               </div>
-            </div>
-            {/* Feature bullets (one per line) */}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="plan-bullets">{t('plans.featureBullets')}</Label>
-              <textarea
-                id="plan-bullets"
-                rows={4}
-                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder={t('plans.bulletsPlaceholder')}
-                value={form.featureBullets}
-                onChange={(e) => setForm({ ...form, featureBullets: e.target.value })}
-              />
-            </div>
-            {/* Entitlements */}
-            <EntitlementsForm
-              value={form.entitlements}
-              onChange={(ent) => setForm({ ...form, entitlements: ent })}
-            />
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              {/* Feature bullets (one per line) */}
+              <FormField label={t('plans.featureBullets')} htmlFor="plan-bullets">
+                <textarea
+                  id="plan-bullets"
+                  rows={4}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder={t('plans.bulletsPlaceholder')}
+                  value={form.featureBullets}
+                  onChange={(e) => setForm({ ...form, featureBullets: e.target.value })}
+                />
+              </FormField>
+            </TabsContent>
+            <TabsContent value="enforced" className="space-y-4 py-2">
+              {/* Enforced entitlements only */}
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: 'maxProjects', label: 'plans.ent.maxProjects' },
+                    { key: 'maxSeats', label: 'plans.ent.maxSeats' },
+                    { key: 'maxCommentsPerMonth', label: 'plans.ent.maxCommentsPerMonth' },
+                    { key: 'extensionEnabled', label: 'plans.ent.extensionEnabled', isBool: true },
+                    { key: 'maxExtensionSites', label: 'plans.ent.maxExtensionSites' },
+                    { key: 'maxPredefinedActionsPerProject', label: 'plans.ent.maxPredefinedActionsPerProject' },
+                    { key: 'maxTenantWidePredefinedActions', label: 'plans.ent.maxTenantWidePredefinedActions' },
+                  ].map((field) => {
+                    const key = field.key as keyof PlanEntitlementsDto;
+                    const isBool = 'isBool' in field && field.isBool;
+                    return (
+                      <FormField key={key} label={t(field.label)} htmlFor={`ent-${key}`}>
+                        {isBool ? (
+                          <Select
+                            value={form.entitlements[key] == null ? '' : form.entitlements[key] ? 'true' : 'false'}
+                            onValueChange={(v) =>
+                              setForm({
+                                ...form,
+                                entitlements: { ...form.entitlements, [key]: v === '' ? null : v === 'true' },
+                              })
+                            }
+                          >
+                            <SelectTrigger id={`ent-${key}`}>
+                              <SelectValue placeholder={t('plans.entNull')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">{t('plans.entNull')}</SelectItem>
+                              <SelectItem value="true">{t('common.yes')}</SelectItem>
+                              <SelectItem value="false">{t('common.no')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`ent-${key}`}
+                            type="number"
+                            placeholder={t('plans.entNull')}
+                            value={intToStr(form.entitlements[key] as number | null)}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                entitlements: { ...form.entitlements, [key]: strToInt(e.target.value) },
+                              })
+                            }
+                          />
+                        )}
+                      </FormField>
+                    );
+                  })}
+                </div>
+                <p className="text-[12px] text-muted-foreground">{t('plans.entitlementsHint')}</p>
+              </div>
+            </TabsContent>
+            <TabsContent value="display" className="space-y-4 py-2">
+              {/* Display-only entitlements */}
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: 'retentionDays', label: 'plans.ent.retentionDays' },
+                    { key: 'maxEnvironments', label: 'plans.ent.maxEnvironments' },
+                    { key: 'maxActiveInvites', label: 'plans.ent.maxActiveInvites' },
+                    { key: 'emailsPerMonth', label: 'plans.ent.emailsPerMonth' },
+                    { key: 'extensionCommentsPerMonth', label: 'plans.ent.extensionCommentsPerMonth' },
+                    { key: 'maxPendingSuggestions', label: 'plans.ent.maxPendingSuggestions' },
+                    { key: 'exportImportEnabled', label: 'plans.ent.exportImportEnabled', isBool: true },
+                    { key: 'promptSuggestionsEnabled', label: 'plans.ent.promptSuggestionsEnabled', isBool: true },
+                    { key: 'customStatusesEnabled', label: 'plans.ent.customStatusesEnabled', isBool: true },
+                    { key: 'prioritySupport', label: 'plans.ent.prioritySupport', isBool: true },
+                  ].map((field) => {
+                    const key = field.key as keyof PlanEntitlementsDto;
+                    const isBool = 'isBool' in field && field.isBool;
+                    return (
+                      <FormField key={key} label={t(field.label)} htmlFor={`ent-${key}`}>
+                        {isBool ? (
+                          <Select
+                            value={form.entitlements[key] == null ? '' : form.entitlements[key] ? 'true' : 'false'}
+                            onValueChange={(v) =>
+                              setForm({
+                                ...form,
+                                entitlements: { ...form.entitlements, [key]: v === '' ? null : v === 'true' },
+                              })
+                            }
+                          >
+                            <SelectTrigger id={`ent-${key}`}>
+                              <SelectValue placeholder={t('plans.entNull')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">{t('plans.entNull')}</SelectItem>
+                              <SelectItem value="true">{t('common.yes')}</SelectItem>
+                              <SelectItem value="false">{t('common.no')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`ent-${key}`}
+                            type="number"
+                            placeholder={t('plans.entNull')}
+                            value={intToStr(form.entitlements[key] as number | null)}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                entitlements: { ...form.entitlements, [key]: strToInt(e.target.value) },
+                              })
+                            }
+                          />
+                        )}
+                      </FormField>
+                    );
+                  })}
+                </div>
+                <p className="text-[12px] text-muted-foreground">{t('plans.entitlementsHint')}</p>
+              </div>
+            </TabsContent>
+          </AppTabs>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>
               {t('common.cancel')}
             </Button>
             <Button

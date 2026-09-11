@@ -25,13 +25,13 @@ export function UpgradePrompt() {
   if (!item) return null;
 
   return (
-    <div className="pointer-events-auto fixed bottom-4 start-4 z-[200] flex w-[min(380px,92vw)] flex-col gap-2 rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm shadow-lg dark:bg-amber-950/60">
+    <div className="pointer-events-auto fixed bottom-4 start-4 z-[200] flex w-[min(380px,92vw)] flex-col gap-2 rounded-lg border border-state-ready/30 bg-state-ready-tint px-4 py-3 text-sm shadow-lg">
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <p className="font-semibold text-amber-900 dark:text-amber-200">
+          <p className="font-semibold text-state-ready">
             {t('limit.title')}
           </p>
-          <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+          <p className="mt-0.5 text-state-ready/90">
             {t('limit.body', {
               lever: item.lever ?? t('limit.resource'),
               current: item.current,
@@ -40,7 +40,7 @@ export function UpgradePrompt() {
           </p>
           <a
             href="/plans"
-            className="mt-1 inline-block font-medium text-amber-900 underline hover:text-amber-700 dark:text-amber-200"
+            className="mt-1 inline-block font-medium text-state-ready underline hover:opacity-75"
           >
             {t('limit.cta')}
           </a>
@@ -51,7 +51,7 @@ export function UpgradePrompt() {
           aria-label="Dismiss"
           onClick={() => setItem(null)}
         >
-          <X className="h-4 w-4 text-amber-800 dark:text-amber-200" />
+          <X className="h-4 w-4 text-state-ready" />
         </button>
       </div>
     </div>

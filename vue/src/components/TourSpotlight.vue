@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Compass, ArrowRight, ArrowLeft, X } from 'lucide-vue-next';
+import { ArrowRight, ArrowLeft, X } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
+
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -117,25 +116,23 @@ const cardStyle = computed(() => {
 <template>
   <!-- Welcome Prompt Dialog -->
   <Dialog :open="promptOpen" @update:open="(val) => !val && dismissPrompt()">
-    <DialogContent class="max-w-md">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))]">
       <DialogHeader>
-        <DialogTitle class="flex items-center gap-2">
-          <Compass class="h-5 w-5 text-brand" />
+        <DialogTitle class="text-[16px] font-semibold leading-6">
           {{ t('tour.welcomePromptTitle') }}
         </DialogTitle>
-        <DialogDescription class="pt-2 text-sm leading-relaxed text-muted-foreground">
+        <div class="pt-3 text-[14px] leading-5 text-muted-foreground">
           {{ t('tour.welcomePromptDesc') }}
-        </DialogDescription>
+        </div>
       </DialogHeader>
-      <DialogFooter class="mt-4 flex gap-2 sm:justify-end">
-        <Button variant="outline" @click="dismissPrompt">
+      <div class="flex justify-end gap-2">
+        <Button variant="secondary" @click="dismissPrompt">
           {{ t('tour.skipTour') }}
         </Button>
-        <Button class="gap-1.5" @click="startTour">
-          <Compass class="h-4 w-4" />
+        <Button @click="startTour">
           {{ t('tour.startTour') }}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 
@@ -184,10 +181,7 @@ const cardStyle = computed(() => {
       class="absolute z-50 w-[360px] max-w-[calc(100vw-40px)] rounded-xl border border-border bg-card p-4 shadow-2xl transition-all duration-200"
       :style="cardStyle"
     >
-      <div class="flex items-center justify-between pb-2 border-b border-border/60">
-        <span class="text-[0.75rem] font-semibold uppercase tracking-wider text-brand">
-          {{ t('tour.stepCount', { current: currentStepIndex + 1, total: totalSteps }) }}
-        </span>
+      <div class="flex items-center justify-end pb-2 border-b border-border/60">
         <button
           type="button"
           class="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -208,19 +202,14 @@ const cardStyle = computed(() => {
       </div>
 
       <div class="mt-4 flex items-center justify-between pt-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          class="text-xs text-muted-foreground hover:text-foreground"
-          @click="endTour"
-        >
-          {{ t('tour.skipTour') }}
-        </Button>
+        <span class="text-[12px] font-mono text-muted-foreground">
+          {{ t('tour.stepOf', { current: currentStepIndex + 1, total: totalSteps }) }}
+        </span>
 
         <div class="flex items-center gap-2">
           <Button
             v-if="currentStepIndex > 0"
-            variant="outline"
+            variant="secondary"
             size="sm"
             class="h-8 text-xs"
             @click="prevStep"

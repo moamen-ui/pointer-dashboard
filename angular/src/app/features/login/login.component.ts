@@ -1,77 +1,150 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { TranslocoModule } from '@jsverse/transloco';
 import { DemoService, DemoRequest, DemoSessionResponse } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
-import { FormFieldComponent } from '../../shared/form-field/form-field.component';
+import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.component';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { AppToastService } from '../../shared/ui/app-toast.service';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, TranslocoModule, FormFieldComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    TranslocoModule,
+    AppAuthLayoutComponent,
+    AppInputDirective,
+    AppButtonDirective,
+    AppFormFieldComponent,
+  ],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-slate-100">
-      <mat-card class="flex w-[360px] max-w-[92vw] flex-col gap-2 p-6">
-        <h1 class="my-[0.67em] text-[2em] font-bold">{{ 'login.title' | transloco }}</h1>
-        <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-2">
-          <app-form-field
-            [control]="form.controls.email"
-            [label]="'login.email' | transloco"
-            type="email"
-            [errorMessage]="emailError()"
-          />
-          <app-form-field
-            [control]="form.controls.password"
-            [label]="'login.password' | transloco"
-            type="password"
-            [errorMessage]="'common.fieldRequired' | transloco"
-          />
-          <a mat-button routerLink="/forgot" class="self-end text-[0.85rem]">
-            {{ 'login.forgot' | transloco }}
+    <app-auth-layout>
+      <div *transloco="let t">
+        <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
+          <app-form-field [label]="t('login.email')" [error]="(emailTouched() || submitted()) && emailError() ? emailError() : ''">
+            <input
+              appInput
+              type="email"
+              formControlName="email"
+              (blur)="emailTouched.set(true)"
+              autocomplete="email"
+            />
+          </app-form-field>
+
+          <app-form-field [label]="t('login.password')" [error]="(passwordTouched() || submitted()) && passwordError() ? passwordError() : ''">
+            <input
+              appInput
+              type="password"
+              formControlName="password"
+              (blur)="passwordTouched.set(true)"
+              autocomplete="current-password"
+            />
+          </app-form-field>
+
+          @if (error()) {
+            <p class="text-[14px] text-state-danger">{{ error() }}</p>
+          }
+
+          <button
+            appButton
+            variant="primary"
+            type="submit"
+            class="w-full"
+            [disabled]="form.invalid || loading()"
+          >
+            {{ t('login.signIn') }}
+          </button>
+
+          <a
+            routerLink="/forgot"
+            class="text-center text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            {{ t('login.forgot') }}
           </a>
-          <button mat-flat-button color="primary" class="mt-2" [disabled]="form.invalid || loading() || demoLoading()">{{ 'login.signIn' | transloco }}</button>
+
         </form>
-        <div class="my-1 flex items-center gap-2 text-[0.8rem] text-muted">
-          <span class="h-px flex-1 bg-app-border"></span>{{ 'login.or' | transloco }}<span class="h-px flex-1 bg-app-border"></span>
+
+        <!-- Hairline divider with "or" -->
+        <div class="flex items-center gap-2">
+          <div class="flex-1 border-t border-border"></div>
+          <span class="text-[12px] text-muted-foreground">{{ t('login.or') }}</span>
+          <div class="flex-1 border-t border-border"></div>
         </div>
-        <mat-form-field appearance="outline">
-          <mat-label>{{ 'login.demoEmailLabel' | transloco }}</mat-label>
-          <input matInput type="email" [(ngModel)]="demoEmail" [ngModelOptions]="{standalone: true}" />
-        </mat-form-field>
-        <button mat-stroked-button type="button" class="border-app-border" [disabled]="loading() || demoLoading()" (click)="tryDemo()">
-          {{ demoLoading() ? ('demo.provisioning' | transloco) : ('demo.tryDemo' | transloco) }}
+
+        <!-- Demo email input -->
+        <app-form-field [label]="t('login.demoEmailLabel')" [error]="demoEmailError() ? t('login.demoEmailLabel') + ' ' + t('common.fieldRequired') : ''">
+          <input
+            appInput
+            type="email"
+            [(ngModel)]="demoEmail"
+            [ngModelOptions]="{standalone: true}"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+        </app-form-field>
+
+        @if (demoError()) {
+          <p class="text-[14px] text-state-danger">{{ demoError() }}</p>
+        }
+
+        <button
+          appButton
+          variant="secondary"
+          type="button"
+          class="w-full"
+          [disabled]="demoLoading()"
+          (click)="tryDemo()"
+        >
+          {{ demoLoading() ? t('login.demoLoading') : t('login.tryDemo') }}
         </button>
-        <a mat-button routerLink="/signup" class="mt-1 text-center text-[0.9rem]">
-          {{ 'login.signUpLink' | transloco }}
-        </a>
-      </mat-card>
-    </div>`,
+
+        <!-- Hairline divider -->
+        <div class="flex-1 border-t border-border"></div>
+
+        <!-- Sign up prompt -->
+        <p class="text-center text-[13px] text-muted-foreground">
+          {{ t('login.signupPrompt') }}
+          <a routerLink="/signup" class="text-brand hover:text-brand/80">
+            {{ t('login.signupLink') }}
+          </a>
+        </p>
+      </div>
+    </app-auth-layout>
+  `,
 })
 export class LoginComponent {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private demo = inject(DemoService);
   private router = inject(Router);
-  private snack = inject(MatSnackBar);
-  private transloco = inject(TranslocoService);
+  private toast = inject(AppToastService);
+
+  signupEnabled = signal(true);
   loading = signal(false);
   demoLoading = signal(false);
+  submitted = signal(false);
+  emailTouched = signal(false);
+  passwordTouched = signal(false);
+  error = signal<string | null>(null);
   demoEmail = '';
+  demoEmailError = signal(false);
+  demoError = signal<string | null>(null);
 
   constructor() {
     if (this.auth.isAuthenticated()) {
       this.router.navigateByUrl(this.auth.isAdmin() ? '/overview' : '/profile');
     }
   }
+
   form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
@@ -79,14 +152,24 @@ export class LoginComponent {
 
   emailError(): string {
     const ctrl = this.form.controls.email;
-    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
-    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    if (ctrl.hasError('required')) return 'Email is required.';
+    if (ctrl.hasError('email')) return 'Enter a valid email address.';
+    return '';
+  }
+
+  passwordError(): string {
+    const ctrl = this.form.controls.password;
+    if (ctrl.hasError('required')) return 'Password is required.';
     return '';
   }
 
   submit() {
+    this.submitted.set(true);
     if (this.form.invalid) return;
+
     this.loading.set(true);
+    this.error.set(null);
+
     const { email, password } = this.form.getRawValue();
     this.auth.login(email, password).subscribe({
       next: (user) => {
@@ -95,53 +178,63 @@ export class LoginComponent {
       },
       error: (e: unknown) => {
         this.loading.set(false);
-        this.snack.open(extractMessage(e) || this.transloco.translate('login.failed'), 'OK', { duration: 4000 });
+        const msg = extractMessage(e) || 'Sign in failed.';
+        this.error.set(msg);
+        this.toast.show(msg, 'danger');
       },
     });
   }
 
   tryDemo() {
-    if (this.demoLoading()) return;
-    if (!this.demoEmail.trim()) {
-      this.snack.open(this.transloco.translate('login.demoEmailLabel'), 'OK', { duration: 3000 });
+    this.demoEmailError.set(false);
+    this.demoError.set(null);
+
+    if (!this.demoEmail.trim() || !this.isValidEmail(this.demoEmail)) {
+      this.demoEmailError.set(true);
       return;
     }
+
     this.demoLoading.set(true);
-    // Interceptor unwraps the response envelope, so the body is DemoSessionResponse.
-    this.demo.postApiDemo<DemoSessionResponse>({ email: this.demoEmail } as DemoRequest).subscribe({
+    this.demo.postApiDemo({ email: this.demoEmail.trim() } as DemoRequest).subscribe({
       next: (session) => {
-        // Mirror login()'s post-token steps: store the token the same way, then
-        // fetch the current user via /api/auth/me since the demo response has none.
-        this.auth.loginWithToken(session.token!).subscribe({
+        this.auth.loginWithToken((session as any).token!).subscribe({
           next: (user) => {
-            const emailSent = !session.password;
+            const emailSent = !(session as any).password;
             sessionStorage.setItem(
               DEMO_SESSION_KEY,
               JSON.stringify({
-                email: session.email,
-                password: session.password,
-                projectKey: session.projectKey,
-                serverUrl: session.serverUrl,
-                expiresAt: session.expiresAt,
+                email: (session as any).email,
+                password: (session as any).password,
+                projectKey: (session as any).projectKey,
+                serverUrl: (session as any).serverUrl,
+                expiresAt: (session as any).expiresAt,
                 emailSent,
-              })
+              }),
             );
             this.demoLoading.set(false);
             if (emailSent) {
-              this.snack.open(this.transloco.translate('login.demoEmailSent'), 'OK', { duration: 6000 });
+              this.toast.show('Check your email for demo credentials', 'success');
             }
             this.router.navigateByUrl(user.isAdmin ? '/overview' : '/profile');
           },
           error: (e: unknown) => {
             this.demoLoading.set(false);
-            this.snack.open(extractMessage(e) || this.transloco.translate('demo.failed'), 'OK', { duration: 4000 });
+            const msg = extractMessage(e) || 'Demo session failed.';
+            this.demoError.set(msg);
+            this.toast.show(msg, 'danger');
           },
         });
       },
       error: (e: unknown) => {
         this.demoLoading.set(false);
-        this.snack.open(extractMessage(e) || this.transloco.translate('demo.failed'), 'OK', { duration: 4000 });
+        const msg = extractMessage(e) || 'Demo session failed.';
+        this.demoError.set(msg);
+        this.toast.show(msg, 'danger');
       },
     });
+  }
+
+  private isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   }
 }

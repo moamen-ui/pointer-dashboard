@@ -17,29 +17,20 @@ import {
   type AiRuleResponse,
 } from '@moamen-ui/pointer-react';
 import {
-  Folder,
-  FolderOpen,
-  Users as UsersIcon,
-  MessageSquare,
-  Circle,
-  Clock,
-  CheckCircle2,
-  Archive,
-  RefreshCw,
   Lock,
-  UserCheck,
+  RefreshCw,
   Brain,
   Building2,
   Bot,
   Wrench,
   ShieldCheck,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { EmptyState } from '@/components/EmptyState';
 import { DataTable } from '@/components/shared/data-table/DataTable';
+import { CountCell, DiffstatLine, statusTone, toneHeaderClass } from '@/components/shared/CountCell';
 import {
   Dialog,
   DialogContent,
@@ -54,29 +45,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/format';
 import { useStatusCatalog } from '@/lib/status-catalog';
 import { useAuth } from '@/lib/auth';
-
-type StatDef = {
-  key: string; // i18n key
-  label?: string; // catalog-driven status label; overrides t(key)
-  value: number | undefined;
-  icon: typeof Folder;
-  tone: 'slate' | 'blue' | 'amber' | 'green';
-}
-
-const TONE: Record<StatDef['tone'], { box: string; value: string }> = {
-  slate: { box: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', value: '' },
-  blue: { box: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300', value: 'text-blue-600 dark:text-blue-300' },
-  amber: { box: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', value: 'text-amber-600 dark:text-amber-300' },
-  green: { box: 'bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-300', value: 'text-green-600 dark:text-green-300' },
-};
 
 export function OverviewPage() {
   const { t } = useTranslation();
@@ -156,47 +140,65 @@ export function OverviewPage() {
     return s ? catalog.displayLabel(s) : undefined;
   }
 
-  // Breakdown columns: key, name, comments, privateComments, one dynamic column
-  // per catalog status (header + counts tinted with that status's configured
-  // color — TanStack's header render fn applies the color inline, so the shared
-  // DataTable needs no headerColor hook), then the project status badge.
+  // Projects table columns per §4 of build brief
   const columns: ColumnDef<ProjectStats>[] = [
     {
-      accessorKey: 'key',
-      header: t('overview.key'),
+      id: 'gutter',
+      header: '',
       cell: ({ row }) => (
-        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.original.key}</code>
+        <div className="w-10 text-end font-mono text-[12px] text-faint-foreground">
+          {row.index + 1}
+        </div>
       ),
     },
-    { accessorKey: 'name', header: t('overview.name') },
-    { accessorKey: 'comments', header: t('overview.comments') },
+    {
+      accessorKey: 'name',
+      header: t('overview.name'),
+      cell: ({ row }) => (
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-[14px] font-medium">{row.original.name}</span>
+          <code className="shrink-0 whitespace-nowrap rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">
+            {row.original.key}
+          </code>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'comments',
+      header: t('overview.comments'),
+      cell: ({ row }) => (
+        <span className="font-mono text-[14px]">{row.original.comments ?? 0}</span>
+      ),
+    },
     {
       accessorKey: 'privateComments',
-      header: t('overview.private'),
+      header: () => <Lock className="h-4 w-4" />,
       cell: ({ row }) => {
         const count = row.original.privateComments ?? 0;
         return count > 0 ? (
-          <span className="chip chip-private" title={t('overview.privateHiddenTooltip')}>
-            <Lock className="h-3 w-3" />
+          <span
+            className="inline-flex items-center gap-1 font-mono text-[14px]"
+            title={t('overview.privateHiddenTooltip')}
+          >
+            <Lock className="h-4 w-4" />
             {count}
           </span>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-faint-foreground">—</span>
         );
       },
     },
     ...catalog.items.map(
       (s): ColumnDef<ProjectStats> => ({
         id: `status_${s.value}`,
-        // Sort accessor for the dynamic column — maps to the matching count field.
         accessorFn: (row) => getProjectStatusCount(row, s.value),
-        header: () => (
-          <span style={{ color: s.color ?? undefined }}>{catalog.displayLabel(s)}</span>
-        ),
+        meta: { headerClass: toneHeaderClass(statusTone(s.value)) },
+        header: () => catalog.displayLabel(s),
         cell: ({ row }) => (
-          <span className="font-medium" style={{ color: s.color ?? undefined }}>
-            {getProjectStatusCount(row.original, s.value)}
-          </span>
+          <CountCell
+            count={getProjectStatusCount(row.original, s.value)}
+            tone={statusTone(s.value)}
+          />
         ),
       }),
     ),
@@ -205,10 +207,15 @@ export function OverviewPage() {
       accessorFn: (row: ProjectStats) => row.isActive,
       header: t('overview.status'),
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+        <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
           {t(row.original.isActive ? 'common.active' : 'common.disabled')}
         </Badge>
       ),
+    },
+    {
+      id: 'chevron',
+      header: '',
+      cell: () => <ChevronRight className="h-4 w-4 text-muted-foreground rtl:-scale-x-100" />,
     },
   ];
 
@@ -260,7 +267,7 @@ export function OverviewPage() {
         accessorFn: (row) => row.isActive,
         header: t('overview.status'),
         cell: ({ row }) => (
-          <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+          <Badge variant={row.original.isActive ? 'success' : 'neutral'}>
             {t(row.original.isActive ? 'common.active' : 'common.disabled')}
           </Badge>
         ),
@@ -269,308 +276,330 @@ export function OverviewPage() {
     [t],
   );
 
-  const cards: StatDef[] = [
-    { key: 'overview.projects', value: totals?.projects, icon: Folder, tone: 'slate' },
-    { key: 'overview.users', value: totals?.users, icon: UsersIcon, tone: 'slate' },
-    { key: 'overview.comments', value: totals?.comments, icon: MessageSquare, tone: 'slate' },
-    { key: 'overview.open', label: statusLabel(1), value: totals?.open, icon: Circle, tone: 'blue' },
-    { key: 'overview.pending', label: statusLabel(2), value: totals?.pending, icon: Clock, tone: 'amber' },
-    { key: 'overview.completed', label: statusLabel(3), value: totals?.completed, icon: CheckCircle2, tone: 'green' },
-    { key: 'overview.archived', label: statusLabel(4), value: totals?.archived, icon: Archive, tone: 'slate' },
-  ];
-
   return (
-    <div className="flex flex-col gap-8">
-      {/* Stat cards */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-4">
-        {cards.map(({ key, label, value, icon: Icon, tone }) => (
-          <Card key={key}>
-            <CardContent className="flex items-center gap-3.5 p-4">
-              <div
-                className={cn(
-                  'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl',
-                  TONE[tone].box,
-                )}
-              >
-                <Icon className="h-6 w-6" />
-              </div>
-              <div className="flex flex-col">
-                <div className={cn('text-[1.7rem] font-bold leading-tight', TONE[tone].value)}>
-                  {value ?? 0}
-                </div>
-                <div className="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-                  {label ?? t(key)}
-                </div>
-                {key === 'overview.comments' && (totals?.privateComments ?? 0) > 0 && (
-                  <div className="mt-1 inline-flex items-center gap-1 text-[0.7rem] text-muted-foreground">
-                    {t('overview.privateHidden', { count: totals?.privateComments ?? 0 })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-8">
+      {/* 1. Title row */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <h1 className="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
+          {t('overview.title')}
+        </h1>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={reloadAll}
+          disabled={isFetching || isInsightsFetching}
+        >
+          <RefreshCw
+            className={cn('h-4 w-4', (isFetching || isInsightsFetching) && 'animate-spin')}
+          />
+          {t('common.refresh')}
+        </Button>
       </div>
 
-      {/* Pending approvals */}
-      <Card>
-        <CardContent className="p-5 pt-5">
-          <h3 className="flex items-center gap-2 text-[1.05rem] font-semibold">
-            {t('overview.pendingApprovals')}
-            <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[11px] bg-amber-50 px-[7px] text-[0.78rem] font-bold text-amber-600 dark:bg-amber-500/15 dark:text-amber-300">
-              {pendingUsers.length}
-            </span>
-          </h3>
-          {pendingUsers.length === 0 ? (
-            <EmptyState icon={UserCheck} message={t('overview.noPending')} />
-          ) : (
-            <div className="flex flex-col">
-              {pendingUsers.map((u) => {
-                // createdAt = when access was requested. The API returns it;
-                // the generated client only declares it from the next publish
-                // on, hence the cast.
-                const requestedAt = (u as { createdAt?: string | null }).createdAt ?? null;
-                const busy = approveMut.isPending || rejectMut.isPending;
-                return (
-                  <div
-                    key={u.id}
-                    className="flex flex-wrap items-center justify-between gap-4 border-t border-border py-3 first:border-t-0"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-semibold">{u.displayName}</div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-2.5 text-[0.85rem] text-muted-foreground">
-                        <span>{u.email}</span>
-                        <span className="chip chip-neutral">{u.roleName}</span>
-                        {requestedAt && (
-                          <span className="text-[0.8rem]">
-                            {t('overview.requested')}: {formatRequestedAt(requestedAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" disabled={busy} onClick={() => openApprove(u)}>
-                        {t('overview.approve')}
-                      </Button>
-                      <Button variant="outline" size="sm" disabled={busy} onClick={() => setRejectUser(u)}>
-                        {t('overview.reject')}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Coding Tools & Rules Insights */}
-      {aiInsights && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
-              <h3 className="text-[1.05rem] font-semibold">{t('aiRules.insightsTitle')}</h3>
-            </div>
-            <p className="text-xs text-muted-foreground">{t('aiRules.insightsSubtitle')}</p>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6 pt-0">
-            {/* Rules counts */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="flex flex-col rounded-lg border border-border p-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {t('aiRules.totalRules')}
-                </span>
-                <span className="mt-1 text-2xl font-bold">
-                  {aiInsights.totalRulesCount ?? 0}
-                </span>
-              </div>
-              <div className="flex flex-col rounded-lg border border-border p-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {t('aiRules.tenantRules')}
-                </span>
-                <span className="mt-1 text-2xl font-bold text-primary">
-                  {aiInsights.tenantRulesCount ?? 0}
-                </span>
-              </div>
-              <div className="flex flex-col rounded-lg border border-border p-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {t('aiRules.projectRules')}
-                </span>
-                <span className="mt-1 text-2xl font-bold">
-                  {aiInsights.projectRulesCount ?? 0}
-                </span>
-              </div>
-              <div className="flex flex-col rounded-lg border border-border p-3">
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {t('aiRules.userRules')}
-                </span>
-                <span className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-300">
-                  {aiInsights.userPersonalRulesCount ?? 0}
-                </span>
-              </div>
-            </div>
-
-            {/* Active AI Tools and Developer Adoption (and Workspaces for Super Admin) */}
-            <div
-              className={cn(
-                'grid grid-cols-1 gap-4',
-                isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0
-                  ? 'md:grid-cols-3'
-                  : 'md:grid-cols-2',
-              )}
-            >
-              {/* Workspace adoption for Super Admin */}
-              {isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0 && (
-                <div className="rounded-lg border border-border p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    {t('aiRules.tenantSummaries')}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {(aiInsights.tenantSummaries ?? []).map((tenant, idx) => (
-                      <div
-                        key={tenant.tenantId ?? idx}
-                        className="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
-                      >
-                        <span className="font-medium">{tenant.tenantName}</span>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <span>
-                            {tenant.projectsCount ?? 0} {t('overview.projects')}
-                          </span>
-                          <span className="font-semibold text-slate-600 dark:text-slate-300">
-                            {tenant.rulesCount ?? 0} {t('aiRules.section')}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Registered AI Tools */}
-              <div className="rounded-lg border border-border p-4">
-                <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                  <Bot className="h-4 w-4 text-muted-foreground" />
-                  {t('aiRules.activeTools')}
-                </div>
-                {(aiInsights.toolUsage ?? []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground">{t('aiRules.noToolsYet')}</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {(aiInsights.toolUsage ?? []).map((tool, idx) => (
-                      <div
-                        key={tool.toolName ?? idx}
-                        className="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
-                      >
-                        <span className="font-mono font-medium">{tool.toolName}</span>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <span>
-                            {tool.projectCount ?? 0} {t('overview.projects')}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Developer adoption */}
-              <div className="rounded-lg border border-border p-4">
-                <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                  <Wrench className="h-4 w-4 text-muted-foreground" />
-                  {t('aiRules.userSummaries')}
-                </div>
-                {(aiInsights.userRuleSummaries ?? []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground">{t('aiRules.noPersonalRules')}</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {(aiInsights.userRuleSummaries ?? []).map((user, idx) => (
-                      <div
-                        key={user.userId ?? idx}
-                        className="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
-                      >
-                        <span className="font-medium">{user.userName}</span>
-                        <span className="font-semibold text-slate-600 dark:text-slate-300">
-                          {user.rulesCount ?? 0} {t('aiRules.section')}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Super Admin Detailed Rules Inspection */}
-            {isSuperAdmin && (
-              <div className="flex flex-col gap-3 border-t border-border pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{t('aiRules.detailedRulesTitle')}</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowDetailedRules((prev) => !prev)}
-                  >
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 transition-transform',
-                        showDetailedRules && 'rotate-180',
-                      )}
-                    />
-                    {t(showDetailedRules ? 'aiRules.hideDetails' : 'aiRules.inspectDetails')}
-                  </Button>
-                </div>
-
-                {showDetailedRules && (
-                  <div className="overflow-x-auto">
-                    <DataTable
-                      data={aiInsights.detailedRules ?? []}
-                      columns={detailedRulesColumns}
-                      searchable
-                      searchPlaceholder={t('common.search')}
-                      paginated
-                      emptyIcon={Brain}
-                      emptyMessage={t('aiRules.emptyDetailedRules')}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* 2. Diffstat line */}
+      {totals && (
+        <DiffstatLine
+          items={[
+            { label: t('overview.comments'), count: totals.comments ?? 0, tone: 'open' as const },
+            { label: statusLabel(1) || t('overview.open'), count: totals.open ?? 0, tone: 'open' as const },
+            { label: statusLabel(2) || t('overview.pending'), count: totals.pending ?? 0, tone: 'ready' as const },
+            { label: statusLabel(3) || t('overview.completed'), count: totals.completed ?? 0, tone: 'completed' as const },
+            { label: statusLabel(4) || t('overview.archived'), count: totals.archived ?? 0, tone: 'archived' as const },
+            { label: t('overview.projects'), count: totals.projects ?? 0 },
+            { label: t('overview.users'), count: totals.users ?? 0 },
+            ...(totals.privateComments && totals.privateComments > 0
+              ? [
+                  {
+                    label: t('overview.private'),
+                    count: totals.privateComments,
+                    icon: <Lock className="h-3 w-3" />,
+                  },
+                ]
+              : []),
+          ]}
+        />
       )}
 
-      {/* Projects breakdown */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t('overview.breakdown')}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={reloadAll}
-            disabled={isFetching || isInsightsFetching}
-          >
-            <RefreshCw
-              className={cn('h-4 w-4', (isFetching || isInsightsFetching) && 'animate-spin')}
-            />
-            {t('common.refresh')}
-          </Button>
+      {/* 3. Pending approvals section (only when non-empty) */}
+      {pendingUsers.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[16px] font-semibold leading-6">
+              {t('overview.pendingApprovals')}
+            </h2>
+            <Badge variant="warning" className="h-6">
+              {pendingUsers.length}
+            </Badge>
+          </div>
+          <div className="rounded-md border border-border overflow-hidden">
+            {pendingUsers.map((u, idx) => {
+              const requestedAt = (u as { createdAt?: string | null }).createdAt ?? null;
+              const busy = approveMut.isPending || rejectMut.isPending;
+              return (
+                <div
+                  key={u.id}
+                  className={cn(
+                    'min-h-11 px-3 py-2 flex items-center gap-4 flex-wrap justify-between',
+                    idx > 0 && 'border-t border-border-muted',
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] font-medium text-foreground">{u.displayName}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2.5 text-[13px] text-muted-foreground">
+                      <span>{u.email}</span>
+                      <Badge variant="neutral" className="h-5">{u.roleName}</Badge>
+                      {requestedAt && (
+                        <span className="text-[12px]">
+                          {t('overview.requested')}: {formatRequestedAt(requestedAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => openApprove(u)}
+                    >
+                      {t('overview.approve')}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setRejectUser(u)}
+                    >
+                      {t('overview.reject')}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+      )}
 
-        {/* Projects breakdown — sorting + pagination arrive with the shared
-            DataTable (parity with the angular page, which always had real sort). */}
-        <DataTable
-          data={projects}
-          columns={columns}
-          paginated
-          emptyIcon={FolderOpen}
-          emptyMessage={t('overview.emptyProjects')}
-          emptyHint={t('overview.emptyProjectsHint')}
-        />
+      {/* 4. Projects section */}
+      <div className="space-y-3">
+        <h2 className="text-[16px] font-semibold leading-6">{t('overview.projects')}</h2>
+        {projects.length === 0 ? (
+          <div className="rounded-md border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gutter">
+                  <TableHead className="text-[12px] font-medium text-muted-foreground">
+                    {/* gutter */}
+                  </TableHead>
+                  <TableHead className="text-[12px] font-medium text-muted-foreground">
+                    {t('overview.name')}
+                  </TableHead>
+                  <TableHead className="text-[12px] font-medium text-muted-foreground">
+                    {t('overview.comments')}
+                  </TableHead>
+                  <TableHead colSpan={catalog.items.length + 2} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[0, 1, 2].map((idx) => (
+                  <TableRow key={idx} className="h-11 border-t border-dashed border-border-muted">
+                    <TableCell colSpan={3} className="px-3 text-[14px] text-muted-foreground">
+                      {idx === 0 ? t('overview.emptyProjects') : ''}
+                    </TableCell>
+                    {idx === 0 && (
+                      <TableCell colSpan={catalog.items.length + 2} className="text-end px-3">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            /* open install guide */
+                          }}
+                        >
+                          {t('install.open')}
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="rounded-md border border-border overflow-hidden">
+            <DataTable
+              data={projects}
+              columns={columns}
+              paginated
+            />
+          </div>
+        )}
       </div>
+
+      {/* 5. AI insights section (only when exists) */}
+      {aiInsights && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-[16px] font-semibold leading-6">{t('aiRules.insightsTitle')}</h2>
+            <p className="mt-1 text-[14px] text-muted-foreground">{t('aiRules.insightsSubtitle')}</p>
+          </div>
+
+          {/* Diffstat line for 4 counts */}
+          <DiffstatLine
+            items={[
+              { label: t('aiRules.totalRules'), count: aiInsights.totalRulesCount ?? 0 },
+              { label: t('aiRules.tenantRules'), count: aiInsights.tenantRulesCount ?? 0, tone: 'open' as const },
+              { label: t('aiRules.projectRules'), count: aiInsights.projectRulesCount ?? 0 },
+              { label: t('aiRules.userRules'), count: aiInsights.userPersonalRulesCount ?? 0, tone: 'ready' as const },
+            ]}
+          />
+
+          {/* Grid of bordered lists */}
+          <div
+            className={cn(
+              'grid gap-4',
+              isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0
+                ? 'md:grid-cols-3'
+                : 'md:grid-cols-2',
+            )}
+          >
+            {/* Tenants (super admin) */}
+            {isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0 && (
+              <div className="rounded-md border border-border overflow-hidden">
+                <div className="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-[14px] font-medium text-foreground">
+                    {t('aiRules.tenantSummaries')}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {(aiInsights.tenantSummaries ?? []).map((tenant, idx) => (
+                    <div
+                      key={tenant.tenantId ?? idx}
+                      className={cn(
+                        'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
+                        idx > 0 && 'border-t border-border-muted',
+                      )}
+                    >
+                      <span className="text-[14px] font-medium text-foreground">
+                        {tenant.tenantName}
+                      </span>
+                      <div className="text-[13px] text-muted-foreground">
+                        {tenant.projectsCount ?? 0} {t('overview.projects')} · {tenant.rulesCount ?? 0}{' '}
+                        {t('aiRules.section')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Active tools */}
+            <div className="rounded-md border border-border overflow-hidden">
+              <div className="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                <Bot className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[14px] font-medium text-foreground">
+                  {t('aiRules.activeTools')}
+                </span>
+              </div>
+              {(aiInsights.toolUsage ?? []).length === 0 ? (
+                <div className="px-3 py-2 text-[13px] text-muted-foreground">
+                  {t('aiRules.noToolsYet')}
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {(aiInsights.toolUsage ?? []).map((tool, idx) => (
+                    <div
+                      key={tool.toolName ?? idx}
+                      className={cn(
+                        'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
+                        idx > 0 && 'border-t border-border-muted',
+                      )}
+                    >
+                      <span className="font-mono text-[13px] font-medium text-foreground">
+                        {tool.toolName}
+                      </span>
+                      <div className="text-[13px] text-muted-foreground">
+                        {tool.projectCount ?? 0} {t('overview.projects')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Developer adoption */}
+            <div className="rounded-md border border-border overflow-hidden">
+              <div className="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                <Wrench className="h-4 w-4 text-muted-foreground" />
+                <span className="text-[14px] font-medium text-foreground">
+                  {t('aiRules.userSummaries')}
+                </span>
+              </div>
+              {(aiInsights.userRuleSummaries ?? []).length === 0 ? (
+                <div className="px-3 py-2 text-[13px] text-muted-foreground">
+                  {t('aiRules.noPersonalRules')}
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {(aiInsights.userRuleSummaries ?? []).map((user, idx) => (
+                    <div
+                      key={user.userId ?? idx}
+                      className={cn(
+                        'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
+                        idx > 0 && 'border-t border-border-muted',
+                      )}
+                    >
+                      <span className="text-[14px] font-medium text-foreground">
+                        {user.userName}
+                      </span>
+                      <div className="text-[13px] text-muted-foreground">
+                        {user.rulesCount ?? 0} {t('aiRules.section')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Super Admin Detailed Rules Inspection */}
+          {isSuperAdmin && (
+            <div className="space-y-3 border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-brand" />
+                  <span className="text-[14px] font-medium text-foreground">
+                    {t('aiRules.detailedRulesTitle')}
+                  </span>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowDetailedRules((prev) => !prev)}
+                >
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 transition-transform',
+                      showDetailedRules && 'rotate-180',
+                    )}
+                  />
+                  {t(showDetailedRules ? 'aiRules.hideDetails' : 'aiRules.inspectDetails')}
+                </Button>
+              </div>
+
+              {showDetailedRules && (
+                <DataTable
+                  data={aiInsights.detailedRules ?? []}
+                  columns={detailedRulesColumns}
+                  searchable
+                  searchPlaceholder={t('common.search')}
+                  paginated
+                  emptyIcon={Brain}
+                  emptyMessage={t('aiRules.emptyDetailedRules')}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Approve dialog */}
       <Dialog open={!!approveUserState} onOpenChange={(o) => !o && setApproveUserState(null)}>
@@ -578,26 +607,27 @@ export function OverviewPage() {
           <DialogHeader>
             <DialogTitle>{t('overview.approve')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label>{t('overview.approveAs')}</Label>
-            <Select
-              value={approveRoleId ? String(approveRoleId) : undefined}
-              onValueChange={(v) => setApproveRoleId(Number(v))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('overview.approveAs')} />
-              </SelectTrigger>
-              <SelectContent>
-                {activeRoles.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="pt-1">
+            <FormField label={t('overview.approveAs')} htmlFor="approve-role">
+              <Select
+                value={approveRoleId ? String(approveRoleId) : undefined}
+                onValueChange={(v) => setApproveRoleId(Number(v))}
+              >
+                <SelectTrigger id="approve-role">
+                  <SelectValue placeholder={t('overview.approveAs')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeRoles.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setApproveUserState(null)}>
+            <Button variant="secondary" onClick={() => setApproveUserState(null)}>
               {t('common.cancel')}
             </Button>
             <Button disabled={approveRoleId < 1 || approveMut.isPending} onClick={approve}>

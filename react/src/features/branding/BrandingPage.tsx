@@ -1,5 +1,6 @@
 // Branding admin page — super-admin only.
 // Text/URL/color form + per-kind icon upload widgets (6 kinds) + reset-to-default.
+// §3 grammar: form section with Save primary at section footer end, asset uploaders as 2-column grid.
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -8,16 +9,28 @@ import {
   postApiAdminBrandingAssetKind,
   deleteApiAdminBrandingAssetKind,
 } from '@moamen-ui/pointer-react';
-import { Upload, RotateCcw, Pin, Palette } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Upload, RotateCcw, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/FormField';
 import { useToast } from '@/components/ui/toast';
 import { useBranding, type BrandingData } from '@/lib/branding';
 import { extractMessage } from '@/lib/error';
 
 // ---- Types ------------------------------------------------------------------
+
+/** Shape of the branding payload as the API returns it (inside `Result<T>`). */
+interface BrandingPayload {
+  productName?: string | null;
+  tagline?: string | null;
+  primaryColor?: string | null;
+  urls?: { app?: string | null; demo?: string | null; docs?: string | null; landing?: string | null } | null;
+  assets?: {
+    logo?: string | null; iconSquare?: string | null; favicon?: string | null;
+    appleTouch?: string | null; pwa192?: string | null; pwa512?: string | null;
+  } | null;
+  version?: number | null;
+}
 
 type AssetKind = 'logo' | 'iconSquare' | 'favicon' | 'appleTouch' | 'pwa192' | 'pwa512';
 
@@ -38,10 +51,15 @@ const ASSET_KINDS: AssetMeta[] = [
 
 // ---- API helpers (generated @moamen-ui/pointer-react client) ----------------
 
+/** The client's mutator returns the inner payload and throws on failure, but the generated
+ *  types still declare the `Result<T>` envelope — accept either shape, as the list pages do. */
+function unwrapBranding(res: unknown): BrandingPayload {
+  const maybe = res as { data?: BrandingPayload } | BrandingPayload | null;
+  return ((maybe as { data?: BrandingPayload })?.data ?? maybe ?? {}) as BrandingPayload;
+}
+
 async function fetchAdminBranding(): Promise<BrandingData> {
-  const envelope = await getApiAdminBranding();
-  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Failed');
-  const d = envelope.data;
+  const d = unwrapBranding(await getApiAdminBranding());
   return {
     productName: d?.productName ?? 'Pointer',
     tagline: d?.tagline ?? null,
@@ -70,18 +88,15 @@ async function putAdminBranding(body: {
   primaryColor: string;
   urls: { app: string; demo: string; docs: string; landing: string };
 }): Promise<void> {
-  const envelope = await putApiAdminBranding(body);
-  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Save failed');
+  await putApiAdminBranding(body);
 }
 
 async function postAdminBrandingAsset(kind: AssetKind, file: File): Promise<void> {
-  const envelope = await postApiAdminBrandingAssetKind(kind, { file });
-  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Upload failed');
+  await postApiAdminBrandingAssetKind(kind, { file });
 }
 
 async function deleteAdminBrandingAsset(kind: AssetKind): Promise<void> {
-  const envelope = await deleteApiAdminBrandingAssetKind(kind);
-  if (!envelope?.isSuccess) throw new Error(envelope?.message ?? 'Reset failed');
+  await deleteApiAdminBrandingAssetKind(kind);
 }
 
 // ---- Form state -------------------------------------------------------------
@@ -133,59 +148,54 @@ function AssetWidget({ meta, currentUrl, productName, onUpload, onReset, uploadi
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">{t(meta.labelKey)}</p>
-          <p className="text-xs text-muted-foreground">{t(meta.hintKey)}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={uploading || resetting}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload className="h-4 w-4" />
-            {t('branding.upload')}
-          </Button>
-          {currentUrl && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={uploading || resetting}
-              onClick={() => void onReset(meta.kind)}
-            >
-              <RotateCcw className="h-4 w-4" />
-              {t('branding.resetToDefault')}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Preview — always shows the current image: the uploaded asset when
-          there is one, otherwise the built-in mark the header falls back to. */}
-      {currentUrl ? (
-        <div className="flex h-16 w-full items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30 p-2">
+    <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+      {/* Preview — 40px box on bg-gutter */}
+      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-gutter">
+        {currentUrl ? (
           <img
             src={currentUrl}
             alt={t(meta.labelKey)}
-            className="max-h-12 max-w-full object-contain"
+            className="max-h-full max-w-full object-contain"
           />
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 items-center justify-center gap-1 overflow-hidden rounded-md border border-border bg-muted/30 px-2">
-            <Pin className="h-5 w-5 rotate-45 text-brand" />
-            {meta.kind === 'logo' && (
-              <span className="truncate text-[11px] font-bold">{productName}</span>
-            )}
+        ) : meta.kind === 'logo' ? (
+          <div className="flex items-center gap-0.5 text-[10px] font-bold text-foreground">
+            <Pin className="h-3 w-3 rotate-45" />
+            <span className="truncate">{productName}</span>
           </div>
-          <span className="text-xs italic text-muted-foreground">
-            {t('branding.usingDefault')}
-          </span>
-        </div>
-      )}
+        ) : (
+          <Pin className="h-4 w-4 rotate-45 text-muted-foreground" />
+        )}
+      </div>
+
+      {/* Kind label 14px/500 + expected size 13px muted */}
+      <div className="flex flex-col gap-0.5">
+        <p className="text-[14px] font-medium text-foreground">{t(meta.labelKey)}</p>
+        <p className="text-[13px] text-muted-foreground">{t(meta.hintKey)}</p>
+      </div>
+
+      {/* Buttons: Upload secondary size=sm, Reset ghost size=sm */}
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={uploading || resetting}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload className="h-4 w-4" />
+          {t('branding.upload')}
+        </Button>
+        {currentUrl && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={uploading || resetting}
+            onClick={() => void onReset(meta.kind)}
+          >
+            <RotateCcw className="h-4 w-4" />
+            {t('branding.resetToDefault')}
+          </Button>
+        )}
+      </div>
 
       <input
         ref={fileRef}
@@ -313,91 +323,97 @@ export function BrandingPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h2 className="text-lg font-semibold">{t('branding.title')}</h2>
+    <div className="flex flex-col gap-8">
+      <h1 className="text-[20px] leading-7 font-semibold tracking-[-0.01em]">
+        {t('branding.title')}
+      </h1>
 
-      {/* ── Text / Color / URL form ── */}
-      <Card className="p-5">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('branding.textSection')}
-        </h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="b-product-name">{t('branding.productName')}</Label>
-            <Input
-              id="b-product-name"
-              value={form.productName}
-              onChange={(e) => setForm({ ...form, productName: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="b-tagline">{t('branding.tagline')}</Label>
-            <Input
-              id="b-tagline"
-              value={form.tagline}
-              onChange={(e) => setForm({ ...form, tagline: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="b-color" className="flex items-center gap-1">
-              <Palette className="h-3.5 w-3.5" />
-              {t('branding.primaryColor')}
-            </Label>
-            <div className="flex items-center gap-2">
+      {/* ── Form section: product name, tagline, primary color, four URLs ── */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[16px] font-semibold leading-6">{t('branding.textSection')}</h2>
+        <div className="rounded-md border border-border">
+          <div className="space-y-4 p-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField label={t('branding.productName')} htmlFor="b-product-name">
+                <Input
+                  id="b-product-name"
+                  value={form.productName}
+                  onChange={(e) => setForm({ ...form, productName: e.target.value })}
+                />
+              </FormField>
+              <FormField label={t('branding.tagline')} htmlFor="b-tagline">
+                <Input
+                  id="b-tagline"
+                  value={form.tagline}
+                  onChange={(e) => setForm({ ...form, tagline: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            {/* Primary color: 24px swatch button next to mono hex input */}
+            <FormField label={t('branding.primaryColor')} htmlFor="b-color">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('b-color-picker')?.click?.()}
+                  className="h-6 w-6 rounded-md border border-border"
+                  style={{ backgroundColor: form.primaryColor }}
+                  aria-label={t('branding.primaryColor')}
+                />
+                <Input
+                  id="b-color"
+                  type="text"
+                  value={form.primaryColor}
+                  onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
+                  className="font-mono text-[13px]"
+                  placeholder="#0969da"
+                />
+              </div>
               <input
-                id="b-color"
+                id="b-color-picker"
                 type="color"
                 value={form.primaryColor}
                 onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                className="h-9 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
+                className="hidden"
               />
-              <Input
-                className="flex-1"
-                value={form.primaryColor}
-                onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-              />
+            </FormField>
+
+            {/* Four URLs in a grid */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {(
+                [
+                  { id: 'b-url-app',     key: 'urlApp',     labelKey: 'branding.urlApp' },
+                  { id: 'b-url-demo',    key: 'urlDemo',    labelKey: 'branding.urlDemo' },
+                  { id: 'b-url-docs',    key: 'urlDocs',    labelKey: 'branding.urlDocs' },
+                  { id: 'b-url-landing', key: 'urlLanding', labelKey: 'branding.urlLanding' },
+                ] as { id: string; key: keyof FormState; labelKey: string }[]
+              ).map(({ id, key, labelKey }) => (
+                <FormField key={key} label={t(labelKey)} htmlFor={id}>
+                  <Input
+                    id={id}
+                    type="url"
+                    value={form[key] as string}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  />
+                </FormField>
+              ))}
             </div>
           </div>
-        </div>
 
-        <p className="mb-3 mt-5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('branding.urlsSection')}
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {(
-            [
-              { id: 'b-url-app',     key: 'urlApp',     labelKey: 'branding.urlApp' },
-              { id: 'b-url-demo',    key: 'urlDemo',    labelKey: 'branding.urlDemo' },
-              { id: 'b-url-docs',    key: 'urlDocs',    labelKey: 'branding.urlDocs' },
-              { id: 'b-url-landing', key: 'urlLanding', labelKey: 'branding.urlLanding' },
-            ] as { id: string; key: keyof FormState; labelKey: string }[]
-          ).map(({ id, key, labelKey }) => (
-            <div key={key} className="flex flex-col gap-2">
-              <Label htmlFor={id}>{t(labelKey)}</Label>
-              <Input
-                id={id}
-                type="url"
-                value={form[key] as string}
-                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-              />
-            </div>
-          ))}
+          {/* Save primary button at section footer end */}
+          <div className="border-t border-border px-5 py-3 flex justify-end">
+            <Button disabled={saving || !form.productName.trim()} onClick={handleSave}>
+              {t('common.save')}
+            </Button>
+          </div>
         </div>
+      </section>
 
-        <div className="mt-5 flex justify-end">
-          <Button disabled={saving || !form.productName.trim()} onClick={handleSave}>
-            {t('common.save')}
-          </Button>
-        </div>
-      </Card>
-
-      {/* ── Asset uploaders ── */}
-      <Card className="p-5">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('branding.assetsSection')}
-        </h3>
-        <p className="mb-4 text-xs text-muted-foreground">{t('branding.assetsHint')}</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* ── Asset uploaders as 2-column grid of bordered rows ── */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[16px] font-semibold leading-6">{t('branding.assetsSection')}</h2>
+        <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('branding.assetsHint')}</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {ASSET_KINDS.map((meta) => (
             <AssetWidget
               key={meta.kind}
@@ -411,7 +427,7 @@ export function BrandingPage() {
             />
           ))}
         </div>
-      </Card>
+      </section>
     </div>
   );
 }

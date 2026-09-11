@@ -23,10 +23,7 @@ export function AppTabs({
 }) {
   return (
     <Tabs value={value} onValueChange={onValueChange} className={className}>
-      <TabsList
-        className="grid w-full"
-        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-      >
+      <TabsList>
         {tabs.map((t) => (
           <TabsTrigger key={t.value} value={t.value}>
             {t.label}

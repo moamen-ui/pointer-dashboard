@@ -1,66 +1,121 @@
-import { Component, input } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { SeverityDirective } from '../severity.directive';
+import { Component, input, signal } from '@angular/core';
+import { OverlayModule } from '@angular/cdk/overlay';
+import type { ConnectedPosition } from '@angular/cdk/overlay';
+import { AppButtonDirective } from '../ui/app-button.directive';
+import { AppIconComponent } from '../ui/app-icon.component';
 import type { Severity } from '../severity';
 
 export interface RowActionItem {
   label: string;
-  /** Material icon ligature name. */
   icon?: string;
   severity?: Severity;
   disabled?: boolean;
-  /** Shown on the item when `disabled` (e.g. "requires the app URL to be set"). */
   tooltip?: string;
   onClick: () => void;
 }
 
 /**
- * The kebab-menu trigger + item list every table's "Actions" column renders. Pass the row's
- * *already permission/feature-gated* item list — this component only owns menu chrome/styling,
- * never business rules about which items exist:
+ * The trailing per-row actions menu: a ghost kebab trigger and a 180px panel of 32px rows.
+ * Permission and feature gating stays in the page's `items` callback, never in here.
  *
- *   <app-row-actions-menu [items]="actionsFor(row)" [ariaLabel]="'roles.actions' | transloco" />
+ * The panel goes through a CDK connected overlay so a row near the bottom of a scrolling table
+ * still shows its full menu instead of having it clipped by the table's wrapper.
  */
 @Component({
   selector: 'app-row-actions-menu',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatTooltipModule, SeverityDirective],
+  imports: [OverlayModule, AppButtonDirective, AppIconComponent],
   template: `
     @if (items().length > 0) {
-      <button mat-icon-button [matMenuTriggerFor]="menu" [attr.aria-label]="ariaLabel()">
-        <mat-icon>more_vert</mat-icon>
+      <button
+        appButton
+        variant="ghost"
+        size="icon"
+        cdkOverlayOrigin
+        #origin="cdkOverlayOrigin"
+        (click)="toggleOpen()"
+        [attr.aria-label]="ariaLabel()"
+        [attr.aria-expanded]="isOpen()"
+        aria-haspopup="menu"
+      >
+        <app-icon name="more-vertical" [size]="16"></app-icon>
       </button>
-      <mat-menu #menu="matMenu">
-        @for (item of items(); track $index) {
-          <!-- Wrapped in a span: Chromium/Safari send no pointer events to disabled native
-               buttons, so matTooltip on the button itself would never fire — this is Material's
-               own documented workaround for tooltips on disabled controls. -->
-          <span
-            [matTooltip]="item.tooltip ?? ''"
-            [matTooltipDisabled]="!item.disabled || !item.tooltip"
-          >
-            <button
-              mat-menu-item
-              [appSeverity]="item.severity ?? 'neutral'"
-              [disabled]="!!item.disabled"
-              (click)="item.onClick()"
-            >
-              @if (item.icon) {
-                <mat-icon [appSeverity]="item.severity ?? 'neutral'">{{ item.icon }}</mat-icon>
-              }
-              {{ item.label }}
-            </button>
-          </span>
-        }
-      </mat-menu>
+
+      <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="origin"
+        [cdkConnectedOverlayOpen]="isOpen()"
+        [cdkConnectedOverlayPositions]="positions"
+        [cdkConnectedOverlayViewportMargin]="8"
+        (overlayOutsideClick)="isOpen.set(false)"
+        (detach)="isOpen.set(false)"
+      >
+        <div
+          role="menu"
+          class="min-w-[180px] rounded-md border border-border bg-background p-1 shadow-menu"
+          [style.animation]="'scaleIn 120ms ease-out forwards'"
+        >
+          @for (item of items(); track $index) {
+            @if (item.label === '---') {
+              <div class="my-1 border-t border-border-muted" role="separator"></div>
+            } @else {
+              <button
+                type="button"
+                role="menuitem"
+                class="w-full h-8 px-2 rounded-[4px] text-[14px] flex items-center gap-2 text-foreground hover:bg-gutter transition-colors disabled:cursor-not-allowed disabled:text-muted-foreground"
+                [class.text-state-danger]="item.severity === 'danger'"
+                [class.hover:bg-state-danger-tint]="item.severity === 'danger'"
+                [disabled]="item.disabled"
+                [title]="item.tooltip ?? ''"
+                (click)="handleClick(item)"
+              >
+                @if (item.icon) {
+                  <app-icon [name]="item.icon" [size]="16" class="flex-shrink-0"></app-icon>
+                }
+                <span class="text-start flex-1">{{ item.label }}</span>
+              </button>
+            }
+          }
+        </div>
+      </ng-template>
     }
   `,
+  host: {
+    class: 'inline-block',
+    '(document:keydown.escape)': 'isOpen.set(false)',
+  },
+  styles: [`
+    @keyframes scaleIn {
+      from {
+        transform: scale(0.98);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  `],
 })
 export class RowActionsMenuComponent {
   readonly items = input.required<RowActionItem[]>();
-  /** Required (not defaulted) so a caller can't accidentally ship an untranslated "Actions". */
   readonly ariaLabel = input.required<string>();
+
+  readonly isOpen = signal(false);
+
+  /** Aligned to the kebab's end edge, flipping above it near the bottom of the viewport. */
+  readonly positions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -4 },
+  ];
+
+  toggleOpen(): void {
+    this.isOpen.update((v) => !v);
+  }
+
+  handleClick(item: RowActionItem): void {
+    if (item.disabled || !item.onClick) return;
+    item.onClick();
+    this.isOpen.set(false);
+  }
 }

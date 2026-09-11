@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { X, Sparkles, Rocket } from 'lucide-vue-next';
+import { X, Rocket } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
   clearDemoSession,
@@ -148,7 +148,7 @@ async function submitUpgrade() {
     upgradeDialogOpen.value = false;
     clearDemoSession();
     dismissed.value = true;
-    toast(t('demo.upgradeSuccess'));
+    toast(t('demo.upgradeSuccess'), 'success');
   } catch (e: unknown) {
     upgradeError.value = extractMessage(e);
   }
@@ -158,69 +158,52 @@ async function submitUpgrade() {
 <template>
   <div
     v-if="session && !dismissed"
-    class="m-4 mb-0 rounded-xl border border-brand/30 bg-brand-tint/60 p-4 text-sm"
+    class="border-b border-border bg-gutter px-6 py-3 text-[13px]"
   >
-    <div class="flex items-start gap-3">
-      <Sparkles class="mt-0.5 h-5 w-5 flex-shrink-0 text-brand" />
-      <div class="flex-1 space-y-3">
-        <!-- Header row: title + countdown -->
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="font-semibold text-brand">{{ t('demo.bannerTitle') }}</span>
-          <span class="text-muted-foreground">{{ t('demo.bannerDesc') }}</span>
-          <span
-            class="ms-auto rounded-md bg-background/70 px-2 py-0.5 font-mono text-xs"
-            :class="expired ? 'text-destructive' : 'text-foreground'"
-          >
-            {{ expired ? t('demo.expired') : t('demo.expiresIn', { time: countdown }) }}
-          </span>
-        </div>
-
-        <!-- Project key + widget login (always visible) -->
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-          <span>
-            <span class="text-muted-foreground">{{ t('demo.projectKey') }}:</span>
-            <span class="ms-1 font-mono">{{ session.projectKey }}</span>
-          </span>
-          <span>
-            <span class="text-muted-foreground">{{ t('demo.widgetLogin') }}:</span>
-            <span class="ms-1 font-mono">{{ session.email }}</span>
-            <template v-if="session.password">
-              <span class="mx-1 text-muted-foreground">/</span>
-              <span class="font-mono">{{ session.password }}</span>
-            </template>
-            <template v-else>
-              <span class="ms-1 text-xs text-muted-foreground italic">{{ t('demo.credsEmailed') }}</span>
-            </template>
-          </span>
-        </div>
-
-        <!-- The steps themselves live in the shared install guide (also reachable
-             from the header), so demo and permanent accounts read the same thing. -->
-        <div>
-          <Button variant="outline" size="sm" type="button" @click="guideOpen = true">
-            <Rocket class="h-4 w-4" />
-            {{ t('install.open') }}
-          </Button>
-        </div>
-
-        <!-- Keep this workspace button -->
-        <div class="flex justify-end">
-          <Button variant="outline" size="sm" type="button" @click="openUpgrade">
-            {{ t('demo.keepWorkspace') }}
-          </Button>
-        </div>
+    <div class="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4">
+      <!-- Left: expiry info -->
+      <div class="flex items-center gap-3">
+        <span class="font-medium text-foreground">{{ t('demo.bannerTitle') }}</span>
+        <span class="text-muted-foreground">{{ t('demo.bannerDesc') }}</span>
       </div>
 
-      <!-- Dismiss button (always visible) -->
-      <Button
-        variant="ghost"
-        size="icon"
-        class="flex-shrink-0"
-        :aria-label="t('demo.dismiss')"
-        @click="dismiss"
+      <!-- Center: expiry countdown (mono) -->
+      <span
+        class="font-mono"
+        :class="expired ? 'text-state-danger' : 'text-foreground'"
       >
-        <X class="h-4 w-4" />
-      </Button>
+        {{ expired ? t('demo.expired') : t('demo.expiresIn', { time: countdown }) }}
+      </span>
+
+      <!-- Right: actions (secondary buttons) -->
+      <div class="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          type="button"
+          @click="guideOpen = true"
+        >
+          <Rocket class="h-4 w-4" />
+          {{ t('install.open') }}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          type="button"
+          @click="openUpgrade"
+        >
+          {{ t('demo.keepWorkspace') }}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="flex-shrink-0"
+          :aria-label="t('demo.dismiss')"
+          @click="dismiss"
+        >
+          <X class="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   </div>
 

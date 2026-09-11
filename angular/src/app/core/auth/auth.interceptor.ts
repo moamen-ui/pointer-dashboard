@@ -1,7 +1,7 @@
 import { HttpInterceptorFn, HttpResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { AppToastService } from '../../shared/ui/app-toast.service';
 import { TranslocoService } from '@jsverse/transloco';
 import { catchError, map, throwError } from 'rxjs';
 import type { PlanLimit } from '@moamen-ui/pointer-angular';
@@ -36,7 +36,7 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
 
   const router = inject(Router);
   const auth = inject(AuthService);
-  const snack = inject(MatSnackBar);
+  const toast = inject(AppToastService);
   const transloco = inject(TranslocoService);
 
   // Feature 3: plan-enforcement upgrade prompt. Enforcement is OFF in prod today, but
@@ -49,10 +49,8 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
       current: limit?.current ?? 0,
       limit: limit?.limit ?? 0,
     });
-    snack
-      .open(msg, transloco.translate('limit.upgrade'), { duration: 8000 })
-      .onAction()
-      .subscribe(() => router.navigateByUrl('/plans'));
+    toast.show(`${msg} ${transloco.translate('limit.upgrade')}`, 'warning', 8000);
+    void router; // the upgrade route is reachable from the rail; no snackbar action in the toast grammar
   };
 
   return next(modifiedReq).pipe(

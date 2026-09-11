@@ -18,9 +18,9 @@ import {
 import { PlusCircle, Trash2 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import FormField from '@/components/shared/FormField.vue';
 import { extractMessage } from '@/lib/error';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
@@ -140,7 +140,7 @@ async function saveProjectAdminRule(rule: EditableRuleItem) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     rule.saving = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -157,7 +157,7 @@ async function deleteProjectAdminRule(rule: EditableRuleItem) {
     adminRulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -184,7 +184,7 @@ async function createProjectAdminRule() {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     newAdminRuleBusy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -211,7 +211,7 @@ async function savePersonalRule(rule: EditableRuleItem) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     rule.saving = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -228,7 +228,7 @@ async function deletePersonalRule(rule: EditableRuleItem) {
     myRulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -255,7 +255,7 @@ async function createPersonalRule() {
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
     newPersonalRuleBusy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 </script>
@@ -352,16 +352,14 @@ async function createPersonalRule() {
           class="flex flex-col gap-3 rounded-md border border-dashed p-3"
         >
           <span class="text-xs font-semibold text-muted-foreground">{{ t('aiRules.addRule') }}</span>
-          <div class="flex flex-col gap-1">
-            <Label for="new-ar-title">{{ t('aiRules.titleLabel') }}</Label>
+          <FormField :label="t('aiRules.titleLabel')" html-for="new-ar-title">
             <Input
               id="new-ar-title"
               v-model="newAdminRuleTitle"
               :placeholder="t('aiRules.titlePlaceholder')"
             />
-          </div>
-          <div class="flex flex-col gap-1">
-            <Label for="new-ar-prompt">{{ t('aiRules.promptLabel') }}</Label>
+          </FormField>
+          <FormField :label="t('aiRules.promptLabel')" html-for="new-ar-prompt">
             <textarea
               id="new-ar-prompt"
               v-model="newAdminRulePrompt"
@@ -369,7 +367,7 @@ async function createPersonalRule() {
               :placeholder="t('aiRules.promptPlaceholder')"
               class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
             />
-          </div>
+          </FormField>
           <div class="flex justify-end">
             <Button
               type="button"
@@ -458,16 +456,14 @@ async function createPersonalRule() {
         <!-- Form to Add Personal Rule -->
         <div class="flex flex-col gap-3 rounded-md border border-dashed p-3">
           <span class="text-xs font-semibold text-muted-foreground">{{ t('aiRules.addPersonalRule') }}</span>
-          <div class="flex flex-col gap-1">
-            <Label for="new-pr-title">{{ t('aiRules.titleLabel') }}</Label>
+          <FormField :label="t('aiRules.titleLabel')" html-for="new-pr-title">
             <Input
               id="new-pr-title"
               v-model="newPersonalRuleTitle"
               :placeholder="t('aiRules.titlePlaceholder')"
             />
-          </div>
-          <div class="flex flex-col gap-1">
-            <Label for="new-pr-prompt">{{ t('aiRules.promptLabel') }}</Label>
+          </FormField>
+          <FormField :label="t('aiRules.promptLabel')" html-for="new-pr-prompt">
             <textarea
               id="new-pr-prompt"
               v-model="newPersonalRulePrompt"
@@ -475,7 +471,7 @@ async function createPersonalRule() {
               :placeholder="t('aiRules.promptPlaceholder')"
               class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
             />
-          </div>
+          </FormField>
           <div class="flex justify-end">
             <Button
               type="button"

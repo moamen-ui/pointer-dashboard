@@ -1,20 +1,18 @@
 import { Component, inject, signal, computed, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
   BrandingService as ApiBrandingService,
   getApiAdminBrandingResource,
 } from '@moamen-ui/pointer-angular';
-import type { BrandingResponse, PostApiAdminBrandingAssetKindBody } from '@moamen-ui/pointer-angular';
+import type { PostApiAdminBrandingAssetKindBody, BrandingResponse } from '@moamen-ui/pointer-angular';
 import { BrandingService } from '../../core/branding/branding.service';
 import { extractMessage } from '../../core/api/extract-message';
+import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { AppToastService } from '../../shared/ui/app-toast.service';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
 
 type AssetKind = 'logo' | 'iconSquare' | 'favicon' | 'appleTouch' | 'pwa192' | 'pwa512';
 
@@ -26,12 +24,12 @@ interface AssetMeta {
 }
 
 const ASSET_KINDS: AssetMeta[] = [
-  { kind: 'logo',        labelKey: 'branding.assetLogo',        hintKey: 'branding.assetLogoHint',        accept: 'image/png,image/svg+xml,image/webp,image/jpeg' },
-  { kind: 'iconSquare',  labelKey: 'branding.assetIconSquare',  hintKey: 'branding.assetIconSquareHint',  accept: 'image/png,image/webp,image/jpeg' },
-  { kind: 'favicon',     labelKey: 'branding.assetFavicon',     hintKey: 'branding.assetFaviconHint',     accept: 'image/png,image/webp' },
-  { kind: 'appleTouch',  labelKey: 'branding.assetAppleTouch',  hintKey: 'branding.assetAppleTouchHint',  accept: 'image/png,image/webp,image/jpeg' },
-  { kind: 'pwa192',      labelKey: 'branding.assetPwa192',      hintKey: 'branding.assetPwa192Hint',      accept: 'image/png,image/webp' },
-  { kind: 'pwa512',      labelKey: 'branding.assetPwa512',      hintKey: 'branding.assetPwa512Hint',      accept: 'image/png,image/webp' },
+  { kind: 'logo',        labelKey: 'branding.assetKind.logo',        hintKey: 'branding.assetHint.logo',        accept: 'image/png,image/svg+xml,image/webp,image/jpeg' },
+  { kind: 'iconSquare',  labelKey: 'branding.assetKind.iconSquare',  hintKey: 'branding.assetHint.iconSquare',  accept: 'image/png,image/webp,image/jpeg' },
+  { kind: 'favicon',     labelKey: 'branding.assetKind.favicon',     hintKey: 'branding.assetHint.favicon',     accept: 'image/png,image/webp' },
+  { kind: 'appleTouch',  labelKey: 'branding.assetKind.appleTouch',  hintKey: 'branding.assetHint.appleTouch',  accept: 'image/png,image/webp,image/jpeg' },
+  { kind: 'pwa192',      labelKey: 'branding.assetKind.pwa192',      hintKey: 'branding.assetHint.pwa192',      accept: 'image/png,image/webp' },
+  { kind: 'pwa512',      labelKey: 'branding.assetKind.pwa512',      hintKey: 'branding.assetHint.pwa512',      accept: 'image/png,image/webp' },
 ];
 
 interface BrandingForm {
@@ -49,132 +47,177 @@ interface BrandingForm {
   standalone: true,
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
     TranslocoModule,
+    AppButtonDirective,
+    AppInputDirective,
+    AppFormFieldComponent,
+    AppIconComponent,
   ],
   template: `
-    <div class="p-6 max-w-3xl">
-      <h2 class="m-0 mb-6 text-[1.5em] font-bold">{{ 'branding.title' | transloco }}</h2>
+    <div class="flex-1 min-w-0 overflow-auto bg-background">
+      <div class="mx-auto w-full max-w-[1120px]">
+        <!-- Title row -->
+        <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em] mb-8">
+          {{ 'branding.title' | transloco }}
+        </h1>
 
-      @if (loading()) {
-        <p class="text-muted">{{ 'branding.loading' | transloco }}</p>
-      } @else if (loadError()) {
-        <p class="text-red-500">{{ 'branding.loadError' | transloco }}</p>
-      } @else {
-
-        <!-- Text / URL form -->
-        <section class="mb-8">
-          <h3 class="m-0 mb-4 text-[1.1em] font-semibold">{{ 'branding.sectionText' | transloco }}</h3>
-
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <mat-form-field appearance="outline" class="col-span-1 sm:col-span-2">
-              <mat-label>{{ 'branding.productName' | transloco }}</mat-label>
-              <input matInput [(ngModel)]="form.productName" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="col-span-1 sm:col-span-2">
-              <mat-label>{{ 'branding.tagline' | transloco }}</mat-label>
-              <input matInput [(ngModel)]="form.tagline" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'branding.primaryColor' | transloco }}</mat-label>
-              <input matInput type="color" [(ngModel)]="form.primaryColor" style="height:36px;padding:2px 4px;cursor:pointer" />
-            </mat-form-field>
+        @if (loading()) {
+          <div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            {{ 'branding.loading' | transloco }}
           </div>
-
-          <h3 class="m-0 mb-4 mt-4 text-[1.1em] font-semibold">{{ 'branding.sectionUrls' | transloco }}</h3>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'branding.urlApp' | transloco }}</mat-label>
-              <input matInput type="url" [(ngModel)]="form.urlApp" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'branding.urlDemo' | transloco }}</mat-label>
-              <input matInput type="url" [(ngModel)]="form.urlDemo" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'branding.urlDocs' | transloco }}</mat-label>
-              <input matInput type="url" [(ngModel)]="form.urlDocs" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>{{ 'branding.urlLanding' | transloco }}</mat-label>
-              <input matInput type="url" [(ngModel)]="form.urlLanding" />
-            </mat-form-field>
+        } @else if (loadError()) {
+          <div class="flex h-40 items-center justify-center text-sm text-state-danger">
+            {{ 'branding.loadError' | transloco }}
           </div>
-
-          <div class="mt-4 flex justify-end">
-            <button mat-flat-button color="primary" [disabled]="saving()" (click)="saveText()">
-              <mat-icon>save</mat-icon> {{ 'branding.save' | transloco }}
-            </button>
-          </div>
-        </section>
-
-        <!-- Asset uploaders -->
-        <section>
-          <h3 class="m-0 mb-4 text-[1.1em] font-semibold">{{ 'branding.sectionAssets' | transloco }}</h3>
-          <div class="flex flex-col gap-6">
-            @for (asset of assetKinds; track asset.kind) {
-              <div class="rounded-lg border border-app-border p-4">
-                <div class="mb-2 flex items-start justify-between gap-3">
-                  <div>
-                    <p class="m-0 font-medium">{{ asset.labelKey | transloco }}</p>
-                    <p class="m-0 text-xs text-muted">{{ asset.hintKey | transloco }}</p>
+        } @else {
+          <div class="flex flex-col gap-8">
+            <!-- Form section: product name, tagline, primary color, four URLs -->
+            <section class="flex flex-col gap-3">
+              <h2 class="text-[16px] font-semibold leading-6">{{ 'branding.textSection' | transloco }}</h2>
+              <div class="rounded-md border border-border">
+                <div class="space-y-4 p-5">
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <app-form-field label="{{ 'branding.productName' | transloco }}">
+                      <input appInput [(ngModel)]="form.productName" />
+                    </app-form-field>
+                    <app-form-field label="{{ 'branding.tagline' | transloco }}">
+                      <input appInput [(ngModel)]="form.tagline" />
+                    </app-form-field>
                   </div>
-                  <!-- Always preview what is currently in use: the uploaded asset when
-                       there is one, otherwise the built-in mark the app falls back to
-                       (same pin glyph as the header) — so the tile is never empty. -->
-                  <div class="flex flex-col items-center gap-1">
-                    <div class="flex h-[48px] w-[96px] items-center justify-center gap-1 overflow-hidden rounded border border-app-border bg-gray-100 px-1.5 dark:bg-gray-800">
-                      @if (assetUrl(asset.kind)) {
-                        <img [src]="assetUrl(asset.kind)!" [alt]="asset.kind"
-                          class="max-h-full max-w-full object-contain" />
-                      } @else {
-                        <mat-icon class="rotate-45 text-brand">push_pin</mat-icon>
-                        @if (asset.kind === 'logo') {
-                          <span class="truncate text-[11px] font-bold">{{ branding.productName() }}</span>
-                        }
-                      }
+
+                  <!-- Primary color: 24px swatch button next to mono hex input -->
+                  <app-form-field label="{{ 'branding.primaryColor' | transloco }}">
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        (click)="colorPickerInput.click()"
+                        class="h-6 w-6 rounded-md border border-border"
+                        [style.backgroundColor]="form.primaryColor"
+                        [attr.aria-label]="'branding.primaryColor' | transloco"
+                      ></button>
+                      <input
+                        appInput
+                        type="text"
+                        [(ngModel)]="form.primaryColor"
+                        class="font-mono text-[13px]"
+                        placeholder="#0969da"
+                      />
                     </div>
-                    @if (!assetUrl(asset.kind)) {
-                      <span class="text-[11px] italic text-muted">{{ 'branding.usingDefault' | transloco }}</span>
-                    }
+                    <input
+                      #colorPickerInput
+                      type="color"
+                      [(ngModel)]="form.primaryColor"
+                      class="hidden"
+                    />
+                  </app-form-field>
+
+                  <!-- Four URLs in a grid -->
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <app-form-field label="{{ 'branding.urlApp' | transloco }}">
+                      <input appInput type="url" [(ngModel)]="form.urlApp" />
+                    </app-form-field>
+                    <app-form-field label="{{ 'branding.urlDemo' | transloco }}">
+                      <input appInput type="url" [(ngModel)]="form.urlDemo" />
+                    </app-form-field>
+                    <app-form-field label="{{ 'branding.urlDocs' | transloco }}">
+                      <input appInput type="url" [(ngModel)]="form.urlDocs" />
+                    </app-form-field>
+                    <app-form-field label="{{ 'branding.urlLanding' | transloco }}">
+                      <input appInput type="url" [(ngModel)]="form.urlLanding" />
+                    </app-form-field>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <input #fileInput type="file" [accept]="asset.accept" class="hidden"
-                    (change)="onFileChange(asset.kind, fileInput)" />
-                  <button mat-stroked-button [disabled]="uploadingKind() === asset.kind"
-                    (click)="fileInput.click()">
-                    <mat-icon>upload</mat-icon> {{ 'branding.upload' | transloco }}
+
+                <!-- Save primary button at section footer end -->
+                <div class="border-t border-border px-5 py-3 flex justify-end">
+                  <button
+                    appButton
+                    variant="primary"
+                    [disabled]="saving() || !form.productName.trim()"
+                    (click)="saveText()"
+                  >
+                    {{ 'common.save' | transloco }}
                   </button>
-                  @if (assetUrl(asset.kind)) {
-                    <button mat-stroked-button color="warn" [disabled]="deletingKind() === asset.kind"
-                      (click)="deleteAsset(asset.kind)">
-                      <mat-icon>restore</mat-icon> {{ 'branding.resetToDefault' | transloco }}
-                    </button>
-                  }
-                  @if (uploadingKind() === asset.kind || deletingKind() === asset.kind) {
-                    <mat-spinner diameter="20" />
-                  }
                 </div>
               </div>
-            }
-          </div>
-        </section>
+            </section>
 
-      }
+            <!-- Asset uploaders as 2-column grid of bordered rows -->
+            <section class="flex flex-col gap-3">
+              <h2 class="text-[16px] font-semibold leading-6">{{ 'branding.assetsSection' | transloco }}</h2>
+              <p class="text-[12px] text-muted-foreground max-w-[72ch]">{{ 'branding.assetsHint' | transloco }}</p>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @for (asset of assetKinds; track asset.kind) {
+                  <div class="flex flex-col gap-3 rounded-md border border-border p-3">
+                    <!-- Preview — 40px box on bg-gutter -->
+                    <div class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md bg-gutter">
+                      @if (assetUrl(asset.kind)) {
+                        <img
+                          [src]="assetUrl(asset.kind)!"
+                          [alt]="asset.kind"
+                          class="max-h-full max-w-full object-contain"
+                        />
+                      } @else if (asset.kind === 'logo') {
+                        <div class="flex items-center gap-0.5 text-[10px] font-bold text-foreground">
+                          <app-icon name="pin" [size]="12" class="rotate-45" />
+                          <span class="truncate">{{ branding.productName() }}</span>
+                        </div>
+                      } @else {
+                        <app-icon name="pin" [size]="16" class="rotate-45 text-muted-foreground" />
+                      }
+                    </div>
+
+                    <!-- Kind label 14px/500 + expected size 13px muted -->
+                    <div class="flex flex-col gap-0.5">
+                      <p class="text-[14px] font-medium text-foreground">{{ asset.labelKey | transloco }}</p>
+                      <p class="text-[13px] text-muted-foreground">{{ asset.hintKey | transloco }}</p>
+                    </div>
+
+                    <!-- Buttons: Upload secondary size=sm, Reset ghost size=sm -->
+                    <div class="flex gap-2">
+                      <input
+                        #fileInput
+                        type="file"
+                        [accept]="asset.accept"
+                        class="hidden"
+                        (change)="onFileChange(asset.kind, fileInput)"
+                      />
+                      <button
+                        appButton
+                        variant="secondary"
+                        size="sm"
+                        [disabled]="uploadingKind() === asset.kind || deletingKind() === asset.kind"
+                        (click)="fileInput.click()"
+                      >
+                        <app-icon name="upload" [size]="16" />
+                        {{ 'branding.upload' | transloco }}
+                      </button>
+                      @if (assetUrl(asset.kind)) {
+                        <button
+                          appButton
+                          variant="ghost"
+                          size="sm"
+                          [disabled]="uploadingKind() === asset.kind || deletingKind() === asset.kind"
+                          (click)="deleteAsset(asset.kind)"
+                        >
+                          <app-icon name="rotate-ccw" [size]="16" />
+                          {{ 'branding.resetToDefault' | transloco }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
+        }
+      </div>
     </div>
   `,
 })
 export class BrandingComponent {
   private apiBranding = inject(ApiBrandingService);
-  private snack = inject(MatSnackBar);
+  private toast = inject(AppToastService);
   private transloco = inject(TranslocoService);
   // Public: the template previews the built-in mark (product name) for assets
   // that have no upload yet.
@@ -196,10 +239,19 @@ export class BrandingComponent {
     urlApp: '', urlDemo: '', urlDocs: '', urlLanding: '',
   };
 
+  /** The auth interceptor unwraps `Result<T>`, but the generated resource type still declares the
+   *  envelope — accept either shape so the form fills in regardless. */
+  private brandingPayload() {
+    const value = this.brandingResource.value() as
+      | (BrandingResponse & { data?: BrandingResponse })
+      | undefined;
+    return value?.data ?? value;
+  }
+
   constructor() {
     // Sync form fields whenever the resource delivers fresh data
     effect(() => {
-      const res = this.brandingResource.value()?.data;
+      const res = this.brandingPayload();
       if (!res) return;
       this.form = {
         productName: res.productName ?? '',
@@ -214,7 +266,8 @@ export class BrandingComponent {
   }
 
   assetUrl(kind: AssetKind): string | null {
-    return this.brandingResource.value()?.data?.assets?.[kind] ?? null;
+    const assets = this.brandingPayload()?.assets as Record<string, string | null> | undefined;
+    return assets?.[kind] ?? null;
   }
 
   saveText(): void {
@@ -233,13 +286,13 @@ export class BrandingComponent {
     this.apiBranding.putApiAdminBranding(body).subscribe({
       next: () => {
         this.saving.set(false);
-        this.snack.open(this.transloco.translate('branding.saved'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('branding.saved'), 'success');
         this.branding.refresh();
         this.brandingResource.reload();
       },
       error: (err: unknown) => {
         this.saving.set(false);
-        this.snack.open(extractMessage(err), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(err), 'danger');
       },
     });
   }
@@ -248,7 +301,7 @@ export class BrandingComponent {
     const file = input.files?.[0];
     if (!file) return;
     if (file.size > 1_048_576) {
-      this.snack.open(this.transloco.translate('branding.fileTooLarge'), 'OK', { duration: 4000 });
+      this.toast.show(this.transloco.translate('branding.fileTooLarge'), 'warning');
       input.value = '';
       return;
     }
@@ -258,14 +311,14 @@ export class BrandingComponent {
       next: () => {
         this.uploadingKind.set(null);
         input.value = '';
-        this.snack.open(this.transloco.translate('branding.uploaded'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('branding.uploadSuccess'), 'success');
         this.branding.refresh();
         this.brandingResource.reload();
       },
       error: (err: unknown) => {
         this.uploadingKind.set(null);
         input.value = '';
-        this.snack.open(extractMessage(err), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(err), 'danger');
       },
     });
   }
@@ -275,13 +328,13 @@ export class BrandingComponent {
     this.apiBranding.deleteApiAdminBrandingAssetKind(kind).subscribe({
       next: () => {
         this.deletingKind.set(null);
-        this.snack.open(this.transloco.translate('branding.resetDone'), 'OK', { duration: 3000 });
+        this.toast.show(this.transloco.translate('branding.resetSuccess'), 'success');
         this.branding.refresh();
         this.brandingResource.reload();
       },
       error: (err: unknown) => {
         this.deletingKind.set(null);
-        this.snack.open(extractMessage(err), 'OK', { duration: 4000 });
+        this.toast.show(extractMessage(err), 'danger');
       },
     });
   }

@@ -23,10 +23,7 @@ const active = computed({
 
 <template>
   <Tabs v-model="active">
-    <TabsList
-      class="grid w-full"
-      :style="{ gridTemplateColumns: `repeat(${props.tabs.length}, minmax(0, 1fr))` }"
-    >
+    <TabsList>
       <TabsTrigger v-for="t in props.tabs" :key="t.value" :value="t.value">
         {{ t.label }}
       </TabsTrigger>

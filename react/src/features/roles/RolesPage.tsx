@@ -17,8 +17,8 @@ import {
 import { Plus, Pencil, Ban, CheckCircle2, Trash2, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/shared/FormField';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
 import {
@@ -40,45 +40,6 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { extractMessage } from '@/lib/error';
-
-// Compact switch for table cells — a full-size switch overpowers the row, so
-// the track runs at ~2/3 scale (28×16px track, 12px thumb). Scoped to this
-// page; switches elsewhere keep the default size.
-function SmallSwitch({
-  checked,
-  disabled,
-  onCheckedChange,
-  label,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onCheckedChange(!checked)}
-      className={cn(
-        'inline-flex h-4 w-7 items-center rounded-full p-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-primary' : 'bg-input',
-      )}
-    >
-      <span
-        className={cn(
-          'block h-3 w-3 rounded-full bg-background shadow-sm transition-transform',
-          checked
-            ? 'translate-x-[14px] rtl:-translate-x-[14px]'
-            : 'translate-x-0.5 rtl:-translate-x-0.5',
-        )}
-      />
-    </button>
-  );
-}
 
 /**
  * Whether the signed-in user may fully manage this role (rename/delete/reconfigure).
@@ -249,7 +210,7 @@ export function RolesPage() {
   }
 
   // Column set mirrors the angular reference: none of these sort (the angular
-  // DataTableColumn entries leave sortable off); custom cells carry the toggles,
+  // DataTableColumn entries leave sortable off); custom cells carry the glyphs,
   // the system chip and the status badge.
   const columns: ColumnDef<RoleResponse>[] = [
     {
@@ -271,36 +232,85 @@ export function RolesPage() {
       accessorKey: 'grantsAdmin',
       enableSorting: false,
       header: t('roles.grantsAdmin'),
-      cell: ({ row }) => (
-        <SmallSwitch
-          checked={!!row.original.grantsAdmin}
-          disabled={row.original.isSystem || !canManage(row.original)}
-          onCheckedChange={(checked) => toggleGrantsAdmin(row.original, checked)}
-          label={t('roles.grantsAdmin')}
-        />
-      ),
+      cell: ({ row }) =>
+        row.original.isSystem || !canManage(row.original) ? (
+          row.original.grantsAdmin ? (
+            <CheckCircle2 className="h-4 w-4 text-state-completed" aria-label={t('roles.grantsAdmin')} />
+          ) : (
+            <span className="text-faint-foreground">—</span>
+          )
+        ) : (
+          // Toggle button: the glyph shows the state, a click flips it (keeps the old inline switch behavior).
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!row.original.grantsAdmin}
+            aria-label={t('roles.grantsAdmin')}
+            disabled={patchMut.isPending}
+            onClick={() => toggleGrantsAdmin(row.original, !row.original.grantsAdmin)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+          >
+            {row.original.grantsAdmin ? (
+              <CheckCircle2 className="h-4 w-4 text-state-completed" />
+            ) : (
+              <span aria-hidden="true">—</span>
+            )}
+          </button>
+        ),
     },
     {
       accessorKey: 'quickAccess',
       enableSorting: false,
       header: t('roles.quickAccess'),
-      cell: ({ row }) => (
-        <SmallSwitch
-          checked={!!row.original.quickAccess}
-          disabled={row.original.isSystem || !canManage(row.original)}
-          onCheckedChange={(checked) => toggleQuickAccess(row.original, checked)}
-          label={t('roles.quickAccess')}
-        />
-      ),
+      cell: ({ row }) =>
+        row.original.isSystem || !canManage(row.original) ? (
+          row.original.quickAccess ? (
+            <CheckCircle2 className="h-4 w-4 text-state-completed" aria-label={t('roles.quickAccess')} />
+          ) : (
+            <span className="text-faint-foreground">—</span>
+          )
+        ) : (
+          // Toggle button: the glyph shows the state, a click flips it (keeps the old inline switch behavior).
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!row.original.quickAccess}
+            aria-label={t('roles.quickAccess')}
+            disabled={patchMut.isPending}
+            onClick={() => toggleQuickAccess(row.original, !row.original.quickAccess)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+          >
+            {row.original.quickAccess ? (
+              <CheckCircle2 className="h-4 w-4 text-state-completed" />
+            ) : (
+              <span aria-hidden="true">—</span>
+            )}
+          </button>
+        ),
     },
     {
       accessorKey: 'isActive',
       enableSorting: false,
       header: t('roles.status'),
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
-          {t(row.original.isActive ? 'common.active' : 'common.disabled')}
-        </Badge>
+        <span className={cn(
+          'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none',
+          row.original.isActive
+            ? 'text-state-completed bg-state-completed-tint border-state-completed/30'
+            : 'text-state-danger bg-state-danger-tint border-state-danger/30'
+        )}>
+          {row.original.isActive ? (
+            <>
+              <CheckCircle2 className="h-3 w-3" />
+              {t('common.active')}
+            </>
+          ) : (
+            <>
+              <Ban className="h-3 w-3" />
+              {t('common.disabled')}
+            </>
+          )}
+        </span>
       ),
     },
   ];
@@ -337,8 +347,8 @@ export function RolesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t('roles.title')}</h2>
+      <div className="flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('roles.title')}</h1>
         <Button onClick={openAdd}>
           <Plus className="h-4 w-4" />
           {t('roles.addRole')}
@@ -352,6 +362,7 @@ export function RolesPage() {
         actionsAriaLabel={t('roles.actions')}
         actionsHeader={t('roles.actions')}
         paginated
+        gutter
         emptyIcon={UserCog}
         emptyMessage={t('roles.empty')}
         emptyHint={t('roles.emptyHint')}
@@ -370,8 +381,7 @@ export function RolesPage() {
             <DialogTitle>{t('roles.addRole')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="role-name">{t('roles.name')}</Label>
+            <FormField label={t('roles.name')} htmlFor="role-name">
               <Input
                 id="role-name"
                 value={newName}
@@ -379,7 +389,7 @@ export function RolesPage() {
                 onKeyDown={(e) => e.key === 'Enter' && addRole()}
                 autoFocus
               />
-            </div>
+            </FormField>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -408,15 +418,16 @@ export function RolesPage() {
           <DialogHeader>
             <DialogTitle>{t('common.rename')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-1">
-            <Label htmlFor="role-rename">{t('roles.name')}</Label>
-            <Input
-              id="role-rename"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && saveRename()}
-              autoFocus
-            />
+          <div className="pt-1">
+            <FormField label={t('roles.name')} htmlFor="role-rename">
+              <Input
+                id="role-rename"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveRename()}
+                autoFocus
+              />
+            </FormField>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRenameOpen(false)}>
@@ -440,13 +451,12 @@ export function RolesPage() {
               {t('roles.deleteIntro', { name: deletingRole?.name })}
             </p>
             {targetRoles.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <Label>{t('roles.reassignLabel')}</Label>
+              <FormField label={t('roles.reassignLabel')} htmlFor="reassign-role">
                 <Select
                   value={reassignTargetId != null ? String(reassignTargetId) : undefined}
                   onValueChange={(v) => setReassignTargetId(Number(v))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="reassign-role">
                     <SelectValue placeholder={t('roles.reassignLabel')} />
                   </SelectTrigger>
                   <SelectContent>
@@ -457,7 +467,7 @@ export function RolesPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             ) : (
               <p className="text-sm text-muted-foreground">{t('roles.noTargets')}</p>
             )}

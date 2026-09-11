@@ -1,4 +1,4 @@
-import { Directive, Input, TemplateRef } from '@angular/core';
+import { Directive, TemplateRef, inject, input } from '@angular/core';
 
 /**
  * Registers a custom cell renderer for one column of an `<app-data-table>`, absorbing every
@@ -16,7 +16,7 @@ import { Directive, Input, TemplateRef } from '@angular/core';
   standalone: true,
 })
 export class DataTableCellDirective<T = unknown> {
-  @Input('appDataTableCell') columnKey!: string;
+  readonly columnKey = input.required<string>({ alias: 'appDataTableCell' });
 
-  constructor(readonly templateRef: TemplateRef<{ $implicit: T }>) {}
+  readonly templateRef = inject<TemplateRef<{ $implicit: T }>>(TemplateRef);
 }

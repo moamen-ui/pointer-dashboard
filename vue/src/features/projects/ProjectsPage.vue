@@ -29,9 +29,10 @@ import {
 } from '@moamen-ui/pointer-vue';
 import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, X, Check, Brain } from 'lucide-vue-next';
 import ProjectAiRules from './ProjectAiRules.vue';
+import FormField from '@/components/shared/FormField.vue';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -72,7 +73,7 @@ const updateProject = usePatchApiAdminProjectsId();
 
 function fail(e: unknown) {
   busy.value = false;
-  toast(extractMessage(e));
+  toast(extractMessage(e), 'danger');
 }
 function reload() {
   void queryClient.invalidateQueries({ queryKey: getGetApiAdminProjectsQueryKey() });
@@ -80,7 +81,7 @@ function reload() {
 
 // ── Add project ───────────────────────────────────────────────────────
 const addOpen = ref(false);
-const addForm = reactive({ key: '', name: '' });
+const addForm = reactive({ key: '', name: '', pageContextCaptureEnabled: false });
 // #138 — once the user edits the key themselves, name edits stop overwriting it.
 const keyEdited = ref(false);
 
@@ -173,36 +174,30 @@ const addActions = ref<Array<{ text: string; prompt: string }>>([]);
 function openAdd() {
   addForm.key = '';
   addForm.name = '';
+  addForm.pageContextCaptureEnabled = false;
   keyEdited.value = false;
   addActions.value = [];
   addOpen.value = true;
 }
 
-function addActionRow() {
-  addActions.value.push({ text: '', prompt: '' });
-}
-
-function removeActionRow(index: number) {
-  addActions.value.splice(index, 1);
-}
 
 async function addProject() {
   if (addInvalid.value) return;
   busy.value = true;
   try {
-    await createProject.mutateAsync({
+    const created = await createProject.mutateAsync({
       data: {
-        ...addForm,
-        predefinedActions: addActions.value.map((a, i) => ({
-          text: a.text,
-          prompt: a.prompt,
-          sortOrder: i,
-          isActive: true,
-        })),
+        key: addForm.key,
+        name: addForm.name,
       },
     });
+    // The create request has no capture flag; apply the dialog's switch with a follow-up patch.
+    if (addForm.pageContextCaptureEnabled && created?.id) {
+      await updateProject.mutateAsync({ id: created.id, data: { pageContextCaptureEnabled: true } });
+    }
     busy.value = false;
     addOpen.value = false;
+    toast(t('projects.createdHint'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -254,7 +249,7 @@ async function exportProject(project: ProjectResponse) {
     a.download = `pointer-comments-${project.key}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast(t('exportImport.exported'));
+    toast(t('exportImport.exported'), 'success');
   } catch (e) {
     fail(e);
   }
@@ -287,9 +282,9 @@ async function submitImport() {
       comments: result.importedComments ?? 0,
       replies: result.importedReplies ?? 0,
     });
-    toast(`${t('exportImport.imported')} ${msg}`);
+    toast(`${t('exportImport.imported')} ${msg}`, 'success');
     if (result.warnings?.length) {
-      result.warnings.forEach((w) => toast(w));
+      result.warnings.forEach((w) => toast(w, 'warning'));
     }
     importDialogOpen.value = false;
     reload();
@@ -310,7 +305,6 @@ type EditableAction = {
 const editOpen = ref(false);
 const editProject = ref<ProjectResponse | null>(null);
 const editName = ref('');
-const editAppUrl = ref('');
 const editActions = ref<EditableAction[]>([]);
 const editPageContextCaptureEnabled = ref(false);
 // The edit dialog UI never touches these three — they are only carried through
@@ -335,7 +329,6 @@ const patchProject = usePatchApiAdminProjectsId();
 function openEdit(project: ProjectResponse) {
   editProject.value = project;
   editName.value = project.name ?? '';
-  editAppUrl.value = project.appUrl ?? '';
   editPageContextCaptureEnabled.value = !!project.pageContextCaptureEnabled;
   editIsActiveLocal.value = !!project.isActiveLocal;
   editIsActiveStaging.value = !!project.isActiveStaging;
@@ -373,14 +366,12 @@ const { data: appUrlsData } = useGetApiAdminProjectsIdAppUrls(editingProjectIdFo
 // Only rows that ALREADY have a saved URL for this project — not every
 // environment the tenant has ever defined. Each carries its own
 // name/url/isActive straight from the response.
-const configuredEnvironments = computed<ProjectAppUrlResponse[]>(() =>
-  (appUrlsData.value ?? []).filter((u) => u.environmentName !== 'default'),
-);
+const configuredEnvironments = computed<ProjectAppUrlResponse[]>(() => appUrlsData.value ?? []);
 
 // Environments not yet configured for this project — the add-row's options.
 const availableEnvironmentsToAdd = computed<AppEnvironmentResponse[]>(() => {
   const configuredIds = new Set(configuredEnvironments.value.map((u) => u.appEnvironmentId));
-  return environments.value.filter((e) => e.name !== 'default' && !configuredIds.has(e.id!));
+  return environments.value.filter((e) => !configuredIds.has(e.id!));
 });
 
 function reloadAppUrls() {
@@ -483,7 +474,7 @@ async function confirmAddEnvironment() {
     newEnvActive.value = true;
     reloadAppUrls();
   } catch (e: unknown) {
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   } finally {
     isAddingEnv.value = false;
   }
@@ -511,7 +502,7 @@ async function saveEnvironmentChangesIfPending() {
         })
         .then(() => ({ environmentId: envId, ok: true }))
         .catch((e: unknown) => {
-          toast(extractMessage(e));
+          toast(extractMessage(e), 'danger');
           return { environmentId: envId, ok: false };
         }),
     );
@@ -527,7 +518,7 @@ async function saveEnvironmentChangesIfPending() {
         })
         .then(() => ({ environmentId: addEnvId, ok: true }))
         .catch((e: unknown) => {
-          toast(extractMessage(e));
+          toast(extractMessage(e), 'danger');
           return { environmentId: addEnvId, ok: false };
         }),
     );
@@ -576,7 +567,6 @@ async function saveEdit() {
       id: editProject.value.id!,
       data: {
         name: editName.value,
-        appUrl: editAppUrl.value.trim(),
         pageContextCaptureEnabled: editPageContextCaptureEnabled.value,
         isActiveLocal: editIsActiveLocal.value,
         isActiveStaging: editIsActiveStaging.value,
@@ -596,7 +586,7 @@ async function saveEdit() {
     await saveEnvironmentChangesIfPending();
     busy.value = false;
     editOpen.value = false;
-    toast(t('projects.saved'));
+    toast(t('projects.saved'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -617,7 +607,7 @@ async function confirmDelete(project: ProjectResponse) {
   try {
     await deleteProject.mutateAsync({ id: project.id! });
     busy.value = false;
-    toast(t('projects.deleted'));
+    toast(t('projects.deleted'), 'success');
     reload();
   } catch (e) {
     fail(e);
@@ -647,15 +637,15 @@ async function submitSuggest() {
     });
     busy.value = false;
     suggestOpen.value = false;
-    toast(t('suggestions.sent'));
+    toast(t('suggestions.sent'), 'success');
   } catch (e) {
     busy.value = false;
     // Check for 403 — user can actually edit directly
     const status = (e as any)?.response?.status;
     if (status === 403) {
-      toast(t('suggestions.canEditDirectly'));
+      toast(t('suggestions.canEditDirectly'), 'info');
     } else {
-      toast(extractMessage(e));
+      toast(extractMessage(e), 'danger');
     }
   }
 }
@@ -683,10 +673,10 @@ function activationLabel(state: ProjectActivationState | undefined) {
 
 // A computed so headers follow live language switches.
 const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectResponse>[]>(() => [
-  { accessorKey: 'key', header: t('projects.key'), enableSorting: false },
-  { accessorKey: 'name', header: t('projects.name'), enableSorting: false },
-  { accessorKey: 'createdByName', header: t('projects.createdBy'), enableSorting: false },
-  { accessorKey: 'commentsCount', header: t('projects.comments'), enableSorting: false },
+  { accessorKey: 'key', header: t('projects.key') },
+  { accessorKey: 'name', header: t('projects.name') },
+  { accessorKey: 'createdByName', header: t('projects.createdBy') },
+  { accessorKey: 'commentsCount', header: t('projects.comments') },
   { accessorKey: 'activationState', header: t('projects.status'), enableSorting: false },
 ]);
 
@@ -735,8 +725,8 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-lg font-semibold">{{ t('projects.title') }}</h2>
+    <div class="flex items-center justify-between">
+      <h1 class="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{{ t('projects.title') }}</h1>
       <Button v-if="!isSuperAdmin" data-tour="add-project-btn" @click="openAdd">
         <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
       </Button>
@@ -745,57 +735,55 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
     <!-- Super admins are platform-management only — they can't own a project (backend:
          ProjectService.CreateAsync forbids it). Point them at a real tenant account instead of
          showing an Add-Project affordance that would only 403. -->
-    <p v-if="isSuperAdmin" class="text-sm text-muted-foreground">{{ t('projects.superAdminNote') }}</p>
-
-    <div v-if="loading" class="h-0.5 w-full overflow-hidden rounded bg-muted">
-      <div class="h-full w-1/3 animate-pulse bg-primary" />
-    </div>
+    <p v-if="isSuperAdmin" class="text-[14px] text-muted-foreground">{{ t('projects.superAdminNote') }}</p>
 
     <DataTable
       :data="projects"
       :columns="columns"
       :actions="actionsFor"
       :actions-aria-label="t('projects.actions')"
+      :actions-header="t('projects.actions')"
       paginated
+      gutter
       :loading="loading"
       :empty-icon="FolderOpen"
       :empty-message="t('projects.empty')"
       :empty-hint="t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')"
     >
       <template #cell-key="{ row }">
-        <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ row.key }}</code>
+        <code class="whitespace-nowrap font-mono text-[13px] rounded bg-gutter px-1.5 py-0.5">{{ row.key }}</code>
       </template>
-      <template #cell-name="{ row }">{{ row.name }}</template>
+      <template #cell-name="{ row }"><span class="whitespace-nowrap">{{ row.name }}</span></template>
       <template #cell-createdByName="{ row }">
-        <span class="text-sm text-muted-foreground">{{ row.createdByName ?? '—' }}</span>
+        <span class="text-[14px] text-muted-foreground">{{ row.createdByName ?? '—' }}</span>
       </template>
       <template #cell-commentsCount="{ row }">
-        <span class="text-sm text-muted-foreground">{{ row.commentsCount ?? 0 }}</span>
+        <span class="font-mono text-[14px]">{{ row.commentsCount ?? 0 }}</span>
       </template>
       <template #cell-activationState="{ row }">
         <Badge :variant="activationVariant(row.activationState)">
           {{ activationLabel(row.activationState) }}
         </Badge>
       </template>
-      <Button v-if="!isSuperAdmin" data-tour="add-project-btn" @click="openAdd">
-        <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
-      </Button>
+      <template v-if="!isSuperAdmin" #empty-action>
+        <Button data-tour="add-project-btn" @click="openAdd">
+          <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
+        </Button>
+      </template>
     </DataTable>
   </div>
 
   <!-- Add project dialog -->
   <Dialog v-model:open="addOpen">
-    <DialogContent class="max-w-[440px]">
+    <DialogContent class="w-[min(520px,calc(100vw-32px))] rounded-lg border border-border bg-background shadow-dialog">
       <DialogHeader>
-        <DialogTitle>{{ t('projects.addProject') }}</DialogTitle>
+        <DialogTitle class="text-base font-semibold leading-6">{{ t('projects.addProject') }}</DialogTitle>
       </DialogHeader>
-      <form class="flex flex-col gap-3 pt-2" data-tour="project-modal-sections" @submit.prevent="addProject">
-        <div class="flex flex-col gap-2">
-          <Label for="p-name">{{ t('projects.name') }}</Label>
+      <form class="flex flex-col gap-4 py-2 space-y-4" data-tour="project-modal-sections" @submit.prevent="addProject">
+        <FormField :label="t('projects.name')" html-for="p-name">
           <Input id="p-name" v-model="addForm.name" @input="syncKeyFromName" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="p-key">{{ t('projects.key') }}</Label>
+        </FormField>
+        <FormField :label="t('projects.key')" html-for="p-key" :error="keyError ?? undefined" :hint="keyError ? '' : t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')">
           <Input
             id="p-key"
             v-model="addForm.key"
@@ -804,43 +792,18 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             spellcheck="false"
             @input="onKeyEdited"
           />
-          <p v-if="keyError" class="text-xs font-medium text-destructive">{{ keyError }}</p>
-          <p v-else class="text-xs text-muted-foreground">
-            {{ t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint') }}
-          </p>
-        </div>
+        </FormField>
 
-        <!-- Predefined actions section -->
-        <div class="flex flex-col gap-2">
-          <p class="text-xs text-muted-foreground">{{ t('predefined.projectHelp') }}</p>
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-medium">{{ t('predefined.section') }}</span>
-            <Button type="button" variant="outline" size="sm" @click="addActionRow">
-              <PlusCircle class="h-4 w-4" /> {{ t('predefined.add') }}
-            </Button>
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex flex-col gap-1">
+            <Label for="add-capture" class="text-[13px] font-medium">{{ t('projects.pageContextCapture') }}</Label>
+            <p class="text-[12px] text-muted-foreground">{{ t('projects.pageContextCaptureHint') }}</p>
           </div>
-          <p v-if="addActions.length === 0" class="text-xs text-muted-foreground italic">{{ t('predefined.empty') }}</p>
-          <div v-for="(action, idx) in addActions" :key="idx" class="flex flex-col gap-1 rounded-md border p-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-muted-foreground">#{{ idx + 1 }}</span>
-              <Button type="button" variant="ghost" size="icon" @click="removeActionRow(idx)">
-                <Trash2 class="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-            <Label :for="'add-act-text-' + idx">{{ t('predefined.text') }}</Label>
-            <Input :id="'add-act-text-' + idx" v-model="action.text" />
-            <Label :for="'add-act-prompt-' + idx">{{ t('predefined.prompt') }}</Label>
-            <textarea
-              :id="'add-act-prompt-' + idx"
-              v-model="action.prompt"
-              rows="2"
-              class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
-            />
-          </div>
+          <Checkbox v-model="addForm.pageContextCaptureEnabled" id="add-capture" />
         </div>
       </form>
       <DialogFooter>
-        <Button variant="outline" @click="addOpen = false">{{ t('common.cancel') }}</Button>
+        <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
         <Button :disabled="addInvalid || loading" @click="addProject">
           <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
         </Button>
@@ -855,19 +818,12 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle>{{ t('projects.editTitle') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="saveEdit">
-        <div class="flex flex-col gap-2">
-          <Label for="edit-name">{{ t('projects.name') }}</Label>
+        <FormField :label="t('projects.name')" html-for="edit-name">
           <Input id="edit-name" v-model="editName" />
-        </div>
+        </FormField>
 
-        <div class="flex flex-col gap-2">
-          <Label for="edit-app-url">{{ t('projects.appUrl') }}</Label>
-          <Input id="edit-app-url" v-model="editAppUrl" placeholder="https://staging.example.com" />
-          <p class="text-xs text-muted-foreground">{{ t('projects.appUrlHint') }}</p>
-        </div>
-
-        <!-- Other environments: only already-configured environments show as
-             rows; "default" is covered by the ordinary App URL field above. -->
+        <!-- Every environment with a saved URL shows as a row, "default" included;
+             one inline add-row at a time for the rest. -->
         <div class="flex flex-col gap-2">
           <span class="text-sm font-medium">{{ t('projects.otherEnvironments') }}</span>
           <p class="text-xs text-muted-foreground">{{ t('projects.otherEnvironmentsHint') }}</p>
@@ -955,16 +911,21 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
               </tr>
             </tbody>
           </table>
-          <Button
-            v-if="!showAddEnvRow && availableEnvironmentsToAdd.length > 0"
-            type="button"
-            variant="outline"
-            size="sm"
-            class="self-start"
-            @click="startAddEnvironment"
-          >
-            <Plus class="h-4 w-4" /> {{ t('projects.addEnvironment') }}
-          </Button>
+          <div v-if="!showAddEnvRow" class="flex flex-col gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="self-start"
+              :disabled="availableEnvironmentsToAdd.length === 0"
+              @click="startAddEnvironment"
+            >
+              <Plus class="h-4 w-4" /> {{ t('projects.addEnvironment') }}
+            </Button>
+            <p v-if="availableEnvironmentsToAdd.length === 0" class="text-xs text-muted-foreground">
+              {{ t('projects.allEnvironmentsConfigured') }}
+            </p>
+          </div>
         </div>
 
         <div class="flex items-center justify-between gap-4">
@@ -1009,22 +970,24 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             </Button>
           </div>
           <p v-if="editActions.length === 0" class="text-xs text-muted-foreground italic">{{ t('predefined.empty') }}</p>
-          <div v-for="(action, idx) in editActions" :key="idx" class="flex flex-col gap-1 rounded-md border p-2">
+          <div v-for="(action, idx) in editActions" :key="idx" class="flex flex-col gap-2 rounded-md border p-2">
             <div class="flex items-center justify-between">
               <span class="text-xs text-muted-foreground">#{{ idx + 1 }}</span>
               <Button type="button" variant="ghost" size="icon" @click="removeEditActionRow(idx)">
                 <Trash2 class="h-4 w-4 text-destructive" />
               </Button>
             </div>
-            <Label :for="'edit-act-text-' + idx">{{ t('predefined.text') }}</Label>
-            <Input :id="'edit-act-text-' + idx" v-model="action.text" />
-            <Label :for="'edit-act-prompt-' + idx">{{ t('predefined.prompt') }}</Label>
-            <textarea
-              :id="'edit-act-prompt-' + idx"
-              v-model="action.prompt"
-              rows="2"
-              class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
-            />
+            <FormField :label="t('predefined.text')" :html-for="'edit-act-text-' + idx">
+              <Input :id="'edit-act-text-' + idx" v-model="action.text" />
+            </FormField>
+            <FormField :label="t('predefined.prompt')" :html-for="'edit-act-prompt-' + idx">
+              <textarea
+                :id="'edit-act-prompt-' + idx"
+                v-model="action.prompt"
+                rows="2"
+                class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+              />
+            </FormField>
           </div>
         </div>
 
@@ -1054,8 +1017,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
       </DialogHeader>
       <p class="text-sm text-muted-foreground">{{ t('exportImport.importHint') }}</p>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitImport">
-        <div class="flex flex-col gap-2">
-          <Label for="import-file">{{ t('exportImport.import') }}</Label>
+        <FormField :label="t('exportImport.import')" html-for="import-file">
           <input
             id="import-file"
             type="file"
@@ -1063,7 +1025,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
             @change="(e) => { importFile = (e.target as HTMLInputElement).files?.[0] ?? null; }"
           />
-        </div>
+        </FormField>
       </form>
       <DialogFooter>
         <Button variant="outline" @click="importDialogOpen = false">{{ t('common.cancel') }}</Button>
@@ -1081,19 +1043,17 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle>{{ t('projects.suggest') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitSuggest">
-        <div class="flex flex-col gap-2">
-          <Label for="suggest-text">{{ t('predefined.text') }}</Label>
+        <FormField :label="t('predefined.text')" html-for="suggest-text">
           <Input id="suggest-text" v-model="suggestForm.text" />
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label for="suggest-prompt">{{ t('predefined.prompt') }}</Label>
+        </FormField>
+        <FormField :label="t('predefined.prompt')" html-for="suggest-prompt">
           <textarea
             id="suggest-prompt"
             v-model="suggestForm.prompt"
             rows="3"
             class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
           />
-        </div>
+        </FormField>
       </form>
       <DialogFooter>
         <Button variant="outline" @click="suggestOpen = false">{{ t('common.cancel') }}</Button>

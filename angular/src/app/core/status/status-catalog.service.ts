@@ -81,4 +81,25 @@ export class StatusCatalogService {
     const found = this.ordered().find((s) => s.value === value);
     return found?.color ?? '#6b7280';
   }
+
+  /** The diff hue for a status value as a text class — the vocabulary labels and counts share. */
+  toneTextClass(value: number | undefined): string {
+    switch (value) {
+      case 2: return 'text-state-ready';
+      case 3: return 'text-state-completed';
+      case 4: return 'text-state-archived';
+      default: return 'text-state-open';
+    }
+  }
+
+  /** A status column's header band: the state's tint behind its hue, so the review queue reads as
+   *  four colour zones instead of one gray strip. Every pair clears 4.5:1 in both themes. */
+  toneHeaderClass(value: number | undefined): string {
+    switch (value) {
+      case 2: return 'bg-state-ready-tint text-state-ready';
+      case 3: return 'bg-state-completed-tint text-state-completed';
+      case 4: return 'bg-state-archived-tint text-state-archived';
+      default: return 'bg-state-open-tint text-state-open';
+    }
+  }
 }

@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -129,25 +127,24 @@ export function TourSpotlight() {
     <>
       {/* 1. Initial Welcome Prompt Dialog */}
       <Dialog open={promptOpen} onOpenChange={(o) => !o && dismissPrompt()}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-[16px] font-semibold">
               <Compass className="h-5 w-5 text-brand" />
               {t('tour.welcomePromptTitle')}
             </DialogTitle>
-            <DialogDescription className="pt-2 text-sm leading-relaxed text-muted-foreground">
+            <div className="pt-2 text-[14px] leading-relaxed text-muted-foreground">
               {t('tour.welcomePromptDesc')}
-            </DialogDescription>
+            </div>
           </DialogHeader>
-          <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
-            <Button variant="outline" onClick={dismissPrompt}>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={dismissPrompt}>
               {t('tour.skipTour')}
             </Button>
-            <Button onClick={startTour} className="gap-1.5">
-              <Compass className="h-4 w-4" />
+            <Button variant="default" onClick={startTour}>
               {t('tour.startTour')}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -199,14 +196,8 @@ export function TourSpotlight() {
             className="absolute z-50 w-[360px] max-w-[calc(100vw-40px)] rounded-xl border border-border bg-card p-4.5 shadow-2xl transition-all duration-200"
             style={getCardStyle()}
           >
-            {/* Header: step counter & close */}
-            <div className="flex items-center justify-between pb-2 border-b border-border/60">
-              <span className="text-[0.75rem] font-semibold uppercase tracking-wider text-brand">
-                {t('tour.stepCount', {
-                  current: currentStepIndex + 1,
-                  total: totalSteps,
-                })}
-              </span>
+            {/* Header: close button */}
+            <div className="flex items-center justify-end pb-2 border-b border-border/60">
               <button
                 type="button"
                 onClick={endTour}
@@ -228,15 +219,10 @@ export function TourSpotlight() {
             </div>
 
             {/* Actions */}
-            <div className="mt-4 flex items-center justify-between pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground hover:text-foreground"
-                onClick={endTour}
-              >
-                {t('tour.skipTour')}
-              </Button>
+            <div className="mt-4 flex items-center justify-between pt-2 gap-3">
+              <span className="font-mono text-[12px] text-muted-foreground">
+                {t('tour.stepOf', { current: currentStepIndex + 1, total: totalSteps })}
+              </span>
 
               <div className="flex items-center gap-2">
                 {currentStepIndex > 0 && (

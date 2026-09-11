@@ -20,18 +20,9 @@ import {
   type GetApiAdminAiRulesInsightsParams,
 } from '@moamen-ui/pointer-vue';
 import {
-  Folder,
   FolderOpen,
-  Users as UsersIcon,
-  MessageSquare,
-  Circle,
-  Clock,
-  CheckCircle2,
-  Archive,
   RefreshCw,
   Lock,
-  UserCheck,
-  Ban,
   Brain,
   Bot,
   Wrench,
@@ -39,12 +30,13 @@ import {
   Building2,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-vue-next';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
-import EmptyState from '@/shared/EmptyState.vue';
+import Diffstat from '@/components/shared/Diffstat.vue';
+import CountCell from '@/components/shared/CountCell.vue';
 import {
   Dialog,
   DialogContent,
@@ -63,6 +55,7 @@ import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/formatRequestedAt';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
+import { statusTone, toneHeaderClass } from '@/lib/statusTone';
 import { useStatusCatalog } from '@/composables/useStatusCatalog';
 import { useAuth } from '@/composables/useAuth';
 
@@ -73,7 +66,7 @@ const { isSuperAdmin } = useAuth();
 // Generated TanStack query hook (GET → useQuery). The package's customInstance
 // already unwraps Result<T>, so data resolves to StatsResponse.
 const { data: stats, isFetching, refetch } = useGetApiAdminStats();
-const { items: statusItems, color: statusColor, displayLabel: statusLabel, displayLabelFor: statusLabelFor } = useStatusCatalog();
+const { items: statusItems, displayLabel: statusLabel, displayLabelFor: statusLabelFor } = useStatusCatalog();
 
 // AI Insights & Rules
 const aiInsightsParams = computed<GetApiAdminAiRulesInsightsParams>(() => ({
@@ -134,7 +127,7 @@ async function approve(user: UserResponse) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminStatsQueryKey() });
   } catch (e) {
     busy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -154,7 +147,7 @@ async function reject(user: UserResponse) {
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminStatsQueryKey() });
   } catch (e) {
     busy.value = false;
-    toast(extractMessage(e));
+    toast(extractMessage(e), 'danger');
   }
 }
 
@@ -172,209 +165,226 @@ function statusCellValue(row: ProjectStats, statusValue: number | undefined): nu
   }
 }
 
-// Dynamic columns: key, name, comments, privateComments, status_1..N, status.
-// A computed so headers follow live language/catalog changes. Each per-status
-// header is tinted with that status's configured color (matching the Angular
-// reference's headerColor) via TanStack's header render hook.
-const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(() => [
-  { accessorKey: 'key', header: t('overview.key'), sortingFn: 'alphanumeric' },
-  { accessorKey: 'name', header: t('overview.name'), sortingFn: 'alphanumeric' },
-  { accessorKey: 'comments', header: t('overview.comments') },
-  { accessorKey: 'privateComments', header: t('overview.private') },
-  ...statusItems.value.map(
-    (s): ColumnDef<typeof dataTableFeatures, ProjectStats> => ({
-      id: `status_${s.value}`,
-      accessorFn: (row) => statusCellValue(row, s.value),
-      header: () => h('span', { style: { color: statusColor(s.value) } }, statusLabel(s)),
-      cell: ({ getValue }) =>
-        h('span', { class: 'font-medium', style: { color: statusColor(s.value) } }, String(getValue() ?? 0)),
-    }),
-  ),
-  { id: 'status', accessorFn: (row) => (row.isActive ? 1 : 0), header: t('overview.status') },
-]);
-
-type Tone = 'slate';
-
-const TONE: Record<Tone, { box: string; value: string }> = {
-  slate: { box: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300', value: '' },
-};
-
 // Status value constants (CommentStatus enum: Open=1, ReadyToApply=2, Applied=3, Archived=4)
 const STATUS_OPEN = 1;
 const STATUS_READY = 2;
 const STATUS_APPLIED = 3;
 const STATUS_ARCHIVED = 4;
 
-const cards = computed(() => [
-  { key: 'overview.projects', value: totals.value?.projects, icon: Folder, statusValue: undefined },
-  { key: 'overview.users', value: totals.value?.users, icon: UsersIcon, statusValue: undefined },
-  { key: 'overview.comments', value: totals.value?.comments, icon: MessageSquare, statusValue: undefined },
-  { key: 'overview.open', value: totals.value?.open, icon: Circle, statusValue: STATUS_OPEN },
-  { key: 'overview.pending', value: totals.value?.pending, icon: Clock, statusValue: STATUS_READY },
-  { key: 'overview.completed', value: totals.value?.completed, icon: CheckCircle2, statusValue: STATUS_APPLIED },
-  { key: 'overview.archived', value: totals.value?.archived, icon: Archive, statusValue: STATUS_ARCHIVED },
+// Diffstat items for top overview summary
+const diffstatItems = computed(() => [
+  { count: totals.value?.comments ?? 0, label: t('overview.comments'), severity: 'open' as const },
+  { count: totals.value?.open ?? 0, label: statusLabelFor(STATUS_OPEN), severity: 'open' as const },
+  { count: totals.value?.pending ?? 0, label: statusLabelFor(STATUS_READY), severity: 'ready' as const },
+  { count: totals.value?.completed ?? 0, label: statusLabelFor(STATUS_APPLIED), severity: 'completed' as const },
+  { count: totals.value?.archived ?? 0, label: statusLabelFor(STATUS_ARCHIVED), severity: 'archived' as const },
+  { count: totals.value?.projects ?? 0, label: t('overview.projects') },
+  { count: totals.value?.users ?? 0, label: t('overview.users') },
+]);
+
+// Dynamic columns per §4 of build brief:
+// gutter → name (with key chip) → comments → privateComments (lock icon header) → status columns → status badge → chevron
+// A computed so headers follow live language/catalog changes.
+const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(() => [
+  {
+    id: 'name',
+    accessorKey: 'name',
+    header: t('overview.name'),
+    sortingFn: 'alphanumeric',
+    cell: ({ row }) => {
+      const children = [
+        h('span', { class: 'truncate text-[14px] font-medium' }, String(row.original.name ?? '')),
+      ];
+      if (row.original.key) {
+        children.push(
+          h(
+            'code',
+            { class: 'shrink-0 whitespace-nowrap rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]' },
+            String(row.original.key),
+          ),
+        );
+      }
+      return h('div', { class: 'flex min-w-0 items-center gap-2' }, children);
+    },
+  },
+  {
+    accessorKey: 'comments',
+    header: t('overview.comments'),
+    cell: ({ getValue }) =>
+      h('span', { class: 'font-mono text-[14px]' }, String(getValue() as number)),
+  },
+  {
+    id: 'privateComments',
+    accessorKey: 'privateComments',
+    header: () => h(Lock, { class: 'h-4 w-4', title: t('overview.privateHiddenTooltip') }),
+    cell: ({ row }) => {
+      const count = row.original.privateComments ?? 0;
+      if (count > 0) {
+        return h('span', { class: 'inline-flex items-center gap-1 font-mono text-[14px]', title: t('overview.privateHiddenTooltip') }, [
+          h(Lock, { class: 'h-4 w-4' }),
+          String(count),
+        ]);
+      }
+      return h('span', { class: 'text-faint-foreground' }, '—');
+    },
+  },
+  ...statusItems.value.map(
+    (s): ColumnDef<typeof dataTableFeatures, ProjectStats> => ({
+      id: `status_${s.value}`,
+      accessorFn: (row) => statusCellValue(row, s.value),
+      meta: { headerClass: toneHeaderClass(statusTone(s.value)) },
+      header: () => statusLabel(s),
+      cell: ({ getValue }) => {
+        const severity = s.value === 1 ? 'open' : s.value === 2 ? 'ready' : s.value === 3 ? 'completed' : 'archived';
+        return h(CountCell, { count: getValue() as number, severity });
+      },
+    }),
+  ),
+  {
+    id: 'isActive',
+    accessorFn: (row) => row.isActive,
+    header: t('overview.status'),
+    cell: ({ row }) =>
+      h(Badge, { variant: row.original.isActive ? 'success' : 'destructive' }, {
+        default: () => t(row.original.isActive ? 'common.active' : 'common.disabled'),
+      }),
+  },
+  {
+    id: 'chevron',
+    header: '',
+    enableSorting: false,
+    cell: () => h(ChevronRight, { class: 'h-4 w-4 text-muted-foreground rtl:-scale-x-100' }),
+  },
 ]);
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
-    <!-- Stat cards -->
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-4">
-      <Card v-for="card in cards" :key="card.key">
-        <CardContent class="flex items-center gap-3.5 p-4">
-          <div
-            :class="cn('flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl', TONE['slate'].box)"
-            :style="card.statusValue != null ? { backgroundColor: statusColor(card.statusValue) + '22', color: statusColor(card.statusValue) } : {}"
-          >
-            <component :is="card.icon" class="h-6 w-6" />
-          </div>
-          <div class="flex flex-col">
-            <div
-              class="text-[1.7rem] font-bold leading-tight"
-              :style="card.statusValue != null ? { color: statusColor(card.statusValue) } : {}"
-            >
-              {{ card.value ?? 0 }}
-            </div>
-            <div class="mt-0.5 text-[0.72rem] uppercase tracking-wide text-muted-foreground">
-              {{ card.statusValue != null ? statusLabelFor(card.statusValue) : t(card.key) }}
-            </div>
-            <div
-              v-if="card.key === 'overview.comments' && (totals?.privateComments ?? 0) > 0"
-              class="mt-1 inline-flex items-center gap-1 text-[0.7rem] text-muted-foreground"
-            >
-              {{ t('overview.privateHidden', { count: totals?.privateComments ?? 0 }) }}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  <div class="space-y-8">
+    <!-- Title row -->
+    <div class="flex items-center justify-between gap-4 mb-4">
+      <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ t('nav.overview') }}</h1>
+      <Button variant="secondary" size="sm" :disabled="isFetching" @click="() => { void refetch(); void refetchAiInsights(); }">
+        <RefreshCw :class="cn('h-4 w-4', isFetching && 'animate-spin')" />
+        {{ t('common.refresh') }}
+      </Button>
     </div>
 
-    <!-- Pending approvals -->
-    <Card class="p-6">
-      <h3 class="flex items-center gap-2 text-base font-semibold">
-        <Clock class="h-5 w-5 text-amber-500" />
-        {{ t('overview.pendingApprovals') }}
-        <span
-          class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500/15 px-1.5 text-xs font-bold text-amber-600 dark:text-amber-400"
-        >
-          {{ pendingUsers.length }}
-        </span>
-      </h3>
+    <!-- Diffstat line -->
+    <Diffstat :items="diffstatItems" :privateComments="totals?.privateComments ?? 0" />
 
-      <EmptyState
-        v-if="pendingUsers.length === 0 && !pendingQuery.isLoading.value"
-        :icon="UserCheck"
-        :message="t('overview.noPending')"
-      />
+    <!-- Pending approvals - only when there are pending users -->
+    <div v-if="pendingUsers.length > 0">
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-[16px] font-semibold leading-6">{{ t('overview.pendingApprovals') }}</h2>
+        <Badge variant="warning">{{ pendingUsers.length }}</Badge>
+      </div>
 
-      <div v-else class="mt-2 flex flex-col">
+      <div class="rounded-md border border-border overflow-hidden">
         <div
           v-for="u in pendingUsers"
           :key="u.id"
-          class="flex flex-wrap items-center justify-between gap-4 border-t border-border py-3"
+          class="min-h-11 px-3 py-2 flex items-center gap-4 border-t border-border-muted first:border-t-0 justify-between"
         >
-          <div>
-            <div class="font-semibold">{{ u.displayName }}</div>
-            <div class="mt-0.5 flex flex-wrap items-center gap-2.5 text-sm text-muted-foreground">
+          <div class="flex flex-col min-w-0 flex-1">
+            <div class="text-[14px] font-medium text-foreground">{{ u.displayName }}</div>
+            <div class="flex items-center gap-2.5 mt-1 text-[13px] text-muted-foreground flex-wrap">
               <span>{{ u.email }}</span>
-              <span class="chip chip-neutral">{{ u.roleName }}</span>
-              <span v-if="requestedAt(u)" class="text-xs">
+              <Badge variant="neutral" class="text-[12px]">{{ u.roleName }}</Badge>
+              <span v-if="requestedAt(u)" class="text-[12px]">
                 {{ t('overview.requested') }}: {{ formatRequestedAt(requestedAt(u)) }}
               </span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-shrink-0">
             <Button size="sm" :disabled="busy" @click="openApprove(u)">
-              <UserCheck class="h-4 w-4" /> {{ t('overview.approve') }}
+              {{ t('overview.approve') }}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              class="text-destructive hover:text-destructive"
-              :disabled="busy"
-              @click="reject(u)"
-            >
-              <Ban class="h-4 w-4" /> {{ t('overview.reject') }}
+            <Button variant="secondary" size="sm" :disabled="busy" @click="reject(u)">
+              {{ t('overview.reject') }}
             </Button>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
+
+    <!-- Projects section -->
+    <div>
+      <h2 class="text-[16px] font-semibold leading-6 mb-3">{{ t('overview.projects') }}</h2>
+
+      <DataTable
+        :data="projects"
+        :columns="columns"
+        gutter
+        paginated
+        :loading="isFetching"
+        :empty-icon="FolderOpen"
+        :empty-message="t('overview.emptyProjects')"
+        :empty-hint="t('overview.emptyProjectsHint')"
+      />
+    </div>
 
     <!-- AI Coding Tools & Rules Insights -->
-    <Card v-if="aiInsights" class="p-6">
-      <div class="flex flex-col gap-1">
-        <h3 class="flex items-center gap-2 text-base font-semibold">
-          <Brain class="h-5 w-5 text-primary" />
-          {{ t('aiRules.insightsTitle') }}
-        </h3>
-        <p class="text-xs text-muted-foreground">{{ t('aiRules.insightsSubtitle') }}</p>
+    <div v-if="aiInsights">
+      <div class="flex flex-col gap-1 mb-3">
+        <h2 class="text-[16px] font-semibold leading-6">{{ t('aiRules.insightsTitle') }}</h2>
+        <p class="text-[14px] text-muted-foreground">{{ t('aiRules.insightsSubtitle') }}</p>
       </div>
 
-      <!-- Rules Counts -->
-      <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div class="flex flex-col rounded-lg border border-border p-3">
-          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.totalRules') }}</span>
-          <span class="mt-1 text-2xl font-bold">{{ aiInsights.totalRulesCount ?? 0 }}</span>
-        </div>
-        <div class="flex flex-col rounded-lg border border-border p-3">
-          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.tenantRules') }}</span>
-          <span class="mt-1 text-2xl font-bold text-primary">{{ aiInsights.tenantRulesCount ?? 0 }}</span>
-        </div>
-        <div class="flex flex-col rounded-lg border border-border p-3">
-          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.projectRules') }}</span>
-          <span class="mt-1 text-2xl font-bold">{{ aiInsights.projectRulesCount ?? 0 }}</span>
-        </div>
-        <div class="flex flex-col rounded-lg border border-border p-3">
-          <span class="text-xs uppercase tracking-wider text-muted-foreground">{{ t('aiRules.userRules') }}</span>
-          <span class="mt-1 text-2xl font-bold text-amber-500">{{ aiInsights.userPersonalRulesCount ?? 0 }}</span>
-        </div>
-      </div>
+      <!-- Rules Counts as diffstat line -->
+      <Diffstat
+        :items="[
+          { count: aiInsights.totalRulesCount ?? 0, label: t('aiRules.totalRules') },
+          { count: aiInsights.tenantRulesCount ?? 0, label: t('aiRules.tenantRules'), severity: 'open' },
+          { count: aiInsights.projectRulesCount ?? 0, label: t('aiRules.projectRules') },
+          { count: aiInsights.userPersonalRulesCount ?? 0, label: t('aiRules.userRules'), severity: 'ready' },
+        ]"
+        class="mb-6"
+      />
 
       <!-- Active Tools and Developer Adoption (and Workspaces for Super Admin) -->
       <div
-        :class="cn('mt-4 grid grid-cols-1 gap-4', isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2')"
+        :class="cn('grid grid-cols-1 gap-4', isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2')"
       >
         <!-- Workspace adoption for Super Admin -->
         <div
           v-if="isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0"
-          class="rounded-lg border border-border p-4"
+          class="rounded-md border border-border overflow-hidden"
         >
-          <div class="mb-3 flex items-center gap-2 text-sm font-semibold">
+          <div class="bg-gutter min-h-11 px-3 py-2 flex items-center gap-2 text-[14px] font-medium text-foreground border-b border-border-muted">
             <Building2 class="h-4 w-4 text-muted-foreground" />
             <span>{{ t('aiRules.tenantSummaries') }}</span>
           </div>
-          <div class="flex flex-col gap-2">
+          <div class="flex flex-col">
             <div
               v-for="tenant in aiInsights.tenantSummaries ?? []"
               :key="tenant.tenantId ?? tenant.tenantName ?? ''"
-              class="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+              class="min-h-11 px-3 py-2 flex items-center justify-between border-t border-border-muted first:border-t-0 text-[13px]"
             >
-              <span class="font-medium">{{ tenant.tenantName }}</span>
+              <span class="font-medium text-foreground">{{ tenant.tenantName }}</span>
               <div class="flex items-center gap-2 text-muted-foreground">
                 <span>{{ tenant.projectsCount ?? 0 }} {{ t('overview.projects') }}</span>
-                <span class="font-semibold text-foreground">{{ tenant.rulesCount ?? 0 }} {{ t('aiRules.section') }}</span>
+                <span class="font-medium text-foreground">{{ tenant.rulesCount ?? 0 }} {{ t('aiRules.section') }}</span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Registered AI Tools -->
-        <div class="rounded-lg border border-border p-4">
-          <div class="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <div class="rounded-md border border-border overflow-hidden">
+          <div class="bg-gutter min-h-11 px-3 py-2 flex items-center gap-2 text-[14px] font-medium text-foreground border-b border-border-muted">
             <Bot class="h-4 w-4 text-muted-foreground" />
             <span>{{ t('aiRules.activeTools') }}</span>
           </div>
-          <p v-if="(aiInsights.toolUsage ?? []).length === 0" class="text-xs text-muted-foreground">
+          <div v-if="(aiInsights.toolUsage ?? []).length === 0" class="min-h-11 px-3 py-2 text-[13px] text-muted-foreground">
             {{ t('aiRules.noToolsYet') }}
-          </p>
-          <div v-else class="flex flex-col gap-2">
+          </div>
+          <div v-else class="flex flex-col">
             <div
               v-for="tool in aiInsights.toolUsage ?? []"
               :key="tool.toolName ?? ''"
-              class="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+              class="min-h-11 px-3 py-2 flex items-center justify-between border-t border-border-muted first:border-t-0 text-[13px]"
             >
-              <span class="font-mono font-medium">{{ tool.toolName }}</span>
+              <span class="font-mono font-medium text-foreground">{{ tool.toolName }}</span>
               <div class="flex items-center gap-2 text-muted-foreground">
                 <span>{{ tool.projectCount ?? 0 }} {{ t('overview.projects') }}</span>
               </div>
@@ -383,35 +393,35 @@ const cards = computed(() => [
         </div>
 
         <!-- Developer adoption -->
-        <div class="rounded-lg border border-border p-4">
-          <div class="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <div class="rounded-md border border-border overflow-hidden">
+          <div class="bg-gutter min-h-11 px-3 py-2 flex items-center gap-2 text-[14px] font-medium text-foreground border-b border-border-muted">
             <Wrench class="h-4 w-4 text-muted-foreground" />
             <span>{{ t('aiRules.userSummaries') }}</span>
           </div>
-          <p v-if="(aiInsights.userRuleSummaries ?? []).length === 0" class="text-xs text-muted-foreground">
+          <div v-if="(aiInsights.userRuleSummaries ?? []).length === 0" class="min-h-11 px-3 py-2 text-[13px] text-muted-foreground">
             {{ t('aiRules.noPersonalRules') }}
-          </p>
-          <div v-else class="flex flex-col gap-2">
+          </div>
+          <div v-else class="flex flex-col">
             <div
               v-for="user in aiInsights.userRuleSummaries ?? []"
               :key="user.userId ?? user.userName ?? ''"
-              class="flex items-center justify-between border-b border-border py-1 text-xs last:border-0"
+              class="min-h-11 px-3 py-2 flex items-center justify-between border-t border-border-muted first:border-t-0 text-[13px]"
             >
-              <span class="font-medium">{{ user.userName }}</span>
-              <span class="font-semibold text-foreground">{{ user.rulesCount ?? 0 }} {{ t('aiRules.section') }}</span>
+              <span class="font-medium text-foreground">{{ user.userName }}</span>
+              <span class="font-medium text-foreground">{{ user.rulesCount ?? 0 }} {{ t('aiRules.section') }}</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Super Admin Detailed Rules Inspection -->
-      <div v-if="isSuperAdmin" class="mt-5 border-t border-border pt-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-xs text-muted-foreground">
-            <Shield class="h-4 w-4 text-primary" />
+      <div v-if="isSuperAdmin" class="mt-8 border-t border-border pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-[12px] text-muted-foreground">
+            <Shield class="h-4 w-4 text-foreground" />
             <span class="font-medium">{{ t('aiRules.detailedRulesTitle') }}</span>
           </div>
-          <Button variant="outline" size="sm" @click="showDetailedRules = !showDetailedRules">
+          <Button variant="secondary" size="sm" @click="showDetailedRules = !showDetailedRules">
             <component :is="showDetailedRules ? ChevronUp : ChevronDown" class="h-4 w-4" />
             {{ t(showDetailedRules ? 'aiRules.hideDetails' : 'aiRules.inspectDetails') }}
           </Button>
@@ -432,7 +442,7 @@ const cards = computed(() => [
               <Badge v-else variant="default">{{ t('aiRules.inheritedBadge') }}</Badge>
             </template>
             <template #cell-prompt="{ row }">
-              <span class="line-clamp-2 text-xs font-mono text-muted-foreground" :title="row.prompt ?? undefined">{{ row.prompt }}</span>
+              <span class="line-clamp-2 text-[13px] font-mono text-muted-foreground" :title="row.prompt ?? undefined">{{ row.prompt }}</span>
             </template>
             <template #cell-status="{ row }">
               <Badge :variant="row.isActive ? 'success' : 'destructive'">
@@ -442,47 +452,6 @@ const cards = computed(() => [
           </DataTable>
         </div>
       </div>
-    </Card>
-
-    <!-- Projects breakdown -->
-    <div>
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-semibold">{{ t('overview.breakdown') }}</h2>
-        <Button variant="outline" size="sm" :disabled="isFetching" @click="() => { void refetch(); void refetchAiInsights(); }">
-          <RefreshCw :class="cn('h-4 w-4', isFetching && 'animate-spin')" />
-          {{ t('common.refresh') }}
-        </Button>
-      </div>
-
-      <DataTable
-        :data="projects"
-        :columns="columns"
-        paginated
-        :loading="isFetching"
-        :empty-icon="FolderOpen"
-        :empty-message="t('overview.emptyProjects')"
-        :empty-hint="t('overview.emptyProjectsHint')"
-      >
-        <template #cell-key="{ row }">
-          <code class="rounded bg-muted px-1.5 py-0.5 text-xs">{{ row.key }}</code>
-        </template>
-        <template #cell-privateComments="{ row }">
-          <span
-            v-if="(row.privateComments ?? 0) > 0"
-            class="chip chip-private"
-            :title="t('overview.privateHiddenTooltip')"
-          >
-            <Lock class="h-3 w-3" />
-            {{ row.privateComments }}
-          </span>
-          <span v-else class="text-muted-foreground">—</span>
-        </template>
-        <template #cell-status="{ row }">
-          <Badge :variant="row.isActive ? 'success' : 'destructive'">
-            {{ t(row.isActive ? 'common.active' : 'common.disabled') }}
-          </Badge>
-        </template>
-      </DataTable>
     </div>
   </div>
 

@@ -197,74 +197,73 @@ export function DemoPanel() {
   }
 
   return (
-    <div className="border-b border-border bg-brand-tint px-4 py-3">
-      <div className="mx-auto max-w-5xl">
+    <div className="border-b border-border bg-gutter px-6 py-3">
+      <div className="mx-auto w-full max-w-[1120px]">
         {/* Header row: banner badge + project key + countdown + keep + dismiss */}
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-brand">
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <span className="text-[13px] font-medium text-muted-foreground">
             {t('demo.banner')}
           </span>
-          <span className="rounded bg-brand px-1.5 py-0.5 text-xs font-mono text-white">
+          <span className="font-mono text-[13px] rounded bg-brand text-brand-foreground px-2 py-0.5">
             {projectKey}
           </span>
           {expiresAt && (
             <span
-              className={`ms-auto text-xs font-mono ${isExpiringSoon ? 'text-destructive' : 'text-muted-foreground'}`}
+              className={`font-mono text-[13px] ${isExpiringSoon ? 'text-state-danger' : 'text-muted-foreground'}`}
             >
               {t('demo.expires')} {countdown}
             </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 shrink-0 text-xs"
-            onClick={openUpgradeDialog}
-          >
-            {t('demo.keepWorkspace')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 shrink-0"
-            onClick={dismiss}
-            aria-label={t('demo.dismiss')}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="ms-auto flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={openUpgradeDialog}
+            >
+              {t('demo.keepWorkspace')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={dismiss}
+              aria-label={t('demo.dismiss')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Widget login credentials */}
-        <div className="mb-3 grid gap-3 md:grid-cols-2">
-          <div>
-            <div className="text-[0.75rem] font-semibold uppercase text-muted-foreground">
-              {t('demo.widgetLogin')}
-            </div>
-            <div className="mt-1 text-xs">
-              <span className="font-medium">{email}</span>
-              {password ? (
-                <>
-                  <span className="text-muted-foreground"> · </span>
-                  <code className="rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
-                </>
-              ) : (
-                <span className="ms-1 text-muted-foreground italic">{t('demo.credsEmailed')}</span>
-              )}
-            </div>
+        <div className="text-[13px]">
+          <div className="font-medium text-muted-foreground">
+            {t('demo.widgetLogin')}
+          </div>
+          <div className="mt-1">
+            <span className="font-medium text-foreground">{email}</span>
+            {password ? (
+              <>
+                <span className="text-muted-foreground"> · </span>
+                <code className="font-mono text-[13px] rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
+              </>
+            ) : (
+              <span className="ms-1 text-muted-foreground italic">{t('demo.credsEmailed')}</span>
+            )}
           </div>
         </div>
 
         {/* The steps themselves live in the shared install guide (also on the
             header icon), so demo and permanent accounts read the same thing. */}
-        <div className="mb-3">
-          <Button variant="outline" size="sm" onClick={installGuide.open}>
-            <Rocket className="h-3.5 w-3.5" />
+        <div className="mt-3">
+          <Button variant="secondary" size="sm" onClick={installGuide.open}>
+            <Rocket className="h-4 w-4" />
             {t('install.open')}
           </Button>
         </div>
 
         {/* Server URL reference */}
         {serverUrl && (
-          <div className="mt-2 text-[0.7rem] text-muted-foreground">
+          <div className="mt-2 text-[12px] text-muted-foreground">
             {serverUrl}
           </div>
         )}

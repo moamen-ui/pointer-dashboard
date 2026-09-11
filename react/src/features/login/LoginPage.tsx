@@ -2,16 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  useGetApiAuthSignupEnabled,
   usePostApiDemo,
   getApiAuthMe,
   type DemoSessionResponse,
 } from '@moamen-ui/pointer-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/shared/FormField';
 import { emailError, requiredError } from '@/lib/validators';
 import { useAuth } from '@/lib/auth';
@@ -19,6 +16,7 @@ import { setAuthHeader } from '@/lib/api';
 import { removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
 import { useToast } from '@/components/ui/toast';
+import { AuthLayout } from '@/components/AuthLayout';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
@@ -29,8 +27,6 @@ export function LoginPage() {
   const { toast } = useToast();
   const locationState = location.state as { message?: string } | null;
   const { login, isAuthenticated, isAdmin } = useAuth();
-  const { data: signupData } = useGetApiAuthSignupEnabled();
-  const signupEnabled = signupData?.enabled === true;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -146,94 +142,110 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="w-[380px] max-w-[92vw]">
-        <CardContent className="flex flex-col gap-5 p-6">
-          <h1 className="text-center text-xl font-bold">{t('login.title')}</h1>
-          {locationState?.message && (
-            <p className="text-center text-sm text-green-600">{locationState.message}</p>
-          )}
-          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-            <FormField
-              label={t('login.email')}
-              htmlFor="email"
-              error={emailTouched || submitted ? emailErrorMsg : undefined}
-            >
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setEmailTouched(true)}
-              />
-            </FormField>
-            <FormField
-              label={t('login.password')}
-              htmlFor="password"
-              error={passwordTouched || submitted ? passwordErrorMsg : undefined}
-            >
-              <PasswordInput
-                id="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onBlur={() => setPasswordTouched(true)}
-              />
-            </FormField>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="mt-1" disabled={loading || formInvalid}>
-              {t('login.signIn')}
-            </Button>
-            {signupEnabled && (
-              <Link
-                to="/signup"
-                className="text-center text-sm text-muted-foreground hover:underline"
-              >
-                {t('login.createAccount')}
-              </Link>
-            )}
-            <Link
-              to="/forgot"
-              className="text-center text-sm text-muted-foreground hover:underline"
-            >
-              {t('login.forgot')}
-            </Link>
-          </form>
+    <AuthLayout>
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        {locationState?.message && (
+          <p className="text-[14px] text-state-completed">{locationState.message}</p>
+        )}
 
-          <div className="relative flex items-center gap-2">
-            <div className="flex-1 border-t border-border" />
-            <span className="text-xs text-muted-foreground">{t('login.or')}</span>
-            <div className="flex-1 border-t border-border" />
-          </div>
+        <FormField
+          label={t('login.email')}
+          htmlFor="email"
+          error={emailTouched || submitted ? emailErrorMsg : undefined}
+        >
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setEmailTouched(true)}
+          />
+        </FormField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="demo-email">{t('login.demoEmailLabel')}</Label>
-            <Input
-              id="demo-email"
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              value={demoEmail}
-              onChange={(e) => {
-                setDemoEmail(e.target.value);
-                setDemoEmailError(null);
-              }}
-            />
-            {demoEmailError && (
-              <p className="text-sm text-destructive">{t('login.demoEmailLabel')} is required.</p>
-            )}
-          </div>
-          {demoError && <p className="text-sm text-destructive">{demoError}</p>}
-          <Button
-            variant="outline"
-            onClick={onTryDemo}
-            disabled={demoMut.isPending}
-          >
-            {demoMut.isPending ? t('login.demoLoading') : t('login.tryDemo')}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+        <FormField
+          label={t('login.password')}
+          htmlFor="password"
+          error={passwordTouched || submitted ? passwordErrorMsg : undefined}
+        >
+          <PasswordInput
+            id="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onBlur={() => setPasswordTouched(true)}
+          />
+        </FormField>
+
+        {error && <p className="text-[14px] text-state-danger">{error}</p>}
+
+        {/* Primary Sign in button, full width */}
+        <Button
+          type="submit"
+          variant="default"
+          disabled={loading || formInvalid}
+          className="w-full"
+        >
+          {t('login.signIn')}
+        </Button>
+
+        {/* Forgot password link — centered, 13px muted */}
+        <Link
+          to="/forgot"
+          className="text-center text-[13px] text-muted-foreground hover:text-foreground"
+        >
+          {t('login.forgot')}
+        </Link>
+      </form>
+
+      {/* Hairline divider with "or" */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 border-t border-border" />
+        <span className="text-[12px] text-muted-foreground">{t('login.or')}</span>
+        <div className="flex-1 border-t border-border" />
+      </div>
+
+      {/* Demo email input */}
+      <FormField
+        label={t('login.demoEmailLabel')}
+        htmlFor="demo-email"
+        error={demoEmailError || undefined}
+      >
+        <Input
+          id="demo-email"
+          type="email"
+          placeholder="you@example.com"
+          autoComplete="email"
+          value={demoEmail}
+          onChange={(e) => {
+            setDemoEmail(e.target.value);
+            setDemoEmailError(null);
+          }}
+        />
+      </FormField>
+
+      {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
+
+      {/* Secondary "Try the demo" button */}
+      <Button
+        variant="secondary"
+        onClick={onTryDemo}
+        disabled={demoMut.isPending}
+        className="w-full"
+      >
+        {demoMut.isPending ? t('login.demoLoading') : t('login.tryDemo')}
+      </Button>
+
+      {/* Hairline divider */}
+      <div className="border-t border-border" />
+
+      {/* "Need an account? Request access" line — 13px muted + brand link */}
+      <div className="text-center text-[13px]">
+        <span className="text-muted-foreground">{t('login.signupPrompt')} </span>
+        <Link to="/signup" className="text-brand hover:underline">
+          {t('login.signupLink')}
+        </Link>
+      </div>
+    </AuthLayout>
   );
 }
