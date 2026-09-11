@@ -645,13 +645,13 @@ export class OverviewComponent {
 
   detailedRulesColumns(): DataTableColumn<AiRuleResponse>[] {
     return [
-      { key: 'tenantName', header: 'aiRules.workspace', sortable: true },
-      { key: 'projectName', header: 'overview.projects', sortable: true },
-      { key: 'scope', header: 'aiRules.ruleScope', sortable: false },
-      { key: 'userName', header: 'aiRules.author', sortable: true },
-      { key: 'title', header: 'aiRules.titleLabel', sortable: true },
-      { key: 'prompt', header: 'aiRules.instruction', sortable: false },
-      { key: 'status', header: 'overview.status', sortable: true },
+      { key: 'tenantName', header: this.transloco.translate('aiRules.workspace'), sortable: true },
+      { key: 'projectName', header: this.transloco.translate('overview.projects'), sortable: true },
+      { key: 'scope', header: this.transloco.translate('aiRules.ruleScope'), sortable: false },
+      { key: 'userName', header: this.transloco.translate('aiRules.author'), sortable: true },
+      { key: 'title', header: this.transloco.translate('aiRules.titleLabel'), sortable: true },
+      { key: 'prompt', header: this.transloco.translate('aiRules.instruction'), sortable: false },
+      { key: 'status', header: this.transloco.translate('overview.status'), sortable: true },
     ];
   }
 
