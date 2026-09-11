@@ -733,7 +733,9 @@
     "sent": "أُرسل الاقتراح لمراجعة المشرف"
   },
   "table": {
+    "clearSearch": "مسح البحث",
     "nextPage": "الصفحة التالية",
+    "noResultsFor": "لا توجد نتائج لـ \"{{query}}\"",
     "pageOf": "صفحة {{page}} من {{pages}}",
     "previousPage": "الصفحة السابقة",
     "rowsOf": "{{shown}} من {{total}} صفًا"

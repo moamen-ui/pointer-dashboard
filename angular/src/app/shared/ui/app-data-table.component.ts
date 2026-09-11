@@ -59,45 +59,99 @@ export interface SortState {
         </div>
       }
 
-      <!-- Table -->
-      @if (displayedRows().length > 0) {
-        <table class="w-full border-collapse">
-          <!-- Header -->
-          <thead>
-            <tr class="h-10 bg-gutter text-[13px] font-medium text-muted-foreground border-b border-border">
-              <!-- Gutter column -->
-              @if (gutter()) {
-                <th class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3"></th>
-              }
-              <!-- Data columns -->
-              @for (column of columns(); track column.key) {
-                <th
-                  class="px-3 text-start h-10 cursor-pointer hover:bg-gutter-strong transition-colors"
-                  [style.width]="column.width"
-                  (click)="column.sortable && toggleSort(column.key)"
-                  [attr.aria-sort]="column.sortable ? ariaSort(column.key) : null"
-                  [dir]="dir"
-                >
-                  <div class="flex items-center gap-1.5">
-                    {{ column.header }}
-                    @if (column.sortable) {
-                      <app-icon
-                        [name]="sortGlyph(column.key)"
-                        [size]="14"
-                        [class.opacity-40]="sortState()?.key !== column.key"
-                      ></app-icon>
+      <!-- Table: the header always renders, even when there's nothing (or nothing matching
+           a search) to show below it — a table missing its own column headers just because
+           it's empty is a different, worse-looking component than the populated one. -->
+      <table class="w-full border-collapse">
+        <!-- Header -->
+        <thead>
+          <tr class="h-10 bg-gutter text-[13px] font-medium text-muted-foreground border-b border-border">
+            <!-- Gutter column -->
+            @if (gutter()) {
+              <th class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3"></th>
+            }
+            <!-- Data columns -->
+            @for (column of columns(); track column.key) {
+              <th
+                class="px-3 text-start h-10 cursor-pointer hover:bg-gutter-strong transition-colors"
+                [style.width]="column.width"
+                (click)="column.sortable && toggleSort(column.key)"
+                [attr.aria-sort]="column.sortable ? ariaSort(column.key) : null"
+                [dir]="dir"
+              >
+                <div class="flex items-center gap-1.5">
+                  {{ column.header }}
+                  @if (column.sortable) {
+                    <app-icon
+                      [name]="sortGlyph(column.key)"
+                      [size]="14"
+                      [class.opacity-40]="sortState()?.key !== column.key"
+                    ></app-icon>
+                  }
+                </div>
+              </th>
+            }
+            <!-- Actions column -->
+            @if (actions()) {
+              <th class="px-3 text-start h-10">{{ actionsHeader() }}</th>
+            }
+          </tr>
+        </thead>
+        <!-- Body -->
+        <tbody>
+          @if (rows().length === 0) {
+            <!-- True empty (nothing in the dataset at all): three ghost rows with dashed
+                 hairlines, the message + optional hint in the first row's first data cell,
+                 the projected action at that row's end. -->
+            @for (idx of [0, 1, 2]; track idx) {
+              <tr class="h-11 border-t border-dashed border-border-muted">
+                @if (gutter()) {
+                  <td class="w-10 px-3 py-1.5"></td>
+                }
+                @for (column of columns(); track column.key; let colIdx = $index) {
+                  <td class="px-3 py-1.5" [style.width]="column.width">
+                    @if (idx === 0 && colIdx === 0 && emptyMessage()) {
+                      <div class="flex flex-col gap-1">
+                        <span class="text-[14px] text-muted-foreground">{{ emptyMessage() }}</span>
+                        @if (emptyHint()) {
+                          <span class="text-[12px] text-muted-foreground">{{ emptyHint() }}</span>
+                        }
+                      </div>
                     }
-                  </div>
-                </th>
-              }
-              <!-- Actions column -->
-              @if (actions()) {
-                <th class="px-3 text-start h-10">{{ actionsHeader() }}</th>
-              }
+                  </td>
+                }
+                @if (actions()) {
+                  <td class="px-3 py-1.5">
+                    @if (idx === 0) {
+                      <div class="flex justify-end">
+                        <ng-content select="[emptyAction]" />
+                      </div>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          } @else if (filteredRows().length === 0) {
+            <!-- No search match: rows exist, the filter just found none of them — a single
+                 row at normal height, start-aligned, distinct from the ghost rows above
+                 (that means "nothing here yet"; this means "try a different search"). -->
+            <tr class="h-11 border-t border-border-muted">
+              <td class="px-3 py-1.5" [attr.colspan]="totalColumnCount()">
+                <div class="flex items-center gap-2 text-[14px] text-muted-foreground">
+                  <span>{{ 'table.noResultsFor' | transloco: { query: searchTerm() } }}</span>
+                  <span class="text-faint-foreground" aria-hidden="true">·</span>
+                  <button
+                    appButton
+                    variant="link"
+                    class="h-auto! px-0! text-[14px]"
+                    (click)="clearSearch()"
+                  >
+                    {{ 'table.clearSearch' | transloco }}
+                  </button>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <!-- Body -->
-          <tbody>
+          } @else {
             @for (row of displayedRows(); track trackBy($index, row); let idx = $index) {
               <tr class="h-11 border-t border-border-muted hover:bg-gutter/60 transition-colors">
                 <!-- Gutter column -->
@@ -127,22 +181,9 @@ export interface SortState {
                 }
               </tr>
             }
-          </tbody>
-        </table>
-      } @else {
-        <!-- Empty state -->
-        <div class="px-3 py-12">
-          @if (emptyMessage()) {
-            <div class="text-center text-muted-foreground">
-              <p class="text-[14px]">{{ emptyMessage() }}</p>
-              @if (emptyHint()) {
-                <p class="text-[13px] text-faint-foreground mt-1">{{ emptyHint() }}</p>
-              }
-              <ng-content select="[emptyAction]" />
-            </div>
           }
-        </div>
-      }
+        </tbody>
+      </table>
 
       <!-- Pagination -->
       @if (paginated() && pageCount() > 1) {
@@ -244,8 +285,18 @@ export class AppDataTableComponent<T> {
     return this.sortedRows().slice(start, start + this.pageSize());
   });
 
+  /** Column count for the no-search-match row's colspan: gutter + data columns + actions. */
+  readonly totalColumnCount = computed(
+    () => (this.gutter() ? 1 : 0) + this.columns().length + (this.actions() ? 1 : 0),
+  );
+
   onSearch(event: Event): void {
     this.searchTerm.set((event.target as HTMLInputElement).value);
+    this.currentPage.set(0);
+  }
+
+  clearSearch(): void {
+    this.searchTerm.set('');
     this.currentPage.set(0);
   }
 

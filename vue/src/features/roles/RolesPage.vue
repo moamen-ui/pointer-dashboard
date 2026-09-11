@@ -322,9 +322,11 @@ async function deleteRole() {
         </span>
       </template>
       <!-- Empty-state CTA (only rendered while the table is empty) -->
-      <Button @click="openAdd">
-        <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
-      </Button>
+      <template #empty-action>
+        <Button @click="openAdd">
+          <Plus class="h-4 w-4" /> {{ t('roles.addRole') }}
+        </Button>
+      </template>
     </DataTable>
   </div>
 

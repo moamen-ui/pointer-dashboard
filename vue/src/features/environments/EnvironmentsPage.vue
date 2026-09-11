@@ -179,9 +179,11 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
         </Badge>
       </template>
       <!-- Empty-state CTA (only rendered while the table is empty) -->
-      <Button @click="openAdd">
-        <Plus class="h-4 w-4" /> {{ t('environments.addEnvironment') }}
-      </Button>
+      <template #empty-action>
+        <Button @click="openAdd">
+          <Plus class="h-4 w-4" /> {{ t('environments.addEnvironment') }}
+        </Button>
+      </template>
     </DataTable>
   </div>
 

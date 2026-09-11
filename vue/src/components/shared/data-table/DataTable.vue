@@ -51,14 +51,13 @@ interface Props<TData extends RowData> {
   paginated?: boolean;
   /** When true, adds a gutter column (w-10, 1-based row numbers, mono, muted). */
   gutter?: boolean;
-  /** lucide icon for the empty state. */
+  /** Declared for callers migrating from an icon-based empty state; never rendered —
+   *  DESIGN.md bans icon-in-circle empty states, so the ghost-row grammar stays text only. */
   emptyIcon?: Component;
   emptyMessage?: string;
   emptyHint?: string;
   /** While true the empty state is suppressed (initial load in flight). */
   loading?: boolean;
-  /** Optional action (e.g. an "Add" button) rendered in the empty state. */
-  emptyAction?: any;
   /** Header label over the trailing actions column (blank when omitted). */
   actionsHeader?: string;
 }
@@ -222,14 +221,17 @@ function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
                 v-for="col in columns"
                 :key="col.id"
               >
-                <!-- Empty message in first row, first data column (not gutter/actions) -->
+                <!-- Empty message (+ optional hint) in first row, first data column (not gutter/actions) -->
                 <template v-if="idx === 0 && col.id !== '__gutter__' && col.id !== '__actions__' && emptyMessage">
-                  <span class="text-[14px] text-muted-foreground">{{ emptyMessage }}</span>
+                  <div class="flex flex-col gap-1">
+                    <span class="text-[14px] text-muted-foreground">{{ emptyMessage }}</span>
+                    <span v-if="emptyHint" class="text-[12px] text-muted-foreground">{{ emptyHint }}</span>
+                  </div>
                 </template>
                 <!-- Empty action button at the end of the first row -->
-                <template v-if="idx === 0 && col.id === '__actions__' && emptyAction">
+                <template v-if="idx === 0 && col.id === '__actions__'">
                   <div class="flex justify-end">
-                    <component :is="emptyAction" />
+                    <slot name="empty-action" />
                   </div>
                 </template>
               </TableCell>
@@ -299,13 +301,24 @@ function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
                 </TableCell>
               </TableRow>
             </template>
-            <!-- No matching rows after filter -->
-            <TableRow v-else>
-              <TableCell
-                :colspan="columns.length"
-                class="p-4 text-center text-muted-foreground"
-              >
-                {{ t('common.noResults') }}
+            <!-- No search match: rows exist, the filter just found none of them — a single
+                 row at normal height, start-aligned, distinct from the three-ghost-row
+                 true-empty state above (that means "nothing here yet"; this means "try a
+                 different search"). -->
+            <TableRow v-else class="h-11">
+              <TableCell :colspan="columns.length" class="px-3">
+                <div class="flex items-center gap-2 text-[14px] text-muted-foreground">
+                  <span>{{ t('table.noResultsFor', { query: globalFilter }) }}</span>
+                  <span class="text-faint-foreground" aria-hidden="true">·</span>
+                  <Button
+                    type="button"
+                    variant="link"
+                    class="h-auto p-0 text-[14px]"
+                    @click="globalFilter = ''"
+                  >
+                    {{ t('table.clearSearch') }}
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           </TableBody>
@@ -317,7 +330,7 @@ function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
           class="h-11 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground"
         >
           <span>
-            {{ t('table.rowsOf', { shown: rows.length, total: data.length }) }}
+            {{ t('table.rowsOf', { shown: rows.length, total: table.getFilteredRowModel().rows.length }) }}
           </span>
           <div class="flex items-center gap-2">
             <Button

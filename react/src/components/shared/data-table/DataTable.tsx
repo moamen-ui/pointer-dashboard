@@ -56,6 +56,8 @@ export type DataTableProps<TData> = {
   paginated?: boolean;
   /** When true, adds a gutter column (w-10, 1-based row numbers, mono, muted). */
   gutter?: boolean;
+  /** Declared for callers migrating from an icon-based empty state; never rendered —
+   *  DESIGN.md bans icon-in-circle empty states, so the ghost-row grammar stays text only. */
   emptyIcon?: React.ComponentType<{ className?: string }>;
   emptyMessage?: string;
   emptyHint?: string;
@@ -80,6 +82,7 @@ export function DataTable<TData>({
   paginated = false,
   gutter = false,
   emptyMessage = '',
+  emptyHint = '',
   emptyAction,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
@@ -196,7 +199,12 @@ export function DataTable<TData>({
                           {emptyAction}
                         </div>
                       ) : idx === 0 && emptyMessage && col.id !== '__gutter__' && col.id !== '__actions__' ? (
-                        <span className="text-[14px] text-muted-foreground">{emptyMessage}</span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[14px] text-muted-foreground">{emptyMessage}</span>
+                          {emptyHint && (
+                            <span className="text-[12px] text-muted-foreground">{emptyHint}</span>
+                          )}
+                        </div>
                       ) : null}
                     </TableCell>
                   ))}
@@ -287,12 +295,24 @@ export function DataTable<TData>({
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={effectiveColumns.length}
-                  className="p-4 text-center text-muted-foreground"
-                >
-                  No matching rows
+              // No search match: rows exist, the filter just found none of them — a single
+              // row at normal height, start-aligned, distinct from the three-ghost-row
+              // true-empty state above (that means "nothing here yet"; this means "try a
+              // different search").
+              <TableRow className="h-11">
+                <TableCell colSpan={effectiveColumns.length} className="px-3">
+                  <div className="flex items-center gap-2 text-[14px] text-muted-foreground">
+                    <span>{t('table.noResultsFor', { query: globalFilter })}</span>
+                    <span className="text-faint-foreground" aria-hidden="true">·</span>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 text-[14px]"
+                      onClick={() => setGlobalFilter('')}
+                    >
+                      {t('table.clearSearch')}
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
@@ -315,7 +335,7 @@ export function DataTable<TData>({
         {paginated && pageCount > 1 && (
           <div className="h-11 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
             <span>
-              {t('table.rowsOf', { shown: rows.length, total: data.length })}
+              {t('table.rowsOf', { shown: rows.length, total: table.getFilteredRowModel().rows.length })}
             </span>
             <div className="flex items-center gap-2">
               <Button

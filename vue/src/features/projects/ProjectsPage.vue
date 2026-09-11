@@ -30,6 +30,7 @@ import {
 import { Plus, Ban, CheckCircle2, Download, Upload, Trash2, PlusCircle, Pencil, FolderOpen, X, Check, Brain } from 'lucide-vue-next';
 import ProjectAiRules from './ProjectAiRules.vue';
 import FormField from '@/components/shared/FormField.vue';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -764,9 +765,11 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
           {{ activationLabel(row.activationState) }}
         </Badge>
       </template>
-      <Button v-if="!isSuperAdmin" data-tour="add-project-btn" @click="openAdd">
-        <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
-      </Button>
+      <template v-if="!isSuperAdmin" #empty-action>
+        <Button data-tour="add-project-btn" @click="openAdd">
+          <Plus class="h-4 w-4" /> {{ t('projects.addProject') }}
+        </Button>
+      </template>
     </DataTable>
   </div>
 

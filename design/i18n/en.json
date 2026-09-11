@@ -733,7 +733,9 @@
     "sent": "Suggestion sent for admin review"
   },
   "table": {
+    "clearSearch": "Clear search",
     "nextPage": "Next page",
+    "noResultsFor": "No results for \"{{query}}\"",
     "pageOf": "Page {{page}} of {{pages}}",
     "previousPage": "Previous page",
     "rowsOf": "{{shown}} of {{total}} rows"
