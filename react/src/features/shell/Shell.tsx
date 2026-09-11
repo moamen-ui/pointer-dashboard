@@ -222,7 +222,11 @@ function ShellLayout() {
         <aside
           className={cn(
             'w-[240px] shrink-0 border-e border-border bg-gutter flex flex-col py-3',
-            'max-md:fixed max-md:top-12 max-md:bottom-0 max-md:start-0 max-md:z-40 max-md:transition-transform',
+            // Below md the rail becomes an off-canvas drawer over the overlay backdrop — a
+            // floating layer in the same family as a dialog (they share the overlay token), so
+            // it earns the dialog shadow here. At rest on desktop it stays flat, per the rail's
+            // own no-shadow rule.
+            'max-md:fixed max-md:top-12 max-md:bottom-0 max-md:start-0 max-md:z-40 max-md:shadow-dialog max-md:transition-transform',
             'md:static md:top-auto md:z-auto md:translate-x-0',
             sidebarOpen
               ? 'max-md:translate-x-0'

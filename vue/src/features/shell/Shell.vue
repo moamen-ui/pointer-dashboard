@@ -233,9 +233,12 @@ function signOut() {
         @click="sidebarOpen = false"
       />
 
-      <!-- Rail: 240px nav sidebar -->
+      <!-- Rail: 240px nav sidebar. Below md it becomes an off-canvas drawer over the overlay
+           backdrop — a floating layer in the same family as a dialog (they share the overlay
+           token), so it earns the dialog shadow there; at rest on desktop it stays flat, per
+           the rail's own no-shadow rule. -->
       <aside
-        class="fixed bottom-0 start-0 top-12 z-40 w-[240px] flex flex-col border-e border-border bg-gutter py-3 transition-transform md:static md:top-auto md:z-auto"
+        class="fixed bottom-0 start-0 top-12 z-40 w-[240px] flex flex-col border-e border-border bg-gutter py-3 transition-transform max-md:shadow-dialog md:static md:top-auto md:z-auto"
         :class="sidebarOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full max-md:rtl:translate-x-full'"
       >
         <nav class="flex flex-1 flex-col">

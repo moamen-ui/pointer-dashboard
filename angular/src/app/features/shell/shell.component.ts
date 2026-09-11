@@ -17,6 +17,35 @@ import { TourSpotlightComponent } from '../../shared/tour/tour-spotlight.compone
 import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
 
+interface NavItem {
+  to: string;
+  labelKey: string;
+  icon: string;
+  dataTour?: string;
+}
+
+// Same items, order and icons as the React and Vue shells' ADMIN_NAV / ALL_NAV (ALL_USER_NAV) /
+// SUPER_ADMIN_NAV arrays — data-driven for the same reason they are: one item template instead
+// of a hand-written anchor per route.
+const ADMIN_NAV: NavItem[] = [
+  { to: '/overview', labelKey: 'nav.overview', icon: 'layout-dashboard' },
+  { to: '/roles', labelKey: 'nav.roles', icon: 'user-cog' },
+  { to: '/users', labelKey: 'nav.users', icon: 'users' },
+  { to: '/statuses', labelKey: 'nav.statuses', icon: 'tags' },
+  { to: '/environments', labelKey: 'nav.environments', icon: 'globe', dataTour: 'nav-environments' },
+  { to: '/settings', labelKey: 'nav.settings', icon: 'settings' },
+];
+
+const ALL_USER_NAV: NavItem[] = [
+  { to: '/projects', labelKey: 'nav.projects', icon: 'folder', dataTour: 'nav-projects' },
+];
+
+const SUPER_ADMIN_NAV: NavItem[] = [
+  { to: '/tenants', labelKey: 'nav.tenants', icon: 'building-2' },
+  { to: '/plans', labelKey: 'nav.plans', icon: 'credit-card' },
+  { to: '/branding', labelKey: 'nav.branding', icon: 'paintbrush' },
+];
+
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -165,127 +194,78 @@ import { AppButtonDirective } from '../../shared/ui/app-button.directive';
 
     <!-- Main layout: rail + content -->
     <div class="flex flex-1 overflow-hidden" [dir]="prefs.language() === 'ar' ? 'rtl' : 'ltr'">
-      <!-- Sidebar rail -->
+      <!-- Sidebar rail. Below md it becomes an off-canvas drawer over the overlay backdrop — a
+           floating layer in the same family as a dialog (they share the overlay token), so it
+           earns the dialog shadow there; at rest on desktop it stays flat, per the rail's own
+           no-shadow rule. -->
       <nav
         class="w-[240px] shrink-0 border-e border-border bg-gutter flex flex-col py-3 overflow-y-auto"
         [class.hidden]="isMobile() && !mobileNavOpen()"
         [class.fixed]="isMobile()"
-        [class.inset-12]="isMobile()"
+        [class.top-12]="isMobile()"
+        [class.bottom-0]="isMobile()"
+        [class.start-0]="isMobile()"
         [class.w-screen]="isMobile()"
         [class.max-w-xs]="isMobile()"
         [class.z-40]="isMobile()"
+        [class.shadow-dialog]="isMobile()"
       >
-        <!-- Navigation items (same order and icons as the React and Vue shells) -->
-        <div class="flex-1 flex flex-col gap-0.5 px-2">
+        <!-- Navigation items (same order, icons and data-driven structure as the React and Vue
+             shells — one item template, one class string, not eleven hand-written anchors). -->
+        <div class="flex-1 flex flex-col">
           @if (auth.isAdmin() && !auth.isQuickAccess()) {
-            <a
-              routerLink="/overview"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="layout-dashboard" [size]="16"></app-icon>
-              <span>{{ 'nav.overview' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/roles"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="user-cog" [size]="16"></app-icon>
-              <span>{{ 'nav.roles' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/users"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="users" [size]="16"></app-icon>
-              <span>{{ 'nav.users' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/statuses"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="tags" [size]="16"></app-icon>
-              <span>{{ 'nav.statuses' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/environments"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              data-tour="nav-environments"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="globe" [size]="16"></app-icon>
-              <span>{{ 'nav.environments' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/settings"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="settings" [size]="16"></app-icon>
-              <span>{{ 'nav.settings' | transloco }}</span>
-            </a>
+            @for (item of adminNav; track item.to) {
+              <a
+                [routerLink]="item.to"
+                routerLinkActive="bg-brand-tint text-brand font-semibold"
+                class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+                [attr.data-tour]="item.dataTour ?? null"
+                (click)="isMobile() && closeMobileNav()"
+              >
+                <app-icon [name]="item.icon" [size]="16"></app-icon>
+                <span>{{ item.labelKey | transloco }}</span>
+              </a>
+            }
             <div class="my-2 border-t border-border-muted"></div>
           }
+          @for (item of allUserNav; track item.to) {
             <a
-              routerLink="/projects"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              data-tour="nav-projects"
+              [routerLink]="item.to"
+              routerLinkActive="bg-brand-tint text-brand font-semibold"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+              [attr.data-tour]="item.dataTour ?? null"
               (click)="isMobile() && closeMobileNav()"
             >
-              <app-icon name="folder" [size]="16"></app-icon>
-              <span>{{ 'nav.projects' | transloco }}</span>
+              <app-icon [name]="item.icon" [size]="16"></app-icon>
+              <span>{{ item.labelKey | transloco }}</span>
             </a>
+          }
           @if (auth.isSuperAdmin()) {
             <div class="my-2 border-t border-border-muted"></div>
-            <a
-              routerLink="/tenants"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="building-2" [size]="16"></app-icon>
-              <span>{{ 'nav.tenants' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/plans"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="credit-card" [size]="16"></app-icon>
-              <span>{{ 'nav.plans' | transloco }}</span>
-            </a>
-            <a
-              routerLink="/branding"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="paintbrush" [size]="16"></app-icon>
-              <span>{{ 'nav.branding' | transloco }}</span>
-            </a>
+            @for (item of superAdminNav; track item.to) {
+              <a
+                [routerLink]="item.to"
+                routerLinkActive="bg-brand-tint text-brand font-semibold"
+                class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+                [attr.data-tour]="item.dataTour ?? null"
+                (click)="isMobile() && closeMobileNav()"
+              >
+                <app-icon [name]="item.icon" [size]="16"></app-icon>
+                <span>{{ item.labelKey | transloco }}</span>
+              </a>
+            }
           }
           <div class="my-2 border-t border-border-muted"></div>
-            <a
-              routerLink="/profile"
-              routerLinkActive="active-nav"
-              class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
-              data-tour="nav-profile"
-              (click)="isMobile() && closeMobileNav()"
-            >
-              <app-icon name="circle-user-round" [size]="16"></app-icon>
-              <span>{{ 'nav.myProfile' | transloco }}</span>
-            </a>
+          <a
+            routerLink="/profile"
+            routerLinkActive="bg-brand-tint text-brand font-semibold"
+            class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+            data-tour="nav-profile"
+            (click)="isMobile() && closeMobileNav()"
+          >
+            <app-icon name="circle-user-round" [size]="16"></app-icon>
+            <span>{{ 'nav.myProfile' | transloco }}</span>
+          </a>
         </div>
 
         <!-- Footer -->
@@ -338,24 +318,13 @@ import { AppButtonDirective } from '../../shared/ui/app-button.directive';
       flex-direction: column;
       height: 100vh;
     }
-
-    :host ::ng-deep .active-nav {
-      background-color: var(--brand-tint);
-      color: var(--brand);
-      font-weight: 600;
-    }
-
-    @media (max-width: 768px) {
-      nav {
-        left: 0;
-        right: 0;
-        top: 48px;
-        bottom: 0;
-      }
-    }
   `],
 })
 export class ShellComponent {
+  readonly adminNav = ADMIN_NAV;
+  readonly allUserNav = ALL_USER_NAV;
+  readonly superAdminNav = SUPER_ADMIN_NAV;
+
   auth = inject(AuthService);
   prefs = inject(PreferencesService);
   branding = inject(BrandingService);
