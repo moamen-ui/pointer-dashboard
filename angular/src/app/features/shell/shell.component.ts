@@ -349,6 +349,19 @@ export class ShellComponent {
       if (this.installGuide.projectsResource.isLoading()) return;
       const user = this.auth.user();
       if (!user) return;
+
+      // Wait for the tour to finish having its say.
+      //
+      // Both this and TourService's prompt fire off the same event — a user arriving for the first
+      // time — and neither knew about the other, so both opened. Two stacked CDK overlays, and the
+      // guide's backdrop swallowed every click aimed at the prompt underneath: "Skip tour" and
+      // "Start tour" rendered but could not be clicked, and the guide behind them could not be
+      // used either. First login looked broken.
+      //
+      // The prompt is one yes/no question and the guide is a full wizard, so the prompt goes
+      // first. This is an effect reading signals, so it re-runs and opens the guide the moment the
+      // prompt is answered.
+      if (this.tour.promptOpen() || this.tour.isOpen()) return;
       const shouldOpen = this.installGuide.shouldAutoOpen({
         isAdmin: this.auth.isAdmin(),
         isSuperAdmin: this.auth.isSuperAdmin(),

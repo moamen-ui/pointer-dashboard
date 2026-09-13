@@ -553,6 +553,10 @@
   "profile": {
     "apiKey": "مفتاح API",
     "apiKeyHint": "تستخدمه أدوات الذكاء الاصطناعي البرمجية (skill.md) للمصادقة — الصقه في .pointer/credentials.env باسم POINTER_API_KEY.",
+    "apiKeyLastUsed": "آخر استخدام",
+    "apiKeyNeverUsed": "لم يُستخدم بعد",
+    "apiKeyRegenerated": "تم إنشاء مفتاح API جديد. لم يعد المفتاح السابق يعمل.",
+    "apiKeyUnavailable": "تعذّر عرض مفتاحك الآن. حدّث الصفحة وحاول مجددًا.",
     "breakdown": "تفاصيل المشاريع",
     "comments": "التعليقات",
     "copied": "تم النسخ.",
@@ -567,6 +571,7 @@
     "projectBreakdown": "تفاصيل المشاريع",
     "projects": "المشاريع",
     "regenerateApiKey": "إعادة توليد",
+    "regenerateApiKeyConfirm": "إنشاء مفتاح API جديد؟ سيتوقف المفتاح الحالي فورًا، وسيفشل كل ما يستخدمه — نسخة زميل، أو مهمة CI — حتى يتم تحديثه.",
     "replies": "الردود",
     "staging": "تجريبي",
     "title": "ملفي الشخصي",

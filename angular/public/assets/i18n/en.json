@@ -553,6 +553,10 @@
   "profile": {
     "apiKey": "API Key",
     "apiKeyHint": "Used by AI coding tools (skill.md) to authenticate — paste this into .pointer/credentials.env as POINTER_API_KEY.",
+    "apiKeyLastUsed": "Last used",
+    "apiKeyNeverUsed": "never used",
+    "apiKeyRegenerated": "New API key generated. The previous key no longer works.",
+    "apiKeyUnavailable": "Your key could not be shown right now. Try refreshing the page.",
     "breakdown": "Project Breakdown",
     "comments": "Comments",
     "copied": "Copied to clipboard.",
@@ -567,6 +571,7 @@
     "projectBreakdown": "Project Breakdown",
     "projects": "Projects",
     "regenerateApiKey": "Regenerate",
+    "regenerateApiKeyConfirm": "Generate a new API key? The current key stops working immediately, and anything using it — a teammate's checkout, a CI job — will fail until it is updated.",
     "replies": "Replies",
     "staging": "Staging",
     "title": "My Profile",

@@ -1,16 +1,20 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { BidiModule } from '@angular/cdk/bidi';
 import {
   getApiMeProfileResource,
+  getApiMeApiKeyResource,
   getApiAdminUsersIdProfileResource,
+  MeService,
 } from '@moamen-ui/pointer-angular';
 import type { ProfileProject, ProfileEnvironment } from '@moamen-ui/pointer-angular';
 import { StatusCatalogService } from '../../core/status/status-catalog.service';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
 import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
+import { ConfirmService } from '../../core/confirm.service';
+import { AppToastService } from '../../shared/ui/app-toast.service';
 
 const ENV_LABEL: Record<number, string> = {
   1: 'Local',
@@ -34,6 +38,58 @@ function envLabel(env: number | undefined): string {
   ],
   template: `
     <div class="flex flex-col gap-8">
+      <!-- API key — first, because it is the one thing on this page a person comes here to copy.
+           Masked by default: it is a bearer credential, and this page is as likely to be open on a
+           shared screen as any other. -->
+      <section class="rounded-lg border border-border bg-card p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <app-icon name="key" [size]="16" class="text-muted-foreground"></app-icon>
+            <h2 class="text-[15px] font-semibold leading-6">{{ 'profile.apiKey' | transloco }}</h2>
+          </div>
+          <button
+            appButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="regenerateKey()"
+            [disabled]="keyBusy() || !apiKey()"
+          >
+            @if (keyBusy()) {
+              <app-icon name="loader-2" [size]="16" class="animate-spin"></app-icon>
+            }
+            {{ 'profile.regenerateApiKey' | transloco }}
+          </button>
+        </div>
+
+        <p class="mt-1 text-[13px] text-muted-foreground">{{ 'profile.apiKeyHint' | transloco }}</p>
+
+        @if (apiKeyResource.isLoading()) {
+          <p class="mt-3 text-[13px] text-muted-foreground">{{ 'profile.loading' | transloco }}</p>
+        } @else if (apiKey(); as key) {
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <code
+              class="flex-1 min-w-[16rem] rounded-md border border-border bg-gutter px-3 py-2 font-mono text-[13px] break-all"
+              [attr.aria-label]="'profile.apiKey' | transloco"
+            >{{ revealKey() ? key : maskedKey() }}</code>
+
+            <button appButton variant="ghost" size="sm" type="button" (click)="revealKey.set(!revealKey())">
+              {{ (revealKey() ? 'install.wizard.hide' : 'install.wizard.reveal') | transloco }}
+            </button>
+            <button appButton variant="secondary" size="sm" type="button" (click)="copyKey(key)">
+              {{ 'profile.copyApiKey' | transloco }}
+            </button>
+          </div>
+
+          <p class="mt-2 text-[12px] text-muted-foreground">
+            {{ 'profile.apiKeyLastUsed' | transloco }}:
+            <span class="font-mono">{{ lastUsedLabel() }}</span>
+          </p>
+        } @else {
+          <p class="mt-3 text-[13px] text-muted-foreground">{{ 'profile.apiKeyUnavailable' | transloco }}</p>
+        }
+      </section>
+
       <!-- Header with title and refresh -->
       @if (profileData(); as profile) {
         <div class="flex items-center justify-between gap-3">
@@ -196,8 +252,92 @@ export class ProfileComponent {
   private route = inject(ActivatedRoute);
   readonly statusCatalog = inject(StatusCatalogService);
   private auth = inject(AuthService);
+  private me = inject(MeService);
+  private confirm = inject(ConfirmService);
+  private toast = inject(AppToastService);
+  private transloco = inject(TranslocoService);
 
   readonly meResource = getApiMeProfileResource();
+
+  // --- API key -------------------------------------------------------------
+  //
+  // GET mints on first read, so simply asking for it is also how a user gets one. The full value is
+  // held only in this resource; `revealKey` decides what the template renders, so the key is not
+  // sitting in the DOM while it is supposed to be hidden.
+  readonly apiKeyResource = getApiMeApiKeyResource();
+  readonly revealKey = signal(false);
+  readonly keyBusy = signal(false);
+
+  readonly apiKey = computed(() => {
+    // httpResource throws from value() while in an error state, unlike a plain signal. A user
+    // whose key cannot be read should see the "unavailable" line, not a broken page.
+    try {
+      return this.apiKeyResource.value()?.apiKey ?? null;
+    } catch {
+      return null;
+    }
+  });
+
+  readonly maskedKey = computed(() => {
+    const key = this.apiKey();
+    if (!key) return '';
+    // The server's own prefix when it sent one — it is the value meant for exactly this, and it
+    // lets someone match the key against a list without revealing it.
+    let prefix: string | null | undefined;
+    try {
+      prefix = this.apiKeyResource.value()?.prefix;
+    } catch {
+      prefix = undefined;
+    }
+    return `${prefix || key.slice(0, 12)}${'•'.repeat(24)}`;
+  });
+
+  readonly lastUsedLabel = computed(() => {
+    let value: string | null | undefined;
+    try {
+      value = this.apiKeyResource.value()?.lastUsedAt;
+    } catch {
+      value = undefined;
+    }
+    if (!value) return this.transloco.translate('profile.apiKeyNeverUsed');
+    return new Date(value).toLocaleString();
+  });
+
+  copyKey(key: string): void {
+    navigator.clipboard?.writeText(key).then(
+      () => this.toast.show(this.transloco.translate('profile.copied'), 'success'),
+      () => this.toast.show(this.transloco.translate('demo.copyFailed'), 'danger'),
+    );
+  }
+
+  regenerateKey(): void {
+    // Confirmed, and destructive: the old key stops working the moment this returns, so anything
+    // already using it — a teammate's checkout, a CI job — breaks until it is updated.
+    this.confirm
+      .confirm({
+        message: this.transloco.translate('profile.regenerateApiKeyConfirm'),
+        confirmLabel: this.transloco.translate('profile.regenerateApiKey'),
+        confirmColor: 'danger',
+      })
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.keyBusy.set(true);
+        this.me.postApiMeApiKeyRegenerate().subscribe({
+          next: () => {
+            this.keyBusy.set(false);
+            // Reveal the new one straight away: the user just asked for it, and the old value is
+            // already dead, so there is nothing left to protect by hiding it.
+            this.revealKey.set(true);
+            this.apiKeyResource.reload();
+            this.toast.show(this.transloco.translate('profile.apiKeyRegenerated'), 'success');
+          },
+          error: () => {
+            this.keyBusy.set(false);
+            this.toast.show(this.transloco.translate('profile.error'), 'danger');
+          },
+        });
+      });
+  }
   readonly adminResource = computed(() => {
     const id = this.route.snapshot.paramMap.get('id');
     if (id && this.auth.isAdmin()) {
