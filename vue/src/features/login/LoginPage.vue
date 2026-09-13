@@ -3,13 +3,14 @@ import { computed, reactive, ref } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { usePostApiDemo, type DemoSessionResponse } from '@moamen-ui/pointer-vue';
-import { Pin } from 'lucide-vue-next';
+import { Pin, Sun, Moon, Languages } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import FormField from '@/components/shared/FormField.vue';
 import { useAuth } from '@/composables/useAuth';
 import { useBranding } from '@/composables/useBranding';
+import { usePreferences } from '@/composables/usePreferences';
 import { setDemoSession } from '@/lib/demoSession';
 import { extractMessage } from '@/lib/error';
 import { isValidEmail } from '@/lib/validation';
@@ -19,6 +20,7 @@ const { t } = useI18n();
 const router = useRouter();
 const { login, loginWithToken, isAuthenticated, isAdmin } = useAuth();
 const { branding } = useBranding();
+const { theme, toggleTheme, toggleLanguage } = usePreferences();
 const demoMutation = usePostApiDemo();
 
 const email = ref('');
@@ -70,8 +72,12 @@ async function onSubmit() {
 
 async function onTryDemo() {
   demoEmailError.value = null;
-  if (!demoEmail.value.trim() || !isValidEmail(demoEmail.value)) {
-    demoEmailError.value = t('login.demoEmailLabel');
+  if (!demoEmail.value.trim()) {
+    demoEmailError.value = t('common.fieldRequired');
+    return;
+  }
+  if (!isValidEmail(demoEmail.value)) {
+    demoEmailError.value = t('common.invalidEmail');
     return;
   }
   demoLoading.value = true;
@@ -80,7 +86,7 @@ async function onTryDemo() {
     // customInstance unwraps the Result<T> envelope, so this resolves to the inner
     // DemoSessionResponse at runtime (the generated type names the wrapper).
     const demo = (await demoMutation.mutateAsync({ data: { email: demoEmail.value } })) as unknown as DemoSessionResponse;
-    if (!demo?.token) throw new Error(t('demo.failed'));
+    if (!demo?.token) throw new Error(t('login.demoFailed'));
 
     const user = await loginWithToken(demo.token);
     setDemoSession({
@@ -96,7 +102,7 @@ async function onTryDemo() {
     }
     await router.replace(user?.isAdmin ? '/overview' : '/profile');
   } catch (err) {
-    toast(extractMessage(err) || t('demo.failed'), 'danger');
+    toast(extractMessage(err) || t('login.demoFailed'), 'danger');
   } finally {
     demoLoading.value = false;
   }
@@ -106,10 +112,22 @@ async function onTryDemo() {
 <template>
   <div class="flex min-h-screen items-center justify-center bg-background p-4">
     <div class="w-full max-w-[400px] flex flex-col gap-6">
-      <!-- Brand mark -->
-      <div class="flex items-center gap-2">
-        <Pin class="h-4 w-4 text-brand rotate-45" />
-        <span class="text-[20px] font-semibold text-foreground">{{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}</span>
+      <!-- Brand mark, theme + language toggles at the end -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <Pin class="h-4 w-4 text-brand rotate-45" />
+          <span class="text-[20px] font-semibold text-foreground">{{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}</span>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <Button variant="ghost" size="icon" :aria-label="t('header.theme')" @click="toggleTheme">
+            <Sun v-if="theme === 'dark'" class="h-4 w-4" />
+            <Moon v-else class="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" :aria-label="t('header.language')" @click="toggleLanguage">
+            <Languages class="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <!-- Form section -->
@@ -138,6 +156,7 @@ async function onTryDemo() {
           type="submit"
           class="w-full"
           :disabled="loading || formInvalid"
+          :loading="loading"
         >
           {{ t('login.signIn') }}
         </Button>
@@ -155,8 +174,11 @@ async function onTryDemo() {
         <span class="h-px flex-1 bg-border" />
       </div>
 
-      <!-- Demo section -->
+      <!-- Demo section: one line of "why" framing before the field, per PRODUCT.md's own
+           voice commitment ("explains the why in hints") — the demo path had none. -->
       <div class="flex flex-col gap-3">
+        <p class="text-[13px] text-muted-foreground">{{ t('login.demoHint') }}</p>
+
         <FormField :label="t('login.demoEmailLabel')" html-for="demo-email" :error="demoEmailError ?? undefined">
           <Input
             id="demo-email"
@@ -174,9 +196,10 @@ async function onTryDemo() {
           variant="secondary"
           class="w-full"
           :disabled="demoLoading || loading"
+          :loading="demoLoading"
           @click="onTryDemo"
         >
-          {{ demoLoading ? t('demo.starting') : t('demo.tryDemo') }}
+          {{ t('login.tryDemo') }}
         </Button>
       </div>
 

@@ -84,8 +84,12 @@ export function LoginPage() {
     setDemoEmailError(null);
     setDemoError(null);
 
-    if (!demoEmail.trim() || !isValidEmail(demoEmail)) {
-      setDemoEmailError(t('login.demoEmailLabel'));
+    if (!demoEmail.trim()) {
+      setDemoEmailError(t('common.fieldRequired'));
+      return;
+    }
+    if (!isValidEmail(demoEmail)) {
+      setDemoEmailError(t('common.invalidEmail'));
       return;
     }
 
@@ -184,6 +188,7 @@ export function LoginPage() {
           type="submit"
           variant="default"
           disabled={loading || formInvalid}
+          loading={loading}
           className="w-full"
         >
           {t('login.signIn')}
@@ -205,36 +210,42 @@ export function LoginPage() {
         <div className="flex-1 border-t border-border" />
       </div>
 
-      {/* Demo email input */}
-      <FormField
-        label={t('login.demoEmailLabel')}
-        htmlFor="demo-email"
-        error={demoEmailError || undefined}
-      >
-        <Input
-          id="demo-email"
-          type="email"
-          placeholder="you@example.com"
-          autoComplete="email"
-          value={demoEmail}
-          onChange={(e) => {
-            setDemoEmail(e.target.value);
-            setDemoEmailError(null);
-          }}
-        />
-      </FormField>
+      {/* Demo section: one line of "why" framing before the field, per PRODUCT.md's own
+          voice commitment ("explains the why in hints") — the demo path had none. */}
+      <div className="flex flex-col gap-3">
+        <p className="text-[13px] text-muted-foreground">{t('login.demoHint')}</p>
 
-      {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
+        <FormField
+          label={t('login.demoEmailLabel')}
+          htmlFor="demo-email"
+          error={demoEmailError || undefined}
+        >
+          <Input
+            id="demo-email"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            value={demoEmail}
+            onChange={(e) => {
+              setDemoEmail(e.target.value);
+              setDemoEmailError(null);
+            }}
+          />
+        </FormField>
 
-      {/* Secondary "Try the demo" button */}
-      <Button
-        variant="secondary"
-        onClick={onTryDemo}
-        disabled={demoMut.isPending}
-        className="w-full"
-      >
-        {demoMut.isPending ? t('login.demoLoading') : t('login.tryDemo')}
-      </Button>
+        {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
+
+        {/* Secondary "Try the demo" button */}
+        <Button
+          variant="secondary"
+          onClick={onTryDemo}
+          disabled={demoMut.isPending}
+          loading={demoMut.isPending}
+          className="w-full"
+        >
+          {t('login.tryDemo')}
+        </Button>
+      </div>
 
       {/* Hairline divider */}
       <div className="border-t border-border" />

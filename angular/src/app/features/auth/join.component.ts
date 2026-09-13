@@ -23,6 +23,7 @@ import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.componen
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
   const pwd = control.get('password');
@@ -42,6 +43,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     AppInputDirective,
     AppButtonDirective,
     AppFormFieldComponent,
+    PasswordToggleComponent,
   ],
   template: `
     <app-auth-layout>
@@ -101,23 +103,31 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
             </app-form-field>
 
             <app-form-field [label]="t('invite.password')" [error]="passwordTouched() && passwordError() ? passwordError() : ''">
-              <input
-                appInput
-                type="password"
-                formControlName="password"
-                (blur)="passwordTouched.set(true)"
-                autocomplete="new-password"
-              />
+              <div class="relative">
+                <input
+                  appInput
+                  [type]="joinPwToggle.type()"
+                  class="pe-9"
+                  formControlName="password"
+                  (blur)="passwordTouched.set(true)"
+                  autocomplete="new-password"
+                />
+                <app-password-toggle #joinPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+              </div>
             </app-form-field>
 
             <app-form-field [label]="t('invite.confirmPassword')" [error]="confirmTouched() && form.hasError('passwordsMismatch') ? t('invite.passwordMismatch') : ''">
-              <input
-                appInput
-                type="password"
-                formControlName="confirmPassword"
-                (blur)="confirmTouched.set(true)"
-                autocomplete="new-password"
-              />
+              <div class="relative">
+                <input
+                  appInput
+                  [type]="joinConfirmPwToggle.type()"
+                  class="pe-9"
+                  formControlName="confirmPassword"
+                  (blur)="confirmTouched.set(true)"
+                  autocomplete="new-password"
+                />
+                <app-password-toggle #joinConfirmPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+              </div>
             </app-form-field>
 
             <button

@@ -12,6 +12,7 @@ import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-select.component';
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { BadgeComponent } from '../../shared/badge/badge.component';
 import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
@@ -29,6 +30,7 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
     AppInputDirective,
     AppSelectComponent,
     AppFormFieldComponent,
+    PasswordToggleComponent,
     BadgeComponent,
     AppDataTableComponent,
     DataTableCellDirective,
@@ -207,7 +209,10 @@ import { AppDialogComponent, AppDialogBodyDirective, AppDialogFooterDirective } 
                     <input appInput [(ngModel)]="newDisplayName" [placeholder]="'tenants.displayName' | transloco" />
                   </app-form-field>
                   <app-form-field [label]="'tenants.password' | transloco">
-                    <input appInput type="password" [(ngModel)]="newPassword" [placeholder]="'tenants.password' | transloco" />
+                    <div class="relative">
+                      <input appInput [type]="tenantPwToggle.type()" class="pe-9" [(ngModel)]="newPassword" [placeholder]="'tenants.password' | transloco" />
+                      <app-password-toggle #tenantPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+                    </div>
                   </app-form-field>
                   <div class="flex justify-end pt-2">
                     <button appButton variant="secondary" size="sm" [disabled]="!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim() || addCreating()" (click)="addTenant()">
