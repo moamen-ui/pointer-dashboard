@@ -26,6 +26,7 @@ import {
   FolderPlus,
   ExternalLink,
   Laptop,
+  Info,
 } from 'lucide-react';
 import {
   useGetApiAdminProjects,
@@ -232,6 +233,9 @@ function InstallGuideWizardDialog({
 
   // Snippet Builders
   const agentPrompt = `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${effectiveKey}, Pointer server URL: ${server}, environment: local`;
+  // In an Nx/Turborepo monorepo the CLI detects `monorepo` and injects nothing unless the
+  // HTML file is named explicitly — `--html` overrides stack detection and always wins.
+  const monorepoCommand = `npx -y pointer-feedback init --server ${server} --key <your API key> --project ${effectiveKey} --html apps/your-app/src/index.html`;
   const credentialsSnippet = demo
     ? demo.emailSent
       ? t('demo.credsEmailed')
@@ -576,6 +580,30 @@ function InstallGuideWizardDialog({
                       variant="ghost"
                       size="sm"
                       onClick={() => copy(agentPrompt)}
+                      className="absolute top-3 end-3"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Monorepo note */}
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <Info className="h-3.5 w-3.5 text-brand" />
+                    {t('install.stepMonorepoTitle')}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {t('install.stepMonorepoHint')}
+                  </div>
+                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
+                    <pre className="m-0 font-mono text-[13px]">
+                      <code>{monorepoCommand}</code>
+                    </pre>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copy(monorepoCommand)}
                       className="absolute top-3 end-3"
                     >
                       <Copy className="h-4 w-4" />

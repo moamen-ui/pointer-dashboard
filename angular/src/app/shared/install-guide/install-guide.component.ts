@@ -84,6 +84,16 @@ export function initCommand(i: { server: string; apiKey: string | null; projectK
   return parts.join(' ');
 }
 
+/** In a monorepo the CLI detects `monorepo` and injects nothing unless the HTML file
+ *  is named explicitly — `--html` overrides stack detection and always wins. */
+export function monorepoInitCommand(i: { server: string; apiKey: string | null; projectKey: string | null }): string {
+  const parts = ['npx -y pointer-feedback init', `--server ${i.server}`];
+  parts.push(`--key ${i.apiKey ?? API_KEY_PLACEHOLDER}`);
+  parts.push(`--project ${i.projectKey || PROJECT_KEY_PLACEHOLDER}`);
+  parts.push('--html apps/your-app/src/index.html');
+  return parts.join(' ');
+}
+
 export function buildSteps(input: {
   server: string;
   projectKey: string | null;
@@ -399,10 +409,13 @@ export function buildExtensionSteps(input: {
                 <div class="text-[12px] text-muted-foreground">
                   {{ initHintKey() | transloco }}
                 </div>
-                <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-24 overflow-x-auto">
-                  <pre class="m-0"><code>{{ maskedInitCommandSnippet() }}</code></pre>
-                  
-                  <div class="absolute top-3 end-3 flex gap-1">
+                <!-- The scroll lives on an inner element so the buttons, positioned against the
+                     outer box, stay put while a long command scrolls beneath them. With overflow
+                     and position on the same element the command slid under the controls. -->
+                <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+                  <div class="p-3 pe-24 overflow-x-auto"><pre class="m-0"><code>{{ maskedInitCommandSnippet() }}</code></pre></div>
+
+                  <div class="absolute top-3 end-3 flex gap-1 bg-gutter rounded-md">
                     @if (apiKeyResource.value()?.apiKey) {
                       <button
                         appButton
@@ -432,7 +445,7 @@ export function buildExtensionSteps(input: {
                     <app-icon [name]="showCurl() ? 'chevron-down' : 'chevron-right'" [size]="14"></app-icon>
                     {{ 'install.stepCurlTitle' | transloco }}
                   </button>
-                  
+
                   @if (showCurl()) {
                     <div class="mt-2 space-y-2">
                       <div class="text-[12px] text-muted-foreground">
@@ -446,6 +459,22 @@ export function buildExtensionSteps(input: {
                       </div>
                     </div>
                   }
+                </div>
+
+                <div class="mt-4 rounded-md border border-border bg-background p-3 space-y-2">
+                  <div class="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                    <app-icon name="info" [size]="14" class="text-brand"></app-icon>
+                    {{ 'install.stepMonorepoTitle' | transloco }}
+                  </div>
+                  <div class="text-[12px] text-muted-foreground">
+                    {{ 'install.stepMonorepoHint' | transloco }}
+                  </div>
+                  <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+                    <div class="p-3 pe-12 overflow-x-auto"><pre class="m-0"><code>{{ maskedMonorepoCommandSnippet() }}</code></pre></div>
+                    <button appButton variant="ghost" size="sm" type="button" (click)="copy(monorepoCommandSnippet())" class="absolute top-3 end-3 bg-gutter rounded-md">
+                      <app-icon name="copy" [size]="16"></app-icon>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -776,6 +805,19 @@ export class InstallGuideComponent {
   
   readonly maskedInitCommandSnippet = computed(() => {
     const cmd = this.initCommandSnippet();
+    const key = this.apiKeyResource.value()?.apiKey;
+    if (!key || this.revealKey()) return cmd;
+    return cmd.replace(key, 'ptr_••••••••');
+  });
+
+  readonly monorepoCommandSnippet = computed(() => monorepoInitCommand({
+    server: this.serverUrl(),
+    apiKey: this.apiKeyResource.value()?.apiKey ?? null,
+    projectKey: this.effectiveProjectKey() !== PROJECT_KEY_PLACEHOLDER ? this.effectiveProjectKey() : null,
+  }));
+
+  readonly maskedMonorepoCommandSnippet = computed(() => {
+    const cmd = this.monorepoCommandSnippet();
     const key = this.apiKeyResource.value()?.apiKey;
     if (!key || this.revealKey()) return cmd;
     return cmd.replace(key, 'ptr_••••••••');

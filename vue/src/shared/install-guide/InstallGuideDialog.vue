@@ -18,6 +18,7 @@ import {
   FolderPlus,
   Laptop,
   ExternalLink,
+  Info,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,6 +212,13 @@ const currentStepIdx = computed(() =>
 const agentPrompt = computed(
   () =>
     `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${effectiveKey.value}, Pointer server URL: ${server}, environment: local`,
+);
+
+// In an Nx/Turborepo monorepo the CLI detects `monorepo` and injects nothing unless the
+// HTML file is named explicitly — `--html` overrides stack detection and always wins.
+const monorepoCommand = computed(
+  () =>
+    `npx -y pointer-feedback init --server ${server} --key <your API key> --project ${effectiveKey.value} --html apps/your-app/src/index.html`,
 );
 
 const credentialsSnippet = computed(() =>
@@ -472,6 +480,21 @@ const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
             <div class="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
               <pre class="m-0 font-mono text-[13px] whitespace-pre-wrap"><code>{{ agentPrompt }}</code></pre>
               <Button variant="ghost" size="sm" @click="copy(agentPrompt)" class="absolute top-3 end-3">
+                <Copy class="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <!-- Monorepo note -->
+          <div class="rounded-lg border border-border bg-background p-3">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <Info class="h-3.5 w-3.5 text-brand" />
+              {{ t('install.stepMonorepoTitle') }}
+            </div>
+            <div class="mt-0.5 text-xs text-muted-foreground">{{ t('install.stepMonorepoHint') }}</div>
+            <div class="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
+              <pre class="m-0 font-mono text-[13px]"><code>{{ monorepoCommand }}</code></pre>
+              <Button variant="ghost" size="sm" @click="copy(monorepoCommand)" class="absolute top-3 end-3">
                 <Copy class="h-4 w-4" />
               </Button>
             </div>
