@@ -36,13 +36,17 @@ import { AppToastService } from './ui/app-toast.service';
 
     <div class="px-5 py-4 space-y-4">
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4">
-        <app-form-field label="{{ 'changePassword.current' | transloco }}">
+        <app-form-field
+          label="{{ 'changePassword.current' | transloco }}"
+          [error]="currentPasswordTouched() && currentPasswordError() ? currentPasswordError() : ''"
+        >
           <div class="relative">
             <input
               appInput
               [type]="currentPasswordVisible() ? 'text' : 'password'"
               formControlName="currentPassword"
               placeholder=""
+              (blur)="currentPasswordTouched.set(true)"
             />
             <button
               type="button"
@@ -60,13 +64,17 @@ import { AppToastService } from './ui/app-toast.service';
           </div>
         </app-form-field>
 
-        <app-form-field label="{{ 'changePassword.new' | transloco }}">
+        <app-form-field
+          label="{{ 'changePassword.new' | transloco }}"
+          [error]="newPasswordTouched() && newPasswordError() ? newPasswordError() : ''"
+        >
           <div class="relative">
             <input
               appInput
               [type]="newPasswordVisible() ? 'text' : 'password'"
               formControlName="newPassword"
               placeholder=""
+              (blur)="newPasswordTouched.set(true)"
             />
             <button
               type="button"
@@ -84,13 +92,17 @@ import { AppToastService } from './ui/app-toast.service';
           </div>
         </app-form-field>
 
-        <app-form-field label="{{ 'changePassword.confirm' | transloco }}">
+        <app-form-field
+          label="{{ 'changePassword.confirm' | transloco }}"
+          [error]="confirmPasswordTouched() && confirmPasswordError() ? confirmPasswordError() : ''"
+        >
           <div class="relative">
             <input
               appInput
               [type]="confirmPasswordVisible() ? 'text' : 'password'"
               formControlName="confirmPassword"
               placeholder=""
+              (blur)="confirmPasswordTouched.set(true)"
             />
             <button
               type="button"
@@ -139,6 +151,9 @@ export class ChangePasswordDialogComponent {
   currentPasswordVisible = signal(false);
   newPasswordVisible = signal(false);
   confirmPasswordVisible = signal(false);
+  currentPasswordTouched = signal(false);
+  newPasswordTouched = signal(false);
+  confirmPasswordTouched = signal(false);
 
   form = this.fb.nonNullable.group({
     currentPassword: ['', Validators.required],
@@ -146,10 +161,36 @@ export class ChangePasswordDialogComponent {
     confirmPassword: ['', Validators.required],
   });
 
+  currentPasswordError(): string {
+    const ctrl = this.form.controls.currentPassword;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    return '';
+  }
+
+  newPasswordError(): string {
+    const ctrl = this.form.controls.newPassword;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('minlength')) return this.transloco.translate('changePassword.tooShort');
+    return '';
+  }
+
+  confirmPasswordError(): string {
+    const ctrl = this.form.controls.confirmPassword;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    const { newPassword, confirmPassword } = this.form.getRawValue();
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return this.transloco.translate('changePassword.mismatch');
+    }
+    return '';
+  }
+
   submit(): void {
     if (this.form.invalid) return;
     const { currentPassword, newPassword, confirmPassword } = this.form.getRawValue();
     if (newPassword !== confirmPassword) {
+      this.currentPasswordTouched.set(true);
+      this.newPasswordTouched.set(true);
+      this.confirmPasswordTouched.set(true);
       this.toast.show(this.transloco.translate('changePassword.mismatch'), 'danger');
       return;
     }

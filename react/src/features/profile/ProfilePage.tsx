@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 import {
   useGetApiMeProfile,
   useGetApiAdminUsersIdProfile,
+  useGetApiMeApiKey,
+  usePostApiMeApiKeyRegenerate,
   type ProfileProject,
   type ProfileEnvironment,
 } from '@moamen-ui/pointer-react';
@@ -18,6 +20,9 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  Key,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,6 +36,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useStatusCatalog } from '@/lib/status-catalog';
+import { useToast } from '@/components/ui/toast';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CountCell, DiffstatLine, statusTone, toneHeaderClass, toneTextClass } from '@/components/shared/CountCell';
 
 const ENV_LABEL: Record<number, string> = {
@@ -80,6 +87,7 @@ export function ProfilePage() {
   const { id } = useParams<{ id?: string }>();
   const { isAdmin } = useAuth();
   const catalog = useStatusCatalog();
+  const { toast } = useToast();
 
   // Parse numeric id from route params
   const numericId = id != null && id !== '' ? Number(id) : null;
@@ -93,9 +101,60 @@ export function ProfilePage() {
 
   const { data, isFetching, refetch } = showAdmin ? adminQuery : meQuery;
 
+  // API key state
+  const keyQuery = useGetApiMeApiKey();
+  const [revealKey, setRevealKey] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const regenerateMut = usePostApiMeApiKeyRegenerate({
+    mutation: {
+      onSuccess: () => {
+        // Reveal the new key immediately: user just asked for it, old value is dead
+        setRevealKey(true);
+        keyQuery.refetch();
+        toast(t('profile.apiKeyRegenerated'), 'success');
+      },
+      onError: () => {
+        toast(t('profile.error'), 'error');
+      },
+    },
+  });
+
   const profileUser = data?.user;
   const totals = data?.totals;
   const projects = data?.projects ?? [];
+
+  // API key helpers
+  const apiKey = keyQuery.data?.apiKey;
+  const maskedKey = (() => {
+    if (!apiKey) return '';
+    // Use server's prefix when it exists, otherwise first 12 chars
+    const prefix = keyQuery.data?.prefix || apiKey.slice(0, 12);
+    return `${prefix}${'•'.repeat(24)}`;
+  })();
+
+  const lastUsedLabel = (() => {
+    const value = keyQuery.data?.lastUsedAt;
+    if (!value) return t('profile.apiKeyNeverUsed');
+    return new Date(value).toLocaleString();
+  })();
+
+  async function copyKey(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(t('profile.copied'), 'success');
+    } catch {
+      toast(t('demo.copyFailed'), 'error');
+    }
+  }
+
+  function handleRegenerateClick() {
+    setConfirmRegenerate(true);
+  }
+
+  function handleRegenerateConfirm() {
+    setConfirmRegenerate(false);
+    regenerateMut.mutate();
+  }
 
   // Expandable env state: set of expanded project ids
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -130,6 +189,75 @@ export function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* API key section — first, because it is the one thing on this page a person comes here to copy.
+           Masked by default: it is a bearer credential, and this page is as likely to be open on a
+           shared screen as any other. */}
+      <section className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-[15px] font-semibold leading-6">{t('profile.apiKey')}</h2>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerateClick}
+            disabled={keyQuery.isPending || !apiKey || regenerateMut.isPending}
+          >
+            {regenerateMut.isPending ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : null}
+            {t('profile.regenerateApiKey')}
+          </Button>
+        </div>
+
+        <p className="mt-1 text-[13px] text-muted-foreground">{t('profile.apiKeyHint')}</p>
+
+        {keyQuery.isPending ? (
+          <p className="mt-3 text-[13px] text-muted-foreground">{t('profile.loading')}</p>
+        ) : apiKey ? (
+          <>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <code className="flex-1 min-w-[16rem] rounded-md border border-border bg-gutter px-3 py-2 font-mono text-[13px] break-all">
+                {revealKey ? apiKey : maskedKey}
+              </code>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setRevealKey(!revealKey)}
+              >
+                {revealKey ? (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    {t('install.wizard.hide')}
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    {t('install.wizard.reveal')}
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyKey(apiKey)}
+              >
+                {t('profile.copyApiKey')}
+              </Button>
+            </div>
+
+            <p className="mt-2 text-[12px] text-muted-foreground">
+              {t('profile.apiKeyLastUsed')}:
+              <span className="font-mono"> {lastUsedLabel}</span>
+            </p>
+          </>
+        ) : (
+          <p className="mt-3 text-[13px] text-muted-foreground">{t('profile.apiKeyUnavailable')}</p>
+        )}
+      </section>
+
       {/* Header with title and refresh */}
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -248,6 +376,15 @@ export function ProfilePage() {
           </Table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmRegenerate}
+        message={t('profile.regenerateApiKeyConfirm')}
+        confirmLabel={t('profile.regenerateApiKey')}
+        confirmColor="warn"
+        onConfirm={handleRegenerateConfirm}
+        onCancel={() => setConfirmRegenerate(false)}
+      />
     </div>
   );
 }

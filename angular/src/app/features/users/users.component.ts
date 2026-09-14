@@ -374,26 +374,38 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
               @if (auth.isSuperAdmin()) {
                 <p class="text-[13px] text-muted-foreground">{{ 'users.deputyHint' | transloco }}</p>
               }
-              <app-form-field [label]="'users.email' | transloco">
+              <app-form-field
+                [label]="'users.email' | transloco"
+                [error]="addEmailTouched() && addEmailError() ? addEmailError() : ''"
+              >
                 <input
                   appInput
                   type="email"
                   formControlName="email"
+                  (blur)="addEmailTouched.set(true)"
                 />
               </app-form-field>
-              <app-form-field [label]="'users.displayName' | transloco">
+              <app-form-field
+                [label]="'users.displayName' | transloco"
+                [error]="addDisplayNameTouched() && addForm.controls.displayName.hasError('required') ? ('common.fieldRequired' | transloco) : ''"
+              >
                 <input
                   appInput
                   type="text"
                   formControlName="displayName"
+                  (blur)="addDisplayNameTouched.set(true)"
                 />
               </app-form-field>
-              <app-form-field [label]="'users.password' | transloco">
+              <app-form-field
+                [label]="'users.password' | transloco"
+                [error]="addPasswordTouched() && addForm.controls.password.hasError('required') ? ('common.fieldRequired' | transloco) : ''"
+              >
                 <div class="relative">
                   <input
                     appInput
                     [type]="pwToggle.type()"
                     formControlName="password"
+                    (blur)="addPasswordTouched.set(true)"
                   />
                   <app-password-toggle #pwToggle class="absolute end-3 top-1/2 -translate-y-1/2"></app-password-toggle>
                 </div>
@@ -668,6 +680,17 @@ export class UsersComponent {
     targetOwnerId: this.fb.control<string | null>(null),
   });
 
+  addEmailTouched = signal(false);
+  addDisplayNameTouched = signal(false);
+  addPasswordTouched = signal(false);
+
+  addEmailError(): string {
+    const ctrl = this.addForm.controls.email;
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
+    return '';
+  }
+
   addMode = signal<'invite' | 'direct'>('invite');
 
   // A role a non-super-admin caller may actually assign here: active, not quick-access (that goes
@@ -791,6 +814,9 @@ export class UsersComponent {
     const firstRole = this.activeRoles()[0]?.id ?? 0;
     const firstWorkspace = this.tenants()[0]?.ownerId ?? null;
     this.addForm.reset({ email: '', displayName: '', password: '', roleId: firstRole, targetOwnerId: firstWorkspace });
+    this.addEmailTouched.set(false);
+    this.addDisplayNameTouched.set(false);
+    this.addPasswordTouched.set(false);
     // A super admin's direct-add is always forced to Deputy on an existing workspace server-side —
     // roleId is irrelevant for them (targetOwnerId is required instead), and vice versa.
     this.addForm.controls.roleId.setValidators(isSuper ? [] : [Validators.required, Validators.min(1)]);

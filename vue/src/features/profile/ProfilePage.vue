@@ -5,16 +5,26 @@ import { useI18n } from 'vue-i18n';
 import {
   useGetApiMeProfile,
   useGetApiAdminUsersIdProfile,
+  useGetApiMeApiKey,
+  usePostApiMeApiKeyRegenerate,
   type ProfileProject,
   type ProfileEnvironment,
 } from '@moamen-ui/pointer-vue';
 import {
   ChevronDown,
   ChevronRight,
+  Key,
+  Copy,
+  Loader2,
+  Eye,
+  EyeOff,
 } from 'lucide-vue-next';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/composables/useAuth';
 import { statusTone, toneHeaderClass, toneTextClass } from '@/lib/statusTone';
 import { useStatusCatalog } from '@/composables/useStatusCatalog';
+import { toast } from '@/composables/useToast';
+import { confirm } from '@/composables/useConfirm';
 import Diffstat from '@/components/shared/Diffstat.vue';
 import CountCell from '@/components/shared/CountCell.vue';
 
@@ -22,6 +32,62 @@ const { t } = useI18n();
 const route = useRoute();
 const { isAdmin } = useAuth();
 const { items: statusItems, displayLabelFor: statusLabel } = useStatusCatalog();
+
+// API key state
+const apiKeyQuery = useGetApiMeApiKey();
+const apiKeyMutation = usePostApiMeApiKeyRegenerate({
+  mutation: {
+    onSuccess: () => {
+      revealKey.value = true;
+      apiKeyQuery.refetch();
+      toast(t('profile.apiKeyRegenerated'), 'success');
+    },
+    onError: () => {
+      toast(t('profile.error'), 'danger');
+    },
+  },
+});
+const revealKey = ref(false);
+const isRegenerating = computed(() => apiKeyMutation.isPending.value);
+
+const apiKeyValue = computed(() => apiKeyQuery.data.value?.apiKey ?? null);
+const apiKeyPrefix = computed(() => apiKeyQuery.data.value?.prefix);
+const apiKeyLastUsedAt = computed(() => apiKeyQuery.data.value?.lastUsedAt);
+
+const maskedApiKey = computed(() => {
+  const key = apiKeyValue.value;
+  if (!key) return '';
+  // Use the server-sent prefix if available, otherwise the first 12 chars of the key
+  const prefix = apiKeyPrefix.value || key.slice(0, 12);
+  return `${prefix}${'•'.repeat(24)}`;
+});
+
+const lastUsedLabel = computed(() => {
+  if (!apiKeyLastUsedAt.value) {
+    return t('profile.apiKeyNeverUsed');
+  }
+  return new Date(apiKeyLastUsedAt.value).toLocaleString();
+});
+
+async function handleRegenerateKey() {
+  const ok = await confirm({
+    message: t('profile.regenerateApiKeyConfirm'),
+    confirmLabel: t('profile.regenerateApiKey'),
+    confirmVariant: 'destructive',
+  });
+  if (ok) {
+    apiKeyMutation.mutate();
+  }
+}
+
+function copyApiKey() {
+  const key = apiKeyValue.value;
+  if (!key) return;
+  navigator.clipboard?.writeText(key).then(
+    () => toast(t('profile.copied'), 'success'),
+    () => toast(t('demo.copyFailed'), 'danger'),
+  );
+}
 
 // Determine if this is an admin viewing another user's profile.
 const routeId = computed(() => {
@@ -124,6 +190,65 @@ function getEnvironmentNames(proj: ProfileProject): string {
     </p>
 
     <template v-else-if="data">
+      <!-- API key section — first, because it is the one thing on this page a person comes here to copy.
+           Masked by default: it is a bearer credential. -->
+      <section class="rounded-lg border border-border bg-card p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <Key :size="16" class="text-muted-foreground" />
+            <h2 class="text-[15px] font-semibold leading-6">{{ t('profile.apiKey') }}</h2>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            :disabled="isRegenerating || !apiKeyValue"
+            @click="handleRegenerateKey"
+            class="shrink-0"
+          >
+            <Loader2 v-if="isRegenerating" :size="16" class="animate-spin" />
+            {{ t('profile.regenerateApiKey') }}
+          </Button>
+        </div>
+
+        <p class="mt-1 text-[13px] text-muted-foreground">{{ t('profile.apiKeyHint') }}</p>
+
+        <div v-if="apiKeyQuery.isLoading.value" class="mt-3 text-[13px] text-muted-foreground">
+          {{ t('profile.loading') }}
+        </div>
+        <div v-else-if="apiKeyValue" class="mt-3 flex flex-wrap items-center gap-2">
+          <code class="flex-1 min-w-[16rem] rounded-md border border-border bg-gutter px-3 py-2 font-mono text-[13px] break-all">
+            {{ revealKey ? apiKeyValue : maskedApiKey }}
+          </code>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            @click="revealKey = !revealKey"
+            class="text-muted-foreground hover:text-foreground"
+          >
+            <component :is="revealKey ? EyeOff : Eye" :size="16" class="me-2" />
+            {{ revealKey ? t('install.wizard.hide') : t('install.wizard.reveal') }}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            @click="copyApiKey"
+          >
+            <Copy :size="16" class="me-2" />
+            {{ t('profile.copyApiKey') }}
+          </Button>
+        </div>
+        <div v-else class="mt-3 text-[13px] text-muted-foreground">
+          {{ t('profile.apiKeyUnavailable') }}
+        </div>
+
+        <p v-if="apiKeyValue" class="mt-2 text-[12px] text-muted-foreground">
+          {{ t('profile.apiKeyLastUsed') }}:
+          <span class="font-mono">{{ lastUsedLabel }}</span>
+        </p>
+      </section>
+
       <!-- Title row: display name -->
       <div>
         <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">

@@ -50,6 +50,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/format';
+import { emailError, requiredError } from '@/lib/validators';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -111,6 +112,12 @@ export function UsersPage() {
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [roleId, setRoleId] = useState<number>(0);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [displayNameTouched, setDisplayNameTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const emailErrorMsg = emailError(email, t);
+  const displayNameErrorMsg = requiredError(displayName, t);
+  const passwordErrorMsg = requiredError(password, t);
 
   const addMut = usePostApiAdminUsers({
     mutation: {
@@ -148,6 +155,9 @@ export function UsersPage() {
     setDisplayName('');
     setPassword('');
     setRoleId(activeRoles[0]?.id ?? 0);
+    setEmailTouched(false);
+    setDisplayNameTouched(false);
+    setPasswordTouched(false);
     setInviteRoleId(String(nonAdminActiveRoles[0]?.id ?? ''));
     setInviteEmail('');
     setInviteExpiresDays('7');
@@ -157,7 +167,7 @@ export function UsersPage() {
     setAddOpen(true);
   }
   const addInvalid =
-    !email.trim() || !displayName.trim() || !password.trim() || roleId < 1;
+    !!emailErrorMsg || !!displayNameErrorMsg || !!passwordErrorMsg || roleId < 1;
   function addUser() {
     if (addInvalid) return;
     addMut.mutate({
@@ -586,27 +596,42 @@ export function UsersPage() {
             )
           ) : (
             <div className="flex flex-col gap-3 pt-1">
-              <FormField label={t('users.email')} htmlFor="u-email">
+              <FormField
+                label={t('users.email')}
+                htmlFor="u-email"
+                error={emailTouched ? emailErrorMsg || undefined : undefined}
+              >
                 <Input
                   id="u-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmailTouched(true)}
                   autoFocus
                 />
               </FormField>
-              <FormField label={t('users.displayName')} htmlFor="u-name">
+              <FormField
+                label={t('users.displayName')}
+                htmlFor="u-name"
+                error={displayNameTouched ? displayNameErrorMsg || undefined : undefined}
+              >
                 <Input
                   id="u-name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
+                  onBlur={() => setDisplayNameTouched(true)}
                 />
               </FormField>
-              <FormField label={t('users.password')} htmlFor="u-pass">
+              <FormField
+                label={t('users.password')}
+                htmlFor="u-pass"
+                error={passwordTouched ? passwordErrorMsg || undefined : undefined}
+              >
                 <PasswordInput
                   id="u-pass"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setPasswordTouched(true)}
                 />
               </FormField>
               <FormField label={t('users.role')} htmlFor="u-role">

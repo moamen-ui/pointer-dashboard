@@ -6,6 +6,7 @@ import {
   TemplateRef,
   viewChild,
   computed,
+  effect,
 } from '@angular/core';
 import type { HttpResourceRef } from '@angular/common/http';
 import {
@@ -82,6 +83,18 @@ import {
 } from '../../shared/project-utils';
 
 export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
+
+/** Optional URL: blank passes, anything else must be an absolute http(s) URL. */
+const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const raw = String(control.value ?? '').trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? null : { url: true };
+  } catch {
+    return { url: true };
+  }
+};
 
 
 @Component({
@@ -171,19 +184,50 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
               />
             </app-form-field>
 
-            <!-- Key -->
+            <!-- Key: derived from the name, shown read-only.
+                 It is an identifier the user never has to invent, and one they cannot safely change
+                 later anyway. A collision is fixed by changing the NAME, which is what the error
+                 says. -->
             <app-form-field
               [label]="'projects.key' | transloco"
-              [hint]="keyControl.hasError('required') || keyControl.hasError('pattern') || keyControl.hasError('maxlength') || keyControl.hasError('keyTaken') ? '' : (keyEdited() ? 'projects.keyHint' : 'projects.keyAutoHint') | transloco"
-              [error]="keyControl.hasError('required') ? ('projects.keyRequired' | transloco) : keyControl.hasError('pattern') ? ('projects.keyPattern' | transloco) : keyControl.hasError('maxlength') ? ('projects.keyMaxLength' | transloco: { max: KEY_MAX_LENGTH }) : keyControl.hasError('keyTaken') ? ('projects.keyTaken' | transloco) : ''">
+              [hint]="keyControl.hasError('keyTaken') ? '' : ('projects.keyAutoHint' | transloco)"
+              [error]="keyControl.hasError('keyTaken') ? ('projects.keyTakenChangeName' | transloco) : ''">
               <input
                 appInput
                 formControlName="key"
-                maxlength="64"
-                autocapitalize="none"
-                spellcheck="false"
-                (input)="onKeyEdited($event)"
+                readonly
+                tabindex="-1"
+                aria-readonly="true"
+                class="bg-gutter text-muted-foreground font-mono"
               />
+            </app-form-field>
+
+            <!-- Environments: local only at creation time. A comment's environment is resolved
+                 from the URL it was left on, so one registered URL makes that work from the first
+                 comment. Staging and production are added later, from the project's edit dialog. -->
+            <app-form-field
+              [label]="'projects.environmentsTitle' | transloco"
+              [hint]="'projects.appUrlHint' | transloco"
+              [error]="addForm.get('appUrl')?.hasError('url') ? ('projects.appUrlInvalid' | transloco) : ''">
+              <div class="flex items-center gap-2">
+                <!-- Any environment, not just local: a team whose app is already deployed should be
+                     able to register staging or production here rather than after the fact. -->
+                <app-select
+                  class="w-[9.5rem] shrink-0"
+                  [options]="creatableEnvironments()"
+                  [value]="newProjectEnvId()"
+                  (valueChange)="newProjectEnvId.set($event)"
+                />
+                <input
+                  appInput
+                  class="flex-1"
+                  formControlName="appUrl"
+                  inputmode="url"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  placeholder="http://localhost:4200"
+                />
+              </div>
             </app-form-field>
 
             <!-- Page Context Capture switch -->
@@ -219,8 +263,10 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
         <div class="px-5 py-2 overflow-y-auto flex-1">
           <form [formGroup]="editForm" (ngSubmit)="saveEdit()" class="space-y-4">
             <!-- Name -->
-            <app-form-field [label]="'projects.name' | transloco">
-              <input appInput formControlName="name" />
+            <app-form-field
+              [label]="'projects.name' | transloco"
+              [error]="editNameTouched() && editForm.controls.name.hasError('required') ? ('common.fieldRequired' | transloco) : ''">
+              <input appInput formControlName="name" (blur)="editNameTouched.set(true)" />
             </app-form-field>
 
             <!-- Page Context Capture -->
@@ -418,11 +464,15 @@ export { KEY_PATTERN, KEY_MAX_LENGTH, ARABIC_MAP, asciiDigits, slugifyKey };
           <h2 class="text-[16px] font-semibold leading-6">{{ 'projects.suggest' | transloco }}</h2>
         </div>
         <form [formGroup]="suggestForm" class="px-5 py-2 overflow-y-auto flex-1 space-y-4">
-          <app-form-field [label]="'predefined.text' | transloco">
-            <input appInput formControlName="text" />
+          <app-form-field
+            [label]="'predefined.text' | transloco"
+            [error]="suggestTextTouched() && suggestForm.controls.text.hasError('required') ? ('common.fieldRequired' | transloco) : ''">
+            <input appInput formControlName="text" (blur)="suggestTextTouched.set(true)" />
           </app-form-field>
-          <app-form-field [label]="'predefined.prompt' | transloco">
-            <textarea formControlName="prompt" class="h-20 resize-none"></textarea>
+          <app-form-field
+            [label]="'predefined.prompt' | transloco"
+            [error]="suggestPromptTouched() && suggestForm.controls.prompt.hasError('required') ? ('common.fieldRequired' | transloco) : ''">
+            <textarea formControlName="prompt" class="h-20 resize-none" (blur)="suggestPromptTouched.set(true)"></textarea>
           </app-form-field>
         </form>
         <div class="px-5 pb-5 pt-3 flex justify-end gap-2 border-t border-border">
@@ -918,7 +968,35 @@ export class ProjectsComponent {
       ],
     ],
     name: ['', Validators.required],
+    // Optional, and deliberately the ONLY environment offered at creation time.
+    //
+    // A comment's environment is resolved from the URL it was left on, so registering one URL up
+    // front is what makes that work from the very first comment. Local is the environment every
+    // project has on day one; staging and production get added later, when they exist.
+    appUrl: ['', httpUrlOrEmpty],
     pageContextCaptureEnabled: [false],
+  });
+
+  /**
+   * Environments offerable when creating a project: every enabled one, minus the retired "default"
+   * row that R1-09 kept only so old URLs still render somewhere.
+   */
+  readonly creatableEnvironments = computed<SelectOption<number>[]>(() =>
+    (this.environmentsResource.value() ?? [])
+      .filter((e) => e.isEnabled !== false && e.isRetired !== true)
+      .map((e) => ({ label: e.name ?? '', value: e.id ?? 0 }))
+  );
+
+  /** Defaults to `local` — the environment every project has on day one. */
+  readonly newProjectEnvId = signal<number>(0);
+
+  /** Picks the local row once the environment list arrives, without clobbering a user's choice. */
+  private readonly defaultNewProjectEnv = effect(() => {
+    if (this.newProjectEnvId() !== 0) return;
+    const local = (this.environmentsResource.value() ?? []).find(
+      (e) => (e.name ?? '').toLowerCase() === 'local'
+    );
+    if (local?.id) this.newProjectEnvId.set(local.id);
   });
 
   get keyControl() {
@@ -964,10 +1042,15 @@ export class ProjectsComponent {
     environmentSelectorRoleIds: this.fb.nonNullable.control<number[]>([]),
   });
 
+  editNameTouched = signal(false);
+
   suggestForm = this.fb.nonNullable.group({
     text: ['', Validators.required],
     prompt: ['', Validators.required],
   });
+
+  suggestTextTouched = signal(false);
+  suggestPromptTouched = signal(false);
 
   openAdd() {
     this.keyEdited.set(false);
@@ -979,6 +1062,7 @@ export class ProjectsComponent {
     this.editingProjectId.set(project.id ?? null);
     this.envOverrides.set({});
     this.showAddEnvRow.set(false);
+    this.editNameTouched.set(false);
     this.editForm.reset({
       name: project.name ?? '',
       pageContextCaptureEnabled: !!project.pageContextCaptureEnabled,
@@ -999,6 +1083,8 @@ export class ProjectsComponent {
 
   openSuggest(project: ProjectResponse): void {
     this.suggestingProjectId.set(project.id ?? null);
+    this.suggestTextTouched.set(false);
+    this.suggestPromptTouched.set(false);
     this.suggestForm.reset({ text: '', prompt: '' });
     this.dialogRef = this.appDialog.openRef(this.suggestDialog());
   }
@@ -1056,6 +1142,11 @@ export class ProjectsComponent {
     this.projectsService.postApiAdminProjects({
       key: val.key,
       name: val.name,
+      // Omitting appEnvironmentId lets the API place this URL on the tenant's own "local"
+      // environment (falling back to the global one) — the default it already implements.
+      ...(val.appUrl.trim()
+        ? { appUrl: val.appUrl.trim(), appEnvironmentId: this.newProjectEnvId() || undefined }
+        : {}),
       pageContextCaptureEnabled: val.pageContextCaptureEnabled,
       predefinedActions: [],
     } as any).subscribe({

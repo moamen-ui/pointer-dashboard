@@ -139,6 +139,27 @@ const addInvalid = computed(
     !addForm.roleId,
 );
 
+// Angular-parity validation: errors appear only after a field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. "Create
+// directly" mode's fields backed addInvalid (which gates the submit button)
+// with no way for the user to see why it was disabled.
+const addTouched = reactive({ email: false, displayName: false, password: false });
+
+const addEmailError = computed(() => {
+  if (!addTouched.email) return '';
+  if (!addForm.email) return t('common.fieldRequired');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addForm.email)) return t('common.invalidEmail');
+  return '';
+});
+
+const addDisplayNameError = computed(() =>
+  addTouched.displayName && !addForm.displayName ? t('common.fieldRequired') : '',
+);
+
+const addPasswordError = computed(() =>
+  addTouched.password && !addForm.password ? t('common.fieldRequired') : '',
+);
+
 const nonAdminActiveRoles = computed<RoleResponse[]>(
   () => roles.value.filter((r) => !r.grantsAdmin && r.isActive),
 );
@@ -162,6 +183,9 @@ function openAdd() {
   inviteMaxUses.value = undefined;
   createdInvite.value = null;
   addMode.value = 'invite';
+  addTouched.email = false;
+  addTouched.displayName = false;
+  addTouched.password = false;
   addOpen.value = true;
 }
 
@@ -577,14 +601,14 @@ function actionsFor(row: Row): RowActionItem[] {
       </template>
 
       <form v-else class="flex flex-col gap-4 py-2 space-y-4" @submit.prevent="addUser">
-        <FormField :label="t('users.email')" html-for="u-email">
-          <Input id="u-email" v-model="addForm.email" type="email" />
+        <FormField :label="t('users.email')" html-for="u-email" :error="addEmailError">
+          <Input id="u-email" v-model="addForm.email" type="email" @blur="addTouched.email = true" />
         </FormField>
-        <FormField :label="t('users.displayName')" html-for="u-name">
-          <Input id="u-name" v-model="addForm.displayName" />
+        <FormField :label="t('users.displayName')" html-for="u-name" :error="addDisplayNameError">
+          <Input id="u-name" v-model="addForm.displayName" @blur="addTouched.displayName = true" />
         </FormField>
-        <FormField :label="t('users.password')" html-for="u-pass">
-          <PasswordInput id="u-pass" v-model="addForm.password" />
+        <FormField :label="t('users.password')" html-for="u-pass" :error="addPasswordError">
+          <PasswordInput id="u-pass" v-model="addForm.password" @blur="addTouched.password = true" />
         </FormField>
         <FormField :label="t('users.role')" html-for="u-role">
           <Select

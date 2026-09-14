@@ -27,11 +27,16 @@ import {
   ExternalLink,
   Laptop,
   Info,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   useGetApiAdminProjects,
   usePostApiAdminProjects,
   getGetApiAdminProjectsQueryKey,
+  useGetApiMeApiKey,
   type ProjectResponse,
 } from '@moamen-ui/pointer-react';
 import { Button } from '@/components/ui/button';
@@ -57,7 +62,6 @@ import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { slugifyKey, keyErrorFor } from '@/lib/project-utils';
 import {
-  EXTENSION_ZIP_URL,
   isSuppressed,
   markShown,
   readDemoSession,
@@ -65,6 +69,11 @@ import {
   suppress,
   unsuppress,
   checkLocalhostWidgetStatus,
+  initCommand,
+  monorepoInitCommand,
+  credentialsSnippet,
+  buildExtensionSteps,
+  PROJECT_KEY_PLACEHOLDER,
   type WizardStep,
   type InstallMethod,
   type FrameworkStack,
@@ -77,7 +86,6 @@ export type SetupStep = {
   download?: boolean;
 };
 
-export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
 export const PASSWORD_PLACEHOLDER = '<your password>';
 
 type InstallGuideValue = {
@@ -152,6 +160,11 @@ function InstallGuideWizardDialog({
   const userId = user?.id ?? null;
 
   const demo = useMemo(() => readDemoSession(), []);
+  const apiKeyQuery = useGetApiMeApiKey();
+
+  // API key and reveal state
+  const [revealKey, setRevealKey] = useState(false);
+  const [showCurl, setShowCurl] = useState(false);
 
   // Wizard Navigation
   const [currentStep, setCurrentStep] = useState<WizardStep>(() => {
@@ -232,15 +245,38 @@ function InstallGuideWizardDialog({
   }
 
   // Snippet Builders
+  const apiKey = apiKeyQuery.data?.apiKey ?? null;
+  const initCmd = initCommand({
+    server,
+    apiKey,
+    projectKey: projectKey !== PROJECT_KEY_PLACEHOLDER ? projectKey : null,
+  });
+
+  // Mask the API key in displayed commands (full key only in DOM when revealed)
+  const maskedInitCmd = (() => {
+    if (!apiKey || revealKey) return initCmd;
+    return initCmd.replace(apiKey, 'ptr_••••••••');
+  })();
+
+  const monorepoCmd = monorepoInitCommand({
+    server,
+    apiKey,
+    projectKey: projectKey !== PROJECT_KEY_PLACEHOLDER ? projectKey : null,
+  });
+
+  const maskedMonorepoCmd = (() => {
+    if (!apiKey || revealKey) return monorepoCmd;
+    return monorepoCmd.replace(apiKey, 'ptr_••••••••');
+  })();
+
+  const initHintKey = apiKey ? 'install.stepInitHint' : 'install.stepInitHintNoKey';
+  const creds = credentialsSnippet({
+    apiKey,
+    demo,
+    credsEmailedText: t('demo.credsEmailed'),
+  });
+
   const agentPrompt = `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${effectiveKey}, Pointer server URL: ${server}, environment: local`;
-  // In an Nx/Turborepo monorepo the CLI detects `monorepo` and injects nothing unless the
-  // HTML file is named explicitly — `--html` overrides stack detection and always wins.
-  const monorepoCommand = `npx -y pointer-feedback init --server ${server} --key <your API key> --project ${effectiveKey} --html apps/your-app/src/index.html`;
-  const credentialsSnippet = demo
-    ? demo.emailSent
-      ? t('demo.credsEmailed')
-      : `POINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`
-    : `POINTER_EMAIL=${user?.email ?? ''}\nPOINTER_PASSWORD=${PASSWORD_PLACEHOLDER}`;
 
   const stackSnippets: Record<FrameworkStack, string> = {
     html: `<!-- Add before </body> or inside <head> -->\n<script src="${server}/pointer.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
@@ -516,46 +552,135 @@ function InstallGuideWizardDialog({
           <div className="flex flex-col gap-4 px-5 py-4">
             {/* 3A: AI Coding Agent Path */}
             {selectedMethod === 'agent' && (
-              <div className="flex flex-col gap-3">
-                {/* Skill install */}
-                <div>
-                  <div className="text-xs font-semibold text-foreground">
-                    {t('install.wizard.curlTitle')}
+              <div className="flex flex-col gap-4">
+                {/* 1. Init command (primary) */}
+                <div className="space-y-2">
+                  <div className="text-[13px] font-medium text-foreground">
+                    {t('install.stepInitTitle')}
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {t('install.wizard.curlHint')}
+                  <div className="text-[12px] text-muted-foreground">
+                    {t(initHintKey)}
                   </div>
-                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-                    <pre className="m-0 font-mono text-[13px]">
-                      <code>{`curl -fsSL ${server}/install.sh | sh`}</code>
-                    </pre>
+                  {/* The scroll lives on an inner element so the buttons, positioned against the
+                       outer box, stay put while a long command scrolls beneath them. */}
+                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+                    <div className="p-3 pe-24 overflow-x-auto">
+                      <pre className="m-0">
+                        <code>{maskedInitCmd}</code>
+                      </pre>
+                    </div>
+
+                    <div className="absolute top-3 end-3 flex gap-1 bg-gutter rounded-md">
+                      {apiKey && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRevealKey(!revealKey)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {revealKey ? (
+                            <>
+                              <EyeOff className="h-3.5 w-3.5" />
+                              {t('install.wizard.hide')}
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-3.5 w-3.5" />
+                              {t('install.wizard.reveal')}
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copy(initCmd)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collapsible curl fallback */}
+                <div className="border-t border-border pt-3">
+                  <button
+                    type="button"
+                    className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    onClick={() => setShowCurl(!showCurl)}
+                  >
+                    {showCurl ? (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    )}
+                    {t('install.stepCurlTitle')}
+                  </button>
+
+                  {showCurl && (
+                    <div className="mt-2 space-y-2">
+                      <div className="text-[12px] text-muted-foreground">
+                        {t('install.stepCurlHint')}
+                      </div>
+                      <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
+                        <pre className="m-0">
+                          <code>{`curl -fsSL ${server}/install.sh | sh`}</code>
+                        </pre>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copy(`curl -fsSL ${server}/install.sh | sh`)}
+                          className="absolute top-3 end-3"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Monorepo callout */}
+                <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                    <Info className="h-3.5 w-3.5 text-brand" />
+                    {t('install.stepMonorepoTitle')}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {t('install.stepMonorepoHint')}
+                  </div>
+                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+                    <div className="p-3 pe-12 overflow-x-auto">
+                      <pre className="m-0">
+                        <code>{maskedMonorepoCmd}</code>
+                      </pre>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copy(`curl -fsSL ${server}/install.sh | sh`)}
-                      className="absolute top-3 end-3"
+                      onClick={() => copy(monorepoCmd)}
+                      className="absolute top-3 end-3 bg-gutter rounded-md"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
-                {/* Credentials */}
-                <div>
-                  <div className="text-xs font-semibold text-foreground">
+                {/* Credentials block */}
+                <div className="space-y-2">
+                  <div className="text-[13px] font-medium text-foreground">
                     {t('install.wizard.credsTitle')}
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
+                  <div className="text-[12px] text-muted-foreground">
                     {t('install.wizard.credsHint')}
                   </div>
-                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-                    <pre className="m-0 font-mono text-[13px]">
-                      <code>{credentialsSnippet}</code>
+                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
+                    <pre className="m-0">
+                      <code>{creds}</code>
                     </pre>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copy(credentialsSnippet)}
+                      onClick={() => copy(creds)}
                       className="absolute top-3 end-3"
                     >
                       <Copy className="h-4 w-4" />
@@ -563,47 +688,23 @@ function InstallGuideWizardDialog({
                   </div>
                 </div>
 
-                {/* AI Agent Prompt */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                {/* Agent prompt block */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                     <Bot className="h-4 w-4 text-brand" />
                     {t('install.wizard.agentPromptTitle')}
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
+                  <div className="text-[12px] text-muted-foreground">
                     {t('install.wizard.agentPromptHint')}
                   </div>
-                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-                    <pre className="m-0 font-mono text-[13px] whitespace-pre-wrap">
+                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto whitespace-pre-wrap">
+                    <pre className="m-0">
                       <code>{agentPrompt}</code>
                     </pre>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => copy(agentPrompt)}
-                      className="absolute top-3 end-3"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Monorepo note */}
-                <div className="rounded-lg border border-border bg-card p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Info className="h-3.5 w-3.5 text-brand" />
-                    {t('install.stepMonorepoTitle')}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {t('install.stepMonorepoHint')}
-                  </div>
-                  <div className="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-                    <pre className="m-0 font-mono text-[13px]">
-                      <code>{monorepoCommand}</code>
-                    </pre>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copy(monorepoCommand)}
                       className="absolute top-3 end-3"
                     >
                       <Copy className="h-4 w-4" />
@@ -653,34 +754,44 @@ function InstallGuideWizardDialog({
 
             {/* 3C: Chrome Extension Path */}
             {selectedMethod === 'extension' && (
-              <div className="flex flex-col gap-3">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold">{t('install.extDownloadTitle')}</div>
-                      <div className="text-xs text-muted-foreground">{t('install.extDownloadHint')}</div>
+              <ol className="m-0 flex list-none flex-col gap-3 p-0">
+                {buildExtensionSteps({
+                  server,
+                  apiKey,
+                  demo,
+                  credsEmailedText: t('demo.credsEmailed'),
+                }).map((step, i) => (
+                  <li key={step.titleKey} className="rounded-md border border-border bg-background p-4 space-y-2">
+                    <div className="text-[13px] font-medium text-foreground">
+                      {i + 1}. {t(step.titleKey)}
                     </div>
-                    <Button asChild size="sm">
-                      <a href={EXTENSION_ZIP_URL} download>
-                        <Download className="h-4 w-4" />
-                        {t('install.extDownloadButton')}
-                      </a>
-                    </Button>
-                  </div>
-
-                  <ol className="mt-4 flex list-none flex-col gap-3 p-0 text-xs">
-                    <li>
-                      <span className="font-semibold">1. {t('install.extUnzipTitle')}</span>: {t('install.extUnzipHint')}
-                    </li>
-                    <li>
-                      <span className="font-semibold">2. {t('install.extLoadTitle')}</span>: {t('install.extLoadHint')}
-                    </li>
-                    <li>
-                      <span className="font-semibold">3. {t('install.extSignInTitle')}</span>: {t('install.extSignInHint')}
-                    </li>
-                  </ol>
-                </div>
-              </div>
+                    <div className="text-[12px] text-muted-foreground">{t(step.hintKey)}</div>
+                    {step.downloadUrl && (
+                      <Button asChild size="sm" className="inline-flex mt-2">
+                        <a href={step.downloadUrl} download>
+                          <Download className="h-4 w-4" />
+                          {t('install.extDownload')}
+                        </a>
+                      </Button>
+                    )}
+                    {step.code && (
+                      <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 overflow-x-auto whitespace-pre-wrap mt-2">
+                        <pre className="m-0">
+                          <code>{step.code}</code>
+                        </pre>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copy(step.code!)}
+                          className="absolute top-3 end-3"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ol>
             )}
 
             <div className="mt-3 flex items-center justify-between">

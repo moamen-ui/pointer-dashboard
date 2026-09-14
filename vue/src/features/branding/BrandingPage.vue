@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Branding admin page — super-admin only.
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   getApiAdminBranding,
@@ -44,6 +44,10 @@ const ASSET_META: AssetMeta[] = [
 const loading = ref(false);
 const saving = ref(false);
 const loadError = ref('');
+// Angular-parity validation: error appears only after the field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. Save was
+// already disabled on an empty product name with no way for the user to see why.
+const productNameTouched = ref(false);
 
 const form = ref({
   productName: '',
@@ -144,6 +148,10 @@ onMounted(loadData);
 
 // ─── Save text/URL form ───────────────────────────────────────────────────────
 
+const productNameError = computed(() =>
+  productNameTouched.value && !form.value.productName.trim() ? t('common.fieldRequired') : '',
+);
+
 async function saveForm() {
   if (!form.value.productName.trim()) return;
   saving.value = true;
@@ -234,8 +242,13 @@ async function deleteAsset(kind: AssetKind) {
       <div class="rounded-md border border-border">
         <div class="space-y-4 p-5">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField :label="t('branding.productName')" html-for="b-name">
-              <Input id="b-name" v-model="form.productName" :placeholder="t('branding.productNamePlaceholder')" />
+            <FormField :label="t('branding.productName')" html-for="b-name" :error="productNameError">
+              <Input
+                id="b-name"
+                v-model="form.productName"
+                :placeholder="t('branding.productNamePlaceholder')"
+                @blur="productNameTouched = true"
+              />
             </FormField>
             <FormField :label="t('branding.tagline')" html-for="b-tagline">
               <Input id="b-tagline" v-model="form.tagline" :placeholder="t('branding.taglinePlaceholder')" />

@@ -50,3 +50,15 @@ export function keyErrorFor(
   if (existingKeys.some((k) => (k ?? '').toLowerCase() === v)) return 'keyTaken';
   return null;
 }
+
+/** Optional URL: blank passes, anything else must be an absolute http(s) URL. */
+export function isHttpUrlOrEmpty(value: string): boolean {
+  const raw = value.trim();
+  if (!raw) return true;
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}

@@ -83,9 +83,17 @@ function actionsFor(env: AppEnvironmentResponse): RowActionItem[] {
 // ── Add environment ────────────────────────────────────────────────────
 const addOpen = ref(false);
 const newName = ref('');
+// Angular-parity validation: error appears only after the field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. The Add button
+// was already disabled on an empty name with no way for the user to see why.
+const newNameTouched = ref(false);
+const newNameError = computed(() =>
+  newNameTouched.value && !newName.value.trim() ? t('common.fieldRequired') : '',
+);
 
 function openAdd() {
   newName.value = '';
+  newNameTouched.value = false;
   addOpen.value = true;
 }
 
@@ -105,10 +113,16 @@ async function addEnvironment() {
 const renameOpen = ref(false);
 const editingEnvironment = ref<AppEnvironmentResponse | null>(null);
 const editName = ref('');
+// Same touched-error convention as Add environment's name field above.
+const editNameTouched = ref(false);
+const editNameError = computed(() =>
+  editNameTouched.value && !editName.value.trim() ? t('common.fieldRequired') : '',
+);
 
 function renameEnvironment(env: AppEnvironmentResponse) {
   editingEnvironment.value = env;
   editName.value = env.name ?? '';
+  editNameTouched.value = false;
   renameOpen.value = true;
 }
 
@@ -194,12 +208,13 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
         <DialogTitle class="text-base font-semibold leading-6">{{ t('environments.addEnvironment') }}</DialogTitle>
       </DialogHeader>
       <div class="py-2">
-        <FormField :label="t('environments.name')" html-for="environment-name">
+        <FormField :label="t('environments.name')" html-for="environment-name" :error="newNameError">
           <Input
             id="environment-name"
             v-model="newName"
             placeholder="e.g. qa"
             @keydown.enter="addEnvironment"
+            @blur="newNameTouched = true"
           />
         </FormField>
       </div>
@@ -219,11 +234,12 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
         <DialogTitle class="text-base font-semibold leading-6">{{ t('common.rename') }}</DialogTitle>
       </DialogHeader>
       <div class="py-2">
-        <FormField :label="t('environments.name')" html-for="rename-environment-name">
+        <FormField :label="t('environments.name')" html-for="rename-environment-name" :error="editNameError">
           <Input
             id="rename-environment-name"
             v-model="editName"
             @keydown.enter="saveRename"
+            @blur="editNameTouched = true"
           />
         </FormField>
       </div>

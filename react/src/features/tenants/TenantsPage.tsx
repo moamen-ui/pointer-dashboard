@@ -44,6 +44,7 @@ import {
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
+import { emailError, requiredError } from '@/lib/validators';
 
 // The new TenantResponse fields are not in ^1.0.7 yet — cast via this helper type.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,6 +84,13 @@ export function TenantsPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
+  const [newEmailTouched, setNewEmailTouched] = useState(false);
+  const [newPasswordTouched, setNewPasswordTouched] = useState(false);
+  const [newDisplayNameTouched, setNewDisplayNameTouched] = useState(false);
+  const newEmailErrorMsg = emailError(newEmail, t);
+  const newPasswordErrorMsg = requiredError(newPassword, t);
+  const newDisplayNameErrorMsg = requiredError(newDisplayName, t);
+  const addTenantInvalid = !!newEmailErrorMsg || !!newPasswordErrorMsg || !!newDisplayNameErrorMsg;
 
   const createMut = usePostApiAdminTenants({
     mutation: {
@@ -102,10 +110,13 @@ export function TenantsPage() {
     setNewEmail('');
     setNewPassword('');
     setNewDisplayName('');
+    setNewEmailTouched(false);
+    setNewPasswordTouched(false);
+    setNewDisplayNameTouched(false);
     setAddOpen(true);
   }
   function addTenant() {
-    if (!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim()) return;
+    if (addTenantInvalid) return;
     createMut.mutate({
       data: {
         email: newEmail.trim(),
@@ -434,27 +445,42 @@ export function TenantsPage() {
             <DialogTitle>{t('tenants.addTenant')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <FormField label={t('tenants.email')} htmlFor="tenant-email">
+            <FormField
+              label={t('tenants.email')}
+              htmlFor="tenant-email"
+              error={newEmailTouched ? newEmailErrorMsg || undefined : undefined}
+            >
               <Input
                 id="tenant-email"
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
+                onBlur={() => setNewEmailTouched(true)}
                 autoFocus
               />
             </FormField>
-            <FormField label={t('tenants.password')} htmlFor="tenant-password">
+            <FormField
+              label={t('tenants.password')}
+              htmlFor="tenant-password"
+              error={newPasswordTouched ? newPasswordErrorMsg || undefined : undefined}
+            >
               <PasswordInput
                 id="tenant-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                onBlur={() => setNewPasswordTouched(true)}
               />
             </FormField>
-            <FormField label={t('tenants.displayName')} htmlFor="tenant-name">
+            <FormField
+              label={t('tenants.displayName')}
+              htmlFor="tenant-name"
+              error={newDisplayNameTouched ? newDisplayNameErrorMsg || undefined : undefined}
+            >
               <Input
                 id="tenant-name"
                 value={newDisplayName}
                 onChange={(e) => setNewDisplayName(e.target.value)}
+                onBlur={() => setNewDisplayNameTouched(true)}
               />
             </FormField>
           </div>
@@ -463,7 +489,7 @@ export function TenantsPage() {
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={!newEmail.trim() || !newPassword.trim() || !newDisplayName.trim() || createMut.isPending}
+              disabled={addTenantInvalid || createMut.isPending}
               onClick={addTenant}
             >
               {t('tenants.addTenant')}

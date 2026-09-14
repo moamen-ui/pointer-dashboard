@@ -127,3 +127,164 @@ export function readDemoSession(): DemoSession | null {
     return null;
   }
 }
+
+// ── Install-guide step builders ──────────────────────────────────────────────
+
+export const PROJECT_KEY_PLACEHOLDER = '<your-project-key>';
+export const API_KEY_PLACEHOLDER = '<your API key — see your Profile page>';
+
+/**
+ * Builds the primary `npx -y pointer-feedback init` command with the given parameters.
+ * Only includes --key if apiKey exists, and --project only if projectKey is real.
+ */
+export function initCommand(input: {
+  server: string;
+  apiKey: string | null;
+  projectKey: string | null;
+  environment?: 'local' | 'staging' | 'production';
+}): string {
+  const parts = ['npx -y pointer-feedback init', `--server ${input.server}`];
+  if (input.apiKey) {
+    parts.push(`--key ${input.apiKey}`);
+  }
+  if (input.projectKey) {
+    parts.push(`--project ${input.projectKey}`);
+  }
+  if (input.environment) {
+    parts.push(`--environment ${input.environment}`);
+  }
+  return parts.join(' ');
+}
+
+/**
+ * Builds the monorepo init command. Always includes --key (with placeholder if needed)
+ * and --html to specify the app entry point.
+ */
+export function monorepoInitCommand(input: {
+  server: string;
+  apiKey: string | null;
+  projectKey: string | null;
+}): string {
+  const parts = ['npx -y pointer-feedback init', `--server ${input.server}`];
+  parts.push(`--key ${input.apiKey ?? API_KEY_PLACEHOLDER}`);
+  parts.push(`--project ${input.projectKey || PROJECT_KEY_PLACEHOLDER}`);
+  parts.push('--html apps/your-app/src/index.html');
+  return parts.join(' ');
+}
+
+/**
+ * Builds the credentials snippet: API key for normal users, email/password for demo.
+ */
+export function credentialsSnippet(input: {
+  apiKey: string | null;
+  demo: DemoSession | null;
+  credsEmailedText: string;
+}): string {
+  const { demo, apiKey } = input;
+  if (demo) {
+    return demo.emailSent
+      ? input.credsEmailedText
+      : `POINTER_EMAIL=${demo.email ?? ''}\nPOINTER_PASSWORD=${demo.password ?? ''}`;
+  }
+  return `POINTER_API_KEY=${apiKey ?? API_KEY_PLACEHOLDER}`;
+}
+
+export type SetupStep = {
+  titleKey: string;
+  hintKey: string;
+  code?: string;
+  downloadUrl?: string;
+};
+
+export type GuideSteps = {
+  primary: SetupStep[];
+  manual: SetupStep[];
+};
+
+/**
+ * Builds the full step sequence for agent/guide mode.
+ */
+export function buildSteps(input: {
+  server: string;
+  projectKey: string | null;
+  apiKey: string | null;
+  demo: DemoSession | null;
+  credsEmailedText: string;
+}): GuideSteps {
+  const { server, demo, projectKey } = input;
+  const displayKey = projectKey || PROJECT_KEY_PLACEHOLDER;
+  const credentials = credentialsSnippet(input);
+
+  const primary: SetupStep[] = [
+    {
+      titleKey: 'install.stepInitTitle',
+      hintKey:
+        input.apiKey ? 'install.stepInitHint' : 'install.stepInitHintNoKey',
+      code: initCommand({
+        server,
+        apiKey: input.apiKey,
+        projectKey: projectKey !== PROJECT_KEY_PLACEHOLDER ? projectKey : null,
+      }),
+    },
+  ];
+
+  // Add demo credentials step if in demo and we're not an API key user
+  if (!input.apiKey && demo) {
+    primary.push({
+      titleKey: 'demo.step4Title',
+      hintKey: 'demo.step4Hint',
+      code: credentials,
+    });
+  }
+
+  // Add agent/manual steps
+  primary.push(
+    {
+      titleKey: 'install.stepAgentTitle',
+      hintKey: 'install.stepAgentHint',
+      code: `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${displayKey}, Pointer server URL: ${server}, environment: local`,
+    },
+    { titleKey: 'demo.step5Title', hintKey: 'demo.step5Hint' },
+    {
+      titleKey: 'demo.step6Title',
+      hintKey: 'demo.step6Hint',
+      code: 'What are the new Pointer comments?',
+    },
+  );
+
+  return {
+    primary,
+    manual: [
+      { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/pointer.js" defer></script>` },
+      { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${displayKey}" server="${server}"></pointer-feedback>` },
+      { titleKey: 'install.stepCurlTitle', hintKey: 'install.stepCurlHint', code: `curl -fsSL ${server}/install.sh | sh` },
+    ],
+  };
+}
+
+/**
+ * Builds the steps for the Chrome extension method.
+ */
+export function buildExtensionSteps(input: {
+  server: string;
+  apiKey: string | null;
+  demo: DemoSession | null;
+  credsEmailedText: string;
+}): SetupStep[] {
+  const { server } = input;
+  const credentials = credentialsSnippet(input);
+  return [
+    {
+      titleKey: 'install.extStep1Title',
+      hintKey: 'install.extStep1Hint',
+      downloadUrl: 'https://pointer.moamen.work/pointer-extension.zip',
+    },
+    { titleKey: 'install.extStep2Title', hintKey: 'install.extStep2Hint' },
+    { titleKey: 'install.extStep3Title', hintKey: 'install.extStep3Hint', code: 'chrome://extensions' },
+    {
+      titleKey: 'install.extStep4Title',
+      hintKey: 'install.extStep4Hint',
+      code: `${server}\n${credentials}`,
+    },
+  ];
+}

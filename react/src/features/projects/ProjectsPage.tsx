@@ -13,10 +13,9 @@ import { useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  KEY_MAX_LENGTH,
-  normalizeKey,
   slugifyKey,
   keyErrorFor as checkKeyError,
+  isHttpUrlOrEmpty,
   type KeyError,
 } from '@/lib/project-utils';
 import {
@@ -98,6 +97,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
 import { useAuth } from '@/lib/auth';
+import { requiredError } from '@/lib/validators';
 
 // Local row type for predefined actions in the form
 type PredefinedActionRow = {
@@ -646,23 +646,23 @@ export function ProjectsPage() {
 
   // ---- Add project ----
   const [addOpen, setAddOpen] = useState(false);
+  // Derived from the name (slugified) as the user types — no longer independently
+  // editable, so there is no "keyEdited" escape hatch anymore. A collision can only be
+  // fixed by changing the name, which is what the keyTakenChangeName copy says.
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
-  // True once the user edits the key by hand — auto-fill stops deferring to the name.
-  const [keyEdited, setKeyEdited] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
   const [captureContextEnabled, setCaptureContextEnabled] = useState(false);
+  // Optional, and deliberately the only environment offered at creation time (plus
+  // whichever one the user picks from the dropdown below). A comment's environment is
+  // resolved from the URL it was left on, so registering one URL up front is what makes
+  // that work from the very first comment.
+  const [appUrl, setAppUrl] = useState('');
+  const [newProjectEnvId, setNewProjectEnvId] = useState<number | null>(null);
 
   const keyError = keyErrorFor(key, projects);
-  const keyErrorMessage =
-    keyError === 'keyRequired'
-      ? t('projects.keyRequired')
-      : keyError === 'keyPattern'
-        ? t('projects.keyPattern')
-        : keyError === 'keyMaxLength'
-          ? t('projects.keyMaxLength', { max: KEY_MAX_LENGTH })
-          : keyError === 'keyTaken'
-            ? t('projects.keyTaken')
-            : null;
+  const appUrlValid = isHttpUrlOrEmpty(appUrl);
+  const nameErrorMsg = requiredError(name, t);
 
   const addMut = usePostApiAdminProjects({
     mutation: {
@@ -676,6 +676,7 @@ export function ProjectsPage() {
         setKey('');
         setName('');
         setCaptureContextEnabled(false);
+        setAppUrl('');
         reload();
       },
       onError,
@@ -685,17 +686,23 @@ export function ProjectsPage() {
   function openAdd() {
     setKey('');
     setName('');
-    setKeyEdited(false);
+    setNameTouched(false);
     setCaptureContextEnabled(false);
+    setAppUrl('');
     setAddOpen(true);
   }
 
   function addProject() {
-    if (keyError || !name.trim()) return;
+    if (keyError || !name.trim() || !appUrlValid) return;
+    const trimmedUrl = appUrl.trim();
     addMut.mutate({
       data: {
         key: key.trim(),
         name: name.trim(),
+        // Omitting appUrl/appEnvironmentId lets the API place the project on the
+        // tenant's own "local" environment (falling back to the global one) — sent
+        // only when the user actually filled in a URL.
+        ...(trimmedUrl ? { appUrl: trimmedUrl, appEnvironmentId: newProjectEnvId ?? undefined } : {}),
       },
     });
   }
@@ -704,6 +711,8 @@ export function ProjectsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectResponse | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNameTouched, setEditNameTouched] = useState(false);
+  const editNameErrorMsg = requiredError(editName, t);
   const [editActions, setEditActions] = useState<PredefinedActionRow[]>([]);
   // readOnly = true when canEdit is false (view mode)
   const [editReadOnly, setEditReadOnly] = useState(false);
@@ -723,14 +732,30 @@ export function ProjectsPage() {
   });
 
   // ---- Other-environment App URLs (edit dialog only — a project must exist first) ----
-  // Fetched only while the edit dialog is actually open in edit mode.
+  // Fetched only while the edit dialog is actually open in edit mode — plus while the
+  // Add-project dialog is open, since its Environments row needs the same list.
   const envSectionActive = editOpen && !editReadOnly;
   const { data: environments = [] } = useGetApiAdminEnvironments({
-    query: { enabled: envSectionActive },
+    query: { enabled: envSectionActive || addOpen },
   });
   const { data: appUrls = [] } = useGetApiAdminProjectsIdAppUrls(editProject?.id ?? 0, {
     query: { enabled: envSectionActive },
   });
+
+  // Environments offerable when creating a project: every enabled one, minus the
+  // retired "default" row kept only so old URLs still render somewhere.
+  const creatableEnvironments = environments.filter(
+    (e) => e.isEnabled !== false && e.isRetired !== true,
+  );
+
+  // Picks the `local` row once the environment list arrives, without clobbering a
+  // choice the user already made.
+  useEffect(() => {
+    if (newProjectEnvId !== null) return;
+    const local = creatableEnvironments.find((e) => (e.name ?? '').toLowerCase() === 'local');
+    if (local?.id != null) setNewProjectEnvId(local.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [environments]);
 
   // Every role this tenant can assign — options for the "environment switcher
   // visibility" multiselect (same endpoint the Roles admin page uses).
@@ -934,6 +959,7 @@ export function ProjectsPage() {
   function openEdit(project: ProjectResponse, readOnly = false) {
     setEditProject(project);
     setEditName(project.name ?? '');
+    setEditNameTouched(false);
     setEditReadOnly(readOnly);
     setEditTab('details');
     setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
@@ -1297,40 +1323,82 @@ export function ProjectsPage() {
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2" data-tour="project-modal-sections">
             {/* Name first: the key is derived from it (Pointer feedback #138). */}
-            <FormField label={t('projects.name')} htmlFor="project-name">
+            <FormField
+              label={t('projects.name')}
+              htmlFor="project-name"
+              error={nameTouched ? nameErrorMsg || undefined : undefined}
+            >
               <Input
                 id="project-name"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
-                  // Derive the key from the name until the user edits the key
-                  // themselves — after that, name edits must not overwrite it.
-                  if (!keyEdited) setKey(slugifyKey(e.target.value));
+                  // The key is generated from the name as the user types — it is no
+                  // longer independently editable.
+                  setKey(slugifyKey(e.target.value));
                 }}
+                onBlur={() => setNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && addProject()}
                 autoFocus
               />
             </FormField>
+            {/* Key: derived from the name, shown read-only. It is an identifier the user
+                never has to invent, and one they cannot safely change later anyway. A
+                collision is fixed by changing the NAME, which is what the error says. */}
             <FormField
               label={t('projects.key')}
               htmlFor="project-key"
-              error={keyErrorMessage || undefined}
-              hint={t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')}
+              error={keyError === 'keyTaken' ? t('projects.keyTakenChangeName') : undefined}
+              hint={t('projects.keyAutoHint')}
             >
               <Input
                 id="project-key"
                 value={key}
-                onChange={(e) => {
-                  setKeyEdited(true);
-                  const normalized = normalizeKey(e.target.value);
-                  e.target.value = normalized;
-                  setKey(normalized);
-                }}
-                maxLength={KEY_MAX_LENGTH}
-                autoCapitalize="none"
-                spellCheck={false}
-                aria-invalid={keyError ? true : undefined}
+                readOnly
+                tabIndex={-1}
+                aria-readonly="true"
+                className="bg-gutter text-muted-foreground font-mono"
               />
+            </FormField>
+
+            {/* Environments: local only at creation time by default. A comment's
+                environment is resolved from the URL it was left on, so one registered
+                URL makes that work from the first comment. Staging and production are
+                added later, from the project's edit dialog. */}
+            <FormField
+              label={t('projects.environmentsTitle')}
+              htmlFor="project-app-url"
+              error={!appUrlValid ? t('projects.appUrlInvalid') : undefined}
+              hint={t('projects.appUrlHint')}
+            >
+              <div className="flex items-center gap-2">
+                <Select
+                  value={newProjectEnvId != null ? String(newProjectEnvId) : undefined}
+                  onValueChange={(v) => setNewProjectEnvId(Number(v))}
+                >
+                  <SelectTrigger className="h-9 w-[9.5rem] shrink-0">
+                    <SelectValue placeholder={t('environments.name')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {creatableEnvironments.map((e) => (
+                      <SelectItem key={e.id} value={String(e.id)}>
+                        {e.name ?? ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="project-app-url"
+                  className="flex-1"
+                  value={appUrl}
+                  onChange={(e) => setAppUrl(e.target.value)}
+                  inputMode="url"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder="http://localhost:4200"
+                  aria-invalid={!appUrlValid ? true : undefined}
+                />
+              </div>
             </FormField>
 
             {/* Capture console/network context switch */}
@@ -1355,7 +1423,7 @@ export function ProjectsPage() {
               {t('common.cancel')}
             </Button>
             <Button
-              disabled={!!keyError || !name.trim() || addMut.isPending}
+              disabled={!!keyError || !name.trim() || !appUrlValid || addMut.isPending}
               onClick={addProject}
             >
               <Plus className="h-4 w-4" />
@@ -1383,11 +1451,16 @@ export function ProjectsPage() {
           >
           <TabsContent value="details" className="flex flex-col gap-4 pt-1">
             {!editReadOnly && (
-              <FormField label={t('projects.name')} htmlFor="edit-project-name">
+              <FormField
+                label={t('projects.name')}
+                htmlFor="edit-project-name"
+                error={editNameTouched ? editNameErrorMsg || undefined : undefined}
+              >
                 <Input
                   id="edit-project-name"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => setEditNameTouched(true)}
                   autoFocus
                 />
               </FormField>

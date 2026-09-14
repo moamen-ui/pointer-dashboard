@@ -118,10 +118,18 @@ function actionsFor(role: RoleResponse): RowActionItem[] {
 const addOpen = ref(false);
 const newName = ref('');
 const newGrantsAdmin = ref(false);
+// Angular-parity validation: error appears only after the field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. The Add button
+// was already disabled on an empty name with no way for the user to see why.
+const newNameTouched = ref(false);
+const newNameError = computed(() =>
+  newNameTouched.value && !newName.value.trim() ? t('common.fieldRequired') : '',
+);
 
 function openAdd() {
   newName.value = '';
   newGrantsAdmin.value = false;
+  newNameTouched.value = false;
   addOpen.value = true;
 }
 
@@ -160,10 +168,16 @@ async function toggleQuickAccess(role: RoleResponse, quickAccess: boolean) {
 const renameOpen = ref(false);
 const editingRole = ref<RoleResponse | null>(null);
 const editName = ref('');
+// Same touched-error convention as Add role's name field above.
+const editNameTouched = ref(false);
+const editNameError = computed(() =>
+  editNameTouched.value && !editName.value.trim() ? t('common.fieldRequired') : '',
+);
 
 function renameRole(role: RoleResponse) {
   editingRole.value = role;
   editName.value = role.name ?? '';
+  editNameTouched.value = false;
   renameOpen.value = true;
 }
 
@@ -337,8 +351,8 @@ async function deleteRole() {
         <DialogTitle class="text-base font-semibold leading-6">{{ t('roles.addRole') }}</DialogTitle>
       </DialogHeader>
       <div class="flex flex-col gap-4 py-2 space-y-4">
-        <FormField :label="t('roles.name')" html-for="role-name">
-          <Input id="role-name" v-model="newName" @keydown.enter="addRole" />
+        <FormField :label="t('roles.name')" html-for="role-name" :error="newNameError">
+          <Input id="role-name" v-model="newName" @keydown.enter="addRole" @blur="newNameTouched = true" />
         </FormField>
         <label class="flex items-center gap-2 text-[14px]">
           <Checkbox v-model="newGrantsAdmin" />
@@ -361,8 +375,8 @@ async function deleteRole() {
         <DialogTitle class="text-base font-semibold leading-6">{{ t('common.rename') }}</DialogTitle>
       </DialogHeader>
       <div class="py-2">
-        <FormField :label="t('roles.name')" html-for="rename-name">
-          <Input id="rename-name" v-model="editName" @keydown.enter="saveRename" />
+        <FormField :label="t('roles.name')" html-for="rename-name" :error="editNameError">
+          <Input id="rename-name" v-model="editName" @keydown.enter="saveRename" @blur="editNameTouched = true" />
         </FormField>
       </div>
       <DialogFooter>

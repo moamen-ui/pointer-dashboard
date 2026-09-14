@@ -199,15 +199,24 @@ function fail(e: unknown) {
 const modalOpen = ref(false);
 const editingPlan = ref<PlanAdminResponse | null>(null);
 const form = ref<PlanFormState>(emptyForm());
+// Angular-parity validation: error appears only after the field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. Save was
+// already disabled on an empty name with no way for the user to see why.
+const nameTouched = ref(false);
+const nameError = computed(() =>
+  nameTouched.value && !form.value.name.trim() ? t('common.fieldRequired') : '',
+);
 
 function openCreate() {
   editingPlan.value = null;
   form.value = emptyForm();
+  nameTouched.value = false;
   modalOpen.value = true;
 }
 function openEdit(plan: PlanAdminResponse) {
   editingPlan.value = plan;
   form.value = planToForm(plan);
+  nameTouched.value = false;
   modalOpen.value = true;
 }
 
@@ -365,8 +374,8 @@ watch(bulletsRef, (v) => {
       <div class="space-y-4">
         <!-- Basic fields -->
         <div class="space-y-4">
-          <FormField :label="t('plans.colName')" html-for="plan-name">
-            <Input id="plan-name" v-model="form.name" />
+          <FormField :label="t('plans.colName')" html-for="plan-name" :error="nameError">
+            <Input id="plan-name" v-model="form.name" @blur="nameTouched = true" />
           </FormField>
           <FormField :label="t('plans.colSlug')" html-for="plan-slug">
             <Input id="plan-slug" v-model="form.slug" />

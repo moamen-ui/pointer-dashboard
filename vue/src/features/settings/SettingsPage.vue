@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
 import {
@@ -308,6 +308,16 @@ async function deleteTenantRule(rule: EditableTenantAiRule) {
 const newTenantRuleTitle = ref('');
 const newTenantRulePrompt = ref('');
 const newTenantRuleBusy = ref(false);
+// Angular-parity validation: errors appear only after a field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. The Add button
+// was already disabled on either field blank with no way for the user to see why.
+const newTenantRuleTouched = reactive({ title: false, prompt: false });
+const newTenantRuleTitleError = computed(() =>
+  newTenantRuleTouched.title && !newTenantRuleTitle.value.trim() ? t('common.fieldRequired') : '',
+);
+const newTenantRulePromptError = computed(() =>
+  newTenantRuleTouched.prompt && !newTenantRulePrompt.value.trim() ? t('common.fieldRequired') : '',
+);
 
 async function createTenantRule() {
   const title = newTenantRuleTitle.value.trim();
@@ -325,6 +335,8 @@ async function createTenantRule() {
     newTenantRuleBusy.value = false;
     newTenantRuleTitle.value = '';
     newTenantRulePrompt.value = '';
+    newTenantRuleTouched.title = false;
+    newTenantRuleTouched.prompt = false;
     rulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
   } catch (e) {
@@ -677,20 +689,22 @@ async function createTenantRule() {
             <!-- Add new rule inline form -->
             <div class="mt-4 space-y-3 rounded-md border border-border bg-background p-4">
               <span class="text-[13px] font-medium text-foreground">{{ t('aiRules.addRule') }}</span>
-              <FormField :label="t('aiRules.titleLabel')" html-for="new-tr-title">
+              <FormField :label="t('aiRules.titleLabel')" html-for="new-tr-title" :error="newTenantRuleTitleError">
                 <Input
                   id="new-tr-title"
                   v-model="newTenantRuleTitle"
                   :placeholder="t('aiRules.titlePlaceholder')"
+                  @blur="newTenantRuleTouched.title = true"
                 />
               </FormField>
-              <FormField :label="t('aiRules.promptLabel')" html-for="new-tr-prompt">
+              <FormField :label="t('aiRules.promptLabel')" html-for="new-tr-prompt" :error="newTenantRulePromptError">
                 <textarea
                   id="new-tr-prompt"
                   v-model="newTenantRulePrompt"
                   rows="2"
                   :placeholder="t('aiRules.promptPlaceholder')"
                   class="flex w-full rounded-md border border-border bg-background px-3 py-2 text-[14px] font-sans resize-none"
+                  @blur="newTenantRuleTouched.prompt = true"
                 />
               </FormField>
               <div class="flex justify-end">

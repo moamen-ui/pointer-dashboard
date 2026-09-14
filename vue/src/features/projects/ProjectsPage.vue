@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
 import type { ColumnDef } from '@tanstack/vue-table';
@@ -47,6 +47,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { extractMessage } from '@/lib/error';
+import { isHttpUrlOrEmpty } from '@/lib/projectUtils';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
@@ -81,9 +82,7 @@ function reload() {
 
 // ── Add project ───────────────────────────────────────────────────────
 const addOpen = ref(false);
-const addForm = reactive({ key: '', name: '', pageContextCaptureEnabled: false });
-// #138 — once the user edits the key themselves, name edits stop overwriting it.
-const keyEdited = ref(false);
+const addForm = reactive({ key: '', name: '', pageContextCaptureEnabled: false, appUrl: '' });
 
 /** Derives the key from the project name: lowercase, runs of characters the
  *  key doesn't allow become a single "-", no leading/trailing separators,
@@ -132,50 +131,47 @@ const latin = asciiDigits(name.toLowerCase())
     .replace(/-+$/g, '');          // the cut must not leave a dangling dash
 }
 
-/** Lowercases + trims while typing; lowercasing keeps the length so the caret
- *  stays put (clamped after a trim shrank the value). */
-function normalizeKey(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const normalized = input.value.toLowerCase().trim();
-  if (normalized === input.value) return;
-  const caret = input.selectionStart ?? normalized.length;
-  input.value = normalized;
-  input.setSelectionRange(caret, caret);
-  addForm.key = normalized;
-}
-
-/** Auto-fills the key from the name until the user edits the key themselves —
- *  and never fights a key they cleared back to empty on purpose. */
+/** Derives the key from the name as the user types — the key is shown read-only, so
+ *  this is the only way it ever changes. */
 function syncKeyFromName(event: Event) {
-  if (keyEdited.value) return;
   addForm.key = slugifyKey((event.target as HTMLInputElement).value);
 }
 
-function onKeyEdited(event: Event) {
-  keyEdited.value = true;
-  normalizeKey(event);
-}
+/** Only a collision is worth surfacing here: the key is generated and syntactically
+ *  valid by construction, and (being read-only) can't be fixed by editing it — only by
+ *  changing the name, which is what keyTakenChangeName says. */
+const keyTaken = computed(() => {
+  const key = addForm.key.toLowerCase().trim();
+  if (!key) return false;
+  return projects.value.some((p) => (p.key ?? '').toLowerCase() === key);
+});
 
-/** First failing rule wins: required → pattern → max length → taken. */
+/** First failing rule wins: required → pattern → max length → taken. Blocks submit even
+ *  though only `keyTaken` gets its own visible message. */
 const keyError = computed(() => {
   const key = addForm.key.toLowerCase().trim();
-  if (!key) return t('projects.keyRequired');
-  if (!KEY_PATTERN.test(key)) return t('projects.keyPattern');
-  if (key.length > KEY_MAX_LENGTH) return t('projects.keyMaxLength', { max: KEY_MAX_LENGTH });
-  if (projects.value.some((p) => (p.key ?? '').toLowerCase() === key)) {
-    return t('projects.keyTaken');
-  }
+  if (!key) return 'keyRequired';
+  if (!KEY_PATTERN.test(key)) return 'keyPattern';
+  if (key.length > KEY_MAX_LENGTH) return 'keyMaxLength';
+  if (keyTaken.value) return 'keyTaken';
   return null;
 });
 
-const addInvalid = computed(() => keyError.value !== null || !addForm.name.trim());
+// ── Environments row (Add-project dialog only) ─────────────────────────
+// Optional, and deliberately the only environment offered at creation time (plus
+// whichever one the user picks from the dropdown). A comment's environment is
+// resolved from the URL it was left on, so registering one URL up front is what makes
+// that work from the very first comment.
+const appUrlValid = computed(() => isHttpUrlOrEmpty(addForm.appUrl));
+
+const addInvalid = computed(() => keyError.value !== null || !addForm.name.trim() || !appUrlValid.value);
 const addActions = ref<Array<{ text: string; prompt: string }>>([]);
 
 function openAdd() {
   addForm.key = '';
   addForm.name = '';
   addForm.pageContextCaptureEnabled = false;
-  keyEdited.value = false;
+  addForm.appUrl = '';
   addActions.value = [];
   addOpen.value = true;
 }
@@ -185,10 +181,17 @@ async function addProject() {
   if (addInvalid.value) return;
   busy.value = true;
   try {
+    const trimmedUrl = addForm.appUrl.trim();
     const created = await createProject.mutateAsync({
       data: {
         key: addForm.key,
         name: addForm.name,
+        // Omitting appUrl/appEnvironmentId lets the API place the project on the
+        // tenant's own "local" environment (falling back to the global one) — sent
+        // only when the user actually filled in a URL.
+        ...(trimmedUrl
+          ? { appUrl: trimmedUrl, appEnvironmentId: newProjectEnvId.value ? Number(newProjectEnvId.value) : undefined }
+          : {}),
       },
     });
     // The create request has no capture flag; apply the dialog's switch with a follow-up patch.
@@ -317,6 +320,12 @@ const editIsActiveProduction = ref(false);
 // everyone except Client).
 const editEnvSelectorRoleIds = ref<number[]>([]);
 const editInvalid = computed(() => !editName.value.trim());
+// Angular-parity validation: error appears only after the field was touched
+// (blurred), like FormControl.invalid && FormControl.touched.
+const editNameTouched = ref(false);
+const editNameError = computed(() =>
+  editNameTouched.value && !editName.value.trim() ? t('common.fieldRequired') : '',
+);
 
 function toggleEnvSelectorRole(roleId: number, checked: boolean) {
   editEnvSelectorRoleIds.value = checked
@@ -334,6 +343,7 @@ function openEdit(project: ProjectResponse) {
   editIsActiveStaging.value = !!project.isActiveStaging;
   editIsActiveProduction.value = !!project.isActiveProduction;
   editEnvSelectorRoleIds.value = project.environmentSelectorRoleIds ?? [];
+  editNameTouched.value = false;
   editActions.value = (project.predefinedActions ?? []).map((a: PredefinedActionResponse) => ({
     id: a.id,
     text: a.text ?? '',
@@ -352,6 +362,29 @@ function openEdit(project: ProjectResponse) {
 // it's excluded everywhere below to avoid showing the same value twice.
 const { data: environmentsData } = useGetApiAdminEnvironments();
 const environments = computed<AppEnvironmentResponse[]>(() => environmentsData.value ?? []);
+
+// Environments offerable when creating a project: every enabled one, minus the retired
+// "default" row kept only so old URLs still render somewhere.
+const creatableEnvironments = computed<AppEnvironmentResponse[]>(() =>
+  environments.value.filter((e) => e.isEnabled !== false && e.isRetired !== true),
+);
+
+/** Defaults to `local` — the environment every project has on day one. Kept as a
+ *  string, like the edit dialog's `newEnvId`, for the Select component's v-model. */
+const newProjectEnvId = ref('');
+
+// Picks the local row once the environment list arrives, without clobbering a choice
+// the user already made.
+watch(
+  creatableEnvironments,
+  (envs) => {
+    if (newProjectEnvId.value) return;
+    const local = envs.find((e) => (e.name ?? '').toLowerCase() === 'local');
+    if (local?.id != null) newProjectEnvId.value = String(local.id);
+  },
+  { immediate: true },
+);
+
 
 // Every role this tenant can assign — options for the "Environment switcher
 // visibility" checkboxes (same list the Roles admin page uses).
@@ -619,11 +652,19 @@ const suggestMutation = usePostApiProjectsIdPredefinedActionSuggestions();
 const suggestOpen = ref(false);
 const suggestTargetProject = ref<ProjectResponse | null>(null);
 const suggestForm = reactive<{ text: string; prompt: string }>({ text: '', prompt: '' });
+// Angular-parity validation: error appears only after the field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. Suggest was
+// already disabled on an empty text with no way for the user to see why.
+const suggestTextTouched = ref(false);
+const suggestTextError = computed(() =>
+  suggestTextTouched.value && !suggestForm.text ? t('common.fieldRequired') : '',
+);
 
 function openSuggest(project: ProjectResponse) {
   suggestTargetProject.value = project;
   suggestForm.text = '';
   suggestForm.prompt = '';
+  suggestTextTouched.value = false;
   suggestOpen.value = true;
 }
 
@@ -783,15 +824,56 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <FormField :label="t('projects.name')" html-for="p-name">
           <Input id="p-name" v-model="addForm.name" @input="syncKeyFromName" />
         </FormField>
-        <FormField :label="t('projects.key')" html-for="p-key" :error="keyError ?? undefined" :hint="keyError ? '' : t(keyEdited ? 'projects.keyHint' : 'projects.keyAutoHint')">
+        <!-- Key: derived from the name, shown read-only. It is an identifier the user
+             never has to invent, and one they cannot safely change later anyway. A
+             collision is fixed by changing the NAME, which is what the error says. -->
+        <FormField
+          :label="t('projects.key')"
+          html-for="p-key"
+          :error="keyError === 'keyTaken' ? t('projects.keyTakenChangeName') : undefined"
+          :hint="t('projects.keyAutoHint')"
+        >
           <Input
             id="p-key"
             v-model="addForm.key"
-            :maxlength="KEY_MAX_LENGTH"
-            autocapitalize="none"
-            spellcheck="false"
-            @input="onKeyEdited"
+            readonly
+            tabindex="-1"
+            aria-readonly="true"
+            class="bg-gutter text-muted-foreground font-mono"
           />
+        </FormField>
+
+        <!-- Environments: local only at creation time by default. A comment's
+             environment is resolved from the URL it was left on, so one registered URL
+             makes that work from the first comment. Staging and production are added
+             later, from the project's edit dialog. -->
+        <FormField
+          :label="t('projects.environmentsTitle')"
+          html-for="p-app-url"
+          :hint="t('projects.appUrlHint')"
+          :error="appUrlValid ? undefined : t('projects.appUrlInvalid')"
+        >
+          <div class="flex items-center gap-2">
+            <Select v-model="newProjectEnvId">
+              <SelectTrigger class="h-9 w-[9.5rem] shrink-0">
+                <SelectValue :placeholder="t('environments.name')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="env in creatableEnvironments" :key="env.id" :value="String(env.id)">
+                  {{ env.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              id="p-app-url"
+              v-model="addForm.appUrl"
+              class="flex-1"
+              inputmode="url"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="http://localhost:4200"
+            />
+          </div>
         </FormField>
 
         <div class="flex items-start justify-between gap-4">
@@ -818,8 +900,8 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle>{{ t('projects.editTitle') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="saveEdit">
-        <FormField :label="t('projects.name')" html-for="edit-name">
-          <Input id="edit-name" v-model="editName" />
+        <FormField :label="t('projects.name')" html-for="edit-name" :error="editNameError">
+          <Input id="edit-name" v-model="editName" @blur="editNameTouched = true" />
         </FormField>
 
         <!-- Every environment with a saved URL shows as a row, "default" included;
@@ -1043,8 +1125,8 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
         <DialogTitle>{{ t('projects.suggest') }}</DialogTitle>
       </DialogHeader>
       <form class="flex flex-col gap-3 pt-2" @submit.prevent="submitSuggest">
-        <FormField :label="t('predefined.text')" html-for="suggest-text">
-          <Input id="suggest-text" v-model="suggestForm.text" />
+        <FormField :label="t('predefined.text')" html-for="suggest-text" :error="suggestTextError">
+          <Input id="suggest-text" v-model="suggestForm.text" @blur="suggestTextTouched = true" />
         </FormField>
         <FormField :label="t('predefined.prompt')" html-for="suggest-prompt">
           <textarea

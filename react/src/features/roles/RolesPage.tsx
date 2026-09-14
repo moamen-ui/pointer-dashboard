@@ -40,6 +40,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { extractMessage } from '@/lib/error';
+import { requiredError } from '@/lib/validators';
 
 /**
  * Whether the signed-in user may fully manage this role (rename/delete/reconfigure).
@@ -86,13 +87,16 @@ export function RolesPage() {
   // ---- Add role ----
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newNameTouched, setNewNameTouched] = useState(false);
   const [newGrantsAdmin, setNewGrantsAdmin] = useState(false);
+  const newNameError = requiredError(newName, t);
 
   const addMut = usePostApiAdminRoles({
     mutation: {
       onSuccess: () => {
         setAddOpen(false);
         setNewName('');
+        setNewNameTouched(false);
         setNewGrantsAdmin(false);
         reload();
       },
@@ -102,6 +106,7 @@ export function RolesPage() {
 
   function openAdd() {
     setNewName('');
+    setNewNameTouched(false);
     setNewGrantsAdmin(false);
     setAddOpen(true);
   }
@@ -131,10 +136,13 @@ export function RolesPage() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleResponse | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNameTouched, setEditNameTouched] = useState(false);
+  const editNameError = requiredError(editName, t);
 
   function openRename(role: RoleResponse) {
     setEditingRole(role);
     setEditName(role.name ?? '');
+    setEditNameTouched(false);
     setRenameOpen(true);
   }
   function saveRename() {
@@ -381,11 +389,16 @@ export function RolesPage() {
             <DialogTitle>{t('roles.addRole')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
-            <FormField label={t('roles.name')} htmlFor="role-name">
+            <FormField
+              label={t('roles.name')}
+              htmlFor="role-name"
+              error={newNameTouched ? newNameError || undefined : undefined}
+            >
               <Input
                 id="role-name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                onBlur={() => setNewNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && addRole()}
                 autoFocus
               />
@@ -419,11 +432,16 @@ export function RolesPage() {
             <DialogTitle>{t('common.rename')}</DialogTitle>
           </DialogHeader>
           <div className="pt-1">
-            <FormField label={t('roles.name')} htmlFor="role-rename">
+            <FormField
+              label={t('roles.name')}
+              htmlFor="role-rename"
+              error={editNameTouched ? editNameError || undefined : undefined}
+            >
               <Input
                 id="role-rename"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                onBlur={() => setEditNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && saveRename()}
                 autoFocus
               />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
 import {
@@ -164,6 +164,16 @@ async function deleteProjectAdminRule(rule: EditableRuleItem) {
 const newAdminRuleTitle = ref('');
 const newAdminRulePrompt = ref('');
 const newAdminRuleBusy = ref(false);
+// Angular-parity validation: errors appear only after a field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. The Add button
+// was already disabled on either field blank with no way for the user to see why.
+const newAdminRuleTouched = reactive({ title: false, prompt: false });
+const newAdminRuleTitleError = computed(() =>
+  newAdminRuleTouched.title && !newAdminRuleTitle.value.trim() ? t('common.fieldRequired') : '',
+);
+const newAdminRulePromptError = computed(() =>
+  newAdminRuleTouched.prompt && !newAdminRulePrompt.value.trim() ? t('common.fieldRequired') : '',
+);
 
 async function createProjectAdminRule() {
   if (!props.project.id || !newAdminRuleTitle.value.trim() || !newAdminRulePrompt.value.trim()) return;
@@ -180,6 +190,8 @@ async function createProjectAdminRule() {
     newAdminRuleBusy.value = false;
     newAdminRuleTitle.value = '';
     newAdminRulePrompt.value = '';
+    newAdminRuleTouched.title = false;
+    newAdminRuleTouched.prompt = false;
     adminRulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
@@ -235,6 +247,14 @@ async function deletePersonalRule(rule: EditableRuleItem) {
 const newPersonalRuleTitle = ref('');
 const newPersonalRulePrompt = ref('');
 const newPersonalRuleBusy = ref(false);
+// Same touched-error convention as the admin-rule add form above.
+const newPersonalRuleTouched = reactive({ title: false, prompt: false });
+const newPersonalRuleTitleError = computed(() =>
+  newPersonalRuleTouched.title && !newPersonalRuleTitle.value.trim() ? t('common.fieldRequired') : '',
+);
+const newPersonalRulePromptError = computed(() =>
+  newPersonalRuleTouched.prompt && !newPersonalRulePrompt.value.trim() ? t('common.fieldRequired') : '',
+);
 
 async function createPersonalRule() {
   if (!props.project.id || !newPersonalRuleTitle.value.trim() || !newPersonalRulePrompt.value.trim()) return;
@@ -251,6 +271,8 @@ async function createPersonalRule() {
     newPersonalRuleBusy.value = false;
     newPersonalRuleTitle.value = '';
     newPersonalRulePrompt.value = '';
+    newPersonalRuleTouched.title = false;
+    newPersonalRuleTouched.prompt = false;
     myRulesSeeded.value = false;
     void queryClient.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey.value) });
   } catch (e) {
@@ -352,20 +374,22 @@ async function createPersonalRule() {
           class="flex flex-col gap-3 rounded-md border border-dashed p-3"
         >
           <span class="text-xs font-semibold text-muted-foreground">{{ t('aiRules.addRule') }}</span>
-          <FormField :label="t('aiRules.titleLabel')" html-for="new-ar-title">
+          <FormField :label="t('aiRules.titleLabel')" html-for="new-ar-title" :error="newAdminRuleTitleError">
             <Input
               id="new-ar-title"
               v-model="newAdminRuleTitle"
               :placeholder="t('aiRules.titlePlaceholder')"
+              @blur="newAdminRuleTouched.title = true"
             />
           </FormField>
-          <FormField :label="t('aiRules.promptLabel')" html-for="new-ar-prompt">
+          <FormField :label="t('aiRules.promptLabel')" html-for="new-ar-prompt" :error="newAdminRulePromptError">
             <textarea
               id="new-ar-prompt"
               v-model="newAdminRulePrompt"
               rows="2"
               :placeholder="t('aiRules.promptPlaceholder')"
               class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+              @blur="newAdminRuleTouched.prompt = true"
             />
           </FormField>
           <div class="flex justify-end">
@@ -456,20 +480,22 @@ async function createPersonalRule() {
         <!-- Form to Add Personal Rule -->
         <div class="flex flex-col gap-3 rounded-md border border-dashed p-3">
           <span class="text-xs font-semibold text-muted-foreground">{{ t('aiRules.addPersonalRule') }}</span>
-          <FormField :label="t('aiRules.titleLabel')" html-for="new-pr-title">
+          <FormField :label="t('aiRules.titleLabel')" html-for="new-pr-title" :error="newPersonalRuleTitleError">
             <Input
               id="new-pr-title"
               v-model="newPersonalRuleTitle"
               :placeholder="t('aiRules.titlePlaceholder')"
+              @blur="newPersonalRuleTouched.title = true"
             />
           </FormField>
-          <FormField :label="t('aiRules.promptLabel')" html-for="new-pr-prompt">
+          <FormField :label="t('aiRules.promptLabel')" html-for="new-pr-prompt" :error="newPersonalRulePromptError">
             <textarea
               id="new-pr-prompt"
               v-model="newPersonalRulePrompt"
               rows="2"
               :placeholder="t('aiRules.promptPlaceholder')"
               class="flex w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm resize-none"
+              @blur="newPersonalRuleTouched.prompt = true"
             />
           </FormField>
           <div class="flex justify-end">

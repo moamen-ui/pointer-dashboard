@@ -23,6 +23,7 @@ import type { RowActionItem } from '@/components/shared/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
+import { requiredError } from '@/lib/validators';
 import {
   getGetApiAdminEnvironmentsQueryKey,
   useDeleteApiAdminEnvironmentsId,
@@ -86,12 +87,15 @@ export function EnvironmentsPage() {
   // ---- Add environment ----
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newNameTouched, setNewNameTouched] = useState(false);
+  const newNameError = requiredError(newName, t);
 
   const addMut = usePostApiAdminEnvironments({
     mutation: {
       onSuccess: () => {
         setAddOpen(false);
         setNewName('');
+        setNewNameTouched(false);
         reload();
       },
       onError,
@@ -100,6 +104,7 @@ export function EnvironmentsPage() {
 
   function openAdd() {
     setNewName('');
+    setNewNameTouched(false);
     setAddOpen(true);
   }
   function addEnvironment() {
@@ -113,6 +118,8 @@ export function EnvironmentsPage() {
   const [editingEnvironment, setEditingEnvironment] =
     useState<AppEnvironmentResponse | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNameTouched, setEditNameTouched] = useState(false);
+  const editNameError = requiredError(editName, t);
 
   const patchMut = usePatchApiAdminEnvironmentsId({
     mutation: {
@@ -124,6 +131,7 @@ export function EnvironmentsPage() {
   function openRename(env: AppEnvironmentResponse) {
     setEditingEnvironment(env);
     setEditName(env.name ?? '');
+    setEditNameTouched(false);
     setRenameOpen(true);
   }
   function saveRename() {
@@ -199,11 +207,16 @@ export function EnvironmentsPage() {
             <DialogTitle>{t('environments.addEnvironment')}</DialogTitle>
           </DialogHeader>
           <div className="pt-1">
-            <FormField label={t('environments.name')} htmlFor="environment-name">
+            <FormField
+              label={t('environments.name')}
+              htmlFor="environment-name"
+              error={newNameTouched ? newNameError || undefined : undefined}
+            >
               <Input
                 id="environment-name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
+                onBlur={() => setNewNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && addEnvironment()}
                 placeholder="e.g. qa"
                 autoFocus
@@ -229,11 +242,16 @@ export function EnvironmentsPage() {
             <DialogTitle>{t('common.rename')}</DialogTitle>
           </DialogHeader>
           <div className="pt-1">
-            <FormField label={t('environments.name')} htmlFor="environment-rename">
+            <FormField
+              label={t('environments.name')}
+              htmlFor="environment-rename"
+              error={editNameTouched ? editNameError || undefined : undefined}
+            >
               <Input
                 id="environment-rename"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                onBlur={() => setEditNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && saveRename()}
                 autoFocus
               />

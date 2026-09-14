@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
+import { requiredError } from '@/lib/validators';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySettings = any;
@@ -206,6 +207,10 @@ function AiRulesCard() {
   const [localRules, setLocalRules] = useState<Record<number, EditableRule>>({});
   const [newTitle, setNewTitle] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
+  const [newTitleTouched, setNewTitleTouched] = useState(false);
+  const [newPromptTouched, setNewPromptTouched] = useState(false);
+  const newTitleErrorMsg = requiredError(newTitle, t);
+  const newPromptErrorMsg = requiredError(newPrompt, t);
 
   const reloadRules = () => {
     void qc.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
@@ -271,6 +276,8 @@ function AiRulesCard() {
       onSuccess: () => {
         setNewTitle('');
         setNewPrompt('');
+        setNewTitleTouched(false);
+        setNewPromptTouched(false);
         reloadRules();
       },
       onError: (e: unknown) => toast(extractMessage(e), 'error'),
@@ -394,19 +401,29 @@ function AiRulesCard() {
 
         {/* Add new rule */}
         <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
-          <FormField label={t('aiRules.titleLabel')} htmlFor="new-admin-rule-title">
+          <FormField
+            label={t('aiRules.titleLabel')}
+            htmlFor="new-admin-rule-title"
+            error={newTitleTouched ? newTitleErrorMsg || undefined : undefined}
+          >
             <Input
               id="new-admin-rule-title"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              onBlur={() => setNewTitleTouched(true)}
               placeholder={t('aiRules.titlePlaceholder')}
             />
           </FormField>
-          <FormField label={t('aiRules.promptLabel')} htmlFor="new-admin-rule-prompt">
+          <FormField
+            label={t('aiRules.promptLabel')}
+            htmlFor="new-admin-rule-prompt"
+            error={newPromptTouched ? newPromptErrorMsg || undefined : undefined}
+          >
             <textarea
               id="new-admin-rule-prompt"
               value={newPrompt}
               onChange={(e) => setNewPrompt(e.target.value)}
+              onBlur={() => setNewPromptTouched(true)}
               rows={2}
               placeholder={t('aiRules.promptPlaceholder')}
               className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -486,6 +503,8 @@ export function SettingsPage() {
   >({});
   const [newActionText, setNewActionText] = useState('');
   const [newActionPrompt, setNewActionPrompt] = useState('');
+  const [newActionTextTouched, setNewActionTextTouched] = useState(false);
+  const newActionTextErrorMsg = requiredError(newActionText, t);
 
   const reloadPredefined = () =>
     void qc.invalidateQueries({ queryKey: getGetApiAdminPredefinedActionsQueryKey() });
@@ -569,6 +588,7 @@ export function SettingsPage() {
       onSuccess: () => {
         setNewActionText('');
         setNewActionPrompt('');
+        setNewActionTextTouched(false);
         reloadPredefined();
       },
       onError: (e: unknown) => toast(extractMessage(e), 'error'),
@@ -941,14 +961,19 @@ export function SettingsPage() {
 
           {/* Add new action */}
           <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-[13px] font-medium text-foreground">{t('predefined.text')}</Label>
+            <FormField
+              label={t('predefined.text')}
+              htmlFor="new-predefined-text"
+              error={newActionTextTouched ? newActionTextErrorMsg || undefined : undefined}
+            >
               <Input
+                id="new-predefined-text"
                 value={newActionText}
                 onChange={(e) => setNewActionText(e.target.value)}
+                onBlur={() => setNewActionTextTouched(true)}
                 placeholder={t('predefined.text')}
               />
-            </div>
+            </FormField>
             <div className="flex flex-col gap-1.5">
               <Label className="text-[13px] font-medium text-foreground">{t('predefined.prompt')}</Label>
               <textarea

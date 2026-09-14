@@ -19,6 +19,10 @@ import {
   Laptop,
   ExternalLink,
   Info,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,15 +47,20 @@ import { useQueryClient } from '@tanstack/vue-query';
 import {
   usePostApiAdminProjects,
   getGetApiAdminProjectsQueryKey,
+  useGetApiMeApiKey,
   type ProjectResponse,
 } from '@moamen-ui/pointer-vue';
 import { useAuth } from '@/composables/useAuth';
 import { toast } from '@/composables/useToast';
 import { getDemoSession, type DemoSession } from '@/lib/demoSession';
-import { slugifyKey, keyErrorFor } from '@/lib/projectUtils';
+import { slugifyKey, keyErrorFor, KEY_MAX_LENGTH } from '@/lib/projectUtils';
 import {
   EXTENSION_ZIP_URL,
   checkLocalhostWidgetStatus,
+  initCommand,
+  monorepoInitCommand,
+  credentialsSnippet,
+  PROJECT_KEY_PLACEHOLDER,
   type WizardStep,
   type InstallMethod,
   type FrameworkStack,
@@ -70,6 +79,11 @@ const router = useRouter();
 const queryClient = useQueryClient();
 const { user, isAdmin } = useAuth();
 const { guideOpen, projects: allProjects } = useInstallGuide();
+
+// API key for the init command
+const apiKeyQuery = useGetApiMeApiKey();
+const revealKey = ref(false);
+const showCurl = ref(false);
 
 const demo = ref<DemoSession | null>(getDemoSession());
 
@@ -123,6 +137,21 @@ const keyError = computed(() =>
 );
 const canCreate = computed(() => !keyError.value && Boolean(newProjectName.value.trim()));
 
+// Angular-parity validation: errors appear only after a field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. Create was
+// already disabled on an empty name / invalid key with no way for the user
+// to see why.
+const nameTouched = ref(false);
+const nameError = computed(() =>
+  nameTouched.value && !newProjectName.value.trim() ? t('common.fieldRequired') : '',
+);
+const keyTouched = ref(false);
+const keyErrorMessage = computed(() => {
+  if (!keyTouched.value || !keyError.value) return '';
+  if (keyError.value === 'keyMaxLength') return t('projects.keyMaxLength', { max: KEY_MAX_LENGTH });
+  return t(`projects.${keyError.value}`);
+});
+
 const createProjectMut = usePostApiAdminProjects({
   mutation: {
     onSuccess: (created) => {
@@ -137,6 +166,13 @@ const createProjectMut = usePostApiAdminProjects({
     },
   },
 });
+
+function openCreateInline() {
+  createRequested.value = true;
+  isCreatingInline.value = true;
+  nameTouched.value = false;
+  keyTouched.value = false;
+}
 
 function handleCreateInline() {
   if (!canCreate.value) return;
@@ -209,24 +245,53 @@ const currentStepIdx = computed(() =>
   stepsList.value.findIndex((s) => s.id === currentStep.value),
 );
 
+const initHintKey = computed(() =>
+  apiKeyQuery.data.value?.apiKey ? 'install.stepInitHint' : 'install.stepInitHintNoKey',
+);
+
+const initCommandSnippet = computed(() =>
+  initCommand({
+    server,
+    apiKey: apiKeyQuery.data.value?.apiKey ?? null,
+    projectKey: effectiveKey.value !== PROJECT_KEY_PLACEHOLDER ? effectiveKey.value : null,
+  }),
+);
+
+const maskedInitCommandSnippet = computed(() => {
+  const cmd = initCommandSnippet.value;
+  const key = apiKeyQuery.data.value?.apiKey;
+  if (!key || revealKey.value) return cmd;
+  return cmd.replace(key, 'ptr_••••••••');
+});
+
+const monorepoCommandSnippet = computed(() =>
+  monorepoInitCommand({
+    server,
+    apiKey: apiKeyQuery.data.value?.apiKey ?? null,
+    projectKey: effectiveKey.value !== PROJECT_KEY_PLACEHOLDER ? effectiveKey.value : null,
+  }),
+);
+
+const maskedMonorepoCommandSnippet = computed(() => {
+  const cmd = monorepoCommandSnippet.value;
+  const key = apiKeyQuery.data.value?.apiKey;
+  if (!key || revealKey.value) return cmd;
+  return cmd.replace(key, 'ptr_••••••••');
+});
+
 const agentPrompt = computed(
   () =>
     `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${effectiveKey.value}, Pointer server URL: ${server}, environment: local`,
 );
 
-// In an Nx/Turborepo monorepo the CLI detects `monorepo` and injects nothing unless the
-// HTML file is named explicitly — `--html` overrides stack detection and always wins.
-const monorepoCommand = computed(
-  () =>
-    `npx -y pointer-feedback init --server ${server} --key <your API key> --project ${effectiveKey.value} --html apps/your-app/src/index.html`,
-);
-
-const credentialsSnippet = computed(() =>
-  demo.value
-    ? demo.value.emailSent
-      ? t('demo.credsEmailed')
-      : `POINTER_EMAIL=${demo.value.email ?? ''}\nPOINTER_PASSWORD=${demo.value.password ?? ''}`
-    : `POINTER_EMAIL=${user.value?.email ?? ''}\nPOINTER_PASSWORD=<your password>`,
+const credsSnippet = computed(() =>
+  credentialsSnippet({
+    server,
+    userEmail: user.value?.email ?? null,
+    apiKey: apiKeyQuery.data.value?.apiKey ?? null,
+    demo: demo.value,
+    credsEmailedText: t('demo.credsEmailed'),
+  }),
 );
 
 const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
@@ -302,7 +367,7 @@ const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
                 variant="secondary"
                 size="sm"
                 class="gap-1.5 shrink-0"
-                @click="createRequested = true; isCreatingInline = true"
+                @click="openCreateInline"
               >
                 <FolderPlus class="h-4 w-4" />
                 {{ t('install.wizard.createNewProject') }}
@@ -326,22 +391,29 @@ const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
         <!-- Inline Creation Form -->
         <div v-else class="rounded-lg border border-border bg-background p-4">
           <div class="flex flex-col gap-3">
-            <FormField :label="t('install.wizard.projectName')" html-for="wiz-vue-name">
+            <FormField :label="t('install.wizard.projectName')" html-for="wiz-vue-name" :error="nameError">
               <Input
                 id="wiz-vue-name"
                 :value="newProjectName"
                 :placeholder="t('install.wizard.projectNamePlaceholder')"
                 autofocus
                 @input="onNameInput"
+                @blur="nameTouched = true"
               />
             </FormField>
 
-            <FormField :label="t('install.wizard.projectKey')" html-for="wiz-vue-key" :hint="t('install.wizard.projectKeyHint')">
+            <FormField
+              :label="t('install.wizard.projectKey')"
+              html-for="wiz-vue-key"
+              :hint="t('install.wizard.projectKeyHint')"
+              :error="keyErrorMessage"
+            >
               <Input
                 id="wiz-vue-key"
                 :value="newProjectKey"
                 class="font-mono text-xs"
                 @input="onKeyInput"
+                @blur="keyTouched = true"
               />
             </FormField>
 
@@ -448,54 +520,126 @@ const stackSnippets = computed<Record<FrameworkStack, string>>(() => ({
       <!-- ========================================================================= -->
       <div v-if="currentStep === 'install'" class="flex flex-col gap-4 px-5 py-4">
         <!-- AI Agent -->
-        <div v-if="selectedMethod === 'agent'" class="flex flex-col gap-3">
-          <div>
-            <div class="text-xs font-semibold text-foreground">{{ t('install.wizard.curlTitle') }}</div>
-            <div class="mt-0.5 text-xs text-muted-foreground">{{ t('install.wizard.curlHint') }}</div>
-            <div class="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-              <pre class="m-0 font-mono text-[13px]"><code>{{ `curl -fsSL ${server}/install.sh | sh` }}</code></pre>
-              <Button variant="ghost" size="sm" @click="copy(`curl -fsSL ${server}/install.sh | sh`)" class="absolute top-3 end-3">
-                <Copy class="h-4 w-4" />
+        <div v-if="selectedMethod === 'agent'" class="flex flex-col gap-4">
+          <!-- Step 1: Init Command (primary) -->
+          <div class="space-y-2">
+            <div class="text-[13px] font-medium text-foreground">
+              {{ t('install.stepInitTitle') }}
+            </div>
+            <div class="text-[12px] text-muted-foreground">
+              {{ t(initHintKey) }}
+            </div>
+            <!-- The scroll lives on an inner element so the buttons, positioned against the
+                 outer box, stay put while a long command scrolls beneath them. -->
+            <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+              <div class="p-3 pe-24 overflow-x-auto"><pre class="m-0"><code>{{ maskedInitCommandSnippet }}</code></pre></div>
+
+              <div class="absolute top-3 end-3 flex gap-1 bg-gutter rounded-md">
+                <Button
+                  v-if="apiKeyQuery.data.value?.apiKey"
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  @click="revealKey = !revealKey"
+                  class="text-muted-foreground hover:text-foreground"
+                >
+                  <component :is="revealKey ? EyeOff : Eye" :size="16" class="me-1" />
+                  {{ revealKey ? t('install.wizard.hide') : t('install.wizard.reveal') }}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  @click="copy(initCommandSnippet)"
+                >
+                  <Copy :size="16" />
+                </Button>
+              </div>
+            </div>
+
+            <!-- Collapsible curl fallback -->
+            <div class="mt-4 border-t border-border pt-3">
+              <button
+                type="button"
+                class="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                @click="showCurl = !showCurl"
+              >
+                <component :is="showCurl ? ChevronDown : ChevronRight" :size="14" />
+                {{ t('install.stepCurlTitle') }}
+              </button>
+
+              <div v-if="showCurl" class="mt-2 space-y-2">
+                <div class="text-[12px] text-muted-foreground">
+                  {{ t('install.stepCurlHint') }}
+                </div>
+                <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
+                  <pre class="m-0"><code>curl -fsSL {{ server }}/install.sh | sh</code></pre>
+                  <Button variant="ghost" size="sm" type="button" @click="copy(`curl -fsSL ${server}/install.sh | sh`)" class="absolute top-3 end-3">
+                    <Copy :size="16" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Monorepo callout -->
+            <div class="mt-4 rounded-md border border-border bg-background p-3 space-y-2">
+              <div class="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                <Info :size="14" class="text-brand" />
+                {{ t('install.stepMonorepoTitle') }}
+              </div>
+              <div class="text-[12px] text-muted-foreground">
+                {{ t('install.stepMonorepoHint') }}
+              </div>
+              <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+                <div class="p-3 pe-12 overflow-x-auto"><pre class="m-0"><code>{{ maskedMonorepoCommandSnippet }}</code></pre></div>
+                <Button variant="ghost" size="sm" type="button" @click="copy(monorepoCommandSnippet)" class="absolute top-3 end-3 bg-gutter rounded-md">
+                  <Copy :size="16" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Credentials Block -->
+          <div class="space-y-2">
+            <div class="text-[13px] font-medium text-foreground">
+              {{ t('install.wizard.credsTitle') }}
+            </div>
+            <div class="text-[12px] text-muted-foreground">
+              {{ t('install.wizard.credsHint') }}
+            </div>
+            <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
+              <pre class="m-0"><code>{{ credsSnippet }}</code></pre>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                @click="copy(credsSnippet)"
+                class="absolute top-3 end-3"
+              >
+                <Copy :size="16" />
               </Button>
             </div>
           </div>
 
-          <div>
-            <div class="text-xs font-semibold text-foreground">{{ t('install.wizard.credsTitle') }}</div>
-            <div class="mt-0.5 text-xs text-muted-foreground">{{ t('install.wizard.credsHint') }}</div>
-            <div class="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-              <pre class="m-0 font-mono text-[13px]"><code>{{ credentialsSnippet }}</code></pre>
-              <Button variant="ghost" size="sm" @click="copy(credentialsSnippet)" class="absolute top-3 end-3">
-                <Copy class="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div>
-            <div class="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <Bot class="h-4 w-4 text-brand" />
+          <!-- Step 3: Agent Prompt Block -->
+          <div class="space-y-2">
+            <div class="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <Bot :size="16" class="text-brand" />
               {{ t('install.wizard.agentPromptTitle') }}
             </div>
-            <div class="mt-0.5 text-xs text-muted-foreground">{{ t('install.wizard.agentPromptHint') }}</div>
-            <div class="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-              <pre class="m-0 font-mono text-[13px] whitespace-pre-wrap"><code>{{ agentPrompt }}</code></pre>
-              <Button variant="ghost" size="sm" @click="copy(agentPrompt)" class="absolute top-3 end-3">
-                <Copy class="h-4 w-4" />
-              </Button>
+            <div class="text-[12px] text-muted-foreground">
+              {{ t('install.wizard.agentPromptHint') }}
             </div>
-          </div>
-
-          <!-- Monorepo note -->
-          <div class="rounded-lg border border-border bg-background p-3">
-            <div class="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <Info class="h-3.5 w-3.5 text-brand" />
-              {{ t('install.stepMonorepoTitle') }}
-            </div>
-            <div class="mt-0.5 text-xs text-muted-foreground">{{ t('install.stepMonorepoHint') }}</div>
-            <div class="relative mt-2 rounded-md border border-border bg-gutter p-3 pe-12 overflow-x-auto">
-              <pre class="m-0 font-mono text-[13px]"><code>{{ monorepoCommand }}</code></pre>
-              <Button variant="ghost" size="sm" @click="copy(monorepoCommand)" class="absolute top-3 end-3">
-                <Copy class="h-4 w-4" />
+            <div class="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto whitespace-pre-wrap">
+              <pre class="m-0"><code>{{ agentPrompt }}</code></pre>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                @click="copy(agentPrompt)"
+                class="absolute top-3 end-3"
+              >
+                <Copy :size="16" />
               </Button>
             </div>
           </div>

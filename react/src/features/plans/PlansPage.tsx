@@ -43,6 +43,7 @@ import {
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
+import { requiredError } from '@/lib/validators';
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -185,15 +186,19 @@ export function PlansPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<PlanAdminResponse | null>(null);
   const [form, setForm] = useState<PlanFormState>(emptyForm());
+  const [nameTouched, setNameTouched] = useState(false);
+  const nameErrorMsg = requiredError(form.name, t);
 
   function openCreate() {
     setEditingPlan(null);
     setForm(emptyForm());
+    setNameTouched(false);
     setModalOpen(true);
   }
   function openEdit(plan: PlanAdminResponse) {
     setEditingPlan(plan);
     setForm(planToForm(plan));
+    setNameTouched(false);
     setModalOpen(true);
   }
 
@@ -357,12 +362,17 @@ export function PlansPage() {
             <TabsContent value="details" className="space-y-4 py-2">
               {/* Basic fields */}
               <div className="grid grid-cols-2 gap-3">
-                <FormField label={t('plans.colName')} htmlFor="plan-name">
+                <FormField
+                  label={t('plans.colName')}
+                  htmlFor="plan-name"
+                  error={nameTouched ? nameErrorMsg || undefined : undefined}
+                >
                   <Input
                     id="plan-name"
                     value={form.name}
                     autoFocus
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onBlur={() => setNameTouched(true)}
                   />
                 </FormField>
                 <FormField label={t('plans.colSlug')} htmlFor="plan-slug">

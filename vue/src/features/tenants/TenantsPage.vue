@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
 import type { ColumnDef } from '@tanstack/vue-table';
@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import FormField from '@/components/shared/FormField.vue';
 import { extractMessage } from '@/lib/error';
+import { isValidEmail } from '@/lib/validation';
 import { confirm } from '@/composables/useConfirm';
 import { toast } from '@/composables/useToast';
 
@@ -76,11 +77,32 @@ const addOpen = ref(false);
 const newEmail = ref('');
 const newPassword = ref('');
 const newDisplayName = ref('');
+// Angular-parity validation: errors appear only after a field was touched
+// (blurred), like FormControl.invalid && FormControl.touched. The Create
+// button was already disabled on any blank/invalid field with no way for the
+// user to see why.
+const newTouched = reactive({ email: false, password: false, displayName: false });
+
+const newEmailError = computed(() => {
+  if (!newTouched.email) return '';
+  if (!newEmail.value.trim()) return t('common.fieldRequired');
+  if (!isValidEmail(newEmail.value)) return t('common.invalidEmail');
+  return '';
+});
+const newPasswordError = computed(() =>
+  newTouched.password && !newPassword.value ? t('common.fieldRequired') : '',
+);
+const newDisplayNameError = computed(() =>
+  newTouched.displayName && !newDisplayName.value.trim() ? t('common.fieldRequired') : '',
+);
 
 function openAdd() {
   newEmail.value = '';
   newPassword.value = '';
   newDisplayName.value = '';
+  newTouched.email = false;
+  newTouched.password = false;
+  newTouched.displayName = false;
   addOpen.value = true;
 }
 
@@ -350,14 +372,14 @@ async function saveChangePlan() {
         <DialogTitle class="text-[16px] font-semibold leading-6">{{ t('tenants.addTenant') }}</DialogTitle>
       </DialogHeader>
       <div class="space-y-4">
-        <FormField :label="t('tenants.email')" html-for="tenant-email">
-          <Input id="tenant-email" v-model="newEmail" type="email" />
+        <FormField :label="t('tenants.email')" html-for="tenant-email" :error="newEmailError">
+          <Input id="tenant-email" v-model="newEmail" type="email" @blur="newTouched.email = true" />
         </FormField>
-        <FormField :label="t('tenants.displayName')" html-for="tenant-name">
-          <Input id="tenant-name" v-model="newDisplayName" />
+        <FormField :label="t('tenants.displayName')" html-for="tenant-name" :error="newDisplayNameError">
+          <Input id="tenant-name" v-model="newDisplayName" @blur="newTouched.displayName = true" />
         </FormField>
-        <FormField :label="t('tenants.password')" html-for="tenant-password">
-          <PasswordInput id="tenant-password" v-model="newPassword" />
+        <FormField :label="t('tenants.password')" html-for="tenant-password" :error="newPasswordError">
+          <PasswordInput id="tenant-password" v-model="newPassword" @blur="newTouched.password = true" />
         </FormField>
       </div>
       <div class="flex justify-end gap-2 pt-2">
