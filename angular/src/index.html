@@ -9,5 +9,25 @@
   </head>
   <body>
     <app-root></app-root>
+    <!-- pointer-feedback:start -->
+    <script>
+      var POINTER_SERVER = 'https://api.pointer.moamen.work';
+      var POINTER_PROJECT = 'pointer-dashboard';
+      // Same activation rule as every other stack: a project key and a server that looks like a URL.
+      // Blank either one and the widget does not mount — no build flag, no dead code path.
+      if (POINTER_PROJECT && POINTER_SERVER.indexOf('http') === 0) {
+        var s = document.createElement('script');
+        s.src = POINTER_SERVER + '/pointer.js';
+        s.defer = true;
+        document.head.appendChild(s);
+        var el = document.createElement('pointer-feedback');
+        el.setAttribute('project', POINTER_PROJECT);
+        el.setAttribute('server', POINTER_SERVER);
+        el.setAttribute('environment', 'local');
+        el.setAttribute('source-attr', 'data-component-source');
+        document.body.appendChild(el);
+      }
+    </script>
+    <!-- pointer-feedback:end -->
   </body>
 </html>

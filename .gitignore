@@ -33,10 +33,17 @@ __screenshots__/
 Thumbs.db
 
 # Pointer apply-tool credentials (AI agent login for the feedback queue) — keep the example
-.pointer/
+.pointer/*
 !.pointer/credentials.env.example
 
 # Impeccable design skill: a 14MB platform binary lives here, so the tool stays local
 .claude/skills/impeccable/
 # Design-hook cache (regenerated per machine)
 .impeccable/hook.cache.json
+
+# Pointer
+.pointer/*
+!.pointer/credentials.env.example
+!.pointer/stack.json
+!.pointer/pointer.sh
+!.pointer/config.json

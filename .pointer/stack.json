@@ -1,0 +1,18 @@
+{
+  "frontend": [
+    "angular",
+    "react",
+    "vue",
+    "tailwind"
+  ],
+  "backend": null,
+  "aiTools": [
+    "claude-code"
+  ],
+  "design": {
+    "version": 1,
+    "libraries": [],
+    "tokens": {},
+    "guidance": "No design tokens detected; match the nearest sibling element's existing classes/styles."
+  }
+}
