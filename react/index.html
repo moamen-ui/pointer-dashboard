@@ -9,24 +9,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- pointer-feedback:start -->
-    <script>
-      if (
-        '%VITE_POINTER_ENABLED%' === 'true' &&
-        '%VITE_POINTER_SERVER%'.indexOf('http') === 0
-      ) {
-        var s = document.createElement('script');
-        s.src = '%VITE_POINTER_SERVER%/pointer.js';
-        s.defer = true;
-        document.head.appendChild(s);
-        var el = document.createElement('pointer-feedback');
-        el.setAttribute('project', '%VITE_POINTER_PROJECT%');
-        el.setAttribute('server', '%VITE_POINTER_SERVER%');
-        el.setAttribute('environment', '%VITE_POINTER_ENV%');
-        el.setAttribute('source-attr', 'data-component-source');
-        document.body.appendChild(el);
-      }
-    </script>
-    <!-- pointer-feedback:end -->
   </body>
 </html>
