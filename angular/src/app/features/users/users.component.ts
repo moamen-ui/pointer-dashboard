@@ -492,17 +492,23 @@ export class UsersComponent {
   pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
   rolesResource = getApiAdminRolesResource();
   // Only meaningful for a super admin (the workspace picker) — GET /api/admin/tenants is
-  // super-admin-only and 403s for anyone else. httpResource THROWS from .value() while in an
-  // error state (unlike a plain signal), so tenants() below must swallow that itself — it isn't
-  // enough to just never read it, since openAdd() does read it for every caller.
-  tenantsResource = getApiAdminTenantsResource();
+  // super-admin-only and 403s for anyone else.
+  //
+  // Created ONLY for a super admin. Swallowing the error downstream was enough to keep the page
+  // working, but the request still went out for every workspace admin and left a red 403 in their
+  // console on every visit — and a console that always has an error in it is one nobody reads.
+  // Auth is resolved before this page can be routed to, so the signal is settled here.
+  //
+  // tenants() below still swallows: httpResource THROWS from .value() in an error state (unlike a
+  // plain signal), and a super admin can still get a 403 if their session lapses mid-session.
+  tenantsResource = this.auth.isSuperAdmin() ? getApiAdminTenantsResource() : null;
   // Only meaningful for a quick-access role invite (the project picker below).
   projectsResource = getApiAdminProjectsResource();
 
   users = computed(() => this.usersResource.value() ?? []);
   roles = computed(() => this.rolesResource.value() ?? []);
   tenants = computed(() => {
-    try { return this.tenantsResource.value() ?? []; } catch { return []; }
+    try { return this.tenantsResource?.value() ?? []; } catch { return []; }
   });
   projects = computed(() => {
     try { return this.projectsResource.value() ?? []; } catch { return []; }

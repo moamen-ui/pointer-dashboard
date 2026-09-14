@@ -74,7 +74,24 @@ type EditableRule = {
             <div class="flex flex-col gap-4">
               <!-- Access section -->
               <app-accordion-section [defaultOpen]="true" title="{{ 'settings.accessSection' | transloco }}">
-                <div class="flex items-center justify-between gap-4">
+
+                <div class="mt-6 space-y-2">
+                  <app-form-field label="{{ 'settings.appBaseUrl' | transloco }}" hint="{{ 'settings.appBaseUrlHint' | transloco }}">
+                    <input
+                      appInput
+                      [ngModel]="form().appBaseUrl ?? ''"
+                      (ngModelChange)="setField('appBaseUrl', $event)"
+                      placeholder="e.g. https://dashboard.pointer.moamen.work"
+                    />
+                  </app-form-field>
+                  @if (settingsValue()?.effectiveAppBaseUrl) {
+                    <div class="text-[12px] text-muted-foreground mt-1">
+                      {{ 'settings.effectiveAppBaseUrl' | transloco }}: {{ settingsValue()?.effectiveAppBaseUrl }}
+                    </div>
+                  }
+                </div>
+
+                <div class="flex items-center justify-between gap-4 mt-6">
                   <div>
                     <div class="text-[14px] font-medium text-foreground">{{ 'settings.signupEnabled' | transloco }}</div>
                     <div class="text-[13px] text-muted-foreground mt-1.5">{{ 'settings.signupEnabledHint' | transloco }}</div>
@@ -94,7 +111,24 @@ type EditableRule = {
               <!-- Email section -->
               <app-accordion-section title="{{ 'settings.emailSection' | transloco }}">
                 <div class="space-y-4">
-                  <div class="flex items-center justify-between gap-4">
+  
+                <div class="mt-6 space-y-2">
+                  <app-form-field label="{{ 'settings.appBaseUrl' | transloco }}" hint="{{ 'settings.appBaseUrlHint' | transloco }}">
+                    <input
+                      appInput
+                      [ngModel]="form().appBaseUrl ?? ''"
+                      (ngModelChange)="setField('appBaseUrl', $event)"
+                      placeholder="e.g. https://dashboard.pointer.moamen.work"
+                    />
+                  </app-form-field>
+                  @if (settingsValue()?.effectiveAppBaseUrl) {
+                    <div class="text-[12px] text-muted-foreground mt-1">
+                      {{ 'settings.effectiveAppBaseUrl' | transloco }}: {{ settingsValue()?.effectiveAppBaseUrl }}
+                    </div>
+                  }
+                </div>
+
+                <div class="flex items-center justify-between gap-4 mt-6">
                     <div>
                       <div class="text-[14px] font-medium text-foreground">{{ 'settings.emailEnabled' | transloco }}</div>
                       <div class="text-[13px] text-muted-foreground mt-1.5">{{ 'settings.emailEnabledHint' | transloco }}</div>

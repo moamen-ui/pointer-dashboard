@@ -7,6 +7,7 @@ import { InstallGuideService } from '../../shared/install-guide/install-guide.se
 import { extractMessage } from '../../core/api/extract-message';
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { AppDialogService } from '../../shared/ui/app-dialog.service';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
@@ -49,6 +50,7 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
     TranslocoModule,
     AppFormFieldComponent,
     AppInputDirective,
+    PasswordToggleComponent,
     AppButtonDirective,
     AppIconComponent,
   ],
@@ -134,13 +136,31 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
             <input appInput type="email" formControlName="email" autocomplete="email" />
           </app-form-field>
           <app-form-field [label]="'demo.password' | transloco" [error]="passwordError()">
-            <input appInput type="password" formControlName="password" autocomplete="new-password" />
+            <div class="relative">
+              <input
+                appInput
+                [type]="demoUpgradePwToggle.type()"
+                class="pe-9"
+                formControlName="password"
+                autocomplete="new-password"
+              />
+              <app-password-toggle #demoUpgradePwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+            </div>
           </app-form-field>
           <app-form-field
             [label]="'demo.confirmPassword' | transloco"
             [error]="upgradeForm.errors?.['passwordMismatch'] && upgradeForm.get('confirmPassword')?.dirty ? ('demo.passwordMismatch' | transloco) : ''"
           >
-            <input appInput type="password" formControlName="confirmPassword" autocomplete="new-password" />
+            <div class="relative">
+              <input
+                appInput
+                [type]="demoUpgradeConfirmPwToggle.type()"
+                class="pe-9"
+                formControlName="confirmPassword"
+                autocomplete="new-password"
+              />
+              <app-password-toggle #demoUpgradeConfirmPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+            </div>
           </app-form-field>
           <app-form-field [label]="'demo.displayName' | transloco">
             <input appInput type="text" formControlName="displayName" autocomplete="name" />

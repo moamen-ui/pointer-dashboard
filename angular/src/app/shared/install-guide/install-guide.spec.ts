@@ -14,6 +14,7 @@ import { InstallGuideService } from './install-guide.service';
 import {
   API_KEY_PLACEHOLDER,
   buildExtensionSteps,
+  initCommand,
   buildSteps,
   EXTENSION_ZIP_URL,
   InstallGuideComponent,
@@ -29,17 +30,36 @@ const base = {
   credsEmailedText: 'emailed to you',
 };
 
+
+describe('initCommand', () => {
+  it('builds a command with server and key', () => {
+    expect(initCommand({ server: 'http://test', apiKey: 'ptr_123', projectKey: 'proj_abc' })).toBe('npx -y pointer-feedback init --server http://test --key ptr_123 --project proj_abc');
+  });
+  
+  it('omits key when null', () => {
+    expect(initCommand({ server: 'http://test', apiKey: null, projectKey: 'proj_abc' })).toBe('npx -y pointer-feedback init --server http://test --project proj_abc');
+  });
+
+  it('omits project when null', () => {
+    expect(initCommand({ server: 'http://test', apiKey: 'ptr_123', projectKey: null })).toBe('npx -y pointer-feedback init --server http://test --key ptr_123');
+  });
+
+  it('includes environment when provided', () => {
+    expect(initCommand({ server: 'http://test', apiKey: 'ptr_123', projectKey: 'proj_abc', environment: 'staging' })).toBe('npx -y pointer-feedback init --server http://test --key ptr_123 --project proj_abc --environment staging');
+  });
+});
+
 describe('buildSteps', () => {
   it('leads with installing the skills, not with hand-pasting snippets', () => {
     const { primary } = buildSteps(base);
-    expect(primary[0].code).toBe('curl -fsSL https://api.example.test/install.sh | sh');
+    expect(primary[0].code).toBe(initCommand({ server: base.server, apiKey: base.apiKey, projectKey: base.projectKey }));
     // The two index.html snippets are the fallback, not part of the main path.
     expect(primary.map((s) => s.code ?? '').join('\n')).not.toContain('<script src=');
     expect(primary.map((s) => s.code ?? '').join('\n')).not.toContain('<pointer-feedback');
   });
 
   it('gives the agent the pointer-init skill and all three variables up front', () => {
-    const prompt = buildSteps(base).primary[2].code!;
+    const prompt = buildSteps(base).primary[1].code!;
     // Named so the skill triggers; variables supplied so it need not stop and ask.
     expect(prompt).toContain('pointer-init skill');
     expect(prompt).toContain('project key: my-app');
@@ -49,7 +69,7 @@ describe('buildSteps', () => {
 
   it('keeps the manual snippets available as a fallback', () => {
     const { manual } = buildSteps(base);
-    expect(manual).toHaveLength(2);
+    expect(manual).toHaveLength(3);
     expect(manual[0].code).toContain('https://api.example.test/pointer.js');
     expect(manual[1].code).toContain('project="my-app"');
     expect(manual[1].code).toContain('server="https://api.example.test"');
@@ -57,23 +77,24 @@ describe('buildSteps', () => {
 
   it('falls back to a placeholder key in both the prompt and the manual snippet', () => {
     const { primary, manual } = buildSteps({ ...base, projectKey: null });
-    expect(primary[2].code).toContain(`project key: ${PROJECT_KEY_PLACEHOLDER}`);
+    expect(primary[1].code).toContain(`project key: ${PROJECT_KEY_PLACEHOLDER}`);
     expect(manual[1].code).toContain(`project="${PROJECT_KEY_PLACEHOLDER}"`);
   });
 
   it("uses the signed-in user's own API key outside a demo", () => {
-    const creds = buildSteps(base).primary[1].code!;
-    expect(creds).toBe('POINTER_API_KEY=ptr_abc123');
+    const code = buildSteps(base).primary[0].code!;
+    expect(code).toContain('--key ptr_abc123');
   });
 
-  it('falls back to a placeholder when the API key has not loaded yet', () => {
-    const creds = buildSteps({ ...base, apiKey: null }).primary[1].code!;
-    expect(creds).toBe(`POINTER_API_KEY=${API_KEY_PLACEHOLDER}`);
+  it('omits key when the API key has not loaded yet', () => {
+    const code = buildSteps({ ...base, apiKey: null }).primary[0].code!;
+    expect(code).not.toContain('--key');
   });
 
   it('uses the demo widget login when a demo session is active', () => {
     const creds = buildSteps({
       ...base,
+      apiKey: null,
       demo: { email: 'demo@example.test', password: 's3cret', projectKey: 'demo-proj' },
     }).primary[1].code!;
     expect(creds).toContain('POINTER_EMAIL=demo@example.test');
@@ -83,6 +104,7 @@ describe('buildSteps', () => {
   it('tells the user to check their inbox when the demo creds were emailed', () => {
     const creds = buildSteps({
       ...base,
+      apiKey: null,
       demo: { email: 'demo@example.test', password: null, emailSent: true },
     }).primary[1].code!;
     expect(creds).toBe('emailed to you');

@@ -1,4 +1,5 @@
 import { Component, Directive, computed, input } from '@angular/core';
+import { AppIconComponent } from './app-icon.component';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'danger-outline' | 'link';
 export type ButtonSize = 'default' | 'sm' | 'icon';
@@ -33,6 +34,7 @@ const SIZES: Record<ButtonSize, string> = {
   host: {
     '[class]': 'buttonClasses()',
     '(click)': 'onClick($event)',
+    '[attr.aria-busy]': 'loading() || null',
   },
 })
 export class AppButtonDirective {
@@ -67,17 +69,21 @@ export class AppButtonDirective {
 @Component({
   selector: 'app-button',
   standalone: true,
-  imports: [AppButtonDirective],
+  imports: [AppButtonDirective, AppIconComponent],
   template: `
     <button
       appButton
       [variant]="variant()"
       [size]="size()"
+      [loading]="loading()"
       [disabled]="disabled() || loading()"
       class="relative"
       [type]="type()"
-      [attr.aria-busy]="loading()"
     >
+      <!-- Loading replaces the leading icon with a 16px spinner (DESIGN.md's Buttons spec). -->
+      @if (loading()) {
+        <app-icon name="loader-circle" [size]="16" class="animate-spin"></app-icon>
+      }
       <ng-content></ng-content>
     </button>
   `,

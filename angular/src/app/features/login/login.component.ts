@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { DemoService, DemoRequest, DemoSessionResponse } from '@moamen-ui/pointer-angular';
 import { AuthService } from '../../core/auth/auth.service';
 import { extractMessage } from '../../core/api/extract-message';
@@ -9,7 +9,9 @@ import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.componen
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
@@ -25,6 +27,8 @@ const DEMO_SESSION_KEY = 'pointer_demo';
     AppInputDirective,
     AppButtonDirective,
     AppFormFieldComponent,
+    AppIconComponent,
+    PasswordToggleComponent,
   ],
   template: `
     <app-auth-layout>
@@ -41,13 +45,17 @@ const DEMO_SESSION_KEY = 'pointer_demo';
           </app-form-field>
 
           <app-form-field [label]="t('login.password')" [error]="(passwordTouched() || submitted()) && passwordError() ? passwordError() : ''">
-            <input
-              appInput
-              type="password"
-              formControlName="password"
-              (blur)="passwordTouched.set(true)"
-              autocomplete="current-password"
-            />
+            <div class="relative">
+              <input
+                appInput
+                [type]="loginPwToggle.type()"
+                class="pe-9"
+                formControlName="password"
+                (blur)="passwordTouched.set(true)"
+                autocomplete="current-password"
+              />
+              <app-password-toggle #loginPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+            </div>
           </app-form-field>
 
           @if (error()) {
@@ -60,7 +68,12 @@ const DEMO_SESSION_KEY = 'pointer_demo';
             type="submit"
             class="w-full"
             [disabled]="form.invalid || loading()"
+            [loading]="loading()"
           >
+            <!-- Loading replaces the leading icon with a 16px spinner (DESIGN.md's Buttons spec). -->
+            @if (loading()) {
+              <app-icon name="loader-circle" [size]="16" class="animate-spin"></app-icon>
+            }
             {{ t('login.signIn') }}
           </button>
 
@@ -80,32 +93,41 @@ const DEMO_SESSION_KEY = 'pointer_demo';
           <div class="flex-1 border-t border-border"></div>
         </div>
 
-        <!-- Demo email input -->
-        <app-form-field [label]="t('login.demoEmailLabel')" [error]="demoEmailError() ? t('login.demoEmailLabel') + ' ' + t('common.fieldRequired') : ''">
-          <input
-            appInput
-            type="email"
-            [(ngModel)]="demoEmail"
-            [ngModelOptions]="{standalone: true}"
-            placeholder="you@example.com"
-            autocomplete="email"
-          />
-        </app-form-field>
+        <!-- Demo section: one line of "why" framing before the field, per PRODUCT.md's own
+             voice commitment ("explains the why in hints") — the demo path had none. -->
+        <div class="flex flex-col gap-3">
+          <p class="text-[13px] text-muted-foreground">{{ t('login.demoHint') }}</p>
 
-        @if (demoError()) {
-          <p class="text-[14px] text-state-danger">{{ demoError() }}</p>
-        }
+          <app-form-field [label]="t('login.demoEmailLabel')" [error]="demoEmailError() ?? ''">
+            <input
+              appInput
+              type="email"
+              [(ngModel)]="demoEmail"
+              [ngModelOptions]="{standalone: true}"
+              placeholder="you@example.com"
+              autocomplete="email"
+            />
+          </app-form-field>
 
-        <button
-          appButton
-          variant="secondary"
-          type="button"
-          class="w-full"
-          [disabled]="demoLoading()"
-          (click)="tryDemo()"
-        >
-          {{ demoLoading() ? t('login.demoLoading') : t('login.tryDemo') }}
-        </button>
+          @if (demoError()) {
+            <p class="text-[14px] text-state-danger">{{ demoError() }}</p>
+          }
+
+          <button
+            appButton
+            variant="secondary"
+            type="button"
+            class="w-full"
+            [disabled]="demoLoading()"
+            [loading]="demoLoading()"
+            (click)="tryDemo()"
+          >
+            @if (demoLoading()) {
+              <app-icon name="loader-circle" [size]="16" class="animate-spin"></app-icon>
+            }
+            {{ t('login.tryDemo') }}
+          </button>
+        </div>
 
         <!-- Hairline divider -->
         <div class="flex-1 border-t border-border"></div>
@@ -127,6 +149,7 @@ export class LoginComponent {
   private demo = inject(DemoService);
   private router = inject(Router);
   private toast = inject(AppToastService);
+  private transloco = inject(TranslocoService);
 
   signupEnabled = signal(true);
   loading = signal(false);
@@ -136,7 +159,7 @@ export class LoginComponent {
   passwordTouched = signal(false);
   error = signal<string | null>(null);
   demoEmail = '';
-  demoEmailError = signal(false);
+  demoEmailError = signal<string | null>(null);
   demoError = signal<string | null>(null);
 
   constructor() {
@@ -152,14 +175,14 @@ export class LoginComponent {
 
   emailError(): string {
     const ctrl = this.form.controls.email;
-    if (ctrl.hasError('required')) return 'Email is required.';
-    if (ctrl.hasError('email')) return 'Enter a valid email address.';
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
+    if (ctrl.hasError('email')) return this.transloco.translate('common.invalidEmail');
     return '';
   }
 
   passwordError(): string {
     const ctrl = this.form.controls.password;
-    if (ctrl.hasError('required')) return 'Password is required.';
+    if (ctrl.hasError('required')) return this.transloco.translate('common.fieldRequired');
     return '';
   }
 
@@ -178,7 +201,7 @@ export class LoginComponent {
       },
       error: (e: unknown) => {
         this.loading.set(false);
-        const msg = extractMessage(e) || 'Sign in failed.';
+        const msg = extractMessage(e) || this.transloco.translate('login.failed');
         this.error.set(msg);
         this.toast.show(msg, 'danger');
       },
@@ -186,11 +209,15 @@ export class LoginComponent {
   }
 
   tryDemo() {
-    this.demoEmailError.set(false);
+    this.demoEmailError.set(null);
     this.demoError.set(null);
 
-    if (!this.demoEmail.trim() || !this.isValidEmail(this.demoEmail)) {
-      this.demoEmailError.set(true);
+    if (!this.demoEmail.trim()) {
+      this.demoEmailError.set(this.transloco.translate('common.fieldRequired'));
+      return;
+    }
+    if (!this.isValidEmail(this.demoEmail)) {
+      this.demoEmailError.set(this.transloco.translate('common.invalidEmail'));
       return;
     }
 
@@ -213,13 +240,13 @@ export class LoginComponent {
             );
             this.demoLoading.set(false);
             if (emailSent) {
-              this.toast.show('Check your email for demo credentials', 'success');
+              this.toast.show(this.transloco.translate('login.demoEmailSent'), 'success');
             }
             this.router.navigateByUrl(user.isAdmin ? '/overview' : '/profile');
           },
           error: (e: unknown) => {
             this.demoLoading.set(false);
-            const msg = extractMessage(e) || 'Demo session failed.';
+            const msg = extractMessage(e) || this.transloco.translate('login.demoFailed');
             this.demoError.set(msg);
             this.toast.show(msg, 'danger');
           },

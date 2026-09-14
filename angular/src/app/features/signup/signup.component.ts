@@ -9,6 +9,7 @@ import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.componen
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 
 @Component({
@@ -22,6 +23,7 @@ import { AppToastService } from '../../shared/ui/app-toast.service';
     AppFormFieldComponent,
     AppInputDirective,
     AppButtonDirective,
+    PasswordToggleComponent,
   ],
   template: `
     <app-auth-layout>
@@ -60,13 +62,17 @@ import { AppToastService } from '../../shared/ui/app-toast.service';
             </app-form-field>
 
             <app-form-field [label]="t('signup.password')" [error]="passwordTouched() || submitted() ? passwordErrorMsg() : ''">
-              <input
-                appInput
-                type="password"
-                autoComplete="new-password"
-                formControlName="password"
-                (blur)="passwordTouched.set(true)"
-              />
+              <div class="relative">
+                <input
+                  appInput
+                  [type]="pwToggle.type()"
+                  class="pe-9"
+                  autoComplete="new-password"
+                  formControlName="password"
+                  (blur)="passwordTouched.set(true)"
+                />
+                <app-password-toggle #pwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+              </div>
             </app-form-field>
 
             <!-- Plan selector — shown when public plans are available -->

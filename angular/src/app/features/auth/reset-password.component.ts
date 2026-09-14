@@ -8,6 +8,7 @@ import { AppAuthLayoutComponent } from '../../shared/ui/app-auth-layout.componen
 import { AppInputDirective } from '../../shared/ui/app-input.directive';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
+import { PasswordToggleComponent } from '../../shared/password-toggle.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
@@ -28,6 +29,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
     AppInputDirective,
     AppButtonDirective,
     AppFormFieldComponent,
+    PasswordToggleComponent,
   ],
   template: `
     <app-auth-layout>
@@ -40,23 +42,31 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
         } @else {
           <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
             <app-form-field [label]="t('auth.newPassword')" [error]="passwordTouched() && newPasswordError() ? newPasswordError() : ''">
-              <input
-                appInput
-                type="password"
-                formControlName="newPassword"
-                (blur)="passwordTouched.set(true)"
-                autocomplete="new-password"
-              />
+              <div class="relative">
+                <input
+                  appInput
+                  [type]="newPwToggle.type()"
+                  class="pe-9"
+                  formControlName="newPassword"
+                  (blur)="passwordTouched.set(true)"
+                  autocomplete="new-password"
+                />
+                <app-password-toggle #newPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+              </div>
             </app-form-field>
 
             <app-form-field [label]="t('auth.confirmPassword')" [error]="confirmTouched() && form.hasError('passwordsMismatch') ? t('auth.passwordMismatch') : ''">
-              <input
-                appInput
-                type="password"
-                formControlName="confirmPassword"
-                (blur)="confirmTouched.set(true)"
-                autocomplete="new-password"
-              />
+              <div class="relative">
+                <input
+                  appInput
+                  [type]="confirmPwToggle.type()"
+                  class="pe-9"
+                  formControlName="confirmPassword"
+                  (blur)="confirmTouched.set(true)"
+                  autocomplete="new-password"
+                />
+                <app-password-toggle #confirmPwToggle class="absolute end-1 top-1/2 -translate-y-1/2"></app-password-toggle>
+              </div>
             </app-form-field>
 
             <button

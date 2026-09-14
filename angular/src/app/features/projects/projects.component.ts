@@ -1,4 +1,13 @@
-import { Component, inject, signal, TemplateRef, viewChild, computed } from '@angular/core';
+import {
+  Component,
+  inject,
+  Injector,
+  signal,
+  TemplateRef,
+  viewChild,
+  computed,
+} from '@angular/core';
+import type { HttpResourceRef } from '@angular/common/http';
 import {
   AbstractControl,
   FormArray,
@@ -49,6 +58,7 @@ import type {
   ExportFileDto,
   AiRuleResponse,
   ProjectAiRulesResponse,
+  ProjectAppUrlResponse,
 } from '@moamen-ui/pointer-angular';
 
 type EditableAiRule = {
@@ -573,6 +583,7 @@ export class ProjectsComponent {
   private aiRulesService = inject(AiRulesService);
   auth = inject(AuthService);
   private appDialog = inject(AppDialogService);
+  private injector = inject(Injector);
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly editDialog = viewChild.required<TemplateRef<unknown>>('editDialog');
@@ -590,11 +601,41 @@ export class ProjectsComponent {
 
   selectedAiProject = signal<ProjectResponse | null>(null);
   private selectedAiProjectKeyForRules = computed(() => this.selectedAiProject()?.key ?? '');
-  projectAiRulesResource = getApiAiRulesProjectKeyResource(this.selectedAiProjectKeyForRules);
+
+  /**
+   * Held in a signal and created only when the AI-rules dialog first opens.
+   *
+   * A generated resource always builds a URL from its key signal — it has no way to return
+   * `undefined` and skip — so declaring it as a field fired `GET /api/ai-rules/project/` with an
+   * empty key on every visit to this page. Creating it on demand is what actually prevents the
+   * request; the signal wrapper is what makes `projectAiRules` recompute once it exists.
+   */
+  private projectAiRulesResource = signal<HttpResourceRef<
+    ProjectAiRulesResponse | undefined
+  > | null>(null);
 
   projectAiRules = computed<ProjectAiRulesResponse | undefined>(
-    () => this.projectAiRulesResource.value() as unknown as ProjectAiRulesResponse | undefined
+    () => this.projectAiRulesResource()?.value() as unknown as ProjectAiRulesResponse | undefined
   );
+
+  /**
+   * Creates the AI-rules resource on first use and refreshes it on every later one. Once created it
+   * tracks `selectedAiProjectKeyForRules` like any other resource, so switching projects needs no
+   * special handling — only the very first open does. Reloading a freshly created resource would
+   * duplicate its initial request, hence the branch.
+   */
+  private loadAiRules(): void {
+    const existing = this.projectAiRulesResource();
+    if (existing) {
+      existing.reload();
+      return;
+    }
+    this.projectAiRulesResource.set(
+      getApiAiRulesProjectKeyResource(this.selectedAiProjectKeyForRules, {
+        injector: this.injector,
+      })
+    );
+  }
 
   rawAdminRules = computed<AiRuleResponse[]>(() => this.projectAiRules()?.adminRules ?? []);
   rawMyRules = computed<AiRuleResponse[]>(() => this.projectAiRules()?.myRules ?? []);
@@ -620,12 +661,31 @@ export class ProjectsComponent {
 
   environmentsResource = getApiAdminEnvironmentsResource();
   private editingProjectIdForUrls = computed(() => this.editingProjectId() ?? 0);
-  projectAppUrlsResource = getApiAdminProjectsIdAppUrlsResource(this.editingProjectIdForUrls);
+
+  /** Created when the edit dialog first opens — see `projectAiRulesResource`. Declared as a field
+   *  it fired `GET /api/admin/projects/0/app-urls` with the `?? 0` placeholder on every visit. */
+  private projectAppUrlsResource = signal<HttpResourceRef<
+    ProjectAppUrlResponse[] | undefined
+  > | null>(null);
 
   rolesResource = getApiAdminRolesResource();
   roles = computed(() => this.rolesResource.value() ?? []);
 
-  configuredEnvironments = computed(() => this.projectAppUrlsResource.value() ?? []);
+  configuredEnvironments = computed(() => this.projectAppUrlsResource()?.value() ?? []);
+
+  /** The app-URLs counterpart of `loadAiRules` — same create-once-then-reload contract. */
+  private loadProjectAppUrls(): void {
+    const existing = this.projectAppUrlsResource();
+    if (existing) {
+      existing.reload();
+      return;
+    }
+    this.projectAppUrlsResource.set(
+      getApiAdminProjectsIdAppUrlsResource(this.editingProjectIdForUrls, {
+        injector: this.injector,
+      })
+    );
+  }
 
   availableEnvironmentsToAdd = computed(() => {
     const configuredIds = new Set(this.configuredEnvironments().map((u) => u.appEnvironmentId));
@@ -658,7 +718,7 @@ export class ProjectsComponent {
     this.projectsService.deleteApiAdminProjectsIdAppUrlsEnvironmentId(projectId, environmentId).subscribe({
       next: () => {
         this.envOverrides.update((o) => { const { [environmentId]: _, ...rest } = o; return rest; });
-        this.projectAppUrlsResource.reload();
+        this.loadProjectAppUrls();
       },
       error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
@@ -702,7 +762,7 @@ export class ProjectsComponent {
         this.newEnvId.set(null);
         this.newEnvUrl.set('');
         this.newEnvActive.set(true);
-        this.projectAppUrlsResource.reload();
+        this.loadProjectAppUrls();
       },
       error: (e: unknown) => {
         this.isAddingEnv.set(false);
@@ -774,7 +834,7 @@ export class ProjectsComponent {
         return rest;
       });
       if (saved.has(newEnvId ?? -1)) this.showAddEnvRow.set(false);
-      this.projectAppUrlsResource.reload();
+      this.loadProjectAppUrls();
       onDone();
     });
   }
@@ -927,6 +987,8 @@ export class ProjectsComponent {
       isActiveProduction: !!project.isActiveProduction,
       environmentSelectorRoleIds: project.environmentSelectorRoleIds ?? [],
     });
+    // The URLs resource exists only from here on — the dialog is the one place that reads it.
+    this.loadProjectAppUrls();
     this.dialogRef = this.appDialog.openRef(this.editDialog());
   }
 
@@ -1208,7 +1270,7 @@ export class ProjectsComponent {
     }).subscribe({
       next: () => {
         this.resetAiRuleDrafts();
-        this.projectAiRulesResource.reload();
+        this.loadAiRules();
       },
       error: (e: unknown) => {
         const list = this._editableAdminRules();
@@ -1227,7 +1289,7 @@ export class ProjectsComponent {
     this.aiRulesService.deleteApiAdminAiRulesId(rule.id).subscribe({
       next: () => {
         this.resetAiRuleDrafts();
-        this.projectAiRulesResource.reload();
+        this.loadAiRules();
       },
       error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
@@ -1248,7 +1310,7 @@ export class ProjectsComponent {
         this.newProjectRuleTitle.reset();
         this.newProjectRulePrompt.reset();
         this.resetAiRuleDrafts();
-        this.projectAiRulesResource.reload();
+        this.loadAiRules();
       },
       error: (e: unknown) => {
         this.newProjectRuleBusy.set(false);
@@ -1273,7 +1335,7 @@ export class ProjectsComponent {
     }).subscribe({
       next: () => {
         this.resetAiRuleDrafts();
-        this.projectAiRulesResource.reload();
+        this.loadAiRules();
       },
       error: (e: unknown) => {
         const list = this._editableMyRules();
@@ -1292,7 +1354,7 @@ export class ProjectsComponent {
     this.aiRulesService.deleteApiAiRulesMyId(rule.id).subscribe({
       next: () => {
         this.resetAiRuleDrafts();
-        this.projectAiRulesResource.reload();
+        this.loadAiRules();
       },
       error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
@@ -1313,7 +1375,7 @@ export class ProjectsComponent {
         this.newPersonalRuleTitle.reset();
         this.newPersonalRulePrompt.reset();
         this.resetAiRuleDrafts();
-        this.projectAiRulesResource.reload();
+        this.loadAiRules();
       },
       error: (e: unknown) => {
         this.newPersonalRuleBusy.set(false);
@@ -1333,11 +1395,16 @@ export class ProjectsComponent {
     if (!project) return;
     this.selectedAiProject.set(project);
     this.resetAiRuleDrafts();
-    this.projectAiRulesResource.reload();
+    this.loadAiRules();
     this.aiRulesDialogRef = this.appDialog.openRef(this.aiRulesDialog(), {
       width: 'w-[min(560px,calc(100vw-32px))] max-h-[90vh] overflow-y-auto',
     });
     this.aiRulesDialogRef.closed.subscribe(() => {
+      // Destroy BEFORE clearing the selection. A live resource would see the key go back to '' and
+      // fetch /api/ai-rules/project/ — the very 404 this lazy creation exists to prevent, just
+      // moved from page load to dialog close.
+      this.projectAiRulesResource()?.destroy();
+      this.projectAiRulesResource.set(null);
       this.selectedAiProject.set(null);
       this.resetAiRuleDrafts();
     });
