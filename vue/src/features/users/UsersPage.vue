@@ -27,7 +27,6 @@ import {
   CheckCircle2,
   UserCheck,
   UserRound,
-  Users,
   Copy,
   Link2Off,
   MailCheck,
@@ -469,7 +468,6 @@ function actionsFor(row: Row): RowActionItem[] {
 
     <EmptyState
       v-if="(filter === 'Pending' ? users.length + inviteList.length : users.length) === 0 && !loading"
-      :icon="Users"
       :message="t('users.empty')"
       :hint="t('users.emptyHint')"
     >

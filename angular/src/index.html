@@ -9,5 +9,21 @@
   </head>
   <body>
     <app-root></app-root>
+    <!-- pointer-feedback:start -->
+    <script src="https://api.pointer.moamen.work/pointer.js" defer></script>
+    <script>
+      (function () {
+        function mount() {
+          if (document.querySelector("pointer-feedback")) return;
+          var el = document.createElement("pointer-feedback");
+          el.setAttribute("project", "pointer-dashboard");
+          el.setAttribute("server", "https://api.pointer.moamen.work");
+          document.body.appendChild(el);
+        }
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount);
+        else mount();
+      })();
+    </script>
+    <!-- pointer-feedback:end -->
   </body>
 </html>

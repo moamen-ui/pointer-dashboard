@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DataTable } from '@/components/shared/data-table/DataTable';
-import { EmptyState } from '@/components/EmptyState';
 import { CommentDetail } from './CommentDetail';
 import { badgeVariantForStatus, environmentLabelKey } from './comment-format';
 import { useStatusCatalog } from '@/lib/status-catalog';
@@ -264,9 +263,11 @@ export function CommentsPage() {
         <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('comments.title')}</h1>
       </div>
 
-      {projects.length === 0 ? (
-        <EmptyState message={t('comments.noProjectsTitle')} hint={t('comments.noProjectsHint')} />
-      ) : (
+      {/* #190: the comments table (header + empty state) always renders — even with zero
+          projects — so "no projects yet" is the table's own empty-state copy rather than a
+          standalone block that replaces the whole screen. The filter toolbar only makes sense
+          once there's at least one project to filter within. */}
+      {projects.length > 0 && (
         <>
           {/* Filter toolbar: below `sm` every control stacks full-width (DESIGN.md
               target: "filter toolbars wrap into a clean vertical stack below sm:
@@ -371,34 +372,46 @@ export function CommentsPage() {
               {t('comments.hiddenPrivate', { count: hiddenPrivateCount })}
             </p>
           )}
-
-          <DataTable
-            data={items}
-            columns={columns}
-            onRowClick={(row) => row.id != null && openComment(row.id)}
-            gutter
-            manualPagination={
-              pagination
-                ? {
-                    pageNumber: pagination.pageNumber ?? pageNumber,
-                    totalPages: pagination.totalPages ?? 1,
-                    totalItems: pagination.totalItems,
-                    onPageChange: setPageNumber,
-                  }
-                : undefined
-            }
-            emptyMessage={hasActiveFilters ? t('comments.noResults') : t('comments.empty')}
-            emptyHint={hasActiveFilters ? undefined : t('comments.emptyHint')}
-            emptyAction={
-              hasActiveFilters ? (
-                <Button variant="outline" size="sm" onClick={clearFilters}>
-                  {t('comments.clearFilters')}
-                </Button>
-              ) : undefined
-            }
-          />
         </>
       )}
+
+      <DataTable
+        data={items}
+        columns={columns}
+        onRowClick={(row) => row.id != null && openComment(row.id)}
+        gutter
+        manualPagination={
+          pagination
+            ? {
+                pageNumber: pagination.pageNumber ?? pageNumber,
+                totalPages: pagination.totalPages ?? 1,
+                totalItems: pagination.totalItems,
+                onPageChange: setPageNumber,
+              }
+            : undefined
+        }
+        emptyMessage={
+          projects.length === 0
+            ? t('comments.noProjectsTitle')
+            : hasActiveFilters
+              ? t('comments.noResults')
+              : t('comments.empty')
+        }
+        emptyHint={
+          projects.length === 0
+            ? t('comments.noProjectsHint')
+            : hasActiveFilters
+              ? undefined
+              : t('comments.emptyHint')
+        }
+        emptyAction={
+          projects.length > 0 && hasActiveFilters ? (
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              {t('comments.clearFilters')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {commentId != null && (
         <CommentDetail commentId={commentId} onClose={closeComment} onChanged={reloadList} />

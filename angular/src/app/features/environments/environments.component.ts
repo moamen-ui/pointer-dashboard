@@ -2,6 +2,7 @@ import { Component, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import type { HttpErrorResponse } from '@angular/common/http';
 import { AppEnvironmentsService, getApiAdminEnvironmentsResource } from '@moamen-ui/pointer-angular';
 import type { AppEnvironmentResponse } from '@moamen-ui/pointer-angular';
 import { extractMessage } from '../../core/api/extract-message';
@@ -109,12 +110,13 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
           </h2>
         </div>
         <div class="px-5 py-2 space-y-4">
-          <app-form-field [label]="'environments.name' | transloco">
+          <app-form-field [label]="'environments.name' | transloco" [error]="newNameError()">
             <input
               appInput
-              [(ngModel)]="newName"
+              [ngModel]="newName"
+              (ngModelChange)="onNewNameChange($event)"
               placeholder="e.g. qa"
-              (keydown.enter)="addEnvironment()"
+              (keydown.enter)="addFormValid() && addEnvironment()"
             />
           </app-form-field>
         </div>
@@ -131,7 +133,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
             appButton
             variant="primary"
             size="sm"
-            [disabled]="!newName.trim()"
+            [disabled]="!addFormValid()"
             (click)="addEnvironment()"
           >
             <app-icon name="plus" [size]="16"></app-icon>
@@ -157,11 +159,12 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
           </h2>
         </div>
         <div class="px-5 py-2 space-y-4">
-          <app-form-field [label]="'environments.name' | transloco">
+          <app-form-field [label]="'environments.name' | transloco" [error]="editNameError()">
             <input
               appInput
-              [(ngModel)]="editName"
-              (keydown.enter)="saveRename()"
+              [ngModel]="editName"
+              (ngModelChange)="onEditNameChange($event)"
+              (keydown.enter)="editFormValid() && saveRename()"
             />
           </app-form-field>
         </div>
@@ -178,7 +181,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
             appButton
             variant="primary"
             size="sm"
-            [disabled]="!editName.trim()"
+            [disabled]="!editFormValid()"
             (click)="saveRename()"
           >
             {{ 'common.save' | transloco }}
@@ -217,6 +220,13 @@ export class EnvironmentsComponent {
   editingEnvironment = signal<AppEnvironmentResponse | null>(null);
   editName = '';
 
+  // #191 — client-side "unique per project" guard: true uniqueness enforcement is a DB/API
+  // concern (the API lives in the separate `poitner-api` repo), so this only blocks the obvious
+  // case (case-insensitive, trimmed match against environments already loaded) and surfaces a
+  // server 409/duplicate response inline instead of a generic toast.
+  readonly addServerError = signal('');
+  readonly renameServerError = signal('');
+
   columns(): DataTableColumn<AppEnvironmentResponse>[] {
     return [
       { key: 'name', header: this.transloco.translate('environments.name'), sortable: true, mobile: 'primary' },
@@ -242,27 +252,83 @@ export class EnvironmentsComponent {
     ];
   };
 
+  /** Case-insensitive, trimmed duplicate check against every environment already loaded (own +
+   *  global) — `excludeId` lets a rename compare against every OTHER environment, not itself. */
+  private isDuplicateName(name: string, excludeId?: number | null): boolean {
+    const normalized = name.trim().toLowerCase();
+    if (!normalized) return false;
+    return this.environments().some(
+      (env) => env.id !== excludeId && (env.name ?? '').trim().toLowerCase() === normalized,
+    );
+  }
+
+  private duplicateNameMessage(): string {
+    return this.transloco.translate('environments.nameTaken');
+  }
+
+  newNameError(): string {
+    if (this.addServerError()) return this.addServerError();
+    return this.isDuplicateName(this.newName) ? this.duplicateNameMessage() : '';
+  }
+
+  editNameError(): string {
+    if (this.renameServerError()) return this.renameServerError();
+    return this.isDuplicateName(this.editName, this.editingEnvironment()?.id) ? this.duplicateNameMessage() : '';
+  }
+
+  addFormValid(): boolean {
+    return !!this.newName.trim() && !this.newNameError();
+  }
+
+  editFormValid(): boolean {
+    return !!this.editName.trim() && !this.editNameError();
+  }
+
+  onNewNameChange(value: string): void {
+    this.newName = value;
+    this.addServerError.set('');
+  }
+
+  onEditNameChange(value: string): void {
+    this.editName = value;
+    this.renameServerError.set('');
+  }
+
+  private isConflictError(e: unknown): boolean {
+    const raw = e as (HttpErrorResponse & { error?: { isConflict?: boolean } }) | null;
+    return raw?.status === 409 || raw?.error?.isConflict === true;
+  }
+
   openAdd() {
     this.newName = '';
+    this.addServerError.set('');
     this.addOpen.set(true);
   }
 
   addEnvironment() {
     const name = this.newName.trim();
-    if (!name) return;
+    if (!name || this.newNameError()) return;
+    this.addServerError.set('');
     this.environmentsService.postApiAdminEnvironments({ name }).subscribe({
       next: () => {
         this.addOpen.set(false);
         this.newName = '';
         this.environmentsResource.reload();
       },
-      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
+      error: (e: unknown) => {
+        if (this.isConflictError(e)) {
+          this.addServerError.set(this.duplicateNameMessage());
+        } else {
+          this.toast.show(extractMessage(e), 'danger');
+        }
+      },
     });
   }
 
   openRename(env: AppEnvironmentResponse) {
     this.editingEnvironment.set(env);
     this.editName = env.name ?? '';
+    this.renameServerError.set('');
     this.renameOpen.set(true);
   }
 
@@ -273,12 +339,19 @@ export class EnvironmentsComponent {
       this.renameOpen.set(false);
       return;
     }
+    if (this.editNameError()) return;
     this.environmentsService.patchApiAdminEnvironmentsId(env.id!, { name }).subscribe({
       next: () => {
         this.renameOpen.set(false);
         this.environmentsResource.reload();
       },
-      error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
+      error: (e: unknown) => {
+        if (this.isConflictError(e)) {
+          this.renameServerError.set(this.duplicateNameMessage());
+        } else {
+          this.toast.show(extractMessage(e), 'danger');
+        }
+      },
     });
   }
 

@@ -266,6 +266,11 @@ code, kbd, pre, samp, .font-mono {
   animation: ds-flash var(--dur-flash) var(--ease-out) both;
 }
 
+/* The empty/no-results/error illustrations are Lottie animations now (see
+   design/illustrations/*.json + SOURCES.md), rendered by each app's own player wrapper, so the
+   former .ds-illus* line-art classes and keyframes that lived here are gone. Lottie does NOT
+   honour the reduced-motion block below — each app gates loop/autoplay in code instead. */
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

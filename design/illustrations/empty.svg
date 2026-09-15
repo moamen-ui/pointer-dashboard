@@ -1,0 +1,7 @@
+<svg class="ds-illus" viewBox="0 0 120 72" fill="none" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <line class="ds-illus-rule" x1="26" y1="12" x2="26" y2="60" />
+  <line class="ds-illus-row ds-illus-row-1" x1="38" y1="24" x2="102" y2="24" />
+  <line class="ds-illus-row ds-illus-row-2" x1="38" y1="38" x2="88" y2="38" />
+  <line class="ds-illus-row ds-illus-row-3" x1="38" y1="52" x2="96" y2="52" />
+  <path class="ds-illus-caret" d="M12 38h8M16 34v8" />
+</svg>

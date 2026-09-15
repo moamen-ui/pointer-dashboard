@@ -16,6 +16,7 @@ import { AppIconComponent } from './app-icon.component';
 import { AppInputDirective } from './app-input.directive';
 import { DataTableCellDirective } from '../data-table/data-table-cell.directive';
 import { RowActionsMenuComponent, type RowActionItem } from '../row-actions-menu/row-actions-menu.component';
+import { EmptyStateComponent } from '../empty-state.component';
 import { ViewportService } from './viewport.service';
 
 export interface DataTableColumn<T> {
@@ -50,12 +51,33 @@ export interface SortState {
     AppInputDirective,
     AppIconComponent,
     RowActionsMenuComponent,
+    EmptyStateComponent,
   ],
   template: `
-    <div class="rounded-md border border-border overflow-hidden bg-background">
+    <!-- The mobile card list and the desktop table each need the projected [emptyAction], but
+         Angular resolves <ng-content> ONCE — a second outlet with the same selector silently gets
+         nothing, which is why the desktop empty state rendered without its action button. Capture
+         the projection here and stamp it per branch via ngTemplateOutlet instead. -->
+    <ng-template #emptyActionTpl><ng-content select="[emptyAction]" /></ng-template>
+
+    <!-- Comment #193: in an empty/no-results/error state there is no table — no header row and no
+         card border, just the big centered illustration. The search box still renders when the
+         table is searchable, otherwise a no-results state would strand the user with no way to
+         edit or clear the query that produced it. -->
+    <div
+      class="bg-background"
+      [class.rounded-md]="!isEmptyState()"
+      [class.border]="!isEmptyState()"
+      [class.border-border]="!isEmptyState()"
+      [class.overflow-hidden]="!isEmptyState()"
+    >
       <!-- Search -->
       @if (searchable()) {
-        <div class="px-3 py-3 border-b border-border-muted bg-background">
+        <div
+          class="px-3 py-3 bg-background"
+          [class.border-b]="!isEmptyState()"
+          [class.border-border-muted]="!isEmptyState()"
+        >
           <input
             type="text"
             appInput
@@ -67,43 +89,31 @@ export interface SortState {
         </div>
       }
 
-      @if (isMobile()) {
+      @if (error()) {
+        <app-empty-state variant="error" [message]="error() || ''">
+          @if (onRetry(); as retryFn) {
+            <button appButton variant="secondary" size="sm" (click)="retryFn()">
+              {{ 'table.retry' | transloco }}
+            </button>
+          }
+        </app-empty-state>
+      } @else if (rows().length === 0) {
+        <app-empty-state variant="empty" [message]="emptyMessage()" [hint]="emptyHint()">
+          <ng-container [ngTemplateOutlet]="emptyActionTpl" />
+        </app-empty-state>
+      } @else if (filteredRows().length === 0) {
+        <app-empty-state variant="no-results" [message]="'table.noResultsFor' | transloco: { query: searchTerm() }">
+          <button appButton variant="secondary" size="sm" (click)="clearSearch()">
+            {{ 'table.clearSearch' | transloco }}
+          </button>
+        </app-empty-state>
+      } @else if (isMobile()) {
         <!-- Mobile card list: header hidden, sort disabled, one card per row. The column marked
              mobile: 'primary' (default: the first column) becomes the card title; the rest render
              as a compact label/value list; row actions sit in one full-width row at the card
              bottom. Nothing is ever display:none'd — every column and action stays reachable,
              just re-laid-out. -->
         <div class="divide-y divide-border-muted">
-          @if (rows().length === 0) {
-            <div class="px-3 py-4">
-              @if (emptyMessage()) {
-                <div class="flex flex-col gap-1">
-                  <span class="text-[14px] text-muted-foreground">{{ emptyMessage() }}</span>
-                  @if (emptyHint()) {
-                    <span class="text-[12px] text-muted-foreground">{{ emptyHint() }}</span>
-                  }
-                </div>
-              }
-              @if (actions() || actionsColumn()) {
-                <div class="mt-3">
-                  <ng-content select="[emptyAction]" />
-                </div>
-              }
-            </div>
-          } @else if (filteredRows().length === 0) {
-            <div class="px-3 py-4 flex items-center gap-2 flex-wrap text-[14px] text-muted-foreground">
-              <span>{{ 'table.noResultsFor' | transloco: { query: searchTerm() } }}</span>
-              <span class="text-faint-foreground" aria-hidden="true">·</span>
-              <button
-                appButton
-                variant="link"
-                class="h-auto! px-0! text-[14px]"
-                (click)="clearSearch()"
-              >
-                {{ 'table.clearSearch' | transloco }}
-              </button>
-            </div>
-          } @else {
             @for (row of displayedRows(); track trackBy($index, row)) {
               <div
                 class="p-3"
@@ -172,7 +182,6 @@ export interface SortState {
                 }
               </div>
             }
-          }
         </div>
       } @else {
       <!-- Table: the header always renders, even when there's nothing (or nothing matching
@@ -215,59 +224,6 @@ export interface SortState {
         </thead>
         <!-- Body -->
         <tbody>
-          @if (rows().length === 0) {
-            <!-- True empty (nothing in the dataset at all): three ghost rows with dashed
-                 hairlines, the message + optional hint in the first row's first data cell,
-                 the projected action at that row's end. -->
-            @for (idx of [0, 1, 2]; track idx) {
-              <tr class="h-11 border-t border-dashed border-border-muted">
-                @if (gutter()) {
-                  <td class="w-10 px-3 py-1.5"></td>
-                }
-                @for (column of columns(); track column.key; let colIdx = $index) {
-                  <td class="px-3 py-1.5" [style.width]="column.width">
-                    @if (idx === 0 && colIdx === 0 && emptyMessage()) {
-                      <div class="flex flex-col gap-1">
-                        <span class="text-[14px] text-muted-foreground">{{ emptyMessage() }}</span>
-                        @if (emptyHint()) {
-                          <span class="text-[12px] text-muted-foreground">{{ emptyHint() }}</span>
-                        }
-                      </div>
-                    }
-                  </td>
-                }
-                @if (actions()) {
-                  <td class="px-3 py-1.5">
-                    @if (idx === 0) {
-                      <div class="flex justify-end">
-                        <ng-content select="[emptyAction]" />
-                      </div>
-                    }
-                  </td>
-                }
-              </tr>
-            }
-          } @else if (filteredRows().length === 0) {
-            <!-- No search match: rows exist, the filter just found none of them — a single
-                 row at normal height, start-aligned, distinct from the ghost rows above
-                 (that means "nothing here yet"; this means "try a different search"). -->
-            <tr class="h-11 border-t border-border-muted">
-              <td class="px-3 py-1.5" [attr.colspan]="totalColumnCount()">
-                <div class="flex items-center gap-2 text-[14px] text-muted-foreground">
-                  <span>{{ 'table.noResultsFor' | transloco: { query: searchTerm() } }}</span>
-                  <span class="text-faint-foreground" aria-hidden="true">·</span>
-                  <button
-                    appButton
-                    variant="link"
-                    class="h-auto! px-0! text-[14px]"
-                    (click)="clearSearch()"
-                  >
-                    {{ 'table.clearSearch' | transloco }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          } @else {
             @for (row of displayedRows(); track trackBy($index, row); let idx = $index) {
               <tr
                 class="h-11 border-t border-border-muted hover:bg-gutter/60 transition-colors"
@@ -311,14 +267,13 @@ export interface SortState {
                 }
               </tr>
             }
-          }
         </tbody>
       </table>
       }
 
       <!-- Pagination: compact prev/next + "n of m" on mobile (the shown/total line is desktop-only
            clutter at this width); identical control in both table and card mode. -->
-      @if (paginated() && pageCount() > 1) {
+      @if (!isEmptyState() && paginated() && pageCount() > 1) {
         <div class="h-11 max-md:h-auto max-md:py-2 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
           <span class="max-md:hidden">
             {{ 'table.rowsOf' | transloco: { shown: displayedRows().length, total: filteredRows().length } }}
@@ -366,6 +321,10 @@ export class AppDataTableComponent<T> {
   readonly gutter = input(false);
   readonly emptyMessage = input('');
   readonly emptyHint = input('');
+  /** Non-empty: render the shared `error` EmptyState in place of rows (desktop and mobile). */
+  readonly error = input<string | null | undefined>(null);
+  /** Optional retry callback; when provided, the error EmptyState renders a `table.retry` button. */
+  readonly onRetry = input<(() => void) | undefined>(undefined);
   /** When true, rows show a pointer cursor + trailing chevron and emit `rowClick` on click
    *  (the actions cell stops propagation so the kebab menu doesn't also trigger navigation). */
   readonly clickableRows = input(false);
@@ -423,6 +382,15 @@ export class AppDataTableComponent<T> {
     const start = this.currentPage() * this.pageSize();
     return this.sortedRows().slice(start, start + this.pageSize());
   });
+
+  /**
+   * True when the table has nothing to draw — a load error, an empty dataset, or a search that
+   * matched nothing. In that case no table renders at all (comment #193): the card border, the
+   * header row and the pagination footer are all dropped in favour of the centered illustration.
+   */
+  readonly isEmptyState = computed(
+    () => !!this.error() || this.rows().length === 0 || this.filteredRows().length === 0,
+  );
 
   /** Column count for the no-search-match row's colspan: gutter + data columns + actions. */
   readonly totalColumnCount = computed(

@@ -12,13 +12,12 @@ import {
   type ProjectResponse,
   type GetApiProjectsKeyCommentsParams,
 } from '@moamen-ui/pointer-vue';
-import { Search, Flag, Lock, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Search, Flag, Lock, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, dataTableFeatures } from '@/components/shared/data-table';
-import EmptyState from '@/shared/EmptyState.vue';
 import CommentDetail from '@/features/comments/CommentDetail.vue';
 import { commentStatusLabel, commentStatusVariant, commentEnvironmentLabel, shortSha } from '@/lib/commentLabels';
 import { formatRelativeTime } from '@/lib/relativeTime';
@@ -234,16 +233,11 @@ function onDetailDeleted() {
       <div class="h-8 w-64 rounded bg-gutter animate-pulse" />
     </template>
 
-    <EmptyState
-      v-else-if="!selectedProjectKey"
-      :icon="MessageSquare"
-      :message="t('comments.emptyNoProject')"
-      :hint="t('comments.noProjectSelectedHint')"
-    />
-
     <template v-else>
-      <!-- Filter bar — below sm: a clean vertical stack, every control full width. -->
-      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+      <!-- Filter bar — below sm: a clean vertical stack, every control full width. Hidden until a
+           project is selected (nothing to filter yet); the table itself always renders below,
+           with "select a project" expressed as its own `empty` EmptyState copy (#190). -->
+      <div v-if="selectedProjectKey" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
         <Select
           :model-value="statusFilter != null ? String(statusFilter) : 'all'"
           @update:model-value="(v: any) => (statusFilter = v === 'all' ? undefined : Number(v))"
@@ -337,10 +331,13 @@ function onDetailDeleted() {
         </div>
       </div>
 
-      <p v-if="hiddenPrivateCount > 0" class="flex items-center gap-1 text-[12px] text-muted-foreground">
+      <p v-if="selectedProjectKey && hiddenPrivateCount > 0" class="flex items-center gap-1 text-[12px] text-muted-foreground">
         <Lock class="h-3 w-3" /> {{ t('comments.hiddenPrivateCount', { n: hiddenPrivateCount }) }}
       </p>
 
+      <!-- #190: the table (header + empty state) always renders, even with no project selected —
+           "select a project" is expressed as the table's own `empty` EmptyState copy instead of
+           replacing the whole table. -->
       <DataTable
         :data="items"
         :columns="columns"
@@ -348,9 +345,14 @@ function onDetailDeleted() {
         :paginated="false"
         gutter
         :loading="loading"
-        :empty-icon="MessageSquare"
-        :empty-message="t('comments.empty')"
-        :empty-hint="hasActiveFilters ? t('comments.emptyHintFiltered') : t('comments.emptyHint')"
+        :empty-message="!selectedProjectKey ? t('comments.emptyNoProject') : t('comments.empty')"
+        :empty-hint="
+          !selectedProjectKey
+            ? t('comments.noProjectSelectedHint')
+            : hasActiveFilters
+              ? t('comments.emptyHintFiltered')
+              : t('comments.emptyHint')
+        "
       >
         <template #cell-body="{ row }">
           <div class="flex max-w-[360px] flex-col gap-1">
@@ -391,14 +393,14 @@ function onDetailDeleted() {
       <!-- DataTable's own `#empty-action` slot only renders inside a trailing actions column,
            which this table doesn't have (row actions live in the detail dialog) — so the "clear
            filters" affordance for a filtered-to-zero result sits here instead. -->
-      <div v-if="hasActiveFilters && !loading && items.length === 0" class="flex justify-start">
+      <div v-if="selectedProjectKey && hasActiveFilters && !loading && items.length === 0" class="flex justify-start">
         <Button size="sm" variant="outline" @click="clearFilters">{{ t('comments.clearFilters') }}</Button>
       </div>
 
       <!-- Server-driven pagination footer (the shared DataTable's own pager is client-side only,
            and this list is paged server-side at 25/page). Same grammar as its built-in footer. -->
       <div
-        v-if="pagination && (pagination.totalPages ?? 1) > 1"
+        v-if="selectedProjectKey && pagination && (pagination.totalPages ?? 1) > 1"
         class="flex min-h-11 flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-[13px] text-muted-foreground max-md:justify-center md:justify-between"
       >
         <span class="max-md:hidden">{{ t('table.rowsOf', { shown: items.length, total: pagination.totalItems ?? 0 }) }}</span>

@@ -1,0 +1,1 @@
+../../.claude/skills/pointer-init/SKILL.md

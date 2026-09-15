@@ -1,0 +1,7 @@
+{
+  "server": "https://api.pointer.moamen.work",
+  "project": "pointer-dashboard",
+  "environment": "local",
+  "aiTool": "claude-code",
+  "cliVersion": "0.1.4"
+}

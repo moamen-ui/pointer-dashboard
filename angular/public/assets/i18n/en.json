@@ -378,6 +378,7 @@
     "enabled": "Enabled",
     "global": "Global",
     "name": "Name",
+    "nameTaken": "An environment with this name already exists",
     "own": "Custom",
     "retired": "retired",
     "scope": "Scope",
@@ -966,10 +967,14 @@
   },
   "table": {
     "clearSearch": "Clear search",
+    "emptyDefault": "Nothing here yet",
+    "error": "Something went wrong",
+    "errorHint": "This list couldn't be loaded. Check your connection and try again.",
     "nextPage": "Next page",
     "noResultsFor": "No results for \"{{query}}\"",
     "pageOf": "Page {{page}} of {{pages}}",
     "previousPage": "Previous page",
+    "retry": "Try again",
     "rowsOf": "{{shown}} of {{total}} rows"
   },
   "tenants": {

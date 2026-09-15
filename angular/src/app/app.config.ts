@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideTransloco } from '@jsverse/transloco';
+import { provideLottieOptions } from 'ngx-lottie';
 import { routes } from './app.routes';
 import { apiInterceptor } from './core/auth/auth.interceptor';
 import { TranslocoHttpLoader } from './transloco-loader';
@@ -13,6 +14,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([apiInterceptor])),
     provideAnimationsAsync(),
+    provideLottieOptions({ player: () => import('lottie-web') }),
     provideTransloco({
       config: {
         availableLangs: ['en', 'ar'],

@@ -23,7 +23,7 @@ import type { RowActionItem } from '@/components/shared/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
-import { requiredError } from '@/lib/validators';
+import { requiredError, duplicateNameError } from '@/lib/validators';
 import {
   getGetApiAdminEnvironmentsQueryKey,
   useDeleteApiAdminEnvironmentsId,
@@ -58,6 +58,16 @@ export function EnvironmentsPage() {
   const reload = () =>
     qc.invalidateQueries({ queryKey: getGetApiAdminEnvironmentsQueryKey() });
   const onError = (e: unknown) => toast(extractMessage(e), 'error');
+
+  // Comment #191: environment names must be unique per tenant. True uniqueness enforcement is
+  // a DB/API concern (a separate repo, poitner-api) — this is client-side prevention only, plus
+  // surfacing a server 409/duplicate response inline instead of a generic toast.
+  const existingNames = useMemo(() => environmentsRaw.map((e) => e.name), [environmentsRaw]);
+  const isConflictError = (e: unknown): boolean => {
+    const response = (e as { response?: { status?: number } } | null | undefined)?.response;
+    if (response?.status === 409) return true;
+    return /already exists|duplicate/i.test(extractMessage(e));
+  };
 
   const patchEnabledMut = usePatchApiAdminEnvironmentsId({
     mutation: {
@@ -147,7 +157,10 @@ export function EnvironmentsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newNameTouched, setNewNameTouched] = useState(false);
-  const newNameError = requiredError(newName, t);
+  const [addServerError, setAddServerError] = useState<string | undefined>(undefined);
+  const newNameError =
+    requiredError(newName, t) || duplicateNameError(newName, existingNames, t, 'environments.nameTaken');
+  const newNameDisplayError = newNameError || addServerError;
 
   const addMut = usePostApiAdminEnvironments({
     mutation: {
@@ -155,20 +168,29 @@ export function EnvironmentsPage() {
         setAddOpen(false);
         setNewName('');
         setNewNameTouched(false);
+        setAddServerError(undefined);
         reload();
       },
-      onError,
+      onError: (e) => {
+        if (isConflictError(e)) {
+          setNewNameTouched(true);
+          setAddServerError(t('environments.nameTaken'));
+        } else {
+          onError(e);
+        }
+      },
     },
   });
 
   function openAdd() {
     setNewName('');
     setNewNameTouched(false);
+    setAddServerError(undefined);
     setAddOpen(true);
   }
   function addEnvironment() {
     const name = newName.trim();
-    if (!name) return;
+    if (!name || newNameError) return;
     addMut.mutate({ data: { name } });
   }
 
@@ -178,12 +200,23 @@ export function EnvironmentsPage() {
     useState<AppEnvironmentResponse | null>(null);
   const [editName, setEditName] = useState('');
   const [editNameTouched, setEditNameTouched] = useState(false);
-  const editNameError = requiredError(editName, t);
+  const [editServerError, setEditServerError] = useState<string | undefined>(undefined);
+  const editNameError =
+    requiredError(editName, t) ||
+    duplicateNameError(editName, existingNames, t, 'environments.nameTaken', editingEnvironment?.name);
+  const editNameDisplayError = editNameError || editServerError;
 
   const patchMut = usePatchApiAdminEnvironmentsId({
     mutation: {
       onSuccess: () => reload(),
-      onError,
+      onError: (e) => {
+        if (isConflictError(e)) {
+          setEditNameTouched(true);
+          setEditServerError(t('environments.nameTaken'));
+        } else {
+          onError(e);
+        }
+      },
     },
   });
 
@@ -191,6 +224,7 @@ export function EnvironmentsPage() {
     setEditingEnvironment(env);
     setEditName(env.name ?? '');
     setEditNameTouched(false);
+    setEditServerError(undefined);
     setRenameOpen(true);
   }
   function saveRename() {
@@ -200,6 +234,7 @@ export function EnvironmentsPage() {
       setRenameOpen(false);
       return;
     }
+    if (editNameError) return;
     patchMut.mutate(
       { id: env.id, data: { name } },
       { onSuccess: () => { setRenameOpen(false); reload(); } },
@@ -277,12 +312,15 @@ export function EnvironmentsPage() {
             <FormField
               label={t('environments.name')}
               htmlFor="environment-name"
-              error={newNameTouched ? newNameError || undefined : undefined}
+              error={newNameTouched ? newNameDisplayError || undefined : undefined}
             >
               <Input
                 id="environment-name"
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  setAddServerError(undefined);
+                }}
                 onBlur={() => setNewNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && addEnvironment()}
                 placeholder="e.g. qa"
@@ -294,7 +332,10 @@ export function EnvironmentsPage() {
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button disabled={!newName.trim() || addMut.isPending} onClick={addEnvironment}>
+            <Button
+              disabled={!newName.trim() || !!newNameError || !!addServerError || addMut.isPending}
+              onClick={addEnvironment}
+            >
               <Plus className="h-4 w-4" />
               {t('environments.addEnvironment')}
             </Button>
@@ -312,12 +353,15 @@ export function EnvironmentsPage() {
             <FormField
               label={t('environments.name')}
               htmlFor="environment-rename"
-              error={editNameTouched ? editNameError || undefined : undefined}
+              error={editNameTouched ? editNameDisplayError || undefined : undefined}
             >
               <Input
                 id="environment-rename"
                 value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  setEditServerError(undefined);
+                }}
                 onBlur={() => setEditNameTouched(true)}
                 onKeyDown={(e) => e.key === 'Enter' && saveRename()}
                 autoFocus
@@ -328,7 +372,10 @@ export function EnvironmentsPage() {
             <Button variant="outline" onClick={() => setRenameOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button disabled={!editName.trim() || patchMut.isPending} onClick={saveRename}>
+            <Button
+              disabled={!editName.trim() || !!editNameError || !!editServerError || patchMut.isPending}
+              onClick={saveRename}
+            >
               {t('common.save')}
             </Button>
           </DialogFooter>

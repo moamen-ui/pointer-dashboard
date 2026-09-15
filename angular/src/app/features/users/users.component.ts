@@ -118,50 +118,25 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
         </div>
       </div>
 
-      @if (displayedRows().length === 0 && !loading()) {
-        <!-- Empty state with three ghost rows -->
-        <div class="rounded-md border border-border overflow-hidden">
-          <table class="w-full border-collapse">
-            <thead>
-              <tr class="h-10 bg-gutter text-[13px] font-medium text-muted-foreground border-b border-border">
-                <th class="px-3 text-start">{{ 'users.email' | transloco }}</th>
-                <th class="px-3 text-start">{{ 'users.name' | transloco }}</th>
-                <th class="px-3 text-start">{{ 'users.role' | transloco }}</th>
-                <th class="px-3 text-start">{{ 'users.status' | transloco }}</th>
-                <th class="px-3 text-start">{{ 'users.actions' | transloco }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="h-11 border-t border-dashed border-border-muted">
-                <td class="px-3 text-[14px] text-muted-foreground">{{ 'users.empty' | transloco }}</td>
-                <td colspan="4" class="text-end pe-3">
-                  <button
-                    appButton
-                    variant="primary"
-                    size="sm"
-                    (click)="openAdd()"
-                  >
-                    <app-icon name="plus" [size]="16"></app-icon>
-                    {{ 'users.addUser' | transloco }}
-                  </button>
-                </td>
-              </tr>
-              <tr class="h-11 border-t border-dashed border-border-muted"></tr>
-              <tr class="h-11 border-t border-dashed border-border-muted"></tr>
-            </tbody>
-          </table>
-        </div>
-      } @else {
-        <!-- Escape hatch: rows are a union type (real users + pending invites) with dual
-             menus and a nested submenu (approve), none of which RowActionsMenu's flat item
-             list can express -- every column, including actions, renders through
-             appDataTableCell so this page keeps its own bespoke menu markup. -->
-        <app-data-table
-          [gutter]="true"
-          [rows]="displayedRows()"
-          [columns]="columns()"
-          [paginated]="false"
-        >
+      <!-- Escape hatch: rows are a union type (real users + pending invites) with dual
+           menus and a nested submenu (approve), none of which RowActionsMenu's flat item
+           list can express -- every column, including actions, renders through
+           appDataTableCell so this page keeps its own bespoke menu markup.
+           The empty case is NOT handled here: the table owns it, so the header stays put
+           and the shared animated empty illustration renders inside it (comment #192). -->
+      <app-data-table
+        [gutter]="true"
+        [rows]="displayedRows()"
+        [columns]="columns()"
+        [paginated]="false"
+        [emptyMessage]="'users.empty' | transloco"
+        [emptyHint]="'users.emptyHint' | transloco"
+      >
+        <button emptyAction appButton variant="primary" size="sm" (click)="openAdd()">
+          <app-icon name="plus" [size]="16"></app-icon>
+          {{ 'users.addUser' | transloco }}
+        </button>
+
           <ng-template appDataTableCell="email" let-row>
             @if (isInvite(row)) {
               {{ row.email || ('invite.anyone' | transloco) }}
@@ -240,7 +215,6 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
             }
           </ng-template>
         </app-data-table>
-      }
     </div>
 
     <!-- Add user dialog — "Send invite" (default) or "Create directly" (secondary) -->

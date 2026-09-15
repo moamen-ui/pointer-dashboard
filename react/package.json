@@ -24,6 +24,7 @@
     "clsx": "^2.1.1",
     "i18next": "^24.2.2",
     "i18next-http-backend": "^3.0.2",
+    "lottie-react": "^3.1.2",
     "lucide-react": "^0.474.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

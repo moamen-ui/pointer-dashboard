@@ -29,7 +29,6 @@ import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-select.component';
 import { AppSwitchComponent } from '../../shared/ui/app-switch.component';
 import { BadgeComponent } from '../../shared/badge/badge.component';
-import { EmptyStateComponent } from '../../shared/empty-state.component';
 import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
@@ -95,7 +94,6 @@ function numOrUndefined(value: string | null): number | undefined {
     AppSelectComponent,
     AppSwitchComponent,
     BadgeComponent,
-    EmptyStateComponent,
     AppDataTableComponent,
     DataTableCellDirective,
   ],
@@ -114,9 +112,6 @@ function numOrUndefined(value: string | null): number | undefined {
         />
       </div>
 
-      @if (!selectedProjectKey()) {
-        <app-empty-state [message]="'comments.selectProject' | transloco" />
-      } @else {
         <!-- Filters: a vertical stack below sm — full-width selects, a full-width equal-segment
              control and a full-width search box — flowing into the original wrapped row at sm+. -->
         <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -306,7 +301,6 @@ function numOrUndefined(value: string | null): number | undefined {
             </div>
           </div>
         }
-      }
     </div>
 
     <!-- Detail dialog -->
@@ -628,10 +622,17 @@ export class CommentsComponent {
   readonly pagination = computed(() => this.listResource()?.value()?.pagination);
   readonly hiddenPrivateCount = computed(() => this.listResource()?.value()?.hiddenPrivateCount ?? 0);
 
-  readonly emptyMessage = computed(() =>
-    this.filtersActive() ? this.transloco.translate('comments.emptyFiltered') : this.transloco.translate('comments.empty'),
+  // The "select a project" case is expressed as the table's own `empty` EmptyState copy (#190)
+  // rather than replacing the whole table — the table (header + empty state) always renders.
+  readonly emptyMessage = computed(() => {
+    if (!this.selectedProjectKey()) return this.transloco.translate('comments.selectProject');
+    return this.filtersActive()
+      ? this.transloco.translate('comments.emptyFiltered')
+      : this.transloco.translate('comments.empty');
+  });
+  readonly emptyHint = computed(() =>
+    !this.selectedProjectKey() || this.filtersActive() ? '' : this.transloco.translate('comments.emptyHint'),
   );
-  readonly emptyHint = computed(() => (this.filtersActive() ? '' : this.transloco.translate('comments.emptyHint')));
 
   // --- Detail dialog ---------------------------------------------------------
   readonly detailDialog = viewChild.required<TemplateRef<unknown>>('detailDialog');

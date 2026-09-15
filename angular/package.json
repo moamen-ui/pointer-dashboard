@@ -21,6 +21,8 @@
     "@angular/router": "^22.0.0",
     "@jsverse/transloco": "^8.4.0",
     "@moamen-ui/pointer-angular": "^1.0.34",
+    "lottie-web": "^5.13.0",
+    "ngx-lottie": "^22.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

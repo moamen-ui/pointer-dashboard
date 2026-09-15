@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
 import type { ColumnDef } from '@tanstack/vue-table';
@@ -52,6 +52,27 @@ const environments = computed<AppEnvironmentResponse[]>(() => {
   });
 });
 
+// #191: environment names must be unique per tenant (case-insensitive, trimmed). No such guard
+// exists in the API today (a DB/API-level uniqueness constraint is a separate-repo concern — see
+// poitner-api) — this is a CLIENT-SIDE guard only, blocking obviously-doomed submits and surfacing
+// a friendly inline error instead of a raw 409 toast when the guard is bypassed by a race.
+function duplicateNameMessage(): string {
+  return t('environments.nameTaken');
+}
+
+function isDuplicateName(name: string, excludeId?: number | null): boolean {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return false;
+  return environments.value.some(
+    (env) => env.id !== excludeId && (env.name ?? '').trim().toLowerCase() === normalized,
+  );
+}
+
+function isConflictError(e: unknown): boolean {
+  const status = (e as { response?: { status?: number } } | undefined)?.response?.status;
+  return status === 409;
+}
+
 // Track which environment ID is currently being saved
 const savingEnvironmentId = ref<number | null>(null);
 
@@ -100,25 +121,42 @@ const newName = ref('');
 // (blurred), like FormControl.invalid && FormControl.touched. The Add button
 // was already disabled on an empty name with no way for the user to see why.
 const newNameTouched = ref(false);
-const newNameError = computed(() =>
-  newNameTouched.value && !newName.value.trim() ? t('common.fieldRequired') : '',
-);
+// #191: a server-surfaced 409 ("duplicate") wins until the user edits the field again — cleared
+// by the watcher below so client-side validation can take back over.
+const newNameServerError = ref('');
+const newNameError = computed(() => {
+  if (newNameServerError.value) return newNameServerError.value;
+  if (!newNameTouched.value) return '';
+  const trimmed = newName.value.trim();
+  if (!trimmed) return t('common.fieldRequired');
+  if (isDuplicateName(trimmed)) return duplicateNameMessage();
+  return '';
+});
+watch(newName, () => {
+  newNameServerError.value = '';
+});
 
 function openAdd() {
   newName.value = '';
   newNameTouched.value = false;
+  newNameServerError.value = '';
   addOpen.value = true;
 }
 
 async function addEnvironment() {
+  newNameTouched.value = true;
   const name = newName.value.trim();
-  if (!name) return;
+  if (!name || isDuplicateName(name)) return;
   try {
     await createEnvironment.mutateAsync({ data: { name } });
     addOpen.value = false;
     reload();
   } catch (e) {
-    fail(e);
+    if (isConflictError(e)) {
+      newNameServerError.value = duplicateNameMessage();
+    } else {
+      fail(e);
+    }
   }
 }
 
@@ -128,30 +166,48 @@ const editingEnvironment = ref<AppEnvironmentResponse | null>(null);
 const editName = ref('');
 // Same touched-error convention as Add environment's name field above.
 const editNameTouched = ref(false);
-const editNameError = computed(() =>
-  editNameTouched.value && !editName.value.trim() ? t('common.fieldRequired') : '',
-);
+// #191: same server-error-wins-until-edited convention as Add environment above.
+const editNameServerError = ref('');
+const editNameError = computed(() => {
+  if (editNameServerError.value) return editNameServerError.value;
+  if (!editNameTouched.value) return '';
+  const trimmed = editName.value.trim();
+  if (!trimmed) return t('common.fieldRequired');
+  if (isDuplicateName(trimmed, editingEnvironment.value?.id)) return duplicateNameMessage();
+  return '';
+});
+watch(editName, () => {
+  editNameServerError.value = '';
+});
 
 function renameEnvironment(env: AppEnvironmentResponse) {
   editingEnvironment.value = env;
   editName.value = env.name ?? '';
   editNameTouched.value = false;
+  editNameServerError.value = '';
   renameOpen.value = true;
 }
 
 async function saveRename() {
+  editNameTouched.value = true;
   const env = editingEnvironment.value;
   const name = editName.value.trim();
-  if (!env || !name || name === env.name) {
+  if (!env || !name) return;
+  if (name === env.name) {
     renameOpen.value = false;
     return;
   }
+  if (isDuplicateName(name, env.id)) return;
   try {
     await updateEnvironment.mutateAsync({ id: env.id!, data: { name } });
     renameOpen.value = false;
     reload();
   } catch (e) {
-    fail(e);
+    if (isConflictError(e)) {
+      editNameServerError.value = duplicateNameMessage();
+    } else {
+      fail(e);
+    }
   }
 }
 
@@ -285,7 +341,7 @@ async function patchEnabled(env: AppEnvironmentResponse, isEnabled: boolean) {
       </div>
       <DialogFooter>
         <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
-        <Button :disabled="!newName.trim()" @click="addEnvironment">
+        <Button :disabled="!newName.trim() || isDuplicateName(newName.trim())" @click="addEnvironment">
           <Plus class="h-4 w-4" /> {{ t('environments.addEnvironment') }}
         </Button>
       </DialogFooter>
@@ -310,7 +366,12 @@ async function patchEnabled(env: AppEnvironmentResponse, isEnabled: boolean) {
       </div>
       <DialogFooter>
         <Button variant="secondary" @click="renameOpen = false">{{ t('common.cancel') }}</Button>
-        <Button :disabled="!editName.trim()" @click="saveRename">{{ t('common.save') }}</Button>
+        <Button
+          :disabled="!editName.trim() || isDuplicateName(editName.trim(), editingEnvironment?.id)"
+          @click="saveRename"
+        >
+          {{ t('common.save') }}
+        </Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

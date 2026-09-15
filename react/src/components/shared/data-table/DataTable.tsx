@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -33,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { RowActionsMenu } from '@/components/shared/RowActionsMenu';
 import type { RowActionItem } from '@/components/shared/types';
 import { useMediaQuery, MOBILE_QUERY } from '@/lib/useMediaQuery';
+import { EmptyState } from '@/components/EmptyState';
 
 /** Per-column mobile hint (optional `meta.mobile` on a column def): `'primary'` makes
  *  the column's rendered cell the card's title in the below-`md` stacked-card layout;
@@ -106,6 +106,12 @@ export type DataTableProps<TData> = {
   emptyHint?: string;
   /** Optional action (e.g. an "Add" button) rendered inside the empty state. */
   emptyAction?: ReactNode;
+  /** When non-empty, renders the shared error EmptyState INSTEAD of rows (header still
+   *  renders). Overrides the default `table.error` message. */
+  error?: string | null;
+  /** Optional retry callback; when provided, renders a `table.retry` button as the
+   *  error state's action. */
+  onRetry?: () => void;
 };
 
 /**
@@ -136,6 +142,8 @@ export function DataTable<TData>({
   emptyMessage = '',
   emptyHint = '',
   emptyAction,
+  error = null,
+  onRetry,
 }: DataTableProps<TData>) {
   const { t } = useTranslation();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -213,7 +221,16 @@ export function DataTable<TData>({
     initialState: { pagination: { pageSize: 10 } },
   });
 
-  const searchBox = searchable && (
+  const rows = table.getRowModel().rows;
+  const pageCount = Math.max(table.getPageCount(), 1);
+
+  // Comment #193: when the table has nothing to draw — a load error, a genuinely empty
+  // dataset, or a search that matched nothing — there is no table at all: no header row,
+  // no card border, no pagination footer, just the big centered illustration. Mirrors
+  // Angular's `isEmptyState()` exactly.
+  const isEmptyState = !!error || data.length === 0 || rows.length === 0;
+
+  const searchInput = (
     <div className="relative w-full max-w-sm max-md:max-w-full">
       <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
@@ -224,9 +241,6 @@ export function DataTable<TData>({
       />
     </div>
   );
-
-  const rows = table.getRowModel().rows;
-  const pageCount = Math.max(table.getPageCount(), 1);
 
   // Compact pager shared by both mobile and desktop: below `md` the "shown of
   // total" row count hides, leaving just prev/next + "page of pages" (DESIGN.md
@@ -304,333 +318,260 @@ export function DataTable<TData>({
 
   // ---------------------------------------------------------------------
   // Mobile: stacked cards (below `md`). Same `table` instance, no header row,
-  // sort disabled, one bordered card per row.
+  // sort disabled, one bordered card per row. Only ever rendered once the error/
+  // empty/no-results branches above have all been ruled out, so `rows` here is
+  // always non-empty.
   // ---------------------------------------------------------------------
-  if (isMobile) {
-    if (data.length === 0) {
-      return (
-        <div className="flex flex-col gap-3">
-          {searchBox}
-          <div className="flex flex-col items-start gap-2 rounded-md border border-dashed border-border-muted p-4">
-            {emptyMessage && <span className="text-[14px] text-muted-foreground">{emptyMessage}</span>}
-            {emptyHint && <span className="text-[12px] text-muted-foreground">{emptyHint}</span>}
-            {emptyAction}
-          </div>
-        </div>
-      );
-    }
-
+  function MobileCards() {
     const headerGroup = table.getHeaderGroups()[0];
 
     return (
-      <div className="flex flex-col gap-3">
-        {searchBox}
+      <div className="flex flex-col gap-2 p-3">
+        {rows.map((row) => {
+          const cells = row.getVisibleCells().filter((c) => c.column.id !== '__actions__');
+          const realCells = cells.filter((c) => !SYNTHETIC_IDS.has(c.column.id));
 
-        {rows.length === 0 ? (
-          <div className="flex min-h-11 flex-col items-start gap-1 rounded-md border border-border p-3 text-[14px] text-muted-foreground">
-            <span>{t('table.noResultsFor', { query: globalFilter })}</span>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto min-h-0 p-0 text-[14px]"
-              onClick={() => setGlobalFilter('')}
+          const primaryCell =
+            realCells.find((c) => metaOf(c.column)?.mobile === 'primary') ?? realCells[0];
+          const bodyCells = realCells.filter(
+            (c) => c !== primaryCell && metaOf(c.column)?.mobile !== 'hide',
+          );
+
+          const items = actions ? actions(row.original) : [];
+          const clickable = !!onRowClick;
+
+          return (
+            <div
+              key={row.id}
+              className={cn(
+                'flex flex-col gap-2 rounded-md border border-border bg-card p-3',
+                clickable && 'cursor-pointer',
+              )}
+              onClick={clickable ? () => onRowClick!(row.original) : undefined}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRowClick!(row.original);
+                      }
+                    }
+                  : undefined
+              }
             >
-              {t('table.clearSearch')}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {rows.map((row) => {
-              const cells = row.getVisibleCells().filter((c) => c.column.id !== '__actions__');
-              const realCells = cells.filter((c) => !SYNTHETIC_IDS.has(c.column.id));
-
-              const primaryCell =
-                realCells.find((c) => metaOf(c.column)?.mobile === 'primary') ?? realCells[0];
-              const bodyCells = realCells.filter(
-                (c) => c !== primaryCell && metaOf(c.column)?.mobile !== 'hide',
-              );
-
-              const items = actions ? actions(row.original) : [];
-              const clickable = !!onRowClick;
-
-              return (
-                <div
-                  key={row.id}
-                  className={cn(
-                    'flex flex-col gap-2 rounded-md border border-border bg-card p-3',
-                    clickable && 'cursor-pointer',
-                  )}
-                  onClick={clickable ? () => onRowClick!(row.original) : undefined}
-                  role={clickable ? 'button' : undefined}
-                  tabIndex={clickable ? 0 : undefined}
-                  onKeyDown={
-                    clickable
-                      ? (e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onRowClick!(row.original);
-                          }
-                        }
-                      : undefined
-                  }
-                >
-                  {primaryCell && (
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1 break-words text-[14px] font-medium text-foreground">
-                        {flexRender(primaryCell.column.columnDef.cell, primaryCell.getContext())}
-                      </div>
-                      {clickable && !actions && (
-                        <ChevronRight
-                          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground rtl:rotate-180"
-                          aria-hidden="true"
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {bodyCells.length > 0 && (
-                    <div className="flex flex-col gap-1 border-t border-border-muted pt-2">
-                      {bodyCells.map((cell) => {
-                        const header = headerGroup?.headers.find((h) => h.id === cell.column.id);
-                        const label = header
-                          ? flexRender(header.column.columnDef.header, header.getContext())
-                          : null;
-                        return (
-                          <div
-                            key={cell.id}
-                            className="flex items-baseline justify-between gap-3 text-[13px]"
-                          >
-                            {label != null && label !== '' && (
-                              <span className="shrink-0 text-muted-foreground">{label}</span>
-                            )}
-                            <span className="min-w-0 break-words text-end text-foreground">
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {items.length > 0 && (
-                    <div
-                      className="-mx-1 flex flex-wrap gap-1 border-t border-border-muted pt-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {items.map((item) => {
-                        const Icon = item.icon;
-                        const cls = item.severity ? actionSeverityClass[item.severity] : '';
-                        return (
-                          <Button
-                            key={item.label}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={item.disabled}
-                            title={item.disabled ? item.tooltip : undefined}
-                            onClick={item.onClick}
-                            className={cn('min-h-11 flex-1 basis-[40%]', cls)}
-                          >
-                            {Icon && <Icon className="h-4 w-4" />}
-                            <span className="truncate">{item.label}</span>
-                          </Button>
-                        );
-                      })}
-                    </div>
+              {primaryCell && (
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1 break-words text-[14px] font-medium text-foreground">
+                    {flexRender(primaryCell.column.columnDef.cell, primaryCell.getContext())}
+                  </div>
+                  {clickable && !actions && (
+                    <ChevronRight
+                      className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground rtl:rotate-180"
+                      aria-hidden="true"
+                    />
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              )}
 
-        <Pager />
+              {bodyCells.length > 0 && (
+                <div className="flex flex-col gap-1 border-t border-border-muted pt-2">
+                  {bodyCells.map((cell) => {
+                    const header = headerGroup?.headers.find((h) => h.id === cell.column.id);
+                    const label = header
+                      ? flexRender(header.column.columnDef.header, header.getContext())
+                      : null;
+                    return (
+                      <div
+                        key={cell.id}
+                        className="flex items-baseline justify-between gap-3 text-[13px]"
+                      >
+                        {label != null && label !== '' && (
+                          <span className="shrink-0 text-muted-foreground">{label}</span>
+                        )}
+                        <span className="min-w-0 break-words text-end text-foreground">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {items.length > 0 && (
+                <div
+                  className="-mx-1 flex flex-wrap gap-1 border-t border-border-muted pt-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const cls = item.severity ? actionSeverityClass[item.severity] : '';
+                    return (
+                      <Button
+                        key={item.label}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={item.disabled}
+                        title={item.disabled ? item.tooltip : undefined}
+                        onClick={item.onClick}
+                        className={cn('min-h-11 flex-1 basis-[40%]', cls)}
+                      >
+                        {Icon && <Icon className="h-4 w-4" />}
+                        <span className="truncate">{item.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   }
 
   // ---------------------------------------------------------------------
-  // Desktop (`md` and up): unchanged table markup.
+  // Desktop (`md` and up): unchanged table markup. Only ever rendered once the
+  // error/empty/no-results branches above have all been ruled out, so `rows`
+  // here is always non-empty — no colSpan "no rows" branch needed any more.
   // ---------------------------------------------------------------------
-
-  // When data is empty, render ghost rows in the table (§3 empty state grammar)
-  if (data.length === 0) {
+  function DesktopTable() {
     return (
-      <div className="flex flex-col gap-3">
-        {searchBox}
-
-        <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className={cn(
-                        header.id === '__gutter__'
-                          ? 'w-10'
-                          : header.id === '__actions__'
-                            ? actionsHeader
-                              ? 'text-right'
-                              : 'w-12'
-                            : header.id === '__chevron__'
-                              ? 'w-8'
-                              : undefined,
-                        (header.column.columnDef.meta as ColumnMeta | undefined)?.headerClass,
-                      )}
-                    >
-                      {flexRender(
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => {
+                const sortable = header.column.getCanSort();
+                const dir = header.column.getIsSorted();
+                return (
+                  <TableHead
+                    key={header.id}
+                    className={cn(
+                      header.id === '__gutter__'
+                        ? 'w-10'
+                        : header.id === '__actions__'
+                          ? actionsHeader
+                            ? 'text-right'
+                            : 'w-12'
+                          : header.id === '__chevron__'
+                            ? 'w-8'
+                            : undefined,
+                      (header.column.columnDef.meta as ColumnMeta | undefined)?.headerClass,
+                    )}
+                    aria-sort={
+                      dir === 'asc'
+                        ? 'ascending'
+                        : dir === 'desc'
+                          ? 'descending'
+                          : undefined
+                    }
+                  >
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={header.column.getToggleSortingHandler()}
+                        className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                        {dir === 'asc' ? (
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        ) : dir === 'desc' ? (
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        ) : (
+                          <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                        )}
+                      </button>
+                    ) : (
+                      flexRender(
                         header.column.columnDef.header,
                         header.getContext(),
-                      )}
-                    </TableHead>
-                  ))}
-                </TableRow>
+                      )
+                    )}
+                  </TableHead>
+                );
+              })}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow
+              key={row.id}
+              className={cn('h-11', onRowClick && 'cursor-pointer')}
+              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell
+                  key={cell.id}
+                  className={cell.column.id === '__gutter__' ? 'w-10' : undefined}
+                  // The actions column has its own interactive controls (menu trigger) —
+                  // never let that click bubble up into the row's own onRowClick.
+                  onClick={cell.column.id === '__actions__' ? (e) => e.stopPropagation() : undefined}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
               ))}
-            </TableHeader>
-            <TableBody>
-              {/* Three ghost rows (dashed borders) */}
-              {[0, 1, 2].map((idx) => (
-                <TableRow key={`ghost-${idx}`} className="border-dashed">
-                  {effectiveColumns.map((col, colIdx) => (
-                    <TableCell key={col.id ?? ('accessorKey' in col ? String(col.accessorKey) : colIdx)}>
-                      {idx === 0 && col.id === '__actions__' ? (
-                        <div className="flex justify-end">
-                          {emptyAction}
-                        </div>
-                      ) : idx === 0 && emptyMessage && col.id !== '__gutter__' && col.id !== '__actions__' && col.id !== '__chevron__' ? (
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[14px] text-muted-foreground">{emptyMessage}</span>
-                          {emptyHint && (
-                            <span className="text-[12px] text-muted-foreground">{emptyHint}</span>
-                          )}
-                        </div>
-                      ) : null}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {searchBox}
+    <div
+      className={cn(
+        'bg-background',
+        !isEmptyState && 'rounded-md border border-border overflow-hidden',
+      )}
+    >
+      {searchable && (
+        <div
+          className={cn(
+            'px-3 py-3 bg-background',
+            !isEmptyState && 'border-b border-border-muted',
+          )}
+        >
+          {searchInput}
+        </div>
+      )}
 
-      <Card className="overflow-hidden">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const sortable = header.column.getCanSort();
-                  const dir = header.column.getIsSorted();
-                  return (
-                    <TableHead
-                      key={header.id}
-                      className={cn(
-                        header.id === '__gutter__'
-                          ? 'w-10'
-                          : header.id === '__actions__'
-                            ? actionsHeader
-                              ? 'text-right'
-                              : 'w-12'
-                            : header.id === '__chevron__'
-                              ? 'w-8'
-                              : undefined,
-                        (header.column.columnDef.meta as ColumnMeta | undefined)?.headerClass,
-                      )}
-                      aria-sort={
-                        dir === 'asc'
-                          ? 'ascending'
-                          : dir === 'desc'
-                            ? 'descending'
-                            : undefined
-                      }
-                    >
-                      {sortable ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                          {dir === 'asc' ? (
-                            <ArrowUp className="h-3.5 w-3.5" />
-                          ) : dir === 'desc' ? (
-                            <ArrowDown className="h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
-                          )}
-                        </button>
-                      ) : (
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
-                        )
-                      )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              // No search match: rows exist, the filter just found none of them — a single
-              // row at normal height, start-aligned, distinct from the three-ghost-row
-              // true-empty state above (that means "nothing here yet"; this means "try a
-              // different search").
-              <TableRow className="h-11">
-                <TableCell colSpan={effectiveColumns.length} className="px-3">
-                  <div className="flex items-center gap-2 text-[14px] text-muted-foreground">
-                    <span>{t('table.noResultsFor', { query: globalFilter })}</span>
-                    <span className="text-faint-foreground" aria-hidden="true">·</span>
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="h-auto p-0 text-[14px]"
-                      onClick={() => setGlobalFilter('')}
-                    >
-                      {t('table.clearSearch')}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={cn('h-11', onRowClick && 'cursor-pointer')}
-                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cell.column.id === '__gutter__' ? 'w-10' : undefined}
-                      // The actions column has its own interactive controls (menu trigger) —
-                      // never let that click bubble up into the row's own onRowClick.
-                      onClick={cell.column.id === '__actions__' ? (e) => e.stopPropagation() : undefined}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {error ? (
+        <EmptyState variant="error" message={error}>
+          {onRetry && (
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              {t('table.retry')}
+            </Button>
+          )}
+        </EmptyState>
+      ) : data.length === 0 ? (
+        <EmptyState variant="empty" message={emptyMessage} hint={emptyHint}>
+          {emptyAction}
+        </EmptyState>
+      ) : rows.length === 0 ? (
+        <EmptyState variant="no-results" message={t('table.noResultsFor', { query: globalFilter })}>
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto min-h-0 p-0 text-[14px]"
+            onClick={() => setGlobalFilter('')}
+          >
+            {t('table.clearSearch')}
+          </Button>
+        </EmptyState>
+      ) : isMobile ? (
+        <MobileCards />
+      ) : (
+        <DesktopTable />
+      )}
 
-        <Pager />
-      </Card>
+      {!isEmptyState && <Pager />}
     </div>
   );
 }

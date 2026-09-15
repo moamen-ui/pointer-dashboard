@@ -378,6 +378,7 @@
     "enabled": "مفعّل",
     "global": "عام",
     "name": "الاسم",
+    "nameTaken": "توجد بيئة بهذا الاسم بالفعل",
     "own": "خاص",
     "retired": "متقاعدة",
     "scope": "النطاق",
@@ -966,10 +967,14 @@
   },
   "table": {
     "clearSearch": "مسح البحث",
+    "emptyDefault": "لا يوجد شيء هنا بعد",
+    "error": "حدث خطأ ما",
+    "errorHint": "تعذّر تحميل هذه القائمة. تحقّق من اتصالك ثم أعد المحاولة.",
     "nextPage": "الصفحة التالية",
     "noResultsFor": "لا توجد نتائج لـ \"{{query}}\"",
     "pageOf": "صفحة {{page}} من {{pages}}",
     "previousPage": "الصفحة السابقة",
+    "retry": "إعادة المحاولة",
     "rowsOf": "{{shown}} من {{total}} صفًا"
   },
   "tenants": {
