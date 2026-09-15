@@ -5,6 +5,8 @@ export const TOKEN_KEY = 'pointer_token';
 export const USER_KEY = 'pointer_user';
 export const LANG_KEY = 'pointer_lang';
 export const THEME_KEY = 'pointer_theme';
+/** Last project key selected on the Comments screen (per-browser convenience default). */
+export const COMMENTS_LAST_PROJECT_KEY = 'pointer_comments_last_project';
 
 function safeStorage(): Storage | null {
   try {

@@ -52,10 +52,25 @@ export type DataTableProps<TData> = {
   /** Renders a built-in search input above the table, wired to the global filter. */
   searchable?: boolean;
   searchPlaceholder?: string;
-  /** Renders a small pagination footer under the table. */
+  /** Renders a small pagination footer under the table (client-side, paginates `data` itself). */
   paginated?: boolean;
+  /** Server-paginated alternative to `paginated` — `data` is already just the current page.
+   *  Renders the same footer band, driven by the caller's own page state. Mutually exclusive
+   *  with `paginated`. */
+  manualPagination?: {
+    /** 1-based current page. */
+    pageNumber: number;
+    totalPages: number;
+    /** Shown as "`shown` of `total` rows" when provided. */
+    totalItems?: number;
+    onPageChange: (pageNumber: number) => void;
+  };
   /** When true, adds a gutter column (w-10, 1-based row numbers, mono, muted). */
   gutter?: boolean;
+  /** Makes every row clickable (e.g. navigate to a detail view); adds a trailing chevron
+   *  column when no `actions` are given (mirrors DESIGN.md's "navigable rows" chevron). A
+   *  click inside the actions column never triggers this. */
+  onRowClick?: (row: TData) => void;
   /** Declared for callers migrating from an icon-based empty state; never rendered —
    *  DESIGN.md bans icon-in-circle empty states, so the ghost-row grammar stays text only. */
   emptyIcon?: React.ComponentType<{ className?: string }>;
@@ -80,7 +95,9 @@ export function DataTable<TData>({
   searchable = false,
   searchPlaceholder,
   paginated = false,
+  manualPagination,
   gutter = false,
+  onRowClick,
   emptyMessage = '',
   emptyHint = '',
   emptyAction,
@@ -127,8 +144,24 @@ export function DataTable<TData>({
       });
     }
 
+    // A trailing chevron marks navigable rows when there is no actions column to
+    // anchor the end of the row otherwise (DESIGN.md "Data Table" spec).
+    if (onRowClick && !actions) {
+      cols.push({
+        id: '__chevron__',
+        enableSorting: false,
+        enableGlobalFilter: false,
+        header: () => '',
+        cell: () => (
+          <div className="flex justify-end">
+            <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" aria-hidden="true" />
+          </div>
+        ),
+      });
+    }
+
     return cols;
-  }, [columns, actions, actionsAriaLabel, actionsHeader, gutter]);
+  }, [columns, actions, actionsAriaLabel, actionsHeader, gutter, onRowClick]);
 
   const table = useReactTable({
     data,
@@ -175,7 +208,9 @@ export function DataTable<TData>({
                             ? actionsHeader
                               ? 'text-right'
                               : 'w-12'
-                            : undefined,
+                            : header.id === '__chevron__'
+                              ? 'w-8'
+                              : undefined,
                         (header.column.columnDef.meta as { headerClass?: string } | undefined)?.headerClass,
                       )}
                     >
@@ -198,7 +233,7 @@ export function DataTable<TData>({
                         <div className="flex justify-end">
                           {emptyAction}
                         </div>
-                      ) : idx === 0 && emptyMessage && col.id !== '__gutter__' && col.id !== '__actions__' ? (
+                      ) : idx === 0 && emptyMessage && col.id !== '__gutter__' && col.id !== '__actions__' && col.id !== '__chevron__' ? (
                         <div className="flex flex-col gap-1">
                           <span className="text-[14px] text-muted-foreground">{emptyMessage}</span>
                           {emptyHint && (
@@ -252,7 +287,9 @@ export function DataTable<TData>({
                             ? actionsHeader
                               ? 'text-right'
                               : 'w-12'
-                            : undefined,
+                            : header.id === '__chevron__'
+                              ? 'w-8'
+                              : undefined,
                         (header.column.columnDef.meta as { headerClass?: string } | undefined)?.headerClass,
                       )}
                       aria-sort={
@@ -317,11 +354,18 @@ export function DataTable<TData>({
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.id} className="h-11">
+                <TableRow
+                  key={row.id}
+                  className={cn('h-11', onRowClick && 'cursor-pointer')}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
                       className={cell.column.id === '__gutter__' ? 'w-10' : undefined}
+                      // The actions column has its own interactive controls (menu trigger) —
+                      // never let that click bubble up into the row's own onRowClick.
+                      onClick={cell.column.id === '__actions__' ? (e) => e.stopPropagation() : undefined}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -356,6 +400,39 @@ export function DataTable<TData>({
                 aria-label={t('table.nextPage')}
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
+              >
+                <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {manualPagination && manualPagination.totalPages > 1 && (
+          <div className="h-11 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
+            <span>
+              {manualPagination.totalItems != null
+                ? t('table.rowsOf', { shown: rows.length, total: manualPagination.totalItems })
+                : null}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={t('table.previousPage')}
+                onClick={() => manualPagination.onPageChange(manualPagination.pageNumber - 1)}
+                disabled={manualPagination.pageNumber <= 1}
+              >
+                <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+              </Button>
+              <span>
+                {t('table.pageOf', { page: manualPagination.pageNumber, pages: manualPagination.totalPages })}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-label={t('table.nextPage')}
+                onClick={() => manualPagination.onPageChange(manualPagination.pageNumber + 1)}
+                disabled={manualPagination.pageNumber >= manualPagination.totalPages}
               >
                 <ChevronRight className="h-4 w-4 rtl:rotate-180" />
               </Button>

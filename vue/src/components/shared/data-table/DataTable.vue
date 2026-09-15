@@ -46,6 +46,9 @@ interface Props<TData extends RowData> {
   /** Trailing actions column. Permission gating stays inside this callback. */
   actions?: (row: TData) => RowActionItem[];
   actionsAriaLabel?: string;
+  /** When provided, every data row becomes clickable (cursor + Enter/Space), calling this with the
+   *  row's original data. The trailing actions column (if any) stops the click from bubbling up. */
+  rowClick?: (row: TData) => void;
   searchable?: boolean;
   searchPlaceholder?: string;
   paginated?: boolean;
@@ -91,7 +94,8 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, TData>[]>(() => {
       enableSorting: false,
       enableGlobalFilter: false,
       cell: ({ row }) =>
-        h('div', { class: 'flex justify-end' }, [
+        // Stops the click from also firing the row's own click handler (rowClick) below.
+        h('div', { class: 'flex justify-end', onClick: (e: Event) => e.stopPropagation() }, [
           h(RowActionsMenu, {
             items: props.actions!(row.original),
             ariaLabel: props.actionsAriaLabel ?? 'Actions',
@@ -287,7 +291,15 @@ function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
           <TableBody>
             <!-- Data rows -->
             <template v-if="rows.length > 0">
-              <TableRow v-for="row in rows" :key="row.id">
+              <TableRow
+                v-for="row in rows"
+                :key="row.id"
+                :class="rowClick ? 'cursor-pointer' : ''"
+                :tabindex="rowClick ? 0 : undefined"
+                :role="rowClick ? 'button' : undefined"
+                @click="rowClick?.(row.original)"
+                @keydown.enter="rowClick?.(row.original)"
+              >
                 <TableCell
                   v-for="cell in row.getAllCells()"
                   :key="cell.id"

@@ -42,10 +42,12 @@ The feedback goes from the clicked element straight into the developer's AI codi
 installed skills (`pointer-init` wires the widget into whatever stack is detected; `pointer-feedback`
 pulls the queue and applies it). No ticket triage layer in between.
 
-The dashboard deliberately **never renders comment bodies, author names, or captured element
-data**. Comments appear only as aggregate counts and as a downloadable export. Private comments
-are counted but hidden from admins. This is a product stance (privacy and safety of captured DOM),
-not a missing feature.
+The dashboard has a **Comments** review screen (added 2026-09-15 for R2.4 verify, R2.6 flagged
+content and R3.1 deploy state), but it is a *review margin*, not a triage tool: it shows what the
+API already exposes to the same admin (body, author, route/selector, sanitized snapshot, replies,
+applied/live state) and never an edit surface for feedback. **Private comments stay hidden** —
+they appear only as a "N private comments hidden" count — and captured DOM is only ever the
+server-sanitized snapshot (`SnapshotSanitizer`, `captureTextContent` off by default).
 
 The same dashboard ships in **three frameworks at feature and UX parity** (Angular, React, Vue),
 each on its own live host. Parity is a product commitment, see Constraints.
@@ -147,8 +149,8 @@ Real material available in this repo:
    patterns, and keyboard/RTL correctness outrank expression. Personality lives in copy and detail.
 3. **Parity is a feature.** Anything a user can do in one framework's app they can do identically in
    the other two. Divergence is a bug unless documented as framework-specific.
-4. **Show counts, never content.** Feedback bodies and captured DOM stay out of the admin UI;
-   respect private comments.
+4. **Review, never triage.** The comments screen shows feedback to fix and verify it, not to
+   manage it; private comments are counted, never shown, and only sanitized snapshots render.
 5. **Truthful and configurable.** Branding, plans and statuses are data the operator owns; the UI
    never hardcodes what they can change, and never claims proof the product doesn't have.
 

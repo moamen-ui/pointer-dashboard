@@ -3,6 +3,7 @@ import {
   contentChildren,
   computed,
   input,
+  output,
   signal,
   TemplateRef,
 } from '@angular/core';
@@ -153,7 +154,11 @@ export interface SortState {
             </tr>
           } @else {
             @for (row of displayedRows(); track trackBy($index, row); let idx = $index) {
-              <tr class="h-11 border-t border-border-muted hover:bg-gutter/60 transition-colors">
+              <tr
+                class="h-11 border-t border-border-muted hover:bg-gutter/60 transition-colors"
+                [class.cursor-pointer]="clickableRows()"
+                (click)="onRowClick(row)"
+              >
                 <!-- Gutter column -->
                 @if (gutter()) {
                   <td class="w-10 text-end font-mono text-[12px] text-faint-foreground px-3 py-1.5">
@@ -172,11 +177,21 @@ export interface SortState {
                 }
                 <!-- Actions column -->
                 @if (actions(); as actions) {
-                  <td class="px-3 py-1.5">
-                    <app-row-actions-menu
-                      [items]="actions(row)"
-                      [ariaLabel]="actionsAriaLabel()"
-                    />
+                  <td class="px-3 py-1.5" (click)="$event.stopPropagation()">
+                    <div class="flex items-center justify-end gap-1">
+                      <app-row-actions-menu
+                        [items]="actions(row)"
+                        [ariaLabel]="actionsAriaLabel()"
+                      />
+                      @if (clickableRows()) {
+                        <app-icon
+                          name="chevron-right"
+                          [size]="16"
+                          class="text-faint-foreground rtl:-scale-x-100"
+                          aria-hidden="true"
+                        ></app-icon>
+                      }
+                    </div>
                   </td>
                 }
               </tr>
@@ -234,6 +249,10 @@ export class AppDataTableComponent<T> {
   readonly gutter = input(false);
   readonly emptyMessage = input('');
   readonly emptyHint = input('');
+  /** When true, rows show a pointer cursor + trailing chevron and emit `rowClick` on click
+   *  (the actions cell stops propagation so the kebab menu doesn't also trigger navigation). */
+  readonly clickableRows = input(false);
+  readonly rowClick = output<T>();
 
   readonly dir = 'ltr';
   readonly Math = Math;
@@ -342,6 +361,10 @@ export class AppDataTableComponent<T> {
 
   trackBy(_: number, row: T): unknown {
     return row;
+  }
+
+  onRowClick(row: T): void {
+    if (this.clickableRows()) this.rowClick.emit(row);
   }
 
   cellTemplateFor(key: string): TemplateRef<any> | undefined {

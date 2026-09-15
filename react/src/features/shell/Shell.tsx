@@ -7,6 +7,7 @@ import {
   UserCog,
   Users,
   Folder,
+  MessageSquare,
   Tags,
   Globe,
   Sun,
@@ -51,9 +52,15 @@ const ADMIN_NAV = [
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
 
-// Projects is visible to all authenticated users (admin + non-admin)
+// Projects and Comments are visible to all authenticated users (admin + non-admin) —
+// comments are project-scoped feedback a stakeholder can also read/reply to, same tier
+// as Projects, so it renders right after it. Note: the ADMIN_NAV group (including
+// Environments) still renders above this group for admins, so the on-screen order for
+// them is …Environments, Settings, Projects, Comments — not strictly Projects-then-
+// -Environments; see the work order's "between Projects and Environments" note.
 const ALL_USER_NAV = [
   { to: '/projects', key: 'nav.projects', icon: Folder },
+  { to: '/comments', key: 'nav.comments', icon: MessageSquare },
 ];
 
 const SUPER_ADMIN_NAV = [

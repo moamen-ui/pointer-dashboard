@@ -35,6 +35,7 @@ import {
   Compass,
   ChevronDown,
   Bell,
+  MessageSquare,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
@@ -82,6 +83,21 @@ async function doMarkRead(notification: NotificationDto) {
   } catch {
     // Silent fail
   }
+}
+
+// Clicking a notification marks it read and jumps straight to the comment it's about — the
+// Comments screen reads `project`/`comment` from the URL and opens the detail dialog.
+function openNotification(notification: NotificationDto) {
+  void doMarkRead(notification);
+  notificationsMenuOpen.value = false;
+  if (notification.commentId == null) return;
+  void router.push({
+    path: '/comments',
+    query: {
+      ...(notification.projectKey ? { project: notification.projectKey } : {}),
+      comment: String(notification.commentId),
+    },
+  });
 }
 
 async function doMarkAllRead() {
@@ -162,6 +178,7 @@ const ADMIN_NAV = [
 
 const ALL_NAV = [
   { to: '/projects', key: 'nav.projects', icon: Folder },
+  { to: '/comments', key: 'nav.comments', icon: MessageSquare },
 ];
 
 const SUPER_ADMIN_NAV = [
@@ -274,7 +291,7 @@ function signOut() {
                 v-for="n of notifications"
                 :key="n.id"
                 class="border-b border-border-muted last:border-0 p-3 hover:bg-gutter transition-colors cursor-pointer"
-                @click="doMarkRead(n)"
+                @click="openNotification(n)"
               >
                 <div class="flex items-start gap-2">
                   <div class="flex-1 min-w-0">
