@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { useMediaQuery, MOBILE_QUERY } from '@/lib/useMediaQuery';
 
 export type TourStep = {
   id: string;
@@ -105,18 +106,25 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const userId = user?.id ?? null;
   const navigate = useNavigate();
   const location = useLocation();
+  // Below `md` the welcome prompt would cover the page (DESIGN.md target: "don't
+  // auto-open the Welcome prompt below md") — the tour itself stays reachable from
+  // the rail's footer "Quick tour" item (desktop) / drawer (mobile), unchanged.
+  // Seen-state is still only ever marked from an explicit user action (start/skip),
+  // never from this suppression, so the prompt still appears once the user is back
+  // on a wide-enough viewport and hasn't dismissed it yet.
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   const [isOpen, setIsOpen] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [promptOpen, setPromptOpen] = useState(false);
 
-  // When a signed-in user hasn't seen the tour, show the welcome prompt
+  // When a signed-in user hasn't seen the tour, show the welcome prompt.
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || isMobile) return;
     if (!isTourSeen(userId)) {
       setPromptOpen(true);
     }
-  }, [userId]);
+  }, [userId, isMobile]);
 
   const startTour = useCallback(() => {
     markTourSeen(userId);

@@ -24,10 +24,17 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-8 px-3',
-        sm: 'h-7 rounded-md px-2.5 text-[13px]',
+        // max-md: bumps every button to a >=40px touch target below the shared
+        // mobile breakpoint (DESIGN.md's 32px control height stays for desktop;
+        // parity note: Vue/Angular apply the same max-md height on their button
+        // primitive's size variants).
+        default: 'h-8 max-md:h-10 px-3',
+        // max-md:min-w-11 covers icon-only "sm" buttons (e.g. the DataTable pager's
+        // prev/next) whose natural width is just the icon + padding — narrower
+        // than 32px once the icon-only content is all that's inside.
+        sm: 'h-7 max-md:h-10 max-md:min-w-10 rounded-md px-2.5 text-[13px]',
         lg: 'h-10 rounded-md px-8',
-        icon: 'h-8 w-8',
+        icon: 'h-8 w-8 max-md:h-11 max-md:w-11',
       },
     },
     defaultVariants: {

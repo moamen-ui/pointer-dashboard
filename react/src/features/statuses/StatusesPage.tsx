@@ -155,6 +155,7 @@ export function StatusesPage() {
       accessorKey: 'name',
       enableSorting: false,
       header: t('statuses.colName'),
+      meta: { mobile: 'primary' },
       cell: ({ row }) => (
         <Badge variant={badgeVariantForStatus(row.original.value)} className="font-medium">
           {row.original.name ?? String(row.original.value)}
@@ -191,13 +192,13 @@ export function StatusesPage() {
         return (
           // Swatch + hex are one control: a single bordered box that lights up
           // on focus, with the native picker inside it.
-          <div className="inline-flex h-9 w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
+          <div className="inline-flex h-9 max-md:h-[38px] w-[124px] items-center gap-1.5 rounded-md border border-input bg-transparent ps-1.5 pe-2 shadow-sm focus-within:border-brand focus-within:ring-1 focus-within:ring-brand">
             <input
               type="color"
               aria-label={t('statuses.colColor')}
               value={r.color}
               onChange={(e) => setField(val, 'color', e.target.value)}
-              className="h-6 w-6 shrink-0 cursor-pointer appearance-none rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0"
+              className="h-6 w-6 max-md:h-[34px] max-md:w-[34px] shrink-0 cursor-pointer appearance-none rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-sm [&::-webkit-color-swatch]:border-0"
             />
             <input
               value={r.color}

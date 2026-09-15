@@ -314,6 +314,7 @@ export function UsersPage() {
       accessorKey: 'email',
       enableSorting: false,
       header: t('users.email'),
+      meta: { mobile: 'primary' },
       cell: ({ row }) =>
         row.original.kind === 'invite'
           ? row.original.email || t('invite.anyone')
@@ -499,17 +500,19 @@ export function UsersPage() {
         </Button>
       </div>
 
-      {/* Filter bar — label + segmented control */}
-      <div className="flex items-center gap-3">
+      {/* Filter bar — label + segmented control. Below `sm` the segments stack full
+          width with equal shares (DESIGN.md target: "segmented controls full-width
+          with equal segments"). */}
+      <div className="flex flex-col items-start gap-2 max-sm:items-stretch sm:flex-row sm:items-center sm:gap-3">
         <span className="text-[13px] text-muted-foreground">{t('common.show')}</span>
-        <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
+        <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5 max-sm:flex max-sm:w-full">
           {filters.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
               className={cn(
-                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                'h-7 max-md:h-11 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:flex-1',
                 filter === f
                   ? 'bg-background text-foreground border border-border'
                   : 'text-muted-foreground hover:text-foreground',
@@ -562,12 +565,12 @@ export function UsersPage() {
           </DialogHeader>
 
           {!createdInvite && (
-            <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
+            <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5 max-sm:flex max-sm:w-full">
               <button
                 type="button"
                 onClick={() => setAddMode('invite')}
                 className={cn(
-                  'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                  'h-7 max-md:h-11 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:flex-1',
                   addMode === 'invite'
                     ? 'bg-background text-foreground border border-border'
                     : 'text-muted-foreground hover:text-foreground',
@@ -579,7 +582,7 @@ export function UsersPage() {
                 type="button"
                 onClick={() => setAddMode('direct')}
                 className={cn(
-                  'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                  'h-7 max-md:h-11 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:flex-1',
                   addMode === 'direct'
                     ? 'bg-background text-foreground border border-border'
                     : 'text-muted-foreground hover:text-foreground',

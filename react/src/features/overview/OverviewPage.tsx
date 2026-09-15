@@ -145,6 +145,7 @@ export function OverviewPage() {
     {
       id: 'gutter',
       header: '',
+      meta: { mobile: 'hide' },
       cell: ({ row }) => (
         <div className="w-10 text-end font-mono text-[12px] text-faint-foreground">
           {row.index + 1}
@@ -154,6 +155,7 @@ export function OverviewPage() {
     {
       accessorKey: 'name',
       header: t('overview.name'),
+      meta: { mobile: 'primary' },
       cell: ({ row }) => (
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[14px] font-medium">{row.original.name}</span>
@@ -215,6 +217,7 @@ export function OverviewPage() {
     {
       id: 'chevron',
       header: '',
+      meta: { mobile: 'hide' },
       cell: () => <ChevronRight className="h-4 w-4 text-muted-foreground rtl:-scale-x-100" />,
     },
   ];
@@ -249,6 +252,7 @@ export function OverviewPage() {
       {
         accessorKey: 'title',
         header: t('aiRules.titleLabel'),
+        meta: { mobile: 'primary' },
       },
       {
         accessorKey: 'prompt',
@@ -454,7 +458,9 @@ export function OverviewPage() {
           {/* Grid of bordered lists */}
           <div
             className={cn(
-              'grid gap-4',
+              // One column below `sm`, two `sm`-`md` (DESIGN.md target: "Overview
+              // stat cards stack to one column below sm, two columns sm-md").
+              'grid gap-4 sm:grid-cols-2',
               isSuperAdmin && (aiInsights.tenantSummaries?.length ?? 0) > 0
                 ? 'md:grid-cols-3'
                 : 'md:grid-cols-2',

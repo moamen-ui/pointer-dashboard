@@ -225,6 +225,7 @@ export function RolesPage() {
       accessorKey: 'name',
       enableSorting: false,
       header: t('roles.name'),
+      meta: { mobile: 'primary' },
       cell: ({ row }) => (
         <span className="font-medium">
           {row.original.name}
@@ -256,7 +257,7 @@ export function RolesPage() {
             aria-label={t('roles.grantsAdmin')}
             disabled={patchMut.isPending}
             onClick={() => toggleGrantsAdmin(row.original, !row.original.grantsAdmin)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+            className="inline-flex h-8 w-8 max-md:h-11 max-md:w-11 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
           >
             {row.original.grantsAdmin ? (
               <CheckCircle2 className="h-4 w-4 text-state-completed" />
@@ -286,7 +287,7 @@ export function RolesPage() {
             aria-label={t('roles.quickAccess')}
             disabled={patchMut.isPending}
             onClick={() => toggleQuickAccess(row.original, !row.original.quickAccess)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+            className="inline-flex h-8 w-8 max-md:h-11 max-md:w-11 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
           >
             {row.original.quickAccess ? (
               <CheckCircle2 className="h-4 w-4 text-state-completed" />
