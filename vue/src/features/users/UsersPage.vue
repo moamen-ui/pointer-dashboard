@@ -15,6 +15,7 @@ import {
   useGetApiAdminInvites,
   usePostApiAdminInvites,
   useDeleteApiAdminInvitesId,
+  usePostApiAdminInvitesIdQuickLinkRotate,
   getGetApiAdminInvitesQueryKey,
   type UserResponse,
   type RoleResponse,
@@ -334,6 +335,33 @@ async function onRevoke(id: number) {
   }
 }
 
+// ── Quick-access magic link rotation ────────────────────────────────────
+const rotateLinkMutation = usePostApiAdminInvitesIdQuickLinkRotate();
+const newMagicLink = ref<string | null>(null);
+
+async function onRotateLink(invite: InviteResponse) {
+  const ok = await confirm({
+    message: t('invite.rotateLinkConfirm'),
+    confirmLabel: t('invite.rotateLink'),
+  });
+  if (!ok) return;
+
+  try {
+    const result = (await rotateLinkMutation.mutateAsync({ id: invite.id! })) as unknown as InviteResponse;
+    newMagicLink.value = result.magicLink ?? null;
+    toast(t('invite.created'), 'success');
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+  } catch (e) {
+    toast(extractMessage(e), 'danger');
+  }
+}
+
+async function copyMagicLink(magicLink: unknown) {
+  if (typeof magicLink === 'string') {
+    await copyUrl(magicLink);
+  }
+}
+
 function formatInviteDate(iso: string | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString();
@@ -364,7 +392,12 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, Row>[]>(() => {
 function actionsFor(row: Row): RowActionItem[] {
   if (row.kind === 'invite') {
     const items: RowActionItem[] = [];
-    if (row.url) {
+    // For quick-access invites, show magic link copy and rotate
+    if (row.magicLink) {
+      items.push({ label: t('invite.copy'), icon: Copy, onClick: () => void copyUrl(row.magicLink!) });
+      items.push({ label: t('invite.rotateLink'), icon: Link2Off, onClick: () => void onRotateLink(row) });
+    } else if (row.url) {
+      // For regular invites, show regular URL copy
       items.push({ label: t('invite.copy'), icon: Copy, onClick: () => void copyUrl(row.url!) });
     }
     items.push({ label: t('invite.revoke'), icon: Link2Off, severity: 'danger', onClick: () => void onRevoke(row.id!) });
@@ -484,7 +517,25 @@ function actionsFor(row: Row): RowActionItem[] {
         </template>
       </template>
       <template #cell-requested="{ row }">
-        {{ row.kind === 'invite' ? `${t('invite.expires')}: ${formatInviteDate(row.expiresAt)}` : formatRequestedAt(requestedAt(row)) }}
+        <template v-if="row.kind === 'invite'">
+          <div v-if="row.magicLink" class="flex flex-col gap-2">
+            <div class="flex items-center gap-2 rounded-md bg-gutter p-2">
+              <span class="flex-1 truncate text-sm font-mono text-xs">{{ row.magicLink }}</span>
+              <Button type="button" size="sm" variant="secondary" @click="copyMagicLink(row.magicLink)">
+                <Copy class="h-3 w-3" />
+              </Button>
+            </div>
+            <div class="text-xs text-muted-foreground">
+              {{ t('invite.linkExpiresAt') }}: {{ formatInviteDate(row.linkExpiresAt ?? undefined) }}
+            </div>
+          </div>
+          <div v-else>
+            {{ `${t('invite.expires')}: ${formatInviteDate(row.expiresAt)}` }}
+          </div>
+        </template>
+        <template v-else>
+          {{ formatRequestedAt(requestedAt(row)) }}
+        </template>
       </template>
       <template #cell-status="{ row }">
         <span
