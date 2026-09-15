@@ -10,7 +10,7 @@ Admin dashboard for [Pointer](https://github.com/moamen-ui/poitner-api), a React
 
 | App | Dir | UI kit | Live |
 |---|---|---|---|
-| React | [`react/`](react/) | shadcn/ui + Tailwind v4 | `app.pointer.moamen.work` (the legacy `app-react`, `app-angular` and `app-vue` hosts redirect there) |
+| React | [`react/`](react/) | shadcn/ui + Tailwind v4 | `app.pointer.moamen.work` |
 
 ## Run the app
 

@@ -95,6 +95,6 @@ the API, run the *Publish API clients* workflow in
 
 ## Deploy
 
-The app is served as static files by Caddy on the VM at `app.pointer.moamen.work` (the legacy `app-react`, `app-angular` and `app-vue` hosts redirect there). Deploy
+The app is served as static files by Caddy on the VM at `app.pointer.moamen.work`. Deploy
 config + build steps live in the API repo's
 [`DEPLOY.md`](https://github.com/moamen-ui/poitner-api/blob/main/DEPLOY.md).

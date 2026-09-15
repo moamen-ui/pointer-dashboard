@@ -88,5 +88,5 @@ transport; feature code must not call it directly.
 
 ## Deploy
 
-The app → static files served by Caddy at `app.pointer.moamen.work` (the legacy `app-react`, `app-angular` and `app-vue` hosts redirect there). Steps live in the API
+The app → static files served by Caddy at `app.pointer.moamen.work`. Steps live in the API
 repo's [`DEPLOY.md`](https://github.com/moamen-ui/poitner-api/blob/main/DEPLOY.md).

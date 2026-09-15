@@ -75,7 +75,7 @@ React app is maintained going forward.
   self-signup, outgoing email (Brevo, daily cap) and demo defaults.
 - **Environment.** Browser SPA, light and dark theme, English and Arabic with RTL. Backend and
   the typed API client live in the separate `poitner-api` repo. Production API:
-  `api.pointer.moamen.work`; the app at `app.pointer.moamen.work` (the legacy `app-react`, `app-angular` and `app-vue` hosts redirect there).
+  `api.pointer.moamen.work`; the app at `app.pointer.moamen.work`.
 
 ## Capabilities and Constraints
 
