@@ -38,11 +38,36 @@ export function EnvironmentsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: environments = [] } = useGetApiAdminEnvironments();
+  const { data: environmentsRaw = [] } = useGetApiAdminEnvironments();
+  const [disablingEnvironment, setDisablingEnvironment] = useState<AppEnvironmentResponse | null>(null);
+
+  // Sort: enabled first, then retired, then disabled
+  const environments = useMemo(() => {
+    const sorted = [...environmentsRaw];
+    return sorted.sort((a, b) => {
+      const aRetired = a.isRetired ? 1 : 0;
+      const bRetired = b.isRetired ? 1 : 0;
+      const aDisabled = a.isEnabled === false ? 1 : 0;
+      const bDisabled = b.isEnabled === false ? 1 : 0;
+      if (aRetired !== bRetired) return aRetired - bRetired;
+      if (aDisabled !== bDisabled) return aDisabled - bDisabled;
+      return 0;
+    });
+  }, [environmentsRaw]);
 
   const reload = () =>
     qc.invalidateQueries({ queryKey: getGetApiAdminEnvironmentsQueryKey() });
   const onError = (e: unknown) => toast(extractMessage(e), 'error');
+
+  const patchEnabledMut = usePatchApiAdminEnvironmentsId({
+    mutation: {
+      onSuccess: () => {
+        setDisablingEnvironment(null);
+        reload();
+      },
+      onError,
+    },
+  });
 
   const columns = useMemo<ColumnDef<AppEnvironmentResponse>[]>(
     () => [
@@ -50,7 +75,12 @@ export function EnvironmentsPage() {
         accessorKey: 'name',
         header: t('environments.name'),
         enableSorting: true,
-        cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+        cell: ({ row }) => (
+          <span className={`font-medium ${row.original.isRetired ? 'text-muted-foreground' : ''}`}>
+            {row.original.name}
+            {row.original.isRetired && <span className="ms-2 text-xs text-muted-foreground">({t('environments.retired')})</span>}
+          </span>
+        ),
       },
       {
         id: 'scope',
@@ -62,8 +92,36 @@ export function EnvironmentsPage() {
           </Badge>
         ),
       },
+      {
+        id: 'enabled',
+        header: t('common.active'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          if (!row.original.canManage) return <span className="text-xs text-muted-foreground">{t(row.original.isEnabled !== false ? 'common.active' : 'common.disabled')}</span>;
+          return (
+            <input
+              type="checkbox"
+              checked={row.original.isEnabled !== false}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  patchEnabledMut.mutate({ id: row.original.id!, data: { isEnabled: true } });
+                } else {
+                  if (row.original.projectUrlCount && row.original.projectUrlCount > 0) {
+                    setDisablingEnvironment(row.original);
+                  } else {
+                    patchEnabledMut.mutate({ id: row.original.id!, data: { isEnabled: false } });
+                  }
+                }
+              }}
+              disabled={patchEnabledMut.isPending}
+              className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
+              aria-label={t('common.active')}
+            />
+          );
+        },
+      },
     ],
-    [t],
+    [t, patchEnabledMut],
   );
 
   // Permission gating stays page-side: global (catalog) environments get no menu.
@@ -166,6 +224,14 @@ export function EnvironmentsPage() {
     const env = deletingEnvironment;
     if (!env?.id) return;
     deleteMut.mutate({ id: env.id });
+  }
+
+  function confirmDisable() {
+    const env = disablingEnvironment;
+    setDisablingEnvironment(null);
+    if (env?.id) {
+      patchEnabledMut.mutate({ id: env.id, data: { isEnabled: false } });
+    }
   }
 
   return (
@@ -278,6 +344,19 @@ export function EnvironmentsPage() {
         confirmColor="warn"
         onConfirm={confirmDelete}
         onCancel={() => setDeletingEnvironment(null)}
+      />
+
+      {/* Disable confirmation (when has projects) */}
+      <ConfirmDialog
+        open={!!disablingEnvironment}
+        message={t('environments.confirmDisable', {
+          name: disablingEnvironment?.name,
+          count: disablingEnvironment?.projectUrlCount ?? 0,
+        })}
+        confirmLabel={t('common.disable')}
+        confirmColor="warn"
+        onConfirm={confirmDisable}
+        onCancel={() => setDisablingEnvironment(null)}
       />
     </div>
   );

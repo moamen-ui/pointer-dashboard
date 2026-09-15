@@ -15,6 +15,7 @@ import { Plus, Pencil, Trash2, Globe } from 'lucide-vue-next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import FormField from '@/components/shared/FormField.vue';
 import {
   Dialog,
@@ -41,7 +42,18 @@ const { t } = useI18n();
 const queryClient = useQueryClient();
 
 const { data, isLoading } = useGetApiAdminEnvironments();
-const environments = computed<AppEnvironmentResponse[]>(() => data.value ?? []);
+// Sort: active (enabled/not retired) first, then retired/disabled last
+const environments = computed<AppEnvironmentResponse[]>(() => {
+  const all = data.value ?? [];
+  return all.sort((a, b) => {
+    const aRetired = a.isRetired ? 1 : 0;
+    const bRetired = b.isRetired ? 1 : 0;
+    return aRetired - bRetired;
+  });
+});
+
+// Track which environment ID is currently being saved
+const savingEnvironmentId = ref<number | null>(null);
 
 const createEnvironment = usePostApiAdminEnvironments();
 const updateEnvironment = usePatchApiAdminEnvironmentsId();
@@ -59,6 +71,7 @@ function fail(e: unknown) {
 const columns = computed<ColumnDef<typeof dataTableFeatures, AppEnvironmentResponse>[]>(() => [
   { accessorKey: 'name', header: t('environments.name') },
   { id: 'scope', header: t('environments.scope') },
+  { id: 'enabled', header: t('environments.enabled') },
 ]);
 
 // Rename/Delete are gated per row by the API's canManage (global environments
@@ -161,6 +174,39 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
     fail(e);
   }
 }
+
+// ── Toggle enabled ─────────────────────────────────────────────────────
+async function toggleEnabled(env: AppEnvironmentResponse) {
+  // If enabling, just do it
+  if (env.isEnabled === false) {
+    await patchEnabled(env, true);
+    return;
+  }
+  // If disabling, show confirmation if there are project URLs
+  if ((env.projectUrlCount ?? 0) > 0) {
+    const ok = await confirm({
+      message: t('environments.confirmDisable', { name: env.name, count: env.projectUrlCount ?? 0 }),
+      confirmLabel: t('common.disable'),
+      confirmVariant: 'destructive',
+    });
+    if (ok) await patchEnabled(env, false);
+  } else {
+    await patchEnabled(env, false);
+  }
+}
+
+async function patchEnabled(env: AppEnvironmentResponse, isEnabled: boolean) {
+  try {
+    savingEnvironmentId.value = env.id ?? null;
+    await updateEnvironment.mutateAsync({ id: env.id!, data: { isEnabled } });
+    savingEnvironmentId.value = null;
+    toast(isEnabled ? t('environments.enabled') : t('environments.disabled'), 'success');
+    reload();
+  } catch (e) {
+    savingEnvironmentId.value = null;
+    fail(e);
+  }
+}
 </script>
 
 <template>
@@ -186,11 +232,30 @@ async function deleteEnvironment(env: AppEnvironmentResponse) {
       :empty-hint="t('environments.emptyHint')"
       :loading="isLoading"
     >
+      <!-- Name cell: greyed out if retired -->
+      <template #cell-name="{ row }">
+        <span :class="row.isRetired ? 'text-muted-foreground' : ''">{{ row.name }}</span>
+      </template>
       <!-- Scope cell: Global (platform-owned) vs the tenant's own environment -->
       <template #cell-scope="{ row }">
         <Badge :variant="row.isGlobal ? 'neutral' : 'default'">
           {{ t(row.isGlobal ? 'environments.global' : 'environments.own') }}
         </Badge>
+        <Badge v-if="row.isRetired" variant="neutral" class="ms-2">
+          {{ t('environments.retired') }}
+        </Badge>
+      </template>
+      <!-- Enabled toggle column -->
+      <template #cell-enabled="{ row }">
+        <div class="flex items-center gap-2">
+          <Switch
+            v-if="!row.isRetired"
+            :checked="row.isEnabled !== false"
+            :disabled="!row.canManage || savingEnvironmentId === row.id"
+            @update:checked="() => toggleEnabled(row)"
+          />
+          <span v-else class="text-xs text-muted-foreground">{{ t('environments.retired') }}</span>
+        </div>
       </template>
       <!-- Empty-state CTA (only rendered while the table is empty) -->
       <template #empty-action>

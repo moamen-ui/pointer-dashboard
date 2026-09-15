@@ -16,6 +16,7 @@ import { TourService } from '../../core/tour/tour.service';
 import { TourSpotlightComponent } from '../../shared/tour/tour-spotlight.component';
 import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppButtonDirective } from '../../shared/ui/app-button.directive';
+import { NotificationsBellComponent } from '../../shared/notifications-bell.component';
 
 interface NavItem {
   to: string;
@@ -59,6 +60,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
     TourSpotlightComponent,
     AppIconComponent,
     AppButtonDirective,
+    NotificationsBellComponent,
   ],
   template: `
     <!-- Header: 48px -->
@@ -88,7 +90,9 @@ const SUPER_ADMIN_NAV: NavItem[] = [
 
       <span class="flex-1"></span>
 
-      <!-- End side: Install button + Account menu -->
+      <!-- End side: Notifications bell + Install button + Account menu -->
+      <app-notifications-bell />
+
       @if (installGuide.nothingCollectedYet()) {
         <button
           class="hidden sm:inline-flex h-7 px-2.5 rounded-md text-[13px] font-medium inline-flex items-center gap-1.5 bg-brand text-brand-foreground hover:bg-brand-hover transition-colors duration-150"

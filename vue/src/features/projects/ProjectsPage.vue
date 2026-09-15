@@ -310,6 +310,8 @@ const editProject = ref<ProjectResponse | null>(null);
 const editName = ref('');
 const editActions = ref<EditableAction[]>([]);
 const editPageContextCaptureEnabled = ref(false);
+const editCaptureTextContent = ref(false); // R3.4
+const editEnforceAllowedOrigins = ref(false); // R1.5
 // The edit dialog UI never touches these three — they are only carried through
 // the PATCH payload unchanged. The only UI that flips them is the bulk
 // enable/disable row action; per-environment control lives in the app-URL table.
@@ -339,6 +341,8 @@ function openEdit(project: ProjectResponse) {
   editProject.value = project;
   editName.value = project.name ?? '';
   editPageContextCaptureEnabled.value = !!project.pageContextCaptureEnabled;
+  editCaptureTextContent.value = !!(project as any).captureTextContent; // R3.4
+  editEnforceAllowedOrigins.value = !!(project as any).enforceAllowedOrigins; // R1.5
   editIsActiveLocal.value = !!project.isActiveLocal;
   editIsActiveStaging.value = !!project.isActiveStaging;
   editIsActiveProduction.value = !!project.isActiveProduction;
@@ -601,6 +605,8 @@ async function saveEdit() {
       data: {
         name: editName.value,
         pageContextCaptureEnabled: editPageContextCaptureEnabled.value,
+        captureTextContent: editCaptureTextContent.value, // R3.4
+        enforceAllowedOrigins: editEnforceAllowedOrigins.value, // R1.5
         isActiveLocal: editIsActiveLocal.value,
         isActiveStaging: editIsActiveStaging.value,
         isActiveProduction: editIsActiveProduction.value,
@@ -919,19 +925,27 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="env in configuredEnvironments" :key="env.appEnvironmentId">
+              <tr v-for="env in configuredEnvironments" :key="env.appEnvironmentId" :class="env.environmentIsEnabled === false ? 'opacity-50' : ''">
                 <td class="py-1 pe-2 align-middle font-medium">{{ env.environmentName }}</td>
                 <td class="py-1 pe-2 align-middle">
-                  <Input
-                    :model-value="envDrafts[env.appEnvironmentId!]?.url ?? ''"
-                    placeholder="https://..."
-                    class="h-8"
-                    @update:model-value="(v: string | number) => setEnvUrlDraft(env.appEnvironmentId!, String(v))"
-                  />
+                  <div class="flex flex-col gap-1">
+                    <Input
+                      :model-value="envDrafts[env.appEnvironmentId!]?.url ?? ''"
+                      placeholder="https://..."
+                      class="h-8"
+                      :disabled="env.environmentIsEnabled === false"
+                      @update:model-value="(v: string | number) => setEnvUrlDraft(env.appEnvironmentId!, String(v))"
+                    />
+                    <p v-if="env.environmentIsEnabled === false" class="text-xs text-muted-foreground">
+                      Environment disabled —
+                      <router-link to="/environments" class="underline hover:no-underline">{{ t('nav.environments') }}</router-link>
+                    </p>
+                  </div>
                 </td>
                 <td class="py-1 text-center align-middle">
                   <Switch
                     :model-value="envDrafts[env.appEnvironmentId!]?.isActive ?? true"
+                    :disabled="env.environmentIsEnabled === false"
                     @update:model-value="(v: boolean) => setEnvActiveDraft(env.appEnvironmentId!, v)"
                   />
                 </td>
@@ -1020,6 +1034,45 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             v-model="editPageContextCaptureEnabled"
             type="checkbox"
             class="h-4 w-4 cursor-pointer"
+          />
+        </div>
+
+        <!-- R3.4: Capture element text content in comments -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-1">
+            <Label for="edit-capture-text" class="text-sm font-medium">{{ t('projects.captureTextContent') }}</Label>
+            <p class="text-xs text-muted-foreground">{{ t('projects.captureTextContentHint') }}</p>
+          </div>
+          <input
+            id="edit-capture-text"
+            v-model="editCaptureTextContent"
+            type="checkbox"
+            class="h-4 w-4 cursor-pointer"
+          />
+        </div>
+
+        <!-- R1.5: Enforce allowed origins -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-1">
+            <Label for="edit-enforce-origins" class="text-sm font-medium">{{ t('projects.enforceAllowedOrigins') }}</Label>
+            <p class="text-xs text-muted-foreground">{{ t('projects.enforceAllowedOriginsHint') }}</p>
+            <div v-if="appUrlsData && appUrlsData.length > 0" class="mt-2">
+              <p class="text-xs font-medium text-foreground mb-1">{{ t('projects.enforceAllowedOriginsActiveUrls') }}:</p>
+              <ul class="text-xs text-muted-foreground space-y-0.5 ps-4">
+                <li v-for="url in appUrlsData.filter((u: any) => u.isActive)" :key="url.appEnvironmentId" class="list-disc">
+                  {{ url.url }}
+                </li>
+              </ul>
+            </div>
+            <p v-else class="text-xs text-muted-foreground italic mt-2">{{ t('projects.enforceAllowedOriginsDisabledHint') }}</p>
+          </div>
+          <input
+            id="edit-enforce-origins"
+            v-model="editEnforceAllowedOrigins"
+            type="checkbox"
+            :disabled="!appUrlsData || appUrlsData.length === 0"
+            class="h-4 w-4 cursor-pointer"
+            :class="!appUrlsData || appUrlsData.length === 0 ? 'opacity-50' : ''"
           />
         </div>
 

@@ -28,9 +28,11 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
   let modifiedReq = req;
   if (isApiRequest) {
     const token = localStorage.getItem('pointer_admin_token');
+    const headers: Record<string, string> = { 'X-Pointer-Client': 'dashboard' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     modifiedReq = req.clone({
       url: environment.apiBase + req.url,
-      ...(token ? { setHeaders: { Authorization: `Bearer ${token}` } } : {}),
+      setHeaders: headers,
     });
   }
 

@@ -6,7 +6,7 @@
 //
 // Falls back to bundled defaults if the fetch fails — the header never blanks.
 import { ref, readonly } from 'vue';
-import { getApiBranding } from '@moamen-ui/pointer-vue';
+import { getApiBranding, type BrandingResponse } from '@moamen-ui/pointer-vue';
 
 export interface BrandingAssets {
   logo: string | null;
@@ -63,10 +63,9 @@ function applyBrandingEffects(data: BrandingData): void {
 
 async function fetchBranding(): Promise<void> {
   try {
-    // The client's mutator returns the inner payload and throws on failure, but the generated
-    // types still declare the `Result<T>` envelope — accept either shape.
+    // The client's mutator returns the inner payload directly.
     const result = await getApiBranding();
-    const data = ((result as unknown as { data?: unknown })?.data ?? result) as typeof result.data;
+    const data = result as BrandingResponse;
     if (data?.productName) {
       branding.value = {
         productName: data.productName,

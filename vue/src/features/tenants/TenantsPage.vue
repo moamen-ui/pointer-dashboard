@@ -16,8 +16,14 @@ import {
   usePatchApiAdminTenantsIdDemoConfig,
   useGetApiAdminPlans,
   usePatchApiAdminTenantsIdPlan,
+  useGetApiAdminTenantsInvites,
+  usePostApiAdminTenantsInvites,
+  usePostApiAdminTenantsInvitesIdResend,
+  useDeleteApiAdminTenantsInvitesId,
+  getGetApiAdminTenantsInvitesQueryKey,
+  type TenantInviteResponse,
 } from '@moamen-ui/pointer-vue';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2 } from 'lucide-vue-next';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Mail, Link, ChevronDown, ChevronRight, RotateCcw } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -57,6 +63,19 @@ const deleteTenant = useDeleteApiAdminTenantsId();
 const extendTenant = usePostApiAdminTenantsIdExtend();
 const patchDemoConfig = usePatchApiAdminTenantsIdDemoConfig();
 const changePlanMut = usePatchApiAdminTenantsIdPlan();
+
+// ── Invitations (R1.8) ─────────────────────────────────────
+const { data: invitesData } = useGetApiAdminTenantsInvites();
+const invites = computed<TenantInviteResponse[]>(
+  () => (invitesData.value as unknown as TenantInviteResponse[] | undefined) ?? []
+);
+const createInvite = usePostApiAdminTenantsInvites();
+const resendInvite = usePostApiAdminTenantsInvitesIdResend();
+const revokeInvite = useDeleteApiAdminTenantsInvitesId();
+
+const newInviteEmail = ref('');
+const inviteCreating = ref(false);
+const showManualCreate = ref(false);
 
 // ── Plans list (for change-plan dropdown) ─────────────────────────────────────
 interface PlanOption { id: number; name: string; }
@@ -100,10 +119,74 @@ function openAdd() {
   newEmail.value = '';
   newPassword.value = '';
   newDisplayName.value = '';
+  newInviteEmail.value = '';
+  inviteCreating.value = false;
+  showManualCreate.value = false;
   newTouched.email = false;
   newTouched.password = false;
   newTouched.displayName = false;
   addOpen.value = true;
+}
+
+// Invite tenant (send quick-access link)
+async function inviteTenant() {
+  const email = newInviteEmail.value.trim();
+  if (!email) return;
+
+  inviteCreating.value = true;
+  try {
+    await createInvite.mutateAsync({ data: { email } });
+    newInviteEmail.value = '';
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminTenantsInvitesQueryKey() });
+    toast(t('tenants.invited'), 'success');
+  } catch (e) {
+    fail(e);
+  } finally {
+    inviteCreating.value = false;
+  }
+}
+
+// Resend/rotate invite
+async function doResendInvite(invite: TenantInviteResponse, rotate: boolean) {
+  try {
+    const result = await resendInvite.mutateAsync({
+      id: invite.id!,
+      params: { rotate },
+    });
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminTenantsInvitesQueryKey() });
+    toast(t('tenants.inviteResent'), 'success');
+    if (rotate && (result as any).url) {
+      copyInviteLink((result as any).url);
+    }
+  } catch (e) {
+    fail(e);
+  }
+}
+
+// Revoke invite
+async function doRevokeInvite(invite: TenantInviteResponse) {
+  const ok = await confirm({
+    message: t('tenants.revokeConfirm', { email: invite.email }),
+    confirmLabel: t('common.revoke'),
+    confirmVariant: 'destructive',
+  });
+  if (!ok) return;
+  try {
+    await revokeInvite.mutateAsync({ id: invite.id! });
+    void queryClient.invalidateQueries({ queryKey: getGetApiAdminTenantsInvitesQueryKey() });
+    toast(t('tenants.inviteRevoked'), 'success');
+  } catch (e) {
+    fail(e);
+  }
+}
+
+// Copy invite link
+function copyInviteLink(url: string | undefined) {
+  if (!url) return;
+  navigator.clipboard?.writeText(url).then(
+    () => toast(t('common.copied'), 'success'),
+    () => toast(t('common.copyFailed'), 'danger'),
+  );
 }
 
 async function doCreate() {
@@ -311,7 +394,7 @@ async function saveChangePlan() {
       <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ t('tenants.title') }}</h1>
       <Button @click="openAdd">
         <Plus class="h-4 w-4" />
-        {{ t('tenants.addTenant') }}
+        {{ t('tenants.inviteWorkspace') }}
       </Button>
     </div>
 
@@ -365,32 +448,138 @@ async function saveChangePlan() {
     </DataTable>
   </div>
 
-  <!-- Create tenant dialog -->
+  <!-- Invite workspace dialog -->
   <Dialog v-model:open="addOpen">
     <DialogContent class="w-[min(520px,calc(100vw-32px))]">
       <DialogHeader>
-        <DialogTitle class="text-[16px] font-semibold leading-6">{{ t('tenants.addTenant') }}</DialogTitle>
+        <DialogTitle class="text-[16px] font-semibold leading-6">{{ t('tenants.inviteWorkspace') }}</DialogTitle>
       </DialogHeader>
-      <div class="space-y-4">
-        <FormField :label="t('tenants.email')" html-for="tenant-email" :error="newEmailError">
-          <Input id="tenant-email" v-model="newEmail" type="email" @blur="newTouched.email = true" />
-        </FormField>
-        <FormField :label="t('tenants.displayName')" html-for="tenant-name" :error="newDisplayNameError">
-          <Input id="tenant-name" v-model="newDisplayName" @blur="newTouched.displayName = true" />
-        </FormField>
-        <FormField :label="t('tenants.password')" html-for="tenant-password" :error="newPasswordError">
-          <PasswordInput id="tenant-password" v-model="newPassword" @blur="newTouched.password = true" />
-        </FormField>
+
+      <div class="space-y-6">
+        <!-- Quick-access invite section -->
+        <div class="flex items-end gap-2">
+          <div class="flex-1">
+            <FormField :label="t('tenants.emailToInvite')" html-for="tenant-invite-email">
+              <Input
+                id="tenant-invite-email"
+                v-model="newInviteEmail"
+                type="email"
+                :placeholder="t('tenants.email')"
+                @keyup.enter="inviteTenant"
+              />
+            </FormField>
+          </div>
+          <Button
+            :disabled="!newInviteEmail.trim() || inviteCreating"
+            @click="inviteTenant"
+            class="mb-[2px]"
+          >
+            <Mail class="h-4 w-4" />
+            {{ t('common.sendInvite') }}
+          </Button>
+        </div>
+
+        <!-- Pending invites list -->
+        <div v-if="invites.length > 0" class="space-y-2 mt-4">
+          <div class="text-[13px] font-medium text-foreground">{{ t('tenants.pendingInvites') }}</div>
+          <div class="rounded-md border border-border divide-y divide-border">
+            <div v-for="inv of invites" :key="inv.id" class="flex items-center justify-between p-3 text-[13px]">
+              <div>
+                <div class="font-medium">{{ inv.email }}</div>
+                <div class="text-[12px] text-muted-foreground mt-0.5">
+                  {{ t('tenants.invitedOn', { date: formatExpiry(inv.createdAt) }) }}
+                </div>
+                <!-- R2.5: Show magic link details if available -->
+                <div v-if="(inv as any).magicLink" class="text-[12px] text-muted-foreground mt-1">
+                  {{ t('invite.linkExpiresAt') }}: {{ formatExpiry((inv as any).linkExpiresAt) }}
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <Button
+                  v-if="(inv as any).magicLink"
+                  variant="ghost"
+                  size="sm"
+                  @click="doResendInvite(inv, true)"
+                  :title="t('invite.rotateLink')"
+                >
+                  <RotateCcw class="h-4 w-4" />
+                </Button>
+                <Button
+                  v-if="inv.url"
+                  variant="ghost"
+                  size="sm"
+                  @click="copyInviteLink(inv.url)"
+                  :title="t('common.copyLink')"
+                >
+                  <Link class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="doResendInvite(inv, false)"
+                  :title="t('common.resend')"
+                >
+                  <Mail class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="text-state-danger hover:text-state-danger"
+                  @click="doRevokeInvite(inv)"
+                  :title="t('common.revoke')"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual creation (collapsible) -->
+        <div class="border-t border-border pt-4">
+          <button
+            type="button"
+            class="text-[13px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+            @click="showManualCreate = !showManualCreate"
+          >
+            <ChevronDown
+              v-if="showManualCreate"
+              class="h-3.5 w-3.5"
+            />
+            <ChevronRight
+              v-else
+              class="h-3.5 w-3.5"
+            />
+            {{ t('tenants.manualCreate') }}
+          </button>
+
+          <div v-if="showManualCreate" class="mt-4 space-y-4 rounded-md bg-gutter p-4 border border-border">
+            <div class="text-[13px] text-muted-foreground mb-2">{{ t('tenants.manualCreateHint') }}</div>
+            <FormField :label="t('tenants.email')" html-for="tenant-email" :error="newEmailError">
+              <Input id="tenant-email" v-model="newEmail" type="email" @blur="newTouched.email = true" />
+            </FormField>
+            <FormField :label="t('tenants.displayName')" html-for="tenant-name" :error="newDisplayNameError">
+              <Input id="tenant-name" v-model="newDisplayName" @blur="newTouched.displayName = true" />
+            </FormField>
+            <FormField :label="t('tenants.password')" html-for="tenant-password" :error="newPasswordError">
+              <PasswordInput id="tenant-password" v-model="newPassword" @blur="newTouched.password = true" />
+            </FormField>
+            <div class="flex justify-end pt-2">
+              <Button
+                variant="secondary"
+                :disabled="!newEmail.trim() || !newPassword || !newDisplayName.trim() || createTenant.isPending.value"
+                @click="doCreate"
+              >
+                <Plus class="h-4 w-4" />
+                {{ t('tenants.createDirectly') }}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div class="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" @click="addOpen = false">{{ t('common.cancel') }}</Button>
-        <Button
-          :disabled="!newEmail.trim() || !newPassword || !newDisplayName.trim()"
-          @click="doCreate"
-        >
-          <Plus class="h-4 w-4" />
-          {{ t('tenants.addTenant') }}
-        </Button>
+        <Button variant="secondary" @click="addOpen = false">{{ t('common.close') }}</Button>
       </div>
     </DialogContent>
   </Dialog>

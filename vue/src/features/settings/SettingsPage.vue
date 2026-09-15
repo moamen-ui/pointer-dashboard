@@ -53,6 +53,7 @@ const settings = computed(() => data.value as unknown as SettingsResponse | unde
 const updateSettings = usePutApiAdminSettings();
 
 // Local reactive form state seeded from server data.
+const appBaseUrl = ref('');
 const signupEnabled = ref(false);
 const emailEnabled = ref(false);
 const emailFromEmail = ref('');
@@ -69,6 +70,7 @@ watch(
   settings,
   (s) => {
     if (!s) return;
+    appBaseUrl.value = (s as any).appBaseUrl ?? '';
     signupEnabled.value = (s as any).scopedAdminSignupEnabled ?? false;
     emailEnabled.value = (s as any).emailEnabled ?? false;
     emailFromEmail.value = (s as any).emailFromEmail ?? '';
@@ -88,6 +90,7 @@ async function saveSettings() {
   try {
     await updateSettings.mutateAsync({
       data: {
+        appBaseUrl: appBaseUrl.value,
         scopedAdminSignupEnabled: signupEnabled.value,
         emailEnabled: emailEnabled.value,
         emailFromEmail: emailFromEmail.value,
@@ -365,6 +368,18 @@ async function createTenantRule() {
       <AccordionSection :title="t('settings.accessSection')" default-open>
         <template #default>
           <div class="space-y-4 border-t border-border-muted pt-4">
+            <!-- appBaseUrl -->
+            <FormField :label="t('settings.appBaseUrl')" html-for="app-base-url" :hint="t('settings.appBaseUrlHint')">
+              <Input
+                id="app-base-url"
+                v-model="appBaseUrl"
+                placeholder="e.g. https://dashboard.pointer.moamen.work"
+              />
+            </FormField>
+            <div v-if="(settings as any)?.effectiveAppBaseUrl" class="text-[12px] text-muted-foreground mt-1">
+              {{ t('settings.effectiveAppBaseUrl') }}: {{ (settings as any).effectiveAppBaseUrl }}
+            </div>
+
             <!-- Signup toggle -->
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-1.5">

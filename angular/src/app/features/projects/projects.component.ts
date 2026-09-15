@@ -20,6 +20,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { BidiModule } from '@angular/cdk/bidi';
 import {
@@ -104,6 +105,7 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
     BidiModule,
     FormsModule,
     ReactiveFormsModule,
+    RouterLink,
     TranslocoModule,
     AppDataTableComponent,
     DataTableCellDirective,
@@ -280,6 +282,19 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
               </div>
             </div>
 
+            <!-- Capture Text Content -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[14px] font-medium text-foreground">{{ 'projects.captureTextContent' | transloco }}</div>
+                  <div class="text-[12px] text-muted-foreground">
+                    {{ 'projects.captureTextContentHint' | transloco }}
+                  </div>
+                </div>
+                <app-switch formControlName="captureTextContent" />
+              </div>
+            </div>
+
             <!-- Other Environments -->
             <div class="border-t border-border-muted pt-4 mt-4">
               <h3 class="text-[14px] font-medium text-foreground mb-1">{{ 'projects.otherEnvironments' | transloco }}</h3>
@@ -297,8 +312,18 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
                     </thead>
                     <tbody>
                       @for (env of configuredEnvironments(); track env.appEnvironmentId) {
-                        <tr class="h-11 border-t border-border-muted hover:bg-gutter/60">
-                          <td class="px-3 text-[14px] font-medium text-foreground">{{ env.environmentName }}</td>
+                        <tr class="h-11 border-t border-border-muted hover:bg-gutter/60" [class.opacity-60]="env.environmentIsEnabled === false">
+                          <td class="px-3 text-[14px] font-medium text-foreground">
+                            <div class="flex flex-col gap-0.5 py-1">
+                              <span>{{ env.environmentName }}</span>
+                              @if (env.environmentIsEnabled === false) {
+                                <span class="text-[12px] font-normal text-muted-foreground">
+                                  {{ 'projects.environmentDisabledHint' | transloco }}
+                                  <a routerLink="/environments" class="text-brand hover:underline">{{ 'nav.environments' | transloco }}</a>
+                                </span>
+                              }
+                            </div>
+                          </td>
                           <td class="px-3">
                             <input
                               appInput
@@ -307,6 +332,7 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
                               [ngModel]="envDrafts()[env.appEnvironmentId!]?.url ?? ''"
                               [ngModelOptions]="{ standalone: true }"
                               (ngModelChange)="setEnvUrlDraft(env.appEnvironmentId!, $event)"
+                              [disabled]="env.environmentIsEnabled === false"
                               class="w-full h-8"
                             />
                           </td>
@@ -314,6 +340,7 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
                             <app-switch
                               [checked]="envDrafts()[env.appEnvironmentId!]?.isActive ?? true"
                               (checkedChange)="setEnvActiveDraft(env.appEnvironmentId!, $event)"
+                              [disabled]="env.environmentIsEnabled === false"
                             />
                           </td>
                           <td class="px-3 text-end">
@@ -394,6 +421,27 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
                 (valueChange)="onRoleSelect($event)"
                 [disabled]="loading()"
               />
+            </div>
+
+            <!-- Enforce Allowed Origins -->
+            <div class="border-t border-border-muted pt-4 mt-4">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <div class="text-[14px] font-medium text-foreground">{{ 'projects.enforceAllowedOrigins' | transloco }}</div>
+                  <div class="text-[12px] text-muted-foreground">{{ 'projects.enforceAllowedOriginsHint' | transloco }}</div>
+                  @if (configuredEnvironments().length === 0) {
+                    <div class="text-[12px] text-state-danger mt-1">{{ 'projects.enforceAllowedOriginsDisabled' | transloco }}</div>
+                  } @else {
+                    <div class="text-[12px] text-muted-foreground mt-1">
+                      <strong>{{ 'projects.allowedUrls' | transloco }}:</strong>
+                      @for (url of configuredEnvironments(); track url.appEnvironmentId) {
+                        <div class="inline-block me-2">{{ url.url }}</div>
+                      }
+                    </div>
+                  }
+                </div>
+                <app-switch formControlName="enforceAllowedOrigins" [disabled]="configuredEnvironments().length === 0" />
+              </div>
             </div>
 
             <!-- AI Rules button -->
@@ -1036,6 +1084,8 @@ export class ProjectsComponent {
   editForm = this.fb.nonNullable.group({
     name: ['', Validators.required],
     pageContextCaptureEnabled: [false],
+    captureTextContent: [false],
+    enforceAllowedOrigins: [false],
     isActiveLocal: [false],
     isActiveStaging: [false],
     isActiveProduction: [false],
@@ -1066,6 +1116,8 @@ export class ProjectsComponent {
     this.editForm.reset({
       name: project.name ?? '',
       pageContextCaptureEnabled: !!project.pageContextCaptureEnabled,
+      captureTextContent: !!project.captureTextContent,
+      enforceAllowedOrigins: !!project.enforceAllowedOrigins,
       isActiveLocal: !!project.isActiveLocal,
       isActiveStaging: !!project.isActiveStaging,
       isActiveProduction: !!project.isActiveProduction,
@@ -1173,6 +1225,8 @@ export class ProjectsComponent {
     this.projectsService.patchApiAdminProjectsId(id, {
       name: val.name,
       pageContextCaptureEnabled: val.pageContextCaptureEnabled,
+      captureTextContent: val.captureTextContent,
+      enforceAllowedOrigins: val.enforceAllowedOrigins,
       isActiveLocal: val.isActiveLocal,
       isActiveStaging: val.isActiveStaging,
       isActiveProduction: val.isActiveProduction,

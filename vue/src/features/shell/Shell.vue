@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue';
+import { computed, ref, watchEffect, onMounted, onUnmounted } from 'vue';
 import { RouterView, RouterLink, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { useQueryClient } from '@tanstack/vue-query';
+import {
+  useGetApiMeNotificationsUnreadCount,
+  useGetApiMeNotifications,
+  usePatchApiMeNotificationsIdRead,
+  usePostApiMeNotificationsReadAll,
+  getGetApiMeNotificationsUnreadCountQueryKey,
+  getGetApiMeNotificationsQueryKey,
+  type NotificationDto,
+} from '@moamen-ui/pointer-vue';
 import {
   Pin,
   LayoutDashboard,
@@ -24,6 +34,7 @@ import {
   Globe,
   Compass,
   ChevronDown,
+  Bell,
 } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +55,101 @@ import { useTour } from '@/lib/tour';
 
 const sidebarOpen = ref(false);
 const { startTour } = useTour();
+const queryClient = useQueryClient();
+
+// R2.4: Notifications
+const notificationsMenuOpen = ref(false);
+const { data: unreadCountData, refetch: refetchUnreadCount } = useGetApiMeNotificationsUnreadCount();
+const unreadCount = computed(() => (unreadCountData.value as any)?.unreadCount ?? 0);
+
+const { data: notificationsData, isFetching: notificationsLoading } = useGetApiMeNotifications(
+  undefined,
+  { query: { enabled: notificationsMenuOpen } }
+);
+const notifications = computed<NotificationDto[]>(
+  () => (notificationsData.value as unknown as any)?.data ?? []
+);
+
+const markNotificationRead = usePatchApiMeNotificationsIdRead();
+const markAllRead = usePostApiMeNotificationsReadAll();
+
+async function doMarkRead(notification: NotificationDto) {
+  if (!notification.id || notification.readAt) return;
+  try {
+    await markNotificationRead.mutateAsync({ id: notification.id });
+    await refetchUnreadCount();
+    void queryClient.invalidateQueries({ queryKey: getGetApiMeNotificationsQueryKey() });
+  } catch {
+    // Silent fail
+  }
+}
+
+async function doMarkAllRead() {
+  try {
+    await markAllRead.mutateAsync({} as any);
+    await refetchUnreadCount();
+    void queryClient.invalidateQueries({ queryKey: getGetApiMeNotificationsQueryKey() });
+  } catch {
+    // Silent fail
+  }
+}
+
+// Pause notifications polling when document is hidden
+let pollInterval: number | undefined;
+onMounted(() => {
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      // Pause polling
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = undefined;
+      }
+    } else {
+      // Resume polling
+      pollInterval = window.setInterval(() => {
+        void queryClient.refetchQueries({ queryKey: getGetApiMeNotificationsUnreadCountQueryKey() });
+      }, 60000);
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+});
+
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+  }
+});
+
+function notificationTypeLabel(type: number | null | undefined): string {
+  // NotificationType enum: 0=CommentApplied, 1=CommentReopened, 2=ReplyAdded
+  switch (type) {
+    case 0: return t('notifications.commentApplied');
+    case 1: return t('notifications.commentReopened');
+    case 2: return t('notifications.replyAdded');
+    default: return '';
+  }
+}
+
+function formatNotificationTime(isoDate: string | null | undefined): string {
+  if (!isoDate) return '';
+  try {
+    const date = new Date(isoDate);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return t('time.justNow');
+    if (diffMins < 60) return t('time.minutesAgo', { n: diffMins });
+    if (diffHours < 24) return t('time.hoursAgo', { n: diffHours });
+    if (diffDays < 7) return t('time.daysAgo', { n: diffDays });
+    return date.toLocaleDateString();
+  } catch {
+    return isoDate;
+  }
+}
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -135,6 +241,59 @@ function signOut() {
         </template>
       </div>
       <span class="flex-1" />
+
+      <!-- R2.4: Notifications bell -->
+      <div class="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="relative"
+          :aria-label="t('header.notifications')"
+          @click="notificationsMenuOpen = !notificationsMenuOpen"
+        >
+          <Bell class="h-5 w-5" />
+          <span
+            v-if="unreadCount > 0"
+            class="absolute right-0 top-0 h-5 w-5 rounded-full bg-state-danger text-white text-[10px] font-bold flex items-center justify-center"
+          >
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
+        </Button>
+
+        <!-- Notifications dropdown -->
+        <div
+          v-if="notificationsMenuOpen"
+          class="absolute right-0 mt-1 w-80 rounded-md border border-border bg-background shadow-menu z-50"
+        >
+          <div class="max-h-96 overflow-y-auto">
+            <div v-if="notificationsLoading || notifications.length === 0" class="p-4 text-center text-[13px] text-muted-foreground">
+              {{ notificationsLoading ? t('notifications.loading') : t('notifications.empty') }}
+            </div>
+            <template v-else>
+              <div
+                v-for="n of notifications"
+                :key="n.id"
+                class="border-b border-border-muted last:border-0 p-3 hover:bg-gutter transition-colors cursor-pointer"
+                @click="doMarkRead(n)"
+              >
+                <div class="flex items-start gap-2">
+                  <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-medium">{{ notificationTypeLabel(n.type) }}</div>
+                    <div class="text-[12px] text-muted-foreground mt-0.5 truncate">{{ n.commentBodyExcerpt ?? n.projectName ?? '' }}</div>
+                    <div class="text-[12px] text-muted-foreground mt-1">{{ formatNotificationTime(n.createdAt) }}</div>
+                  </div>
+                  <div v-if="!n.readAt" class="flex-shrink-0 h-2 w-2 rounded-full bg-brand mt-1" />
+                </div>
+              </div>
+            </template>
+          </div>
+          <div v-if="notifications.length > 0" class="border-t border-border p-2 flex gap-1">
+            <Button variant="ghost" size="sm" class="text-[12px]" @click="doMarkAllRead">
+              {{ t('notifications.markAllRead') }}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <!-- Install steps button or icon -->
       <Button

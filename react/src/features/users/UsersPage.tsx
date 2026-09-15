@@ -19,6 +19,7 @@ import {
   useGetApiAdminInvites,
   usePostApiAdminInvites,
   useDeleteApiAdminInvitesId,
+  usePostApiAdminInvitesIdQuickLinkRotate,
   getGetApiAdminInvitesQueryKey,
   type InviteResponse,
 } from '@moamen-ui/pointer-react';
@@ -206,6 +207,20 @@ export function UsersPage() {
     },
   });
 
+  const rotateQuickLinkMut = usePostApiAdminInvitesIdQuickLinkRotate({
+    mutation: {
+      onSuccess: (res: any) => {
+        const inv = res.data ?? res;
+        if (inv.magicLink) {
+          copyInviteUrl(inv.magicLink);
+          toast(t('invite.rotated', { defaultValue: 'Quick link rotated and copied' }));
+        }
+        void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+      },
+      onError,
+    },
+  });
+
   function formatInviteExpiry(iso: string | undefined) {
     if (!iso) return '—';
     try {
@@ -356,16 +371,60 @@ export function UsersPage() {
       },
     });
   }
+  if (filter === 'Pending') {
+    columns.push({
+      id: 'magicLink',
+      enableSorting: false,
+      header: t('invite.quickAccess'),
+      cell: ({ row }) => {
+        if (row.original.kind !== 'invite') return '—';
+        const inv = row.original as any;
+        if (!inv.magicLink) return '—';
+        return (
+          <div className="flex items-center gap-2">
+            <code className="text-xs font-mono text-muted-foreground truncate max-w-[200px]">
+              {inv.magicLink}
+            </code>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => copyInviteUrl(inv.magicLink)}
+              className="h-6 px-2"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+      },
+    });
+  }
+
   columns.push({
     id: 'status',
     enableSorting: false,
     header: t('users.status'),
     cell: ({ row }) => {
       if (row.original.kind === 'invite') {
+        const inv = row.original as any;
         return (
-          <span className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none text-state-archived bg-state-archived-tint border-state-archived/30">
-            {t('invite.invited')}
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium leading-none text-state-archived bg-state-archived-tint border-state-archived/30">
+              {t('invite.invited')}
+            </span>
+            {inv.magicLinkActive === false && (
+              <span className="text-xs text-state-danger">{t('invite.magicLinkInactive')}</span>
+            )}
+            {inv.linkExpiresAt && (
+              <span className="text-xs text-muted-foreground">
+                {t('invite.expiresAt')}: {new Date(inv.linkExpiresAt).toLocaleDateString()}
+              </span>
+            )}
+            {inv.linkUses != null && (
+              <span className="text-xs text-muted-foreground">
+                {t('invite.uses')}: {inv.linkUses}
+              </span>
+            )}
+          </div>
         );
       }
       return (
@@ -393,15 +452,22 @@ export function UsersPage() {
 
   function actionsFor(row: Row): RowActionItem[] {
     if (row.kind === 'invite') {
+      const inv = row as any;
       return [
-        { label: t('invite.copy'), icon: Copy, disabled: !row.url, onClick: () => copyInviteUrl(row.url ?? '') },
+        { label: t('common.copyLink', { defaultValue: 'Copy link' }), icon: Copy, disabled: !row.url && !inv.magicLink, onClick: () => copyInviteUrl(inv.magicLink ?? row.url ?? '') },
+        inv.magicLinkActive && {
+          label: t('invite.rotateLink', { defaultValue: 'Rotate link' }),
+          icon: MailCheck,
+          onClick: () => rotateQuickLinkMut.mutate({ id: row.id! }),
+          disabled: rotateQuickLinkMut.isPending,
+        },
         {
           label: t('invite.revoke'),
           severity: 'danger',
           disabled: revokeInviteMut.isPending,
           onClick: () => revokeInviteMut.mutate({ id: row.id! }),
         },
-      ];
+      ].filter(Boolean);
     }
     const user = row;
     const items: RowActionItem[] = [];
