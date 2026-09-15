@@ -15,6 +15,7 @@ import RolesPage from '@/features/roles/RolesPage.vue';
 import EnvironmentsPage from '@/features/environments/EnvironmentsPage.vue';
 import UsersPage from '@/features/users/UsersPage.vue';
 import ProjectsPage from '@/features/projects/ProjectsPage.vue';
+import CommentsPage from '@/features/comments/CommentsPage.vue';
 import ProfilePage from '@/features/profile/ProfilePage.vue';
 import StatusesPage from '@/features/statuses/StatusesPage.vue';
 import TenantsPage from '@/features/tenants/TenantsPage.vue';
@@ -51,6 +52,9 @@ export const router = createRouter({
         { path: 'environments', name: 'environments', component: EnvironmentsPage, meta: { requiresAdmin: true } },
         { path: 'users', name: 'users', component: UsersPage, meta: { requiresAdmin: true } },
         { path: 'projects', name: 'projects', component: ProjectsPage },
+        // Comments feed: any authenticated tenant member (not admin-only) — the API itself only
+        // restricts a quick-access (Client) account to its own comments, and status-change actions.
+        { path: 'comments', name: 'comments', component: CommentsPage },
         { path: 'statuses', name: 'statuses', component: StatusesPage, meta: { requiresAdmin: true } },
         // Admin-only: view another user's profile by id.
         { path: 'users/:id/profile', name: 'user-profile', component: ProfilePage, meta: { requiresAdmin: true } },
