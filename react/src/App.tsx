@@ -10,6 +10,7 @@ import { OverviewPage } from '@/features/overview/OverviewPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { UsersPage } from '@/features/users/UsersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
+import { CommentsPage } from '@/features/comments/CommentsPage';
 import { ProfilePage } from '@/features/profile';
 import { StatusesPage } from '@/features/statuses/StatusesPage';
 import { EnvironmentsPage } from '@/features/environments/EnvironmentsPage';
@@ -73,6 +74,7 @@ export default function App() {
 
                   {/* Authenticated-user routes (non-admin allowed) */}
                   <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/comments" element={<CommentsPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                 </Route>
               </Route>
