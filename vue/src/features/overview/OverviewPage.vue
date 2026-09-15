@@ -81,7 +81,7 @@ const showDetailedRules = ref(false);
 const detailedRulesRows = computed<AiRuleResponse[]>(() => aiInsights.value?.detailedRules ?? []);
 
 const detailedRulesColumns = computed<ColumnDef<typeof dataTableFeatures, AiRuleResponse>[]>(() => [
-  { accessorKey: 'tenantName', header: t('aiRules.workspace'), sortingFn: 'alphanumeric' },
+  { accessorKey: 'tenantName', header: t('aiRules.workspace'), sortingFn: 'alphanumeric', meta: { mobile: 'primary' } },
   { accessorKey: 'projectName', header: t('overview.projects'), sortingFn: 'alphanumeric' },
   { id: 'scope', header: t('aiRules.ruleScope') },
   { accessorKey: 'userName', header: t('aiRules.author'), sortingFn: 'alphanumeric' },
@@ -191,6 +191,7 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(()
     accessorKey: 'name',
     header: t('overview.name'),
     sortingFn: 'alphanumeric',
+    meta: { mobile: 'primary' },
     cell: ({ row }) => {
       const children = [
         h('span', { class: 'truncate text-[14px] font-medium' }, String(row.original.name ?? '')),
@@ -253,6 +254,8 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(()
     id: 'chevron',
     header: '',
     enableSorting: false,
+    // Purely decorative (this table has no rowClick) — redundant on the mobile card.
+    meta: { mobile: 'hide' },
     cell: () => h(ChevronRight, { class: 'h-4 w-4 text-muted-foreground rtl:-scale-x-100' }),
   },
 ]);
@@ -288,7 +291,7 @@ const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectStats>[]>(()
           <div class="flex flex-col min-w-0 flex-1">
             <div class="text-[14px] font-medium text-foreground">{{ u.displayName }}</div>
             <div class="flex items-center gap-2.5 mt-1 text-[13px] text-muted-foreground flex-wrap">
-              <span>{{ u.email }}</span>
+              <span class="break-all">{{ u.email }}</span>
               <Badge variant="neutral" class="text-[12px]">{{ u.roleName }}</Badge>
               <span v-if="requestedAt(u)" class="text-[12px]">
                 {{ t('overview.requested') }}: {{ formatRequestedAt(requestedAt(u)) }}

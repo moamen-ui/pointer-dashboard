@@ -721,7 +721,7 @@ function activationLabel(state: ProjectActivationState | undefined) {
 // A computed so headers follow live language switches.
 const columns = computed<ColumnDef<typeof dataTableFeatures, ProjectResponse>[]>(() => [
   { accessorKey: 'key', header: t('projects.key') },
-  { accessorKey: 'name', header: t('projects.name') },
+  { accessorKey: 'name', header: t('projects.name'), meta: { mobile: 'primary' } },
   { accessorKey: 'createdByName', header: t('projects.createdBy') },
   { accessorKey: 'commentsCount', header: t('projects.comments') },
   { accessorKey: 'activationState', header: t('projects.status'), enableSorting: false },
@@ -1059,7 +1059,7 @@ function actionsFor(project: ProjectResponse): RowActionItem[] {
             <div v-if="appUrlsData && appUrlsData.length > 0" class="mt-2">
               <p class="text-xs font-medium text-foreground mb-1">{{ t('projects.enforceAllowedOriginsActiveUrls') }}:</p>
               <ul class="text-xs text-muted-foreground space-y-0.5 ps-4">
-                <li v-for="url in appUrlsData.filter((u: any) => u.isActive)" :key="url.appEnvironmentId" class="list-disc">
+                <li v-for="url in appUrlsData.filter((u: any) => u.isActive)" :key="url.appEnvironmentId" class="list-disc break-all">
                   {{ url.url }}
                 </li>
               </ul>

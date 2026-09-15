@@ -307,7 +307,7 @@ function formatExpiry(iso: string | null | undefined): string {
 // Same columns, order and sortability as React/Angular: identity is one cell (email over
 // display name), and no tenant column sorts.
 const columns = computed<ColumnDef<typeof dataTableFeatures, TenantResponse>[]>(() => [
-  { accessorKey: 'email', header: t('tenants.email'), enableSorting: false },
+  { accessorKey: 'email', header: t('tenants.email'), enableSorting: false, meta: { mobile: 'primary' } },
   { id: 'approvalStatus', header: t('tenants.approval'), enableSorting: false },
   { id: 'isActive', header: t('tenants.statusCol'), enableSorting: false },
   { accessorKey: 'projects', header: t('tenants.projects'), enableSorting: false },
@@ -483,9 +483,9 @@ async function saveChangePlan() {
         <div v-if="invites.length > 0" class="space-y-2 mt-4">
           <div class="text-[13px] font-medium text-foreground">{{ t('tenants.pendingInvites') }}</div>
           <div class="rounded-md border border-border divide-y divide-border">
-            <div v-for="inv of invites" :key="inv.id" class="flex items-center justify-between p-3 text-[13px]">
-              <div>
-                <div class="font-medium">{{ inv.email }}</div>
+            <div v-for="inv of invites" :key="inv.id" class="flex items-center justify-between gap-2 p-3 text-[13px]">
+              <div class="min-w-0 flex-1">
+                <div class="font-medium break-all">{{ inv.email }}</div>
                 <div class="text-[12px] text-muted-foreground mt-0.5">
                   {{ t('tenants.invitedOn', { date: formatExpiry(inv.createdAt) }) }}
                 </div>
@@ -494,7 +494,7 @@ async function saveChangePlan() {
                   {{ t('invite.linkExpiresAt') }}: {{ formatExpiry((inv as any).linkExpiresAt) }}
                 </div>
               </div>
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1 shrink-0">
                 <Button
                   v-if="(inv as any).magicLink"
                   variant="ghost"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watchEffect, onMounted, onUnmounted } from 'vue';
-import { RouterView, RouterLink, useRouter } from 'vue-router';
+import { computed, ref, watch, watchEffect, onMounted, onUnmounted } from 'vue';
+import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useQueryClient } from '@tanstack/vue-query';
 import {
@@ -57,6 +57,17 @@ import { useTour } from '@/lib/tour';
 const sidebarOpen = ref(false);
 const { startTour } = useTour();
 const queryClient = useQueryClient();
+const route = useRoute();
+
+// Belt-and-braces close: the per-link @click already closes the drawer on a
+// normal nav click, but this also covers back/forward and any programmatic
+// navigation (e.g. the notifications bell jumping to /comments).
+watch(
+  () => route.fullPath,
+  () => {
+    sidebarOpen.value = false;
+  },
+);
 
 // R2.4: Notifications
 const notificationsMenuOpen = ref(false);
@@ -243,16 +254,19 @@ function signOut() {
       >
         <Menu class="h-5 w-5" />
       </Button>
-      <div class="flex items-center gap-2">
+      <!-- min-w-0 lets this shrink instead of forcing the header to overflow —
+           a long white-label product name truncates rather than pushing the
+           bell/install/account controls off a 360px viewport. -->
+      <div class="flex min-w-0 items-center gap-2">
         <img
           v-if="branding.assets.logo"
           :src="branding.assets.logo"
           :alt="branding.productName"
-          class="h-6 max-w-[120px] object-contain"
+          class="h-6 max-w-[120px] shrink-0 object-contain"
         />
         <template v-else>
-          <Pin class="h-4 w-4 rotate-45 text-brand" />
-          <span class="text-[14px] font-semibold text-foreground">
+          <Pin class="h-4 w-4 shrink-0 rotate-45 text-brand" />
+          <span class="truncate text-[14px] font-semibold text-foreground">
             {{ branding.productName ? `${branding.productName} Admin` : t('header.brand') }}
           </span>
         </template>
@@ -425,7 +439,7 @@ function signOut() {
               :key="item.to"
               :to="item.to"
               :data-tour="item.to === '/environments' ? 'nav-environments' : undefined"
-              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground max-md:min-h-11"
               active-class="bg-brand-tint !text-brand font-semibold"
               @click="sidebarOpen = false"
             >
@@ -441,7 +455,7 @@ function signOut() {
               :key="item.to"
               :to="item.to"
               :data-tour="item.to === '/projects' ? 'nav-projects' : undefined"
-              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground max-md:min-h-11"
               active-class="bg-brand-tint !text-brand font-semibold"
               @click="sidebarOpen = false"
             >
@@ -456,7 +470,7 @@ function signOut() {
               v-for="item in SUPER_ADMIN_NAV"
               :key="item.to"
               :to="item.to"
-              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground max-md:min-h-11"
               active-class="bg-brand-tint !text-brand font-semibold"
               @click="sidebarOpen = false"
             >
@@ -469,7 +483,7 @@ function signOut() {
           <div :class="(isAdmin || isSuperAdmin) && 'my-2 border-t border-border-muted'">
             <RouterLink
               to="/profile"
-              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground max-md:min-h-11"
               active-class="bg-brand-tint !text-brand font-semibold"
               @click="sidebarOpen = false"
             >
@@ -483,7 +497,7 @@ function signOut() {
         <div class="mt-auto flex flex-col border-t border-border-muted pt-2 px-2">
           <button
             type="button"
-            class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+            class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground max-md:min-h-11"
             @click="sidebarOpen = false; startTour()"
           >
             <Compass class="h-4 w-4" />
@@ -493,7 +507,7 @@ function signOut() {
           <button
             type="button"
             data-tour="nav-install-guide"
-            class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+            class="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground max-md:min-h-11"
             @click="sidebarOpen = false; guideOpen = true"
           >
             <Rocket class="h-4 w-4" />
@@ -503,9 +517,12 @@ function signOut() {
         </div>
       </aside>
 
-      <!-- Main content -->
-      <main class="flex-1 min-w-0 overflow-auto bg-background p-6">
-        <div class="mx-auto w-full max-w-[1120px] ms-0">
+      <!-- Main content. overflow-x-clip is a belt-and-braces guard: no page
+           should ever need to scroll horizontally (only tables/cards do, in
+           their own container), so this just clips instead of scrolling if
+           something someday overflows. -->
+      <main class="flex-1 min-w-0 overflow-y-auto overflow-x-clip bg-background p-6">
+        <div class="mx-auto w-full min-w-0 max-w-[1120px] ms-0">
           <RouterView />
         </div>
       </main>

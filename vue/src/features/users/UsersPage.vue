@@ -378,7 +378,7 @@ const rows = computed<Row[]>(() => {
 // "requested" column follows the active filter.
 const columns = computed<ColumnDef<typeof dataTableFeatures, Row>[]>(() => {
   const cols: ColumnDef<typeof dataTableFeatures, Row>[] = [
-    { accessorKey: 'email', header: t('users.email'), enableSorting: false },
+    { accessorKey: 'email', header: t('users.email'), enableSorting: false, meta: { mobile: 'primary' } },
     { id: 'displayName', header: t('users.name'), enableSorting: false },
     { id: 'role', header: t('users.role'), enableSorting: false },
   ];
@@ -437,17 +437,18 @@ function actionsFor(row: Row): RowActionItem[] {
       </Button>
     </div>
 
-    <!-- Filter bar — segmented control -->
-    <div class="flex items-center gap-3 mb-3">
+    <!-- Filter bar — segmented control. Below sm it stacks (label above) and
+         the segments stretch full width, equally. -->
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 mb-3">
       <span class="text-[13px] text-muted-foreground">{{ t('common.show') }}</span>
-      <div class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
+      <div class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5 max-sm:flex max-sm:w-full">
         <button
           v-for="f in FILTERS"
           :key="f"
           type="button"
           :class="
             cn(
-              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:h-10 max-sm:flex-1',
               filter === f
                 ? 'bg-background text-foreground border border-border'
                 : 'text-muted-foreground hover:text-foreground',
@@ -572,13 +573,13 @@ function actionsFor(row: Row): RowActionItem[] {
 
       <div
         v-if="!createdInvite"
-        class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5"
+        class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5 max-sm:flex max-sm:w-full"
       >
         <button
           type="button"
           :class="
             cn(
-              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:h-10 max-sm:flex-1',
               addMode === 'invite'
                 ? 'bg-background text-foreground border border-border'
                 : 'text-muted-foreground hover:text-foreground',
@@ -592,7 +593,7 @@ function actionsFor(row: Row): RowActionItem[] {
           type="button"
           :class="
             cn(
-              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+              'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:h-10 max-sm:flex-1',
               addMode === 'direct'
                 ? 'bg-background text-foreground border border-border'
                 : 'text-muted-foreground hover:text-foreground',
