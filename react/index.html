@@ -12,8 +12,8 @@
   <!-- pointer-feedback:start -->
 <script>
   if (
-    '%VITE_POINTER_SERVER%'.indexOf('http') === 0 &&
-    '%VITE_POINTER_PROJECT%' !== ''
+    '%VITE_POINTER_ENABLED%' === 'true' &&
+    '%VITE_POINTER_SERVER%'.indexOf('http') === 0
   ) {
     var s = document.createElement('script');
     s.src = '%VITE_POINTER_SERVER%/pointer.js';
