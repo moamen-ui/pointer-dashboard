@@ -599,20 +599,42 @@ export class UsersComponent {
   }
 
   inviteMenuItems(invite: InviteResponse): MenuItem[] {
-    return [
-      {
+    const items: MenuItem[] = [];
+
+    // For magic link (quick-access) invites, show Copy and Rotate options
+    if (invite.magicLink) {
+      items.push({
+        label: this.transloco.translate('invite.copy'),
+        icon: 'copy',
+        onClick: () => this.copyInviteUrl(invite.magicLink!),
+        disabled: !invite.magicLink,
+      });
+      items.push({
+        label: this.transloco.translate('invite.rotateLink'),
+        icon: 'refresh-cw',
+        onClick: () => this.rotateInviteLink(invite),
+        disabled: this.busy(),
+      });
+    } else {
+      // For regular invites, show Copy option
+      items.push({
         label: this.transloco.translate('invite.copy'),
         icon: 'copy',
         onClick: () => this.copyInviteUrl(invite.url!),
         disabled: !invite.url,
-      },
-      {
-        label: this.transloco.translate('invite.revoke'),
-        icon: 'link-off',
-        severity: 'danger',
-        onClick: () => this.revokeInvite(invite),
-      },
-    ];
+      });
+    }
+
+    // Revoke is always available
+    items.push({
+      label: this.transloco.translate('invite.revoke'),
+      icon: 'link-off',
+      severity: 'danger',
+      onClick: () => this.revokeInvite(invite),
+      disabled: this.busy(),
+    });
+
+    return items;
   }
 
   getUserMenuItems(user: UserResponse): MenuItem[] {
@@ -803,6 +825,31 @@ export class UsersComponent {
       },
       error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
     });
+  }
+
+  rotateInviteLink(invite: InviteResponse): void {
+    if (!invite.id) return;
+    this.confirm
+      .confirm({
+        message: this.transloco.translate('invite.rotateConfirm'),
+        confirmLabel: this.transloco.translate('invite.rotateLink'),
+        confirmColor: 'neutral',
+      })
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.busy.set(true);
+        this.invitesService.postApiAdminInvitesIdQuickLinkRotate(invite.id!).subscribe({
+          next: () => {
+            this.busy.set(false);
+            this.toast.show(this.transloco.translate('invite.linkRotated'), 'success');
+            this.invitesResource.reload();
+          },
+          error: (e: unknown) => {
+            this.busy.set(false);
+            this.toast.show(extractMessage(e), 'danger');
+          },
+        });
+      });
   }
 
   setFilter(status: FilterStatus) {

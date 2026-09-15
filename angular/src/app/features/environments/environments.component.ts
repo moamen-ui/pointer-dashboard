@@ -12,6 +12,7 @@ import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 import { BadgeComponent } from '../../shared/badge/badge.component';
+import { AppSwitchComponent } from '../../shared/ui/app-switch.component';
 import type { RowActionItem } from '../../shared/row-actions-menu/row-actions-menu.component';
 import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
@@ -35,6 +36,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
     AppDataTableComponent,
     DataTableCellDirective,
     BadgeComponent,
+    AppSwitchComponent,
   ],
   template: `
     <div class="space-y-6">
@@ -80,6 +82,13 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
           <app-badge [severity]="env.isGlobal ? 'neutral' : 'primary'">
             {{ (env.isGlobal ? 'environments.global' : 'environments.own') | transloco }}
           </app-badge>
+        </ng-template>
+        <ng-template appDataTableCell="isEnabled" let-env>
+          <app-switch
+            [checked]="env.isEnabled ?? true"
+            [disabled]="!env.canManage"
+            (checkedChange)="toggleEnabled(env, $event)"
+          />
         </ng-template>
       </app-data-table>
     </div>
@@ -212,6 +221,7 @@ export class EnvironmentsComponent {
     return [
       { key: 'name', header: this.transloco.translate('environments.name'), sortable: true },
       { key: 'scope', header: this.transloco.translate('environments.scope') },
+      { key: 'isEnabled', header: this.transloco.translate('common.active') },
     ];
   }
 
@@ -269,6 +279,36 @@ export class EnvironmentsComponent {
         this.environmentsResource.reload();
       },
       error: (e: unknown) => this.toast.show(extractMessage(e), 'danger'),
+    });
+  }
+
+  toggleEnabled(env: AppEnvironmentResponse, enabled: boolean) {
+    // If disabling and has URLs, show confirm dialog
+    if (!enabled && (env.projectUrlCount ?? 0) > 0) {
+      this.confirmService
+        .confirm({
+          message: this.transloco.translate('environments.confirmDisable', { name: env.name, count: env.projectUrlCount }),
+          confirmLabel: this.transloco.translate('common.disable'),
+          confirmColor: 'danger',
+        })
+        .subscribe((ok) => {
+          if (ok) this.patchIsEnabled(env, enabled);
+        });
+    } else {
+      this.patchIsEnabled(env, enabled);
+    }
+  }
+
+  private patchIsEnabled(env: AppEnvironmentResponse, isEnabled: boolean) {
+    this.environmentsService.patchApiAdminEnvironmentsId(env.id!, { isEnabled }).subscribe({
+      next: () => {
+        this.environmentsResource.reload();
+        this.toast.show(this.transloco.translate('environments.updated'), 'success');
+      },
+      error: (e: unknown) => {
+        this.environmentsResource.reload();
+        this.toast.show(extractMessage(e), 'danger');
+      },
     });
   }
 
