@@ -31,6 +31,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { InstallGuideService } from '../../shared/install-guide/install-guide.service';
 import { AppDataTableComponent, type DataTableColumn } from '../../shared/ui/app-data-table.component';
 import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.directive';
+import { ViewportService } from '../../shared/ui/viewport.service';
 
 @Component({
   selector: 'app-overview',
@@ -133,6 +134,66 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
           <h2 class="text-[16px] font-semibold leading-6 mb-3">
             {{ 'overview.projects' | transloco }}
           </h2>
+          @if (isMobile()) {
+            <!-- Mobile: one card per project, status counts as a label/value list; sort is
+                 desktop-only (see the hidden header below), the row stays tappable to the
+                 project. -->
+            <div class="rounded-md border border-border divide-y divide-border-muted">
+              @if (projectRows().length > 0) {
+                @for (project of sortedProjectRows(); track project.projectId) {
+                  <div class="p-3 cursor-pointer" (click)="navigateToProject(project)">
+                    <div class="flex items-center justify-between gap-2">
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span class="text-[14px] font-medium text-foreground break-words">{{ project.name }}</span>
+                        <code class="rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px] shrink-0 break-all">{{ project.key }}</code>
+                      </div>
+                      <app-icon name="chevron-right" [size]="16" class="text-muted-foreground rtl:-scale-x-100 shrink-0"></app-icon>
+                    </div>
+                    <dl class="mt-2 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+                      <dt class="text-[12px] text-muted-foreground">{{ 'overview.comments' | transloco }}</dt>
+                      <dd class="text-[13px] font-mono">{{ project.comments ?? 0 }}</dd>
+                      @if ((project.privateComments ?? 0) > 0) {
+                        <!-- Icon-only label (like the desktop column header) — the full
+                             explanation is a tooltip/aria-label, not grid content, so one long
+                             sentence can't blow out the "auto" label column's width. -->
+                        <dt
+                          class="text-[12px] text-muted-foreground flex items-center"
+                          [attr.aria-label]="'overview.privateHiddenTooltip' | transloco"
+                          [title]="'overview.privateHiddenTooltip' | transloco"
+                        >
+                          <app-icon name="lock" [size]="14"></app-icon>
+                        </dt>
+                        <dd class="text-[13px] font-mono inline-flex items-center gap-1">
+                          {{ project.privateComments }}
+                        </dd>
+                      }
+                      @for (st of statusCatalog.ordered(); track st.value) {
+                        <dt class="text-[12px] text-muted-foreground">{{ statusCatalog.displayLabel(st) }}</dt>
+                        <dd class="text-[13px]">
+                          <app-count-cell [count]="getProjectStatusCount(project, st.value)" [state]="stateFor(st.value)"></app-count-cell>
+                        </dd>
+                      }
+                      <dt class="text-[12px] text-muted-foreground">{{ 'overview.status' | transloco }}</dt>
+                      <dd class="text-[13px]">
+                        <app-badge [severity]="project.isActive ? 'success' : 'neutral'">
+                          {{ (project.isActive ? 'common.active' : 'common.disabled') | transloco }}
+                        </app-badge>
+                      </dd>
+                    </dl>
+                  </div>
+                }
+              } @else {
+                <div class="p-3">
+                  <span class="text-[14px] text-muted-foreground">{{ 'overview.emptyProjects' | transloco }}</span>
+                  <div class="mt-3">
+                    <button appButton variant="primary" size="sm" (click)="openInstallGuide()">
+                      {{ 'install.open' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
           <div class="rounded-md border border-border overflow-x-auto">
             @if (projectRows().length > 0) {
               <table class="w-full border-collapse">
@@ -267,6 +328,7 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
               </table>
             }
           </div>
+          }
         </div>
 
         <!-- AI Insights section (only when data exists) -->
@@ -284,12 +346,12 @@ import { DataTableCellDirective } from '../../shared/data-table/data-table-cell.
             <!-- Diffstat line for 4 counts -->
             <app-diffstat [items]="rulesDiffstat(insights)"></app-diffstat>
 
-            <!-- Grid of bordered lists -->
+            <!-- Grid of bordered lists: one column below sm, two sm-md, then the desktop count -->
             <div
               [class]="
                 auth.isSuperAdmin() && (insights.tenantSummaries?.length ?? 0) > 0
-                  ? 'grid gap-4 md:grid-cols-3'
-                  : 'grid gap-4 md:grid-cols-2'
+                  ? 'grid gap-4 sm:grid-cols-2 md:grid-cols-3'
+                  : 'grid gap-4 sm:grid-cols-2'
               "
             >
               <!-- Workspaces (super admin) -->
@@ -466,6 +528,7 @@ export class OverviewComponent {
   readonly auth = inject(AuthService);
   private installGuide = inject(InstallGuideService);
   readonly statusCatalog = inject(StatusCatalogService);
+  readonly isMobile = inject(ViewportService).isMobile;
 
   readonly statsResource = getApiAdminStatsResource();
   readonly pendingResource = getApiAdminUsersResource(signal({ status: 'pending' }));
@@ -649,7 +712,7 @@ export class OverviewComponent {
       { key: 'projectName', header: this.transloco.translate('overview.projects'), sortable: true },
       { key: 'scope', header: this.transloco.translate('aiRules.ruleScope'), sortable: false },
       { key: 'userName', header: this.transloco.translate('aiRules.author'), sortable: true },
-      { key: 'title', header: this.transloco.translate('aiRules.titleLabel'), sortable: true },
+      { key: 'title', header: this.transloco.translate('aiRules.titleLabel'), sortable: true, mobile: 'primary' },
       { key: 'prompt', header: this.transloco.translate('aiRules.instruction'), sortable: false },
       { key: 'status', header: this.transloco.translate('overview.status'), sortable: true },
     ];

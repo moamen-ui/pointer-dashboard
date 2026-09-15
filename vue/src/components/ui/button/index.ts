@@ -22,10 +22,13 @@ export const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-8 px-3',
-        sm: 'h-7 rounded-md px-2.5 text-[13px]',
+        // max-md: bumps every button's touch target below the mobile
+        // breakpoint (desktop height is untouched — DESIGN.md's 32px control
+        // grammar stays exactly as documented at md and up).
+        default: 'h-8 px-3 max-md:h-10',
+        sm: 'h-7 rounded-md px-2.5 text-[13px] max-md:h-10',
         lg: 'h-10 rounded-md px-8',
-        icon: 'h-8 w-8',
+        icon: 'h-8 w-8 max-md:h-11 max-md:w-11',
       },
     },
     defaultVariants: {

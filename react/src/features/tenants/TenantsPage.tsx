@@ -361,6 +361,7 @@ export function TenantsPage() {
       accessorKey: 'email',
       enableSorting: false,
       header: t('tenants.email'),
+      meta: { mobile: 'primary' },
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
           <span className="text-[14px] font-medium">{row.original.email}</span>

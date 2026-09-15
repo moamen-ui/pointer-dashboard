@@ -262,7 +262,7 @@ async function doDelete(plan: PlanAdminResponse) {
 
 // A computed so headers follow live language switches.
 const columns = computed<ColumnDef<typeof dataTableFeatures, PlanAdminResponse>[]>(() => [
-  { accessorKey: 'name', header: t('plans.colName'), enableSorting: false },
+  { accessorKey: 'name', header: t('plans.colName'), enableSorting: false, meta: { mobile: 'primary' } },
   { accessorKey: 'slug', header: t('plans.colSlug'), enableSorting: false },
   { accessorKey: 'price', header: t('plans.colPrice'), enableSorting: false },
   { accessorKey: 'isActive', header: t('plans.colActive'), enableSorting: false },

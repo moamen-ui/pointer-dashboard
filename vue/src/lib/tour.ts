@@ -1,6 +1,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
+import { MOBILE_QUERY, useMediaQuery } from '@/composables/useMediaQuery';
 
 export type TourStep = {
   id: string;
@@ -80,12 +81,19 @@ export function useTour() {
   const route = useRoute();
   const { user } = useAuth();
   const userId = computed(() => user.value?.id ?? null);
+  // Below md the welcome prompt would cover the whole screen with no room
+  // for the page behind it, so it's skipped there entirely — the tour stays
+  // reachable from the drawer's "Quick tour" item instead. Seen-state isn't
+  // touched here: a mobile-only visitor simply never gets the auto-prompt,
+  // exactly as if they had dismissed it, and startTour()/dismissPrompt() mark
+  // it seen the same way they always have.
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   // Initialize prompt if not seen
   watch(
     userId,
     (id) => {
-      if (id && !isTourSeen(id)) {
+      if (id && !isTourSeen(id) && !isMobile.value) {
         promptOpen.value = true;
       }
     },

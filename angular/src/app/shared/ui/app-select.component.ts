@@ -37,7 +37,7 @@ export interface SelectOption<T = any> {
       type="button"
       cdkOverlayOrigin
       #origin="cdkOverlayOrigin"
-      class="h-8 w-full rounded-md border border-border bg-background px-3 text-[14px] text-foreground flex items-center justify-between cursor-pointer hover:bg-gutter/50 transition-colors"
+      class="h-8 max-md:h-11 w-full rounded-md border border-border bg-background px-3 text-[14px] text-foreground flex items-center justify-between cursor-pointer hover:bg-gutter/50 transition-colors"
       (click)="toggleOpen()"
       [disabled]="disabled()"
       [attr.aria-expanded]="isOpen()"
@@ -74,7 +74,7 @@ export interface SelectOption<T = any> {
             type="button"
             role="option"
             [attr.aria-selected]="value() === opt.value"
-            class="w-full h-8 px-2 rounded-[4px] text-[14px] flex items-center gap-2 text-foreground hover:bg-gutter transition-colors text-start"
+            class="w-full h-8 max-md:h-11 px-2 rounded-[4px] text-[14px] flex items-center gap-2 text-foreground hover:bg-gutter transition-colors text-start"
             [class.bg-gutter]="value() === opt.value"
             [class.text-brand]="value() === opt.value"
             [class.font-medium]="value() === opt.value"

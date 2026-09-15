@@ -15,6 +15,7 @@ import { AppIconComponent } from '../../shared/ui/app-icon.component';
 import { AuthService } from '../../core/auth/auth.service';
 import { ConfirmService } from '../../core/confirm.service';
 import { AppToastService } from '../../shared/ui/app-toast.service';
+import { ViewportService } from '../../shared/ui/viewport.service';
 
 const ENV_LABEL: Record<number, string> = {
   1: 'Local',
@@ -152,6 +153,87 @@ function envLabel(env: number | undefined): string {
         <!-- Projects table section -->
         <div class="space-y-3">
           <h2 class="text-[16px] font-semibold leading-6">{{ 'overview.projects' | transloco }}</h2>
+          @if (isMobile()) {
+            <!-- Mobile: one card per project, status counts as a label/value list; the
+                 expand/collapse affordance and per-environment breakdown stay reachable, just
+                 indented instead of nested table rows. -->
+            <div class="rounded-md border border-border divide-y divide-border-muted">
+              @if ((profile.projects?.length ?? 0) > 0) {
+                @for (project of profile.projects; track project.projectId) {
+                  <div class="p-3">
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex items-center justify-center min-h-11 min-w-11 -ms-2 text-muted-foreground hover:text-foreground shrink-0"
+                        (click)="toggleExpand(project.projectId!)"
+                        [attr.aria-label]="isExpanded(project.projectId!) ? 'Collapse environments' : 'Expand environments'"
+                      >
+                        @if ((project.environments?.length ?? 0) > 0) {
+                          <app-icon
+                            [name]="isExpanded(project.projectId!) ? 'chevron-down' : 'chevron-right'"
+                            [size]="16"
+                          ></app-icon>
+                        } @else {
+                          <span class="w-4"></span>
+                        }
+                      </button>
+                      <span class="text-[14px] font-medium break-words">{{ project.name ?? project.key }}</span>
+                    </div>
+                    @if (project.key && project.name) {
+                      <code class="mt-1 inline-block rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px] break-all">
+                        {{ project.key }}
+                      </code>
+                    }
+                    <dl class="mt-2 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+                      <dt class="text-[12px] text-muted-foreground">{{ 'overview.comments' | transloco }}</dt>
+                      <dd class="text-[13px] font-mono">{{ project.comments ?? 0 }}</dd>
+                      <dt class="text-[12px] text-muted-foreground">{{ 'profile.replies' | transloco }}</dt>
+                      <dd class="text-[13px] font-mono">{{ project.replies ?? 0 }}</dd>
+                      @for (st of statusCatalog.ordered(); track st.value) {
+                        <dt class="text-[12px] text-muted-foreground">{{ statusCatalog.displayLabel(st) }}</dt>
+                        <dd
+                          class="text-[13px] font-mono"
+                          [class]="getProjectStatusCount(project, st.value) > 0 ? statusCatalog.toneTextClass(st.value) : 'text-faint-foreground'"
+                        >
+                          {{ getProjectStatusCount(project, st.value) }}
+                        </dd>
+                      }
+                    </dl>
+
+                    @if (isExpanded(project.projectId!) && (project.environments?.length ?? 0) > 0) {
+                      <div class="mt-3 pt-3 border-t border-border-muted space-y-3">
+                        @for (env of project.environments; track env.environment) {
+                          <div class="ps-3 border-s-2 border-border-muted">
+                            <div class="text-[13px] text-muted-foreground italic">{{ envLabel(env.environment) }}</div>
+                            <dl class="mt-1 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1">
+                              <dt class="text-[12px] text-muted-foreground">{{ 'overview.comments' | transloco }}</dt>
+                              <dd class="text-[13px] font-mono">{{ env.comments ?? 0 }}</dd>
+                              <dt class="text-[12px] text-muted-foreground">{{ 'profile.replies' | transloco }}</dt>
+                              <dd class="text-[13px] font-mono">{{ env.replies ?? 0 }}</dd>
+                              @for (st of statusCatalog.ordered(); track st.value) {
+                                <dt class="text-[12px] text-muted-foreground">{{ statusCatalog.displayLabel(st) }}</dt>
+                                <dd
+                                  class="text-[13px] font-mono"
+                                  [class]="getEnvStatusCount(env, st.value) > 0 ? statusCatalog.toneTextClass(st.value) : 'text-faint-foreground'"
+                                  [style.opacity]="getEnvStatusCount(env, st.value) === 0 ? '0.6' : '1'"
+                                >
+                                  {{ getEnvStatusCount(env, st.value) }}
+                                </dd>
+                              }
+                            </dl>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              } @else {
+                <div class="px-3 py-12 text-center">
+                  <p class="text-[14px] text-muted-foreground">{{ 'profile.noProjects' | transloco }}</p>
+                </div>
+              }
+            </div>
+          } @else {
           <div class="rounded-md border border-border overflow-x-auto">
             @if ((profile.projects?.length ?? 0) > 0) {
               <table class="w-full border-collapse">
@@ -238,6 +320,7 @@ function envLabel(env: number | undefined): string {
               </div>
             }
           </div>
+          }
         </div>
       } @else if (!loading()) {
         <div class="p-12 text-center">
@@ -256,6 +339,7 @@ export class ProfileComponent {
   private confirm = inject(ConfirmService);
   private toast = inject(AppToastService);
   private transloco = inject(TranslocoService);
+  readonly isMobile = inject(ViewportService).isMobile;
 
   readonly meResource = getApiMeProfileResource();
 

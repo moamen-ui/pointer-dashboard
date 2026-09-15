@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Pin,
@@ -83,12 +83,19 @@ export function Shell() {
 function ShellLayout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAdmin, isSuperAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
   const installGuide = useInstallGuide();
   const tour = useTour();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Belt-and-braces: the drawer already closes on an explicit nav-link click, but
+  // this also covers programmatic navigation (tour auto-navigate, redirects).
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const firstName = user?.displayName?.trim().split(/\s+/)[0] ?? '';
 
@@ -115,18 +122,20 @@ function ShellLayout() {
           <Menu className="h-4 w-4" />
         </Button>
 
-        {/* Brand: 16px pin icon + product name 14px/600 */}
-        <div className="flex items-center gap-2">
+        {/* Brand: 16px pin icon + product name 14px/600 — truncates so a long
+            white-label product name never pushes the end-side controls off a
+            360px header (DESIGN.md target: "header items fit at 360px"). */}
+        <div className="flex min-w-0 items-center gap-2">
           {branding?.assets?.logo ? (
             <img
               src={branding.assets.logo}
               alt={branding.productName}
-              className="h-6 max-w-[120px] object-contain"
+              className="h-6 max-w-[120px] shrink-0 object-contain"
             />
           ) : (
             <>
-              <Pin className="h-4 w-4 rotate-45 text-brand" />
-              <span className="text-[14px] font-semibold text-foreground">
+              <Pin className="h-4 w-4 shrink-0 rotate-45 text-brand" />
+              <span className="truncate text-[14px] font-semibold text-foreground">
                 {branding?.productName ? `${branding.productName} Admin` : t('header.brand')}
               </span>
             </>
@@ -255,7 +264,7 @@ function ShellLayout() {
                     onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
+                        'h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
                         isActive && 'bg-brand-tint text-brand font-semibold',
                       )
                     }
@@ -277,7 +286,7 @@ function ShellLayout() {
                   onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      'h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
+                      'h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
                       isActive && 'bg-brand-tint text-brand font-semibold',
                     )
                   }
@@ -298,7 +307,7 @@ function ShellLayout() {
                     onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
-                        'h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
+                        'h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
                         isActive && 'bg-brand-tint text-brand font-semibold',
                       )
                     }
@@ -317,7 +326,7 @@ function ShellLayout() {
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    'h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
+                    'h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground',
                     isActive && 'bg-brand-tint text-brand font-semibold',
                   )
                 }
@@ -336,7 +345,7 @@ function ShellLayout() {
                 setSidebarOpen(false);
                 tour.startTour();
               }}
-              className="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              className="h-8 max-md:h-11 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
             >
               <Compass className="h-4 w-4" />
               <span>{t('tour.quickTour')}</span>
@@ -349,7 +358,7 @@ function ShellLayout() {
                 setSidebarOpen(false);
                 installGuide.open();
               }}
-              className="h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
+              className="h-8 max-md:h-11 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
             >
               <Rocket className="h-4 w-4" />
               <span>{t('install.title')}</span>
@@ -360,9 +369,12 @@ function ShellLayout() {
           </div>
         </aside>
 
-        {/* Main: flex-1, overflow-auto, bg-background, p-6, inner max-w-[1120px] */}
-        <main className="flex-1 min-w-0 overflow-auto bg-background p-6">
-          <div className="mx-auto w-full max-w-[1120px] ms-0">
+        {/* Main: flex-1, overflow-auto, bg-background, p-6, inner max-w-[1120px].
+            overflow-x-clip is a belt-and-braces guard: the page itself should
+            never need to scroll horizontally (DESIGN.md), this just makes sure a
+            stray wide child can't force it to. */}
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-clip bg-background p-6">
+          <div className="mx-auto w-full min-w-0 max-w-[1120px] ms-0">
             <Outlet />
           </div>
         </main>

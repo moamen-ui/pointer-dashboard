@@ -1,8 +1,8 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { map } from 'rxjs';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { filter, map } from 'rxjs';
+import { Router, RouterOutlet, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
 import { BidiModule } from '@angular/cdk/bidi';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from '../../core/auth/auth.service';
@@ -79,17 +79,16 @@ const SUPER_ADMIN_NAV: NavItem[] = [
         </button>
       }
 
-      <!-- Brand -->
-      <div class="flex items-center gap-2 text-[14px] font-semibold text-foreground">
+      <!-- Brand: min-w-0 + truncate so a long product name never pushes the end-side icons (which
+           stay shrink-0) out of the 44px hit area they need at 360px. -->
+      <div class="flex items-center gap-2 text-[14px] font-semibold text-foreground min-w-0 flex-1">
         @if (branding.logo()) {
-          <img [src]="branding.logo()!" alt="" class="h-[20px] max-w-[120px] object-contain" />
+          <img [src]="branding.logo()!" alt="" class="h-[20px] max-w-[120px] object-contain shrink-0" />
         } @else {
-          <app-icon name="pin" [size]="16" class="text-brand rotate-45"></app-icon>
+          <app-icon name="pin" [size]="16" class="text-brand rotate-45 shrink-0"></app-icon>
         }
-        <span>{{ branding.productName() }} Admin</span>
+        <span class="truncate">{{ branding.productName() }} Admin</span>
       </div>
-
-      <span class="flex-1"></span>
 
       <!-- End side: Notifications bell + Install button + Account menu -->
       <app-notifications-bell />
@@ -120,7 +119,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
 
       <!-- Account menu button -->
       <button
-        class="flex items-center gap-2 px-2 rounded-md text-[14px] font-medium text-foreground hover:bg-gutter transition-colors h-8"
+        class="flex items-center gap-2 px-2 rounded-md text-[14px] font-medium text-foreground hover:bg-gutter transition-colors h-8 max-md:h-11"
         (click)="accountMenuOpen.set(!accountMenuOpen())"
         [attr.aria-label]="'header.account' | transloco"
       >
@@ -154,7 +153,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           }
           <a
             routerLink="/profile"
-            class="flex items-center gap-2 h-8 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
+            class="flex items-center gap-2 h-8 max-md:h-11 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
             (click)="closeMenus()"
           >
             <app-icon name="user-round" [size]="16"></app-icon>
@@ -162,7 +161,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           </a>
           <button
             type="button"
-            class="w-full flex items-center gap-2 h-8 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
+            class="w-full flex items-center gap-2 h-8 max-md:h-11 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
             (click)="openChangePassword(); closeMenus()"
           >
             <app-icon name="lock" [size]="16"></app-icon>
@@ -170,7 +169,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           </button>
           <button
             type="button"
-            class="w-full flex items-center gap-2 h-8 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
+            class="w-full flex items-center gap-2 h-8 max-md:h-11 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
             (click)="toggleTheme(); closeMenus()"
           >
             <app-icon [name]="prefs.theme() === 'dark' ? 'sun' : 'moon'" [size]="16"></app-icon>
@@ -178,7 +177,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           </button>
           <button
             type="button"
-            class="w-full flex items-center gap-2 h-8 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
+            class="w-full flex items-center gap-2 h-8 max-md:h-11 px-2 rounded-md text-[14px] text-foreground hover:bg-gutter text-start"
             (click)="togglePrefsLang(); closeMenus()"
           >
             <app-icon name="languages" [size]="16"></app-icon>
@@ -187,7 +186,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           <div class="border-t border-border-muted my-1"></div>
           <button
             type="button"
-            class="w-full flex items-center gap-2 h-8 px-2 rounded-md text-[14px] text-state-danger hover:bg-state-danger-tint text-start"
+            class="w-full flex items-center gap-2 h-8 max-md:h-11 px-2 rounded-md text-[14px] text-state-danger hover:bg-state-danger-tint text-start"
             (click)="auth.logout()"
           >
             <app-icon name="log-out" [size]="16"></app-icon>
@@ -223,7 +222,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
               <a
                 [routerLink]="item.to"
                 routerLinkActive="bg-brand-tint text-brand font-semibold"
-                class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+                class="h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
                 [attr.data-tour]="item.dataTour ?? null"
                 (click)="isMobile() && closeMobileNav()"
               >
@@ -237,7 +236,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
             <a
               [routerLink]="item.to"
               routerLinkActive="bg-brand-tint text-brand font-semibold"
-              class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+              class="h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
               [attr.data-tour]="item.dataTour ?? null"
               (click)="isMobile() && closeMobileNav()"
             >
@@ -251,7 +250,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
               <a
                 [routerLink]="item.to"
                 routerLinkActive="bg-brand-tint text-brand font-semibold"
-                class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+                class="h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
                 [attr.data-tour]="item.dataTour ?? null"
                 (click)="isMobile() && closeMobileNav()"
               >
@@ -264,7 +263,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           <a
             routerLink="/profile"
             routerLinkActive="bg-brand-tint text-brand font-semibold"
-            class="h-8 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
+            class="h-8 max-md:h-11 mx-2 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors"
             data-tour="nav-profile"
             (click)="isMobile() && closeMobileNav()"
           >
@@ -277,7 +276,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
         <div class="border-t border-border-muted pt-2 space-y-1 px-2">
           <button
             type="button"
-            class="w-full h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors text-start"
+            class="w-full h-8 max-md:h-11 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors text-start"
             (click)="tour.startTour(); closeMenus()"
             data-tour="tour-trigger"
           >
@@ -286,7 +285,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
           </button>
           <button
             type="button"
-            class="w-full h-8 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors text-start relative"
+            class="w-full h-8 max-md:h-11 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground hover:bg-gutter-strong hover:text-foreground transition-colors text-start relative"
             (click)="installGuide.open(); closeMenus()"
             data-tour="nav-install-guide"
           >
@@ -307,9 +306,11 @@ const SUPER_ADMIN_NAV: NavItem[] = [
         ></div>
       }
 
-      <!-- Main content area -->
-      <main class="flex-1 min-w-0 overflow-auto bg-background p-6">
-        <div class="mx-auto w-full max-w-[1120px]">
+      <!-- Main content area. overflow-x-clip is a belt-and-braces guard: every page and the
+           shared table/dialog already avoid horizontal overflow on their own, but a future page
+           that doesn't should still fail safely here rather than widening the whole app. -->
+      <main class="flex-1 min-w-0 overflow-y-auto overflow-x-clip bg-background p-6">
+        <div class="mx-auto w-full max-w-[1120px] min-w-0">
           <app-demo-panel />
           <router-outlet />
           <app-tour-spotlight />
@@ -336,6 +337,7 @@ export class ShellComponent {
   installGuide = inject(InstallGuideService);
   tour = inject(TourService);
   private appDialog = inject(AppDialogService);
+  private router = inject(Router);
 
   accountMenuOpen = signal(false);
   mobileNavOpen = signal(false);
@@ -350,6 +352,13 @@ export class ShellComponent {
   );
 
   constructor() {
+    // Belt-and-braces: every nav link already closes the drawer on click, but this catches any
+    // other way the route can change (the tour's own navigateByUrl(), browser back/forward,
+    // programmatic redirects) so the drawer never survives a route change on mobile.
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(() => this.closeMobileNav());
+
     effect(() => {
       if (this.installGuide.projectsResource.isLoading()) return;
       const user = this.auth.user();

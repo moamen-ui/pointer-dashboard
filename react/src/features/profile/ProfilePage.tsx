@@ -5,7 +5,7 @@
 // Query gating:
 //   isAdmin && id != null  → useGetApiAdminUsersIdProfile (enabled)
 //   otherwise              → useGetApiMeProfile            (enabled)
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,6 +39,7 @@ import { useStatusCatalog } from '@/lib/status-catalog';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { CountCell, DiffstatLine, statusTone, toneHeaderClass, toneTextClass } from '@/components/shared/CountCell';
+import { useMediaQuery, MOBILE_QUERY } from '@/lib/useMediaQuery';
 
 const ENV_LABEL: Record<number, string> = {
   1: 'Local',
@@ -88,6 +89,7 @@ export function ProfilePage() {
   const { isAdmin } = useAuth();
   const catalog = useStatusCatalog();
   const { toast } = useToast();
+  const isMobile = useMediaQuery(MOBILE_QUERY);
 
   // Parse numeric id from route params
   const numericId = id != null && id !== '' ? Number(id) : null;
@@ -288,6 +290,95 @@ export function ProfilePage() {
       {/* Projects section */}
       <div className="space-y-3">
         <h2 className="text-[16px] font-semibold leading-6">{t('overview.projects')}</h2>
+        {isMobile ? (
+          // Below `md` this list is never a horizontally-scrolling table (DESIGN.md
+          // target 1): one bordered card per project, name as the title, comments/
+          // replies/status counts as a compact label/value list, environments (when
+          // present) expand into nested mini-cards under the same toggle.
+          <div className="flex flex-col gap-2">
+            {projects.map((proj: ProfileProject) => {
+              const projId = proj.projectId ?? 0;
+              const hasEnvs = (proj.environments?.length ?? 0) > 0;
+              const isOpen = expanded.has(projId);
+              return (
+                <div key={projId} className="rounded-md border border-border bg-card p-3 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {hasEnvs ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(projId)}
+                          className="flex h-11 w-11 shrink-0 -m-2 items-center justify-center text-muted-foreground hover:text-foreground"
+                          aria-label={isOpen ? 'Collapse environments' : 'Expand environments'}
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+                      ) : (
+                        <span className="w-4 shrink-0" />
+                      )}
+                      <span className="min-w-0 break-words text-[14px] font-medium">{proj.name ?? proj.key}</span>
+                    </div>
+                    {proj.key && proj.name && (
+                      <code className="shrink-0 rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">
+                        {proj.key}
+                      </code>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
+                    <span className="text-muted-foreground">{t('overview.comments')}</span>
+                    <span className="text-end font-mono">{proj.comments ?? 0}</span>
+                    <span className="text-muted-foreground">{t('profile.replies')}</span>
+                    <span className="text-end font-mono">{proj.replies ?? 0}</span>
+                    {catalog.items.map((s) => (
+                      <Fragment key={s.value}>
+                        <span className="text-muted-foreground">{catalog.displayLabel(s)}</span>
+                        <span className="text-end">
+                          <CountCell count={getProjectStatusCount(proj, s.value)} tone={statusTone(s.value)} />
+                        </span>
+                      </Fragment>
+                    ))}
+                  </div>
+
+                  {isOpen && hasEnvs && (
+                    <div className="flex flex-col gap-2 border-t border-border-muted pt-2">
+                      {(proj.environments ?? []).map((env) => (
+                        <div key={env.environment} className="rounded-md bg-gutter/40 p-2 flex flex-col gap-1">
+                          <span className="text-[13px] italic text-muted-foreground">{envLabel(env.environment)}</span>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                            <span className="text-muted-foreground">{t('overview.comments')}</span>
+                            <span className="text-end font-mono">{env.comments ?? 0}</span>
+                            <span className="text-muted-foreground">{t('profile.replies')}</span>
+                            <span className="text-end font-mono">{env.replies ?? 0}</span>
+                            {catalog.items.map((s) => (
+                              <Fragment key={s.value}>
+                                <span className="text-muted-foreground">{catalog.displayLabel(s)}</span>
+                                <span
+                                  className={cn(
+                                    'text-end font-mono',
+                                    getEnvStatusCount(env, s.value) > 0
+                                      ? toneTextClass(statusTone(s.value))
+                                      : 'text-faint-foreground',
+                                  )}
+                                >
+                                  {getEnvStatusCount(env, s.value)}
+                                </span>
+                              </Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {projects.length === 0 && !isFetching && (
+              <p className="rounded-md border border-dashed border-border-muted p-3 text-[14px] text-muted-foreground">
+                {t('profile.noProjects')}
+              </p>
+            )}
+          </div>
+        ) : (
         <div className="rounded-md border border-border overflow-hidden">
           <Table>
             <TableHeader className="[&_tr]:bg-gutter [&_tr]:border-0">
@@ -375,6 +466,7 @@ export function ProfilePage() {
             </TableBody>
           </Table>
         </div>
+        )}
       </div>
 
       <ConfirmDialog

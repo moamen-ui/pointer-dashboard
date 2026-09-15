@@ -70,13 +70,13 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
         </button>
       </div>
 
-      <!-- Filter segmented control -->
-      <div class="flex flex-wrap items-center gap-3">
+      <!-- Filter segmented control: full-width, equal segments below sm -->
+      <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
         <span class="text-[13px] text-muted-foreground">{{ 'users.filter' | transloco }}</span>
-        <div class="inline-flex rounded-md border border-border bg-gutter p-0.5">
+        <div class="flex w-full rounded-md border border-border bg-gutter p-0.5 sm:inline-flex sm:w-auto">
           <button
             type="button"
-            class="h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors"
+            class="h-11 flex-1 px-3 rounded-[4px] text-[13px] font-medium transition-colors sm:h-7 sm:flex-none"
             [class.bg-background]="filter() === 'Approved'"
             [class.text-foreground]="filter() === 'Approved'"
             [class.text-muted-foreground]="filter() !== 'Approved'"
@@ -88,7 +88,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           </button>
           <button
             type="button"
-            class="h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors"
+            class="h-11 flex-1 px-3 rounded-[4px] text-[13px] font-medium transition-colors sm:h-7 sm:flex-none"
             [class.bg-background]="filter() === 'Pending'"
             [class.text-foreground]="filter() === 'Pending'"
             [class.text-muted-foreground]="filter() !== 'Pending'"
@@ -105,7 +105,7 @@ type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
           </button>
           <button
             type="button"
-            class="h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors"
+            class="h-11 flex-1 px-3 rounded-[4px] text-[13px] font-medium transition-colors sm:h-7 sm:flex-none"
             [class.bg-background]="filter() === 'Rejected'"
             [class.text-foreground]="filter() === 'Rejected'"
             [class.text-muted-foreground]="filter() !== 'Rejected'"
@@ -566,7 +566,7 @@ export class UsersComponent {
   // and so the conditional "requested" column follows the active filter.
   columns(): DataTableColumn<UserRow>[] {
     const cols: DataTableColumn<UserRow>[] = [
-      { key: 'email', header: this.transloco.translate('users.email') },
+      { key: 'email', header: this.transloco.translate('users.email'), mobile: 'primary' },
       { key: 'displayName', header: this.transloco.translate('users.name') },
       { key: 'role', header: this.transloco.translate('users.role') },
     ];

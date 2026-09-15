@@ -75,6 +75,7 @@ export function EnvironmentsPage() {
         accessorKey: 'name',
         header: t('environments.name'),
         enableSorting: true,
+        meta: { mobile: 'primary' },
         cell: ({ row }) => (
           <span className={`font-medium ${row.original.isRetired ? 'text-muted-foreground' : ''}`}>
             {row.original.name}
@@ -114,7 +115,7 @@ export function EnvironmentsPage() {
                 }
               }}
               disabled={patchEnabledMut.isPending}
-              className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed"
+              className="h-4 w-4 max-md:h-[36px] max-md:w-[36px] cursor-pointer disabled:cursor-not-allowed"
               aria-label={t('common.active')}
             />
           );

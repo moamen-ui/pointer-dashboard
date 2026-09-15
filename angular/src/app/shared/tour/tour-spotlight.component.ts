@@ -5,6 +5,7 @@ import { TourService } from '../../core/tour/tour.service';
 import { AppDialogService } from '../ui/app-dialog.service';
 import { AppButtonDirective } from '../ui/app-button.directive';
 import { AppIconComponent } from '../ui/app-icon.component';
+import { ViewportService } from '../ui/viewport.service';
 
 type TargetRect = {
   top: number;
@@ -171,6 +172,7 @@ export class TourSpotlightComponent implements OnInit, OnDestroy {
   tour = inject(TourService);
   prefs = inject(PreferencesService);
   private appDialog = inject(AppDialogService);
+  private viewport = inject(ViewportService);
 
   readonly welcomePrompt = viewChild.required<TemplateRef<unknown>>('welcomePrompt');
   private welcomeDialogRef: any;
@@ -217,8 +219,13 @@ export class TourSpotlightComponent implements OnInit, OnDestroy {
 
   constructor() {
     effect(() => {
+      // Below `md` the welcome prompt would cover the whole page on first load, so it stays
+      // suppressed there — `promptOpen` itself is untouched (not marked seen), so the effect
+      // re-fires and opens it the moment the viewport crosses back to `md`+ (a resize, or the
+      // next visit from a desktop). The tour itself stays reachable via the drawer's own
+      // "Quick tour" item either way (TourService.startTour() bypasses this prompt entirely).
       const promptOpen = this.tour.promptOpen();
-      if (promptOpen) {
+      if (promptOpen && !this.viewport.isMobile()) {
         this.openWelcomeDialog();
       }
     });

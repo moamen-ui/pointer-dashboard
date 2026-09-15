@@ -93,8 +93,12 @@ async function saveRow(row: EditRow) {
 // tall, 1px border, 6px radius, 8px inline padding, brand border + ring on
 // focus, and a borderless transparent inner input at ~0.8rem. Matches the
 // Angular statuses table so the row reads as one set of controls.
+// max-md:h-10 + max-md:items-stretch bump the touch target below md: the box
+// grows to a real ≥32px tall hit area and its borderless inner input/swatch
+// (no height of their own) stretch to fill it, rather than sitting as a
+// small centered sliver inside a taller box.
 const fieldClass =
-  'flex h-9 items-center gap-1.5 rounded-[6px] border border-input bg-transparent px-2 shadow-sm focus-within:border-brand focus-within:outline-none focus-within:ring-1 focus-within:ring-ring';
+  'flex h-9 items-center gap-1.5 rounded-[6px] border border-input bg-transparent px-2 shadow-sm focus-within:border-brand focus-within:outline-none focus-within:ring-1 focus-within:ring-ring max-md:h-10 max-md:items-stretch';
 const fieldInputClass =
   'w-full min-w-0 border-none bg-transparent p-0 text-[0.8rem] outline-none placeholder:text-muted-foreground';
 
@@ -120,7 +124,7 @@ async function resetRow(row: EditRow) {
 
 // A computed so headers follow live language switches.
 const columns = computed<ColumnDef<typeof dataTableFeatures, EditRow>[]>(() => [
-  { accessorKey: 'name', header: t('statuses.colName'), enableSorting: false },
+  { accessorKey: 'name', header: t('statuses.colName'), enableSorting: false, meta: { mobile: 'primary' } },
   { accessorKey: 'label', header: t('statuses.colLabel'), enableSorting: false },
   { accessorKey: 'color', header: t('statuses.colColor'), enableSorting: false },
   { accessorKey: 'order', header: t('statuses.colOrder'), enableSorting: false },
@@ -215,7 +219,7 @@ function badgeVariantForStatus(value: number | undefined) {
           <input
             v-model="row.color"
             type="color"
-            class="color-swatch h-6 w-6 flex-shrink-0 cursor-pointer rounded border-none bg-transparent p-0"
+            class="color-swatch h-6 w-6 flex-shrink-0 cursor-pointer rounded border-none bg-transparent p-0 max-md:h-10 max-md:w-10"
             :title="row.color"
             :aria-label="t('statuses.colColor')"
           />

@@ -150,6 +150,7 @@ export function CommentsPage() {
       id: 'body',
       header: t('comments.bodyColumn'),
       enableSorting: false,
+      meta: { mobile: 'primary' },
       cell: ({ row }) => {
         const c = row.original;
         return (
@@ -267,9 +268,13 @@ export function CommentsPage() {
         <EmptyState message={t('comments.noProjectsTitle')} hint={t('comments.noProjectsHint')} />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Filter toolbar: below `sm` every control stacks full-width (DESIGN.md
+              target: "filter toolbars wrap into a clean vertical stack below sm:
+              selects full-width, segmented controls full-width with equal
+              segments, search full-width"). */}
+          <div className="flex flex-wrap items-center gap-2.5 max-sm:flex-col max-sm:items-stretch">
             <Select value={projectKey || undefined} onValueChange={selectProject}>
-              <SelectTrigger className="h-8 w-[200px] shrink-0">
+              <SelectTrigger className="h-8 w-[200px] shrink-0 max-sm:w-full">
                 <SelectValue placeholder={t('comments.projectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
@@ -285,7 +290,7 @@ export function CommentsPage() {
               value={statusParam || 'all'}
               onValueChange={(v) => updateParams({ status: v === 'all' ? null : v })}
             >
-              <SelectTrigger className="h-8 w-[150px] shrink-0">
+              <SelectTrigger className="h-8 w-[150px] shrink-0 max-sm:w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -302,7 +307,7 @@ export function CommentsPage() {
               value={envParam || 'all'}
               onValueChange={(v) => updateParams({ env: v === 'all' ? null : v })}
             >
-              <SelectTrigger className="h-8 w-[150px] shrink-0">
+              <SelectTrigger className="h-8 w-[150px] shrink-0 max-sm:w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -319,12 +324,13 @@ export function CommentsPage() {
               size="sm"
               onClick={() => updateParams({ flagged: flaggedParam ? null : '1' })}
               aria-pressed={flaggedParam}
+              className="max-sm:w-full"
             >
               <AlertTriangle className="h-4 w-4" />
               {t('comments.flagged')}
             </Button>
 
-            <div className="inline-flex shrink-0 gap-0.5 rounded-md border border-border bg-gutter p-0.5">
+            <div className="inline-flex shrink-0 gap-0.5 rounded-md border border-border bg-gutter p-0.5 max-sm:flex max-sm:w-full">
               {(
                 [
                   { value: null, label: t('comments.deployAll') },
@@ -337,7 +343,7 @@ export function CommentsPage() {
                   type="button"
                   onClick={() => updateParams({ live: opt.value })}
                   className={cn(
-                    'h-7 whitespace-nowrap rounded-[4px] px-3 text-[13px] font-medium transition-colors',
+                    'h-7 max-md:h-11 whitespace-nowrap rounded-[4px] px-3 text-[13px] font-medium transition-colors max-sm:flex-1',
                     (liveParam ?? null) === opt.value
                       ? 'border border-border bg-background text-foreground'
                       : 'text-muted-foreground hover:text-foreground',
@@ -348,7 +354,7 @@ export function CommentsPage() {
               ))}
             </div>
 
-            <div className="relative w-full max-w-xs">
+            <div className="relative w-full max-w-xs max-sm:max-w-full">
               <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={searchInput}

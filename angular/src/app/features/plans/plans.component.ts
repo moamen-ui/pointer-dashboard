@@ -399,8 +399,8 @@ export class PlansComponent {
     { key: 'prioritySupport', label: 'plans.ent.prioritySupport', isBool: true },
   ];
 
-  columns = computed(() => [
-    { key: 'name', header: this.transloco.translate('plans.colName') },
+  columns = computed<DataTableColumn<PlanAdminResponse>[]>(() => [
+    { key: 'name', header: this.transloco.translate('plans.colName'), mobile: 'primary' },
     { key: 'slug', header: this.transloco.translate('plans.colSlug') },
     { key: 'price', header: this.transloco.translate('plans.colPrice') },
     { key: 'isActive', header: this.transloco.translate('plans.colActive') },

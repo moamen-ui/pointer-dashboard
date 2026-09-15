@@ -1212,7 +1212,7 @@ export function ProjectsPage() {
   const columns: ColumnDef<ProjectResponse>[] = [
     { accessorKey: 'key', header: t('projects.key'),
       cell: ({ row }) => <code className="whitespace-nowrap rounded bg-gutter px-1.5 py-0.5 font-mono text-[13px]">{row.original.key}</code> },
-    { accessorKey: 'name', header: t('projects.name'),
+    { accessorKey: 'name', header: t('projects.name'), meta: { mobile: 'primary' },
       cell: ({ row }) => <span className="whitespace-nowrap">{row.original.name}</span> },
     { accessorKey: 'createdByName', header: t('projects.createdBy'),
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.createdByName ?? '—'}</span> },

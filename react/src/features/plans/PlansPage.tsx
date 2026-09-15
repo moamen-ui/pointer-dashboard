@@ -260,7 +260,7 @@ export function PlansPage() {
   }
 
   const columns: ColumnDef<PlanAdminResponse>[] = [
-    { accessorKey: 'name', enableSorting: false, header: t('plans.colName'),
+    { accessorKey: 'name', enableSorting: false, header: t('plans.colName'), meta: { mobile: 'primary' },
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
     { accessorKey: 'slug', enableSorting: false, header: t('plans.colSlug'),
       cell: ({ row }) => <span className="font-mono text-[13px] text-muted-foreground">{row.original.slug}</span> },

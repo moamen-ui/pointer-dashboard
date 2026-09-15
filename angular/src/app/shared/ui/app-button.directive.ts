@@ -16,10 +16,13 @@ const VARIANTS: Record<ButtonVariant, string> = {
   link: 'text-brand underline-offset-4 hover:underline h-auto px-0',
 };
 
+// Below `md`, every size grows to at least a 40px touch target (44px for icon buttons, which have
+// no label to pad the hit area) without changing anything at `md` and up — a `git diff` should show
+// only `max-md:` additions here, never a change to the desktop values.
 const SIZES: Record<ButtonSize, string> = {
-  default: 'h-8 px-3',
-  sm: 'h-7 px-2.5 text-[13px]',
-  icon: 'w-8 px-0 h-8',
+  default: 'h-8 px-3 max-md:h-10 max-md:px-3.5',
+  sm: 'h-7 px-2.5 text-[13px] max-md:h-10 max-md:px-3',
+  icon: 'w-8 px-0 h-8 max-md:h-11 max-md:w-11',
 };
 
 /**

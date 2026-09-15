@@ -88,7 +88,7 @@ function fail(e: unknown) {
 // A computed so headers follow live language switches (Angular re-evaluates
 // its columns() every pass for the same reason).
 const columns = computed<ColumnDef<typeof dataTableFeatures, RoleResponse>[]>(() => [
-  { accessorKey: 'name', header: t('roles.name'), enableSorting: false },
+  { accessorKey: 'name', header: t('roles.name'), enableSorting: false, meta: { mobile: 'primary' } },
   { accessorKey: 'grantsAdmin', header: t('roles.grantsAdmin'), enableSorting: false },
   { accessorKey: 'quickAccess', header: t('roles.quickAccess'), enableSorting: false },
   { id: 'status', header: t('roles.status'), enableSorting: false },
@@ -296,7 +296,7 @@ async function deleteRole() {
           role="switch"
           :aria-checked="!!row.grantsAdmin"
           :aria-label="t('roles.grantsAdmin')"
-          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground max-md:h-10 max-md:w-10"
           @click="toggleGrantsAdmin(row, !row.grantsAdmin)"
         >
           <CheckCircle2 v-if="row.grantsAdmin" class="h-4 w-4 text-state-completed" />
@@ -313,7 +313,7 @@ async function deleteRole() {
           role="switch"
           :aria-checked="!!row.quickAccess"
           :aria-label="t('roles.quickAccess')"
-          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground max-md:h-10 max-md:w-10"
           @click="toggleQuickAccess(row, !row.quickAccess)"
         >
           <CheckCircle2 v-if="row.quickAccess" class="h-4 w-4 text-state-completed" />

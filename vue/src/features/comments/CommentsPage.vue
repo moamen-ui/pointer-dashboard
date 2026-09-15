@@ -189,7 +189,7 @@ function goNextPage() {
 
 // ── Table ─────────────────────────────────────────────────────────────
 const columns = computed<ColumnDef<typeof dataTableFeatures, CommentListItemDto>[]>(() => [
-  { id: 'body', header: t('comments.bodyColumn'), enableSorting: false },
+  { id: 'body', header: t('comments.bodyColumn'), enableSorting: false, meta: { mobile: 'primary' } },
   { id: 'status', header: t('comments.statusColumn'), enableSorting: false },
   { id: 'environment', header: t('comments.environmentColumn'), enableSorting: false },
   { id: 'route', header: t('comments.routeColumn'), enableSorting: false },
@@ -242,13 +242,13 @@ function onDetailDeleted() {
     />
 
     <template v-else>
-      <!-- Filter bar -->
-      <div class="flex flex-wrap items-center gap-2">
+      <!-- Filter bar — below sm: a clean vertical stack, every control full width. -->
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
         <Select
           :model-value="statusFilter != null ? String(statusFilter) : 'all'"
           @update:model-value="(v: any) => (statusFilter = v === 'all' ? undefined : Number(v))"
         >
-          <SelectTrigger class="h-8 w-[9.5rem]">
+          <SelectTrigger class="h-8 w-full max-sm:h-10 sm:w-[9.5rem]">
             <SelectValue :placeholder="t('comments.statusLabel')" />
           </SelectTrigger>
           <SelectContent>
@@ -264,7 +264,7 @@ function onDetailDeleted() {
           :model-value="envFilter != null ? String(envFilter) : 'all'"
           @update:model-value="(v: any) => (envFilter = v === 'all' ? undefined : Number(v))"
         >
-          <SelectTrigger class="h-8 w-[9.5rem]">
+          <SelectTrigger class="h-8 w-full max-sm:h-10 sm:w-[9.5rem]">
             <SelectValue :placeholder="t('comments.environmentLabel')" />
           </SelectTrigger>
           <SelectContent>
@@ -278,6 +278,7 @@ function onDetailDeleted() {
         <Button
           type="button"
           size="sm"
+          class="max-sm:h-10 max-sm:w-full"
           :variant="flaggedFilter ? 'default' : 'outline'"
           @click="flaggedFilter = !flaggedFilter"
         >
@@ -285,12 +286,12 @@ function onDetailDeleted() {
         </Button>
 
         <!-- Live tri-state segmented control -->
-        <div class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
+        <div class="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5 max-sm:flex max-sm:w-full">
           <button
             type="button"
             :class="
               cn(
-                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:h-10 max-sm:flex-1',
                 liveFilter === undefined
                   ? 'bg-background text-foreground border border-border'
                   : 'text-muted-foreground hover:text-foreground',
@@ -304,7 +305,7 @@ function onDetailDeleted() {
             type="button"
             :class="
               cn(
-                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:h-10 max-sm:flex-1',
                 liveFilter === false
                   ? 'bg-background text-foreground border border-border'
                   : 'text-muted-foreground hover:text-foreground',
@@ -318,7 +319,7 @@ function onDetailDeleted() {
             type="button"
             :class="
               cn(
-                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors max-sm:h-10 max-sm:flex-1',
                 liveFilter === true
                   ? 'bg-background text-foreground border border-border'
                   : 'text-muted-foreground hover:text-foreground',
@@ -330,9 +331,9 @@ function onDetailDeleted() {
           </button>
         </div>
 
-        <div class="relative w-full max-w-[240px]">
+        <div class="relative w-full sm:max-w-[240px]">
           <Search class="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input v-model="searchInput" class="h-8 ps-9" :placeholder="t('comments.searchPlaceholder')" />
+          <Input v-model="searchInput" class="h-8 max-sm:h-10 ps-9" :placeholder="t('comments.searchPlaceholder')" />
         </div>
       </div>
 
@@ -398,15 +399,15 @@ function onDetailDeleted() {
            and this list is paged server-side at 25/page). Same grammar as its built-in footer. -->
       <div
         v-if="pagination && (pagination.totalPages ?? 1) > 1"
-        class="flex h-11 items-center justify-between rounded-md border border-border bg-background px-3 text-[13px] text-muted-foreground"
+        class="flex min-h-11 flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-[13px] text-muted-foreground max-md:justify-center md:justify-between"
       >
-        <span>{{ t('table.rowsOf', { shown: items.length, total: pagination.totalItems ?? 0 }) }}</span>
+        <span class="max-md:hidden">{{ t('table.rowsOf', { shown: items.length, total: pagination.totalItems ?? 0 }) }}</span>
         <div class="flex items-center gap-2">
-          <Button variant="secondary" size="sm" :aria-label="t('table.previousPage')" :disabled="!canPrevPage" @click="goPrevPage">
+          <Button variant="secondary" size="sm" class="max-md:h-10 max-md:min-w-10" :aria-label="t('table.previousPage')" :disabled="!canPrevPage" @click="goPrevPage">
             <ChevronLeft class="h-4 w-4 rtl:-scale-x-100" />
           </Button>
           <span>{{ t('table.pageOf', { page: pagination.pageNumber ?? 1, pages: pagination.totalPages ?? 1 }) }}</span>
-          <Button variant="secondary" size="sm" :aria-label="t('table.nextPage')" :disabled="!canNextPage" @click="goNextPage">
+          <Button variant="secondary" size="sm" class="max-md:h-10 max-md:min-w-10" :aria-label="t('table.nextPage')" :disabled="!canNextPage" @click="goNextPage">
             <ChevronRight class="h-4 w-4 rtl:-scale-x-100" />
           </Button>
         </div>

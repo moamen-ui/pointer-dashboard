@@ -69,7 +69,7 @@ function fail(e: unknown) {
 // A computed so headers follow live language switches (Angular re-evaluates
 // its columns() every pass for the same reason).
 const columns = computed<ColumnDef<typeof dataTableFeatures, AppEnvironmentResponse>[]>(() => [
-  { accessorKey: 'name', header: t('environments.name') },
+  { accessorKey: 'name', header: t('environments.name'), meta: { mobile: 'primary' } },
   { id: 'scope', header: t('environments.scope') },
   { id: 'enabled', header: t('environments.enabled') },
 ]);

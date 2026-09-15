@@ -119,7 +119,7 @@ const httpUrlOrEmpty: ValidatorFn = (control: AbstractControl): ValidationErrors
   ],
   template: `
     <div class="space-y-6">
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
         <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ 'projects.title' | transloco }}</h1>
         @if (!auth.isSuperAdmin()) {
           <button appButton variant="primary" data-tour="add-project-btn" (click)="openAdd()">
@@ -944,7 +944,7 @@ export class ProjectsComponent {
   columns(): DataTableColumn<ProjectResponse>[] {
     return [
       { key: 'key', header: this.transloco.translate('projects.key'), sortable: true },
-      { key: 'name', header: this.transloco.translate('projects.name'), sortable: true },
+      { key: 'name', header: this.transloco.translate('projects.name'), sortable: true, mobile: 'primary' },
       { key: 'createdBy', header: this.transloco.translate('projects.createdBy'), sortable: true },
       { key: 'comments', header: this.transloco.translate('projects.comments'), sortable: true },
       { key: 'status', header: this.transloco.translate('projects.status') },

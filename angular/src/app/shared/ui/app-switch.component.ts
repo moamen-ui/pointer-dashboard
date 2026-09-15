@@ -12,21 +12,28 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
   selector: 'app-switch',
   standalone: true,
   template: `
+    <!-- The 32x18 track never changes size (visual parity with desktop); below md the outer
+         button pads its hit area out to a 44px square around it, so the tap target grows without
+         the switch itself looking bigger. -->
     <button
       type="button"
       role="switch"
       [attr.aria-checked]="checked()"
       [disabled]="disabled()"
-      class="w-8 h-4.5 rounded-full transition-colors"
-      [class.bg-brand]="checked()"
-      [class.bg-gutter-strong]="!checked()"
+      class="inline-flex items-center justify-center max-md:min-h-11 max-md:min-w-11"
       (click)="toggle()"
     >
       <span
-        class="block w-3.5 h-3.5 rounded-full bg-white transition-all"
-        [class.translate-x-4]="checked()"
-        [class.translate-x-0.5]="!checked()"
-      ></span>
+        class="block w-8 h-4.5 rounded-full transition-colors"
+        [class.bg-brand]="checked()"
+        [class.bg-gutter-strong]="!checked()"
+      >
+        <span
+          class="block w-3.5 h-3.5 rounded-full bg-white transition-all"
+          [class.translate-x-4]="checked()"
+          [class.translate-x-0.5]="!checked()"
+        ></span>
+      </span>
     </button>
   `,
   providers: [

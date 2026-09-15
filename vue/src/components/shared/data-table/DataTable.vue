@@ -5,10 +5,12 @@ import { useI18n } from 'vue-i18n';
 import {
   FlexRender,
   useTable,
+  type Cell,
   type Column,
   type ColumnDef,
   type Header,
   type PaginationState,
+  type Row,
   type RowData,
 } from '@tanstack/vue-table';
 import {
@@ -32,6 +34,8 @@ import {
 } from '@/components/ui/table';
 import RowActionsMenu from '@/components/shared/RowActionsMenu.vue';
 import type { RowActionItem } from '@/components/shared/types';
+import { MOBILE_QUERY, useMediaQuery } from '@/composables/useMediaQuery';
+import { cn } from '@/lib/utils';
 import { dataTableFeatures } from './features';
 
 const PAGE_SIZE = 10;
@@ -185,6 +189,86 @@ function headerClass(header: Header<typeof dataTableFeatures, TData>): string {
 function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
   return column.getIsSorted() === 'asc' ? ArrowUp : column.getIsSorted() === 'desc' ? ArrowDown : ArrowUpDown;
 }
+
+// ── Mobile card view (< md): each row becomes a card instead of a table
+// row. A column opts in to the layout via `meta.mobile`: 'primary' picks the
+// card's title (falls back to the first non-gutter/actions column when none
+// is marked), 'hide' drops a redundant column (index, ids, duplicated info)
+// from the card body entirely. Row actions render as a full-width button
+// row at the card's bottom instead of the desktop's trailing kebab menu, so
+// no capability is hidden behind an extra tap.
+const isMobile = useMediaQuery(MOBILE_QUERY);
+
+type MobileColumnMeta = { mobile?: 'primary' | 'hide'; headerClass?: string };
+
+function mobileMetaOf(column: Column<typeof dataTableFeatures, TData>): MobileColumnMeta {
+  return (column.columnDef.meta as MobileColumnMeta | undefined) ?? {};
+}
+
+function bodyCells(row: Row<typeof dataTableFeatures, TData>): Cell<typeof dataTableFeatures, TData>[] {
+  return row.getAllCells().filter((c) => c.column.id !== '__gutter__' && c.column.id !== '__actions__');
+}
+
+function primaryCell(
+  row: Row<typeof dataTableFeatures, TData>,
+): Cell<typeof dataTableFeatures, TData> | undefined {
+  const cells = bodyCells(row);
+  return cells.find((c) => mobileMetaOf(c.column).mobile === 'primary') ?? cells[0];
+}
+
+// A column with a real accessor (accessorKey/accessorFn) and a genuinely empty
+// scalar value is skipped on mobile per the spec ("skip empty"). Id-only
+// columns (custom-cell escape hatch — status badges, inline-edit controls,
+// toggle buttons) have no reliable scalar to test and always show: hiding one
+// would silently remove a capability, which the spec forbids.
+function hasAccessor(cell: Cell<typeof dataTableFeatures, TData>): boolean {
+  const def = cell.column.columnDef as { accessorKey?: string; accessorFn?: unknown };
+  return typeof def.accessorKey === 'string' || typeof def.accessorFn === 'function';
+}
+
+function isEmptyValue(cell: Cell<typeof dataTableFeatures, TData>): boolean {
+  if (!hasAccessor(cell)) return false;
+  try {
+    const v = cell.getValue();
+    return v === null || v === undefined || v === '';
+  } catch {
+    return false;
+  }
+}
+
+function secondaryCells(
+  row: Row<typeof dataTableFeatures, TData>,
+): Cell<typeof dataTableFeatures, TData>[] {
+  const primary = primaryCell(row);
+  return bodyCells(row).filter(
+    (c) => c !== primary && mobileMetaOf(c.column).mobile !== 'hide' && !isEmptyValue(c),
+  );
+}
+
+function headerFor(
+  cell: Cell<typeof dataTableFeatures, TData>,
+): Header<typeof dataTableFeatures, TData> | undefined {
+  return table.getHeaderGroups()[0]?.headers.find((h) => h.column.id === cell.column.id);
+}
+
+function actionsForRow(row: Row<typeof dataTableFeatures, TData>): RowActionItem[] {
+  return props.actions?.(row.original) ?? [];
+}
+
+// Same severity → color mapping as RowActionsMenu, for the mobile action row's
+// icon-only buttons.
+function actionSeverityClass(severity?: RowActionItem['severity']): string {
+  switch (severity) {
+    case 'danger':
+      return 'text-destructive';
+    case 'success':
+      return 'text-success';
+    case 'warning':
+      return 'text-warning';
+    default:
+      return 'text-muted-foreground';
+  }
+}
 </script>
 
 <template>
@@ -201,6 +285,8 @@ function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
       />
     </div>
 
+    <!-- Desktop / tablet: the full table, unchanged. -->
+    <template v-if="!isMobile">
     <!-- Empty state (when data.length === 0): three ghost rows with dashed borders -->
     <template v-if="data.length === 0">
       <Card class="overflow-hidden">
@@ -398,6 +484,154 @@ function sortIcon(column: Column<typeof dataTableFeatures, TData>): Component {
           </TableBody>
         </Table>
       </Card>
+    </template>
+    </template>
+
+    <!-- Mobile (< md): one card per row. Header hidden, sorting disabled — the
+         card grammar replaces both. -->
+    <template v-else>
+      <!-- Empty state -->
+      <div
+        v-if="data.length === 0"
+        class="rounded-md border border-dashed border-border-muted p-4 flex flex-col gap-2"
+      >
+        <div v-if="emptyMessage" class="flex flex-col gap-1">
+          <span class="text-[14px] text-muted-foreground">{{ emptyMessage }}</span>
+          <span v-if="emptyHint" class="text-[12px] text-muted-foreground">{{ emptyHint }}</span>
+        </div>
+        <slot name="empty-action" />
+      </div>
+
+      <!-- Loading skeleton -->
+      <div v-else-if="loading" class="flex flex-col gap-3">
+        <div
+          v-for="idx in 3"
+          :key="`m-skeleton-${idx}`"
+          class="rounded-md border border-border p-3 flex flex-col gap-2"
+        >
+          <div class="h-3 w-2/3 rounded bg-gutter animate-pulse" />
+          <div class="h-3 w-1/2 rounded bg-gutter animate-pulse" />
+        </div>
+      </div>
+
+      <!-- Cards -->
+      <template v-else>
+        <div v-if="rows.length === 0" class="rounded-md border border-border px-3 py-4 text-[14px] text-muted-foreground">
+          <div class="flex flex-col gap-2">
+            <span>{{ t('table.noResultsFor', { query: globalFilter }) }}</span>
+            <Button type="button" variant="link" class="h-auto self-start p-0 text-[14px]" @click="globalFilter = ''">
+              {{ t('table.clearSearch') }}
+            </Button>
+          </div>
+        </div>
+
+        <div v-else class="flex flex-col gap-3">
+          <div
+            v-for="row in rows"
+            :key="row.id"
+            :class="
+              cn(
+                'rounded-md border border-border bg-background overflow-hidden',
+                rowClick ? 'cursor-pointer' : '',
+              )
+            "
+            :role="rowClick ? 'button' : undefined"
+            :tabindex="rowClick ? 0 : undefined"
+            @click="rowClick?.(row.original)"
+            @keydown.enter="rowClick?.(row.original)"
+          >
+            <div class="p-3 flex flex-col gap-2 min-w-0">
+              <!-- Card title: the column marked meta.mobile = 'primary' (first
+                   non-gutter/actions column otherwise), full text, wraps. -->
+              <div class="text-[14px] font-medium leading-5 break-words min-w-0">
+                <slot
+                  :name="`cell-${primaryCell(row)?.column.id}`"
+                  :row="row.original"
+                  :cell="primaryCell(row)"
+                >
+                  <FlexRender v-if="primaryCell(row)" :cell="primaryCell(row)!" />
+                </slot>
+              </div>
+
+              <!-- Remaining columns: compact label/value list. Empty scalar
+                   values and columns marked meta.mobile = 'hide' are skipped. -->
+              <dl
+                v-if="secondaryCells(row).length > 0"
+                class="grid grid-cols-[minmax(0,38%)_minmax(0,62%)] gap-x-3 gap-y-1.5"
+              >
+                <template v-for="cell in secondaryCells(row)" :key="cell.id">
+                  <dt class="text-[12px] text-muted-foreground pt-0.5 min-w-0 break-words">
+                    <FlexRender v-if="headerFor(cell)" :header="headerFor(cell)!" />
+                  </dt>
+                  <dd class="text-[13px] text-foreground min-w-0 break-words">
+                    <slot :name="`cell-${cell.column.id}`" :row="row.original" :cell="cell">
+                      <FlexRender :cell="cell" />
+                    </slot>
+                  </dd>
+                </template>
+              </dl>
+            </div>
+
+            <!-- Row actions: one full-width, min-h-11 row at the card bottom
+                 instead of the desktop trailing kebab menu, so every action
+                 stays directly reachable. -->
+            <div
+              v-if="actions && actionsForRow(row).length > 0"
+              class="flex border-t border-border-muted"
+              @click="(e: Event) => e.stopPropagation()"
+            >
+              <button
+                v-for="(item, idx) in actionsForRow(row)"
+                :key="idx"
+                type="button"
+                :disabled="item.disabled"
+                :title="item.tooltip ?? item.label"
+                :aria-label="item.label"
+                :class="
+                  cn(
+                    'flex-1 min-h-11 flex items-center justify-center gap-1.5 text-[13px] font-medium transition-colors',
+                    'border-e border-border-muted last:border-e-0 disabled:opacity-50 disabled:cursor-not-allowed',
+                    actionSeverityClass(item.severity),
+                    !item.disabled && 'hover:bg-gutter',
+                  )
+                "
+                @click="item.onClick()"
+              >
+                <component :is="item.icon" v-if="item.icon" class="h-4 w-4 shrink-0" />
+                <span class="truncate">{{ item.label }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compact pager: prev / "n of m" / next -->
+        <div
+          v-if="paginated && pageCount > 1"
+          class="min-h-11 flex items-center justify-center gap-3 text-[13px] text-muted-foreground"
+        >
+          <Button
+            variant="secondary"
+            size="sm"
+            class="h-10 min-w-10"
+            :aria-label="t('table.previousPage')"
+            :disabled="!table.getCanPreviousPage()"
+            @click="table.previousPage()"
+          >
+            <ChevronLeft class="h-4 w-4 rtl:-scale-x-100" />
+          </Button>
+          <span>{{ t('table.pageOf', { page: pageIndex + 1, pages: pageCount }) }}</span>
+          <Button
+            variant="secondary"
+            size="sm"
+            class="h-10 min-w-10"
+            :aria-label="t('table.nextPage')"
+            :disabled="!table.getCanNextPage()"
+            @click="table.nextPage()"
+          >
+            <ChevronRight class="h-4 w-4 rtl:-scale-x-100" />
+          </Button>
+        </div>
+      </template>
     </template>
   </div>
 </template>

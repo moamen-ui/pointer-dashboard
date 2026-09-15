@@ -16,6 +16,7 @@ import { AppSelectComponent, type SelectOption } from '../../shared/ui/app-selec
 import { AppFormFieldComponent } from '../../shared/ui/app-form-field.component';
 import { AppToastService } from '../../shared/ui/app-toast.service';
 import { AppDialogService } from '../../shared/ui/app-dialog.service';
+import { ViewportService } from '../../shared/ui/viewport.service';
 import type { RoleResponse } from '@moamen-ui/pointer-angular';
 
 @Component({
@@ -51,7 +52,101 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
         </button>
       </div>
 
-      <!-- Roles table -->
+      <!-- Roles table (mobile: one card per role, same fields as label/value pairs) -->
+      @if (isMobile()) {
+        <div class="rounded-md border border-border divide-y divide-border-muted">
+          @if (roles().length > 0) {
+            @for (role of roles(); track role.id) {
+              <div class="p-3">
+                <div class="text-[14px] font-medium text-foreground break-words">
+                  {{ role.name }}
+                  @if (role.isSystem) {
+                    <span class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-medium ms-2 text-state-archived bg-state-archived-tint border-state-archived/30">
+                      {{ 'roles.system' | transloco }}
+                    </span>
+                  }
+                </div>
+                <dl class="mt-2 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+                  <dt class="text-[12px] text-muted-foreground self-center">{{ 'roles.grantsAdmin' | transloco }}</dt>
+                  <dd class="text-[13px] text-foreground">
+                    @if (canManage(role) && !role.isSystem) {
+                      <button
+                        type="button"
+                        role="switch"
+                        [attr.aria-checked]="!!role.grantsAdmin"
+                        [attr.aria-label]="'roles.grantsAdmin' | transloco"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground -ms-2"
+                        (click)="toggleGrantsAdmin(role, !role.grantsAdmin)"
+                      >
+                        @if (role.grantsAdmin) {
+                          <app-icon name="circle-check" [size]="16" class="text-state-completed"></app-icon>
+                        } @else {
+                          <span aria-hidden="true">—</span>
+                        }
+                      </button>
+                    } @else if (role.grantsAdmin) {
+                      <app-icon name="circle-check" [size]="16" class="text-state-completed"></app-icon>
+                    } @else {
+                      <span class="text-faint-foreground">—</span>
+                    }
+                  </dd>
+                  <dt class="text-[12px] text-muted-foreground self-center">{{ 'roles.quickAccess' | transloco }}</dt>
+                  <dd class="text-[13px] text-foreground">
+                    @if (canManage(role) && !role.isSystem) {
+                      <button
+                        type="button"
+                        role="switch"
+                        [attr.aria-checked]="!!role.quickAccess"
+                        [attr.aria-label]="'roles.quickAccess' | transloco"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-md text-faint-foreground transition-colors hover:bg-gutter hover:text-foreground -ms-2"
+                        (click)="toggleQuickAccess(role, !role.quickAccess)"
+                      >
+                        @if (role.quickAccess) {
+                          <app-icon name="circle-check" [size]="16" class="text-state-completed"></app-icon>
+                        } @else {
+                          <span aria-hidden="true">—</span>
+                        }
+                      </button>
+                    } @else if (role.quickAccess) {
+                      <app-icon name="circle-check" [size]="16" class="text-state-completed"></app-icon>
+                    } @else {
+                      <span class="text-faint-foreground">—</span>
+                    }
+                  </dd>
+                  <dt class="text-[12px] text-muted-foreground self-center">{{ 'roles.status' | transloco }}</dt>
+                  <dd class="text-[13px] text-foreground">
+                    <app-badge [severity]="role.isActive ? 'success' : 'neutral'">
+                      {{ (role.isActive ? 'common.active' : 'common.disabled') | transloco }}
+                    </app-badge>
+                  </dd>
+                </dl>
+                @if (canToggleActive(role)) {
+                  <div class="mt-3 pt-3 border-t border-border-muted min-h-11 flex items-center justify-end">
+                    <button
+                      appButton
+                      variant="ghost"
+                      size="icon"
+                      [attr.aria-label]="'common.actions' | transloco"
+                      (click)="openRowMenu(role, $event)"
+                    >
+                      <app-icon name="ellipsis-vertical" [size]="16"></app-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          } @else {
+            <div class="p-3">
+              <span class="text-[14px] text-muted-foreground">{{ 'roles.empty' | transloco }}</span>
+              <div class="mt-3">
+                <button appButton variant="primary" size="sm" (click)="openAdd()">
+                  {{ 'roles.addRole' | transloco }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
       <div class="rounded-md border border-border overflow-x-auto">
         @if (roles().length > 0) {
           <table class="w-full border-collapse">
@@ -181,6 +276,7 @@ import type { RoleResponse } from '@moamen-ui/pointer-angular';
           </table>
         }
       </div>
+      }
     </div>
 
     <!-- Add role dialog -->
@@ -309,6 +405,7 @@ export class RolesComponent {
   private confirm = inject(ConfirmService);
   private auth = inject(AuthService);
   private appDialog = inject(AppDialogService);
+  readonly isMobile = inject(ViewportService).isMobile;
 
   readonly addDialog = viewChild.required<TemplateRef<unknown>>('addDialog');
   readonly deleteDialog = viewChild.required<TemplateRef<unknown>>('deleteDialog');
