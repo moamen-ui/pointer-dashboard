@@ -1,4 +1,6 @@
-// Environments admin page — React port of angular/.../environments/environments.component.ts.
+// Environments admin page — originally ported from the retired Angular app's
+// environments.component.ts (Angular/Vue retired 2026-09-15; preserved on branch
+// legacy/angular-vue, commit 6954ad2).
 // A super-admin-seeded global catalog ("default", "prod", "staging", "testing") every
 // tenant sees, plus each tenant's own custom environments layered on top. First page
 // built on the shared DataTable/Badge/RowActionsMenu library.

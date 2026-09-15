@@ -1,1 +1,0 @@
-../../.claude/skills/pointer-feedback/SKILL.md

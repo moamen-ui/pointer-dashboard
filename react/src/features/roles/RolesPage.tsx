@@ -1,4 +1,5 @@
-// Roles admin page. React port of angular/.../roles/roles.component.ts.
+// Roles admin page. Originally ported from the retired Angular app's roles.component.ts
+// (Angular/Vue retired 2026-09-15; preserved on branch legacy/angular-vue, commit 6954ad2).
 // list (name, grants-admin, quick-access, status) + create/rename/enable-disable
 // + delete with delegation (reassign users to another active, non-system role).
 //

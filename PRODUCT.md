@@ -49,8 +49,10 @@ applied/live state) and never an edit surface for feedback. **Private comments s
 they appear only as a "N private comments hidden" count — and captured DOM is only ever the
 server-sanitized snapshot (`SnapshotSanitizer`, `captureTextContent` off by default).
 
-The same dashboard ships in **three frameworks at feature and UX parity** (Angular, React, Vue),
-each on its own live host. Parity is a product commitment, see Constraints.
+The dashboard is a single React app. It previously shipped in three frameworks at feature and UX
+parity (Angular, React, Vue); Angular and Vue were retired on 2026-09-15 and are preserved on
+branch `legacy/angular-vue` (tag `last-three-apps`, commit `6954ad2`) for reference only. Only the
+React app is maintained going forward.
 
 ## Operating Context
 
@@ -72,16 +74,13 @@ each on its own live host. Parity is a product commitment, see Constraints.
   runtime branding (name, tagline, primary color, four URLs, six icon kinds); settings for
   self-signup, outgoing email (Brevo, daily cap) and demo defaults.
 - **Environment.** Browser SPA, light and dark theme, English and Arabic with RTL. Backend and
-  typed API clients live in the separate `poitner-api` repo. Production API:
-  `api.pointer.moamen.work`; apps at `app-<framework>.pointer.moamen.work` (Angular also at
-  `app.pointer.moamen.work`).
+  the typed API client live in the separate `poitner-api` repo. Production API:
+  `api.pointer.moamen.work`; the app at `app.pointer.moamen.work` (the legacy `app-react`, `app-angular` and `app-vue` hosts redirect there).
 
 ## Capabilities and Constraints
 
 Confirmed binding constraints (2026-09-10):
 
-- **Three-framework parity.** Angular, React and Vue must stay at identical features, routes,
-  labels and states. No framework-only features. Every change is applied to all three apps.
 - **White-label branding.** Operators can rename and re-logo the product at runtime. Nothing may
   hardcode the Pointer name or logo beyond the bundled fallback defaults used when branding is
   unset or fails to load.
@@ -93,13 +92,12 @@ Confirmed binding constraints (2026-09-10):
 
 Technical constraints from the codebase:
 
-- All API access goes through the generated `@moamen-ui/pointer-<framework>` clients; no raw
-  HTTP from feature code. Responses are the `Result<T>` envelope, unwrapped by each app.
-- Styling is Tailwind CSS v4 in every app. UI kits: shadcn/ui (React), shadcn-vue (Vue), and
-  spartan-ng (Angular; decided 2026-09-10 to replace Angular Material so all three apps share the
-  shadcn component grammar). Tokens live once in `design/foundation.css` and are synced into each
-  app with `design/sync-foundation.sh`. Shared per-app components (data table, row actions menu, form field, badge,
-  confirm dialog, tabs) are the building blocks for list/form/dialog pages.
+- All API access goes through the generated `@moamen-ui/pointer-react` client; no raw HTTP from
+  feature code. Responses are the `Result<T>` envelope, unwrapped by the app.
+- Styling is Tailwind CSS v4. UI kit: shadcn/ui. Tokens live once in
+  `react/src/styles/foundation.css` — no sync step, edited directly. Shared components (data
+  table, row actions menu, form field, badge, confirm dialog, tabs) are the building blocks for
+  list/form/dialog pages.
 - Route guards layer authenticated → admin → super admin; the API enforces authorization.
 - Terminology: **workspace** (user-facing) = **tenant** (operator-facing); **stakeholder** =
   non-admin member; **project key** = the identifier the widget uses; **Ready** is the user-facing
@@ -134,12 +132,13 @@ there are no customer names, usage metrics, testimonials, press or case studies 
 
 Real material available in this repo:
 
-- Full product copy in `react/public/assets/i18n/en.json` and `ar.json` (mirrored in each app).
+- Full product copy in `react/public/assets/i18n/en.json` and `ar.json`.
 - Install-guide behaviour spec: `docs/superpowers/specs/2026-08-18-install-guide-design.md`.
 - Branding and monetization UI specs: `docs/branding-ui-spec.md`, `docs/monetization-ui-spec.md`.
-- Security/correctness review of all three apps: `docs/reviews/fable-dashboard-review.md`.
-- Free font files (IBM Plex Sans Arabic, 7 weights) under each app's `public/assets/fonts/`.
-- Live deployments of all three apps and the production API (URLs above) for screenshots.
+- Security/correctness review (historical, covers all three apps as they existed then):
+  `docs/reviews/fable-dashboard-review.md`.
+- Free font files (IBM Plex Sans Arabic, 7 weights) under `react/public/assets/fonts/`.
+- Live deployment of the React app and the production API (URLs above) for screenshots.
 
 ## Product Principles
 
@@ -147,17 +146,15 @@ Real material available in this repo:
    from inside the dashboard; every empty state points to the next real step.
 2. **Operate, don't decorate.** This is a working console: scanability, consistent list/form/dialog
    patterns, and keyboard/RTL correctness outrank expression. Personality lives in copy and detail.
-3. **Parity is a feature.** Anything a user can do in one framework's app they can do identically in
-   the other two. Divergence is a bug unless documented as framework-specific.
-4. **Review, never triage.** The comments screen shows feedback to fix and verify it, not to
+3. **Review, never triage.** The comments screen shows feedback to fix and verify it, not to
    manage it; private comments are counted, never shown, and only sanitized snapshots render.
-5. **Truthful and configurable.** Branding, plans and statuses are data the operator owns; the UI
+4. **Truthful and configurable.** Branding, plans and statuses are data the operator owns; the UI
    never hardcodes what they can change, and never claims proof the product doesn't have.
 
 ## Accessibility & Inclusion
 
-- WCAG 2.2 AA is required across all three apps.
-- Full RTL layout and Arabic typography parity; language switch and direction persist.
+- WCAG 2.2 AA is required.
+- Full RTL layout and Arabic typography; language switch and direction persist.
 - Light and dark themes are both first-class and must meet contrast in each.
 - Everything reachable and operable by keyboard; dialogs, menus and tables follow the native
   patterns of each UI kit.

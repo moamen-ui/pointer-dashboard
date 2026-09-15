@@ -1,6 +1,6 @@
 # Illustration sources
 
-Lottie animations used by the shared EmptyState in all three apps.
+Lottie animations used by the EmptyState component in the React app.
 
 License: **Lottie Simple License (FL 9.13.21)** — LottieFiles free tier.
 Commercial use permitted, **attribution not required**. Modifications are derivative works and

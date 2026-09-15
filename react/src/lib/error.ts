@@ -1,4 +1,5 @@
-// Mirrors angular/src/app/core/api/extract-message.ts — pulls a human message out
+// Originally mirrored the retired Angular app's extract-message.ts (Angular/Vue retired
+// 2026-09-15; preserved on branch legacy/angular-vue, commit 6954ad2) — pulls a human message out
 // of an axios/Error. The client's customInstance throws `new Error(message)` for
 // envelope failures, and axios errors carry response.data.message for HTTP errors.
 export function extractMessage(error: unknown): string {

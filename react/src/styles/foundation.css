@@ -1,11 +1,10 @@
 /*
- * Pointer dashboard — shared design foundation (canonical copy).
+ * Pointer dashboard — design foundation.
  *
- * This file is the single source of truth for tokens and base styles in ALL three apps.
- * Do not edit the per-app copies (react/src/styles/foundation.css, vue/src/styles/foundation.css,
- * angular/src/styles/foundation.css); edit this file and run `design/sync-foundation.sh`.
+ * This file is the single source of truth for tokens and base styles in the React app.
+ * Edit it directly — there is no separate canonical copy to sync from.
  *
- * Each app imports it right after `@import 'tailwindcss'`. It defines:
+ * The app imports it right after `@import 'tailwindcss'`. It defines:
  *   1. CSS custom properties for light (:root) and dark (html.dark)
  *   2. A Tailwind v4 `@theme inline` block exposing them as utilities (bg-background, text-brand …)
  *   3. Base styles the browser would otherwise draw itself (selection, caret, scrollbar, focus ring)
@@ -267,9 +266,9 @@ code, kbd, pre, samp, .font-mono {
 }
 
 /* The empty/no-results/error illustrations are Lottie animations now (see
-   design/illustrations/*.json + SOURCES.md), rendered by each app's own player wrapper, so the
+   src/assets/lottie/*.json + SOURCES.md), rendered by the app's own player wrapper, so the
    former .ds-illus* line-art classes and keyframes that lived here are gone. Lottie does NOT
-   honour the reduced-motion block below — each app gates loop/autoplay in code instead. */
+   honour the reduced-motion block below — the app gates loop/autoplay in code instead. */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

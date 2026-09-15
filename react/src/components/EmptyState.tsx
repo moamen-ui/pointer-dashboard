@@ -25,9 +25,9 @@ interface EmptyStateProps {
 }
 
 /**
- * Same reasoning for the payloads (~114 kB across the three): only the variant actually on screen
- * is fetched. Canonical sources are design/illustrations/{empty,no-results,error}.json, copied
- * verbatim into src/assets/lottie/.
+ * Same reasoning for the payloads (~114 kB total): only the variant actually on screen is
+ * fetched. The animations live directly in src/assets/lottie/{empty,no-results,error}.json —
+ * this is their canonical location (see SOURCES.md alongside them for licensing/provenance).
  */
 const loadAnimation: Record<EmptyStateVariant, () => Promise<{ default: object }>> = {
   empty: () => import('../assets/lottie/empty.json'),

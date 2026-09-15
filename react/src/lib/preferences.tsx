@@ -1,6 +1,7 @@
 // Theme (light/dark) + language (en/ar) with RTL flip, persisted to localStorage
 // and (when logged in) synced to the server via PATCH /api/me/preferences.
-// React port of angular/src/app/core/prefs/preferences.service.ts.
+// Originally ported from the retired Angular app's preferences.service.ts
+// (Angular/Vue retired 2026-09-15; preserved on branch legacy/angular-vue, commit 6954ad2).
 import {
   createContext,
   useCallback,

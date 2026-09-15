@@ -2,121 +2,91 @@
 
 > Essential context for AI agents (Claude Code, Cursor, Windsurf, opencode, …) working in this repo.
 
-## Multi-client parity (READ FIRST)
+> **The Angular and Vue dashboards were retired on 2026-09-15** (last commit with all three apps:
+> `6954ad2`, tag `last-three-apps`). They are preserved on branch `legacy/angular-vue` (tag
+> `last-three-apps`, commit `6954ad2`) for reference only — they receive no further changes. **Only
+> `react/` is maintained; any dashboard change is made here only.** Do not port work to, or expect
+> parity with, the retired apps.
 
-The Pointer dashboard is a **monorepo of per-framework apps** with the **same features and UX**, each
-consuming its matching API client and styled with **Tailwind CSS v4**:
+## The React app
+
+The Pointer dashboard is a single React app, styled with **Tailwind CSS v4** and consuming the
+generated API client:
 
 | Framework | Dir | UI kit | API client |
 |---|---|---|---|
-| Angular | `angular/` | Hand-written shadcn-style layer in `src/app/shared/ui/` (spartan-ng grammar, **no Angular Material**) + Tailwind v4 | `@moamen-ui/pointer-angular` |
 | React | `react/` | shadcn/ui + Tailwind v4 | `@moamen-ui/pointer-react` |
-| Vue 3 | `vue/` | shadcn-vue + Tailwind v4 | `@moamen-ui/pointer-vue` |
-
-**Rule:** when you implement **any** task — feature, bug fix, refactor, UI/style change, copy change —
-**apply it to every app that exists** (`angular/`, `react/`, `vue/`), keeping them at feature parity.
-Never change one app and leave the others behind. If something is genuinely framework-specific, state
-that explicitly and explain why it can't be mirrored.
-
-**Use subagents for cross-app work:** dispatch **one subagent per app** to implement the change in
-parallel — the work is independent. Give each a self-contained brief (the task + that app's stack),
-then review all results and confirm parity (behavior, routes, labels, states) before finishing.
 
 ## Design system (READ BEFORE ANY UI WORK)
 
-The visual world is **"The Review Margin"** and is recorded in [DESIGN.md](DESIGN.md) (+ `.impeccable/design.json`).
-Tokens are canonical in `design/foundation.css` — edit there, then run `design/sync-foundation.sh` to copy
-to each app's `src/styles/foundation.css`. Use only foundation utilities (`bg-gutter`, `text-state-open`,
-`border-border`, …), never raw Tailwind palette colors. UI strings are canonical in `design/i18n/{en,ar}.json`;
-run `python3 design/merge-i18n.py` after editing (it unions the three apps and syncs back). Arabic/RTL is
-first-class: use logical utilities (`ps-*`, `text-start`, `me-*`), never `left/right`.
-
-### Angular syntax standard (Angular 22)
-
-The `angular/` app uses modern Angular only — no decorator-era APIs anywhere:
-
-| Use | Not |
-|---|---|
-| `input()`, `input.required()`, `model()`, `output()` | `@Input()`, `@Output()`, `EventEmitter` |
-| `viewChild()`, `contentChild()`, `contentChildren()` | `@ViewChild()`, `@ContentChild()` |
-| `host: { '(event)': 'fn($event)', '[class]': 'expr()' }` | `@HostListener`, `@HostBinding` |
-| `@if` / `@for` / `@switch` (built in) | `*ngIf`, `*ngFor`, `ngSwitch`, importing `CommonModule` for them |
-| `inject()` | constructor parameter injection |
-| a specific pipe (`DatePipe`, `NgTemplateOutlet`) | `CommonModule` as a catch-all import |
-
-Two Angular-only traps the shared layer already works around: a component host is `display: inline`
-by default (so `space-y-*` margins on a parent are dropped — block-level components set
-`host: { class: 'block' }`), and `[class]="expr"` on a *component* element loses to that component's
-own host classes (use the additive `[class.x]="cond"` instead).
+The visual world is **"The Review Margin"** and is recorded in [DESIGN.md](DESIGN.md) (+
+`.impeccable/design.json`). Tokens are canonical directly in `react/src/styles/foundation.css` —
+edit it in place; there is no separate sync step. Use only foundation utilities (`bg-gutter`,
+`text-state-open`, `border-border`, …), never raw Tailwind palette colors. UI strings are
+canonical in `react/public/assets/i18n/{en,ar}.json`. Arabic/RTL is first-class: use logical
+utilities (`ps-*`, `text-start`, `me-*`), never `left/right`.
 
 ## Shared component library (READ BEFORE BUILDING A NEW TABLE/FORM/DIALOG)
 
-Every app has its own small `shared/` component set wrapping that framework's UI kit — build new
-list/form/dialog UI on top of these instead of hand-rolling table/menu/field markup per page:
+The app has its own small `shared/` component set wrapping shadcn/ui — build new list/form/dialog
+UI on top of these instead of hand-rolling table/menu/field markup per page:
 
-| Component | Angular | React / Vue |
-|---|---|---|
-| Data table (sort, paginate, search, custom cells, trailing actions column) | `src/app/shared/ui/app-data-table.component.ts` (`<app-data-table>`) + `src/app/shared/data-table/` (`appDataTableCell` directive) | `src/components/shared/data-table/` (`<DataTable>` / `<DataTable>`, `#cell-<key>` scoped slots in Vue) |
-| Row actions menu | `src/app/shared/row-actions-menu/` | `src/components/shared/RowActionsMenu.{tsx,vue}` |
-| Form field wrapper (label/hint/error) | `src/app/shared/form-field/` | `src/components/shared/FormField.{tsx,vue}` |
-| State badge (glyph + label; `open\|ready\|success\|warning\|destructive\|archived\|neutral`, Angular `severity`) | `src/app/shared/badge/` | `src/components/ui/badge.{tsx}` / `ui/badge/` |
-| Confirm dialog | `src/app/shared/confirm-dialog.component.ts` + `core/confirm.service.ts` | `useConfirm` composable (Vue) / `ConfirmDialog` (React) |
-| Tabs | `src/app/shared/tabs/` (`<app-tabs>` + `appTabContent` directive) | `src/components/shared/Tabs.{tsx,vue}` (`AppTabs`, thin wrapper — use the real `<TabsContent>` from `ui/tabs` as children/slot) |
-
-> **Known issue — Vue Tabs don't switch.** `vue/`'s `Tabs`/`TabsTrigger` (`reka-ui`) don't respond to
-> clicks or arrow-key navigation in `install-guide/InstallGuideDialog.vue` — confirmed reproducible
-> with the *original* unwrapped `<Tabs v-model>` markup too (i.e. it predates `AppTabs.vue` and isn't
-> caused by it). `rootContext.changeModelValue()` in `TabsTrigger` never fires on interaction; a
-> `resolve.dedupe: ['@vueuse/core', 'vue']` attempt (reka-ui nests its own newer `@vueuse/core`
-> alongside the app's older one) did not fix it. Root cause still unknown — needs a dedicated look
-> before `AppTabs.vue` gets a second real consumer.
+| Component | Location |
+|---|---|
+| Data table (sort, paginate, search, custom cells, trailing actions column) | `src/components/shared/data-table/` (`<DataTable>`) |
+| Row actions menu | `src/components/shared/RowActionsMenu.tsx` |
+| Form field wrapper (label/hint/error) | `src/components/shared/FormField.tsx` |
+| State badge (glyph + label; `open\|ready\|success\|warning\|destructive\|archived\|neutral`) | `src/components/ui/badge.tsx` |
+| Confirm dialog | `ConfirmDialog` |
+| Tabs | `src/components/shared/Tabs.tsx` (`AppTabs`, thin wrapper — use the real `<TabsContent>` from `ui/tabs` as children) |
 
 `RowActionItem` (`{ label, icon?, severity?, disabled?, tooltip?, onClick }`) is the shared shape for
 every row's action menu — the callback (`items`/`actions`) always stays page-side so
 permission/feature-gating logic never leaks into the shared component.
 
 **Escape hatch:** `statuses` (inline-edit-every-row) and `users` (union row type: real users +
-pending invites, dual menus) render every column through the table's custom-cell mechanism
-(`appDataTableCell` in Angular, a column `cell` render fn in React, a `#cell-<key>` slot in Vue)
-instead of the plain display-only path — deliberate, not a shortcut to copy elsewhere. Every other
-list page should use plain columns + the `actions` callback.
+pending invites, dual menus) render every column through the table's custom-cell mechanism (a
+column `cell` render fn) instead of the plain display-only path — deliberate, not a shortcut to
+copy elsewhere. Every other list page should use plain columns + the `actions` callback.
 
 ## Layout & commands
 
-Each app folder is self-contained (own `package.json`, `.npmrc`, build). Run from inside it:
-
 ```bash
-cd angular   # or react / vue
+cd react
 export NODE_AUTH_TOKEN=$(gh auth token)   # read:packages — for the @moamen-ui API client
-npm install
-npm start      # dev server
-npm run build  # production build
+npm ci
+npm run dev     # dev server (vite)
+npm run build   # tsc -b && vite build
+npm run lint    # eslint .
 ```
+
+There is no `test` script in `react/package.json` today.
 
 ## API client
 
-The typed clients are **published packages** (`@moamen-ui/pointer-<framework>`), generated + built in
-the [`poitner-api`](https://github.com/moamen-ui/poitner-api) repo — not generated here. To change one:
-update the API, run that repo's *Publish API clients* workflow (auto-bumps), then bump the dependency
-in each app. Auth: the committed per-app `.npmrc` reads `${NODE_AUTH_TOKEN}`.
+The typed client is a **published package** (`@moamen-ui/pointer-react`), generated + built in the
+[`poitner-api`](https://github.com/moamen-ui/poitner-api) repo via Orval from that API's Swagger
+spec — not generated here. To change one: update the API, run that repo's *Publish API clients*
+workflow (auto-bumps), then bump the dependency in `react/package.json`. Auth: the committed
+`react/.npmrc` reads `${NODE_AUTH_TOKEN}`.
 
-**RULE — never call the API with raw `axios`/`HttpClient`/`fetch`.** Always use the generated
-hooks/services from `@moamen-ui/pointer-<framework>`. If a needed endpoint is missing from the
-installed client: ensure the controller has `[Tags("X")]` and `X` is in the API's `orval.config.ts`
-`filters.tags`, re-run *Publish API clients*, bump, and use the generated hook — do **not** fall back
-to a raw request. `src/lib/api.ts`'s `AXIOS_INSTANCE` is only the generated client's transport; feature
-code must not call it directly.
+**RULE — never call the API with raw `axios`/`fetch`.** Always use the generated
+hooks/services from `@moamen-ui/pointer-react`. If a needed endpoint is missing from the installed
+client: ensure the controller has `[Tags("X")]` and `X` is in the API's `orval.config.ts`
+`filters.tags`, re-run *Publish API clients*, bump, and use the generated hook — do **not** fall
+back to a raw request. `src/lib/api.ts`'s `AXIOS_INSTANCE` is only the generated client's
+transport; feature code must not call it directly.
 
 ## Conventions
 
-1. All API responses are wrapped in `Result<T>`; each app unwraps `.data`, prepends the API origin to
-   `/api/*`, adds the bearer token, redirects to login on 401. Client types are the **inner** type.
-2. Import from the package barrel (e.g. `@moamen-ui/pointer-vue`), not deep paths.
-3. **Styling is Tailwind v4** everywhere — prefer utility classes over hand-written/inline CSS.
-4. Keep the API base in a per-app env file; don't hardcode it in components.
+1. All API responses are wrapped in `Result<T>`; the app unwraps `.data`, prepends the API origin
+   to `/api/*`, adds the bearer token, redirects to login on 401. Client types are the **inner**
+   type.
+2. Import from the package barrel (`@moamen-ui/pointer-react`), not deep paths.
+3. **Styling is Tailwind v4** — prefer utility classes over hand-written/inline CSS.
+4. Keep the API base in an env file; don't hardcode it in components.
 
 ## Deploy
 
-Each app → static files served by Caddy at `app-<framework>.pointer.moamen.work` (Angular also at
-`app.pointer.moamen.work`). Steps live in the API repo's
-[`DEPLOY.md`](https://github.com/moamen-ui/poitner-api/blob/main/DEPLOY.md).
+The app → static files served by Caddy at `app.pointer.moamen.work` (the legacy `app-react`, `app-angular` and `app-vue` hosts redirect there). Steps live in the API
+repo's [`DEPLOY.md`](https://github.com/moamen-ui/poitner-api/blob/main/DEPLOY.md).

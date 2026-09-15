@@ -1,12 +1,7 @@
-# Monorepo: patterns are non-anchored so they apply in every app folder
-# (angular/, react/, vue/).
-
 # Dependencies & build output
 node_modules/
 dist/
 tmp/
-out-tsc/
-.angular/
 .nx/
 .vite/
 *.tsbuildinfo

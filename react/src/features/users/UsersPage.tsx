@@ -1,4 +1,5 @@
-// Users admin page. React port of angular/.../users/users.component.ts.
+// Users admin page. Originally ported from the retired Angular app's users.component.ts
+// (Angular/Vue retired 2026-09-15; preserved on branch legacy/angular-vue, commit 6954ad2).
 // list with Approved/Pending/Rejected filters; add user; approve pending
 // (choose role); reject (confirmed); enable/disable (disable confirmed);
 // change role inline for approved users.

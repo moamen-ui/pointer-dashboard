@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* Design foundation: fonts, tokens (light + dark), Tailwind utilities, base styles.
-   Canonical copy lives in design/foundation.css — run design/sync-foundation.sh after editing it. */
+   This file (./styles/foundation.css) is the single source of truth — edit it directly. */
 @import './styles/foundation.css';
 
 @layer base {

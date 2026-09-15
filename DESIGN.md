@@ -241,11 +241,10 @@ exactly four things: links, focus rings, the active nav item and the primary fil
 hues stay fixed regardless of brand, so state always reads the same way in every tenant. The finish
 bar is Linear / Vercel / Resend: crisp, quiet, precise, never cold.
 
-The system ships identically in three framework apps (React, Vue, Angular) from one token file
-(`design/foundation.css`), one i18n source (`design/i18n/{en,ar}.json`), and mirrored shared
-component layers. Confirmed rejections: stat tiles above tables, icon squares, progress rings,
-cards inside cards, colored left borders, gradients, uppercase tracked labels, kickers and eyebrows,
-Angular Material.
+The system ships in the React app from one token file (`react/src/styles/foundation.css`) and one
+i18n source (`react/public/assets/i18n/{en,ar}.json`). Confirmed rejections: stat tiles above
+tables, icon squares, progress rings, cards inside cards, colored left borders, gradients,
+uppercase tracked labels, kickers and eyebrows.
 
 **Key Characteristics:**
 - White canvas, `gutter` surface for rails and headers, hairlines everywhere, no shadows at rest
@@ -255,7 +254,6 @@ Angular Material.
 - 32px controls, 44px rows, 6px radius, 14px base type with tabular numerals everywhere (nominal Tailwind values; see the root-size note under Layout)
 - Light and dark are both first-class; dark is a light-table negative, not gray on gray
 - Arabic and RTL first-class: logical properties only, directional icons mirror
-- Three-framework parity is a rule of the system, not a goal
 
 ## Colors
 
@@ -324,12 +322,12 @@ The shell is a 48px header with a hairline bottom over a two-column body: a 240p
 
 Every page follows one composition: title row (`h1` start, actions end, 16px below), optional 14px muted description, the diffstat line where a summary exists (24px below), then sections separated by 32px. A section is a 16px `h2` with 12px to its content; sections are not cards. When a section's content needs a boundary (a list, a table), the list itself carries the hairline frame, not the section.
 
-**Root size.** `design/foundation.css` sets `html { font-size: 14px }`, so every rem-based Tailwind utility
-renders at 87.5% of its nominal value in all three apps: `h-8` controls measure 28px, `h-11` rows 38.5px,
-`h-10` header bands 35px, `p-6` dialog padding 21px. Pixel values elsewhere in this document are the
-nominal Tailwind values (16px root) so they map one-to-one onto the utility classes in the code; the
-rendered size is always 0.875 × nominal. Do not "fix" this by changing the root size or by adding
-arbitrary `[Npx]` heights: parity depends on every app scaling the same way.
+**Root size.** `react/src/styles/foundation.css` sets `html { font-size: 14px }`, so every rem-based
+Tailwind utility renders at 87.5% of its nominal value: `h-8` controls measure 28px, `h-11` rows
+38.5px, `h-10` header bands 35px, `p-6` dialog padding 21px. Pixel values elsewhere in this document
+are the nominal Tailwind values (16px root) so they map one-to-one onto the utility classes in the
+code; the rendered size is always 0.875 × nominal. Do not "fix" this by changing the root size or
+by adding arbitrary `[Npx]` heights.
 
 Spacing steps are 4 / 8 / 12 / 16 / 24 / 32. More space sits above a section heading (32) than below it (12). Controls are 32px tall (28px for the small size), table and list rows are 44px (`--row-h`), table header rows 40px, chips 24px, menu items 32px. Cell padding is 12px horizontal.
 
@@ -377,13 +375,13 @@ Restrained and precise: controls look like the review tool's own controls, never
 - **Background:** canvas; list-header rows and the table header band use gutter.
 - **Shadow Strategy:** none at rest (see Elevation).
 - **Border:** one hairline frame; rows inside separate with the muted hairline.
-- **Internal Padding:** cells are `px-3 py-1.5` (12px horizontal, 6px vertical nominal) in all three apps; the row's 44px is a minimum, so a two-line identity cell grows to ~52px rendered rather than crowding. Sections themselves are never boxed.
+- **Internal Padding:** cells are `px-3 py-1.5` (12px horizontal, 6px vertical nominal); the row's 44px is a minimum, so a two-line identity cell grows to ~52px rendered rather than crowding. Sections themselves are never boxed.
 
 ### Inputs / Fields
 - **Style:** 32px tall, 6px radius, hairline border, canvas background, 12px horizontal padding, 14px text, faint-ink placeholder. Select triggers end with a 16px chevron; textareas share the frame.
 - **Focus:** the global 2px brand ring at 0 offset.
 - **Error / Disabled:** invalid fields take a danger hairline with 12px danger error text and a 12px alert glyph beneath; the FormField wrapper renders label 13px/500, hint 12px muted, the word "Required" in 12px muted after the label instead of an asterisk. Fields stack with 16px gaps.
-- **Field chrome gap (named token: `form-field-gap`, 8px):** the single vertical `gap-2` on the shared FormField's flex column sets both the label-to-control gap and the control-to-hint/error gap — React `components/shared/FormField.tsx`, Vue `components/shared/FormField.vue`, Angular `shared/ui/app-form-field.component.ts`. **Every label-above-control field (text, password, email, number, textarea, select, a text input with a color swatch) renders through this wrapper**, never a hand-rolled `<label>` next to a control. Changing the gap means editing `gap-2` in these three files and nowhere else; a per-field `mb-*`/`mt-*` override is a bug, not a customization.
+- **Field chrome gap (named token: `form-field-gap`, 8px):** the single vertical `gap-2` on the shared FormField's flex column sets both the label-to-control gap and the control-to-hint/error gap — `components/shared/FormField.tsx`. **Every label-above-control field (text, password, email, number, textarea, select, a text input with a color swatch) renders through this wrapper**, never a hand-rolled `<label>` next to a control. Changing the gap means editing `gap-2` in this file and nowhere else; a per-field `mb-*`/`mt-*` override is a bug, not a customization.
 - **Checkbox / Switch / Radio Label Rule (named exception):** a checkbox, switch or radio's label sits *beside* the control, not above it, so it does not fit FormField's layout and stays as its own inline pattern — `flex items-center gap-2` (8px) for an inline `<label>` wrapping the control and its text, or `flex items-center justify-between` for a settings-style toggle row (a description block on one side, the switch on the other, no fixed gap needed since the row justifies). The 8px value is the one to change if this pattern's gap ever moves; it is intentionally not routed through FormField.
 - **Table inline-edit exception:** a per-row editable cell (the Statuses page's label/color/order columns, a project's environment-row cells) has no label of its own — the column header is the label — so it renders its control directly, with no wrapper at all. This is the same escape hatch CLAUDE.md documents for the table's custom-cell mechanism; it is deliberate, not a gap in coverage.
 - **Segmented control:** inline (never full width) gutter track with 2px padding and a hairline; 28px items at 13px/500 muted; the selected item is canvas with ink text and its own hairline.
@@ -421,14 +419,15 @@ Underline tabs: 36px row with a hairline bottom and 16px gaps; tab text 14px mut
 
 ### Do:
 - **Do** use only foundation tokens and their Tailwind utilities (`bg-gutter`, `text-muted-foreground`, `border-border`, `text-state-open`, `shadow-menu`); never a raw palette class or a hard-coded hex in feature code.
-- **Do** land every component addition in all three apps and in the shared layer names: React `components/ui/*` + `components/shared/*`, Vue `components/ui/*` + `components/shared/*`, Angular `shared/ui/app-*` + `shared/data-table/`. A component that exists in one app does not exist in the system.
+- **Do** land every component addition in the shared layer names: `components/ui/*` +
+  `components/shared/*`. A component that exists only inline on one page does not exist in the
+  system.
 - **Do** keep controls `h-8` (32px nominal, 28px rendered at the 14px root), rows `h-11` (44px nominal), radius 6px, base type 14px/20px with tabular numerals.
 - **Do** render state as glyph + hue + label on chips, and as glyph + hue on counts only when the count is greater than zero (zero is faint, glyphless).
 - **Do** let the chip supply its own glyph from its variant, and never pass a second icon into it. A chip whose text is a *label* rather than a state (a plan name, a role, a kind) uses the glyphless `neutral` variant; `archived` is the variant for the actual archived state.
-- **Do** give every block-level Angular component `host: { class: 'block' }`, and bind conditional classes on a component element with `[class.x]`, never `[class]` (a custom element is inline by default and drops `space-y-*`; `[class]` loses to the component's host classes). The Angular layer is signal-only (`input()`, `model()`, `output()`, `viewChild()`, `host: {}`) with built-in control flow (`@if` / `@for`); decorator-era APIs and blanket `CommonModule` imports are out.
 - **Do** keep identifiers unbreakable: a key chip is `shrink-0 whitespace-nowrap` and the name beside it truncates from a `min-w-0` cell. A mono identifier splitting across two lines reads as a broken value, and a wrapped prose cell doubles the row height. Wide tables scroll in their own container rather than reflowing.
 - **Do** hold the dialog geometry at every width: `min(520px, 100vw − 32px)` with its radius intact, never a full-bleed square-cornered sheet on small screens. A wizard's step strip scrolls with nowrap labels rather than wrapping.
-- **Do** float every popup panel (select list, menu, tooltip) out of the page flow: React and Vue portal theirs, Angular's go through a CDK connected overlay. A panel rendered as an absolutely-positioned child gets clipped by the first scrolling ancestor and grows that container's scrollbar, which is exactly what happened to selects inside dialogs. Panels match their trigger's width and flip above it when the viewport runs out.
+- **Do** float every popup panel (select list, menu, tooltip) out of the page flow via a portal. A panel rendered as an absolutely-positioned child gets clipped by the first scrolling ancestor and grows that container's scrollbar, which is exactly what happened to selects inside dialogs. Panels match their trigger's width and flip above it when the viewport runs out.
 - **Do** hover and highlight menu and option rows on the gutter surface, never on a brand tint; the brand's four jobs stay links, focus, active nav and the primary button. Inside a popup the focus ring hugs the row (`outline-offset: 0`) so it reads as a focused row rather than a box floating in the panel.
 - **Do** summarize with a diffstat line (mono numbers in state hues, sans muted labels, faint middle dots) instead of stat tiles.
 - **Do** zone a status column with its own state tint behind its hue in the header band, so a review queue reads as Open / Ready / Completed / Archived at a glance. All eight hue-on-tint pairs clear 4.5:1.
@@ -438,7 +437,7 @@ Underline tabs: 36px row with a hairline bottom and 16px gaps; tab text 14px mut
 - **Do** use logical properties only and mirror directional icons in RTL; verify every surface in Arabic.
 - **Do** keep dark `--brand-foreground` as ink; any new filled brand surface must pass 4.5:1 in both themes.
 - **Do** keep dialogs to one decision; use a segmented mode switch when two flows share a dialog.
-- **Do** add strings to `design/i18n/{en,ar}.json` and tokens to `design/foundation.css`, then sync; never edit a per-app copy.
+- **Do** add strings to `react/public/assets/i18n/{en,ar}.json` and tokens to `react/src/styles/foundation.css` directly — both are the canonical, single copy.
 
 ### Don't:
 - **Don't** add stat tiles, icon squares, progress rings, cards inside cards, colored left borders, or gradients.
@@ -449,6 +448,5 @@ Underline tabs: 36px row with a hairline bottom and 16px gaps; tab text 14px mut
 - **Don't** let color be the only signal; every state chip carries a glyph and a label.
 - **Don't** center the main column; content is start-aligned within 1120px.
 - **Don't** put a centered icon-in-a-circle empty state anywhere; use three dashed ghost rows or one line of muted copy plus the action.
-- **Don't** use Angular Material, Material Icons or Roboto in the Angular app; the hand-written `shared/ui` layer is the only UI kit there.
 - **Don't** use `pl-`/`pr-`/`left-`/`right-`/`text-left`/`text-right`; RTL is not optional.
 - **Don't** add entrance animations; state transitions are 150ms, floating layers 120ms scale from 0.98, count flashes 600ms, and all of it collapses under `prefers-reduced-motion`.
