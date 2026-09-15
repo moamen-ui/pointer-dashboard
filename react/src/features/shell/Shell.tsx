@@ -37,6 +37,7 @@ import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
 import { DemoPanel } from '@/components/DemoPanel';
+import { NotificationsBell } from '@/components/NotificationsBell';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
 import { TourProvider, useTour } from '@/lib/tour';
 import { TourSpotlight } from '@/components/TourSpotlight';
@@ -127,7 +128,9 @@ function ShellLayout() {
 
         <span className="flex-1" />
 
-        {/* End side: Install steps button or ghost icon, Account menu */}
+        {/* End side: Notifications, Install steps button or ghost icon, Account menu */}
+        {isAdmin && <NotificationsBell />}
+
         {installGuide.nothingCollectedYet ? (
           <Button
             variant="default"

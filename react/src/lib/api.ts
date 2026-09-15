@@ -65,6 +65,8 @@ export function configureApi(): void {
     } else {
       delete config.headers.Authorization;
     }
+    // Add client identifier header for all API requests
+    config.headers['X-Pointer-Client'] = 'dashboard';
     return config;
   });
 

@@ -718,6 +718,8 @@ export function ProjectsPage() {
   const [editReadOnly, setEditReadOnly] = useState(false);
   const [editTab, setEditTab] = useState('details');
   const [editPageContextCaptureEnabled, setEditPageContextCaptureEnabled] = useState(false);
+  const [editCaptureTextContent, setEditCaptureTextContent] = useState(false);
+  const [editEnforceAllowedOrigins, setEditEnforceAllowedOrigins] = useState(false);
   // Which roles see the widget's environment switcher (empty = default: everyone except Client).
   const [editEnvSelectorRoleIds, setEditEnvSelectorRoleIds] = useState<number[]>([]);
   // Covers the WHOLE save sequence (project PATCH + environment batch), not just the PATCH.
@@ -742,9 +744,14 @@ export function ProjectsPage() {
     query: { enabled: envSectionActive },
   });
 
-  // Environments offerable when creating a project: every enabled one, minus the
+  // Environments offerable when creating/editing a project: every enabled one, minus the
   // retired "default" row kept only so old URLs still render somewhere.
   const creatableEnvironments = environments.filter(
+    (e) => e.isEnabled !== false && e.isRetired !== true,
+  );
+
+  // Environments to exclude from edit dialog: disabled or retired
+  const availableForUrl = environments.filter(
     (e) => e.isEnabled !== false && e.isRetired !== true,
   );
 
@@ -773,7 +780,8 @@ export function ProjectsPage() {
   const configuredEnvironments = appUrls;
 
   // Environments not yet configured for this project — the "add new" row's options.
-  const availableEnvironmentsToAdd = environments.filter(
+  // Only include enabled and non-retired environments.
+  const availableEnvironmentsToAdd = availableForUrl.filter(
     (e) => !configuredEnvironments.some((u) => u.appEnvironmentId != null && u.appEnvironmentId === e.id),
   );
 
@@ -963,6 +971,8 @@ export function ProjectsPage() {
     setEditReadOnly(readOnly);
     setEditTab('details');
     setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
+    setEditCaptureTextContent(!!project.captureTextContent);
+    setEditEnforceAllowedOrigins(!!project.enforceAllowedOrigins);
     setEditEnvSelectorRoleIds(project.environmentSelectorRoleIds ?? []);
     // Discard any unsaved per-environment draft from a prior project.
     setEnvOverrides({});
@@ -995,6 +1005,8 @@ export function ProjectsPage() {
           name: editName.trim(),
           predefinedActions: predefinedActions,
           pageContextCaptureEnabled: editPageContextCaptureEnabled,
+          captureTextContent: editCaptureTextContent,
+          enforceAllowedOrigins: editEnforceAllowedOrigins,
           // Always sent as the full array (empty = the default visibility).
           environmentSelectorRoleIds: editEnvSelectorRoleIds,
           // Not editable from this dialog — passed through unchanged; only the
@@ -1487,9 +1499,22 @@ export function ProjectsPage() {
                       {configuredEnvironments.map((env) => {
                         const envId = env.appEnvironmentId!;
                         const draft = envDrafts[envId] ?? { url: '', isActive: true };
+                        const isDisabled = env.environmentIsEnabled === false;
                         return (
-                          <tr key={envId} className="align-middle">
-                            <td className="py-1 pe-2 font-medium">{env.environmentName ?? ''}</td>
+                          <tr key={envId} className={`align-middle ${isDisabled ? 'opacity-50' : ''}`}>
+                            <td className="py-1 pe-2">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-medium">{env.environmentName ?? ''}</span>
+                                {isDisabled && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {t('projects.environmentDisabledHint')}{' '}
+                                    <a href="/environments" className="text-primary hover:underline">
+                                      {t('environments.title')}
+                                    </a>
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td className="py-1 pe-2">
                               <Input
                                 value={draft.url}
@@ -1628,6 +1653,62 @@ export function ProjectsPage() {
                   checked={editPageContextCaptureEnabled}
                   onChange={(e) => setEditPageContextCaptureEnabled(e.target.checked)}
                   className="h-4 w-4 cursor-pointer"
+                />
+              </div>
+            )}
+
+            {!editReadOnly && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-project-capture-text" className="text-sm font-medium">
+                    {t('projects.captureTextContent')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('projects.captureTextContentHint', {
+                      defaultValue: 'Learn more about captured data: {{url}}'
+                    }).replace('{{url}}', `${import.meta.env.VITE_API_BASE ?? ''}/data.html`)}
+                  </p>
+                </div>
+                <input
+                  id="edit-project-capture-text"
+                  type="checkbox"
+                  checked={editCaptureTextContent}
+                  onChange={(e) => setEditCaptureTextContent(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer"
+                />
+              </div>
+            )}
+
+            {!editReadOnly && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-project-enforce-origins" className="text-sm font-medium">
+                    {t('projects.enforceAllowedOrigins')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {appUrls.length > 0 ? (
+                      <>
+                        {t('projects.enforceAllowedOriginsHint')}
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {appUrls.map((u, idx) => (
+                            <span key={u.appEnvironmentId || idx} className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                              {u.url}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-state-danger">{t('projects.enforceAllowedOriginsDisabledHint')}</span>
+                    )}
+                  </p>
+                </div>
+                <input
+                  id="edit-project-enforce-origins"
+                  type="checkbox"
+                  checked={editEnforceAllowedOrigins}
+                  onChange={(e) => setEditEnforceAllowedOrigins(e.target.checked)}
+                  disabled={appUrls.length === 0}
+                  className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
             )}

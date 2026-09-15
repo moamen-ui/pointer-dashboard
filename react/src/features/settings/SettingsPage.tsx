@@ -467,6 +467,7 @@ export function SettingsPage() {
 
   // ---- Local form state ----
   const [scopedAdminSignupEnabled, setScopedAdminSignupEnabled] = useState(false);
+  const [appBaseUrl, setAppBaseUrl] = useState('');
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [emailFromEmail, setEmailFromEmail] = useState('');
   const [emailFromName, setEmailFromName] = useState('');
@@ -482,6 +483,7 @@ export function SettingsPage() {
   useEffect(() => {
     if (!settings) return;
     setScopedAdminSignupEnabled(settings.scopedAdminSignupEnabled ?? false);
+    setAppBaseUrl(settings.appBaseUrl ?? '');
     setEmailEnabled(settings.emailEnabled ?? false);
     setEmailFromEmail(settings.emailFromEmail ?? '');
     setEmailFromName(settings.emailFromName ?? '');
@@ -621,6 +623,7 @@ export function SettingsPage() {
     updateMut.mutate({
       data: {
         scopedAdminSignupEnabled,
+        appBaseUrl,
         emailEnabled,
         emailFromEmail,
         emailFromName,
@@ -679,6 +682,25 @@ export function SettingsPage() {
               className="h-4 w-4 cursor-pointer"
             />
           </div>
+
+          {/* App base URL (for invitation links) */}
+          <FormField
+            label={t('settings.appBaseUrl')}
+            hint={t('settings.appBaseUrlHint')}
+            htmlFor="app-base-url"
+          >
+            <Input
+              id="app-base-url"
+              value={appBaseUrl}
+              onChange={(e) => setAppBaseUrl(e.target.value)}
+              placeholder="e.g. https://dashboard.pointer.moamen.work"
+            />
+          </FormField>
+          {settings && 'effectiveAppBaseUrl' in settings && settings.effectiveAppBaseUrl && (
+            <div className="text-[12px] text-muted-foreground">
+              {t('settings.effectiveAppBaseUrl')}: <code className="bg-gutter px-1 rounded">{String(settings.effectiveAppBaseUrl)}</code>
+            </div>
+          )}
         </div>
         <div className="flex justify-end pt-2 border-t border-border-muted">
           <Button variant="default" disabled={updateMut.isPending} onClick={save}>
