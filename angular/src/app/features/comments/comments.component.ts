@@ -101,13 +101,13 @@ function numOrUndefined(value: string | null): number | undefined {
   ],
   template: `
     <div class="space-y-6">
-      <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:flex-wrap">
         <div>
           <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.01em]">{{ 'comments.title' | transloco }}</h1>
           <p class="mt-1 text-[14px] text-muted-foreground">{{ 'comments.subtitle' | transloco }}</p>
         </div>
         <app-select
-          class="w-64"
+          class="w-full sm:w-64"
           [options]="projectOptions()"
           [value]="selectedProjectKey()"
           (valueChange)="setProject($event)"
@@ -117,16 +117,17 @@ function numOrUndefined(value: string | null): number | undefined {
       @if (!selectedProjectKey()) {
         <app-empty-state [message]="'comments.selectProject' | transloco" />
       } @else {
-        <!-- Filters -->
-        <div class="flex flex-wrap items-center gap-3">
+        <!-- Filters: a vertical stack below sm — full-width selects, a full-width equal-segment
+             control and a full-width search box — flowing into the original wrapped row at sm+. -->
+        <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <app-select
-            class="w-44"
+            class="w-full sm:w-44"
             [options]="statusFilterOptions()"
             [value]="statusFilter()"
             (valueChange)="setStatusFilter($event)"
           />
           <app-select
-            class="w-40"
+            class="w-full sm:w-40"
             [options]="envFilterOptions()"
             [value]="envFilter()"
             (valueChange)="setEnvFilter($event)"
@@ -136,16 +137,17 @@ function numOrUndefined(value: string | null): number | undefined {
             appButton
             [variant]="flaggedFilter() ? 'primary' : 'secondary'"
             size="sm"
+            class="w-full sm:w-auto"
             (click)="toggleFlagged()"
           >
             <app-icon name="circle-alert" [size]="14"></app-icon>
             {{ 'comments.flagged' | transloco }}
           </button>
 
-          <div class="inline-flex rounded-md border border-border bg-gutter p-0.5">
+          <div class="flex w-full rounded-md border border-border bg-gutter p-0.5 sm:inline-flex sm:w-auto">
             <button
               type="button"
-              class="h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors"
+              class="h-11 flex-1 px-3 rounded-[4px] text-[13px] font-medium transition-colors sm:h-7 sm:flex-none"
               [class.bg-background]="liveFilter() === undefined"
               [class.border]="liveFilter() === undefined"
               [class.border-border]="liveFilter() === undefined"
@@ -157,7 +159,7 @@ function numOrUndefined(value: string | null): number | undefined {
             </button>
             <button
               type="button"
-              class="h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors"
+              class="h-11 flex-1 px-3 rounded-[4px] text-[13px] font-medium transition-colors sm:h-7 sm:flex-none"
               [class.bg-background]="liveFilter() === false"
               [class.border]="liveFilter() === false"
               [class.border-border]="liveFilter() === false"
@@ -169,7 +171,7 @@ function numOrUndefined(value: string | null): number | undefined {
             </button>
             <button
               type="button"
-              class="h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors"
+              class="h-11 flex-1 px-3 rounded-[4px] text-[13px] font-medium transition-colors sm:h-7 sm:flex-none"
               [class.bg-background]="liveFilter() === true"
               [class.border]="liveFilter() === true"
               [class.border-border]="liveFilter() === true"
@@ -181,7 +183,7 @@ function numOrUndefined(value: string | null): number | undefined {
             </button>
           </div>
 
-          <div class="flex items-center gap-2 h-8 flex-1 min-w-[200px] max-w-xs rounded-md border border-border bg-background px-3">
+          <div class="flex items-center gap-2 h-11 w-full sm:h-8 sm:flex-1 sm:min-w-[200px] sm:max-w-xs sm:w-auto rounded-md border border-border bg-background px-3">
             <app-icon name="search" [size]="14" class="text-muted-foreground shrink-0"></app-icon>
             <input
               type="text"
@@ -420,7 +422,7 @@ function numOrUndefined(value: string | null): number | undefined {
                   <p>{{ 'comments.appliedBy' | transloco }}: <span class="text-foreground">{{ d.appliedByLabel || '—' }}</span> · {{ formatDate(d.appliedAt) }}</p>
                   @if (d.commitUrl) {
                     <p>
-                      <a [href]="d.commitUrl" target="_blank" rel="noopener" class="text-brand hover:underline font-mono">
+                      <a [href]="d.commitUrl" target="_blank" rel="noopener" class="text-brand hover:underline font-mono break-all">
                         {{ (d.commitSha || '').slice(0, 7) || d.commitUrl }}
                       </a>
                     </p>
@@ -768,7 +770,7 @@ export class CommentsComponent {
 
   columns(): DataTableColumn<CommentListItemDto>[] {
     return [
-      { key: 'body', header: this.transloco.translate('comments.colBody') },
+      { key: 'body', header: this.transloco.translate('comments.colBody'), mobile: 'primary' },
       { key: 'status', header: this.transloco.translate('comments.colStatus') },
       { key: 'environment', header: this.transloco.translate('comments.colEnvironment') },
       { key: 'route', header: this.transloco.translate('comments.colRoute') },

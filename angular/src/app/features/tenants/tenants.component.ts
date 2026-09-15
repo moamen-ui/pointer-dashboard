@@ -491,7 +491,7 @@ export class TenantsComponent {
 
   columns(): DataTableColumn<TenantResponse>[] {
     return [
-      { key: 'email', header: this.transloco.translate('tenants.email') },
+      { key: 'email', header: this.transloco.translate('tenants.email'), mobile: 'primary' },
       { key: 'approvalStatus', header: this.transloco.translate('tenants.approval') },
       { key: 'isActive', header: this.transloco.translate('tenants.statusCol') },
       { key: 'projects', header: this.transloco.translate('tenants.projects') },

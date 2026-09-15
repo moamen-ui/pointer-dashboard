@@ -2,6 +2,7 @@ import {
   Component,
   contentChildren,
   computed,
+  inject,
   input,
   output,
   signal,
@@ -15,6 +16,7 @@ import { AppIconComponent } from './app-icon.component';
 import { AppInputDirective } from './app-input.directive';
 import { DataTableCellDirective } from '../data-table/data-table-cell.directive';
 import { RowActionsMenuComponent, type RowActionItem } from '../row-actions-menu/row-actions-menu.component';
+import { ViewportService } from './viewport.service';
 
 export interface DataTableColumn<T> {
   key: string;
@@ -22,6 +24,11 @@ export interface DataTableColumn<T> {
   sortable?: boolean;
   headerColor?: string;
   width?: string;
+  /** Mobile card-mode hint (ignored on desktop): `'primary'` promotes this column to the card's
+   *  title row (full text, wraps); `'hide'` drops it from the card body as redundant there (row
+   *  index, ids, anything the primary column already says). Default: shown as a label/value pair.
+   *  Exactly one column should be `'primary'` per table; if none is marked the first column wins. */
+  mobile?: 'primary' | 'hide';
 }
 
 export interface SortState {
@@ -55,11 +62,119 @@ export interface SortState {
             [value]="searchTerm()"
             (input)="onSearch($event)"
             [placeholder]="searchPlaceholder()"
-            class="h-8 max-w-xs"
+            class="h-8 max-md:h-11 max-w-xs max-md:max-w-full"
           />
         </div>
       }
 
+      @if (isMobile()) {
+        <!-- Mobile card list: header hidden, sort disabled, one card per row. The column marked
+             mobile: 'primary' (default: the first column) becomes the card title; the rest render
+             as a compact label/value list; row actions sit in one full-width row at the card
+             bottom. Nothing is ever display:none'd — every column and action stays reachable,
+             just re-laid-out. -->
+        <div class="divide-y divide-border-muted">
+          @if (rows().length === 0) {
+            <div class="px-3 py-4">
+              @if (emptyMessage()) {
+                <div class="flex flex-col gap-1">
+                  <span class="text-[14px] text-muted-foreground">{{ emptyMessage() }}</span>
+                  @if (emptyHint()) {
+                    <span class="text-[12px] text-muted-foreground">{{ emptyHint() }}</span>
+                  }
+                </div>
+              }
+              @if (actions() || actionsColumn()) {
+                <div class="mt-3">
+                  <ng-content select="[emptyAction]" />
+                </div>
+              }
+            </div>
+          } @else if (filteredRows().length === 0) {
+            <div class="px-3 py-4 flex items-center gap-2 flex-wrap text-[14px] text-muted-foreground">
+              <span>{{ 'table.noResultsFor' | transloco: { query: searchTerm() } }}</span>
+              <span class="text-faint-foreground" aria-hidden="true">·</span>
+              <button
+                appButton
+                variant="link"
+                class="h-auto! px-0! text-[14px]"
+                (click)="clearSearch()"
+              >
+                {{ 'table.clearSearch' | transloco }}
+              </button>
+            </div>
+          } @else {
+            @for (row of displayedRows(); track trackBy($index, row)) {
+              <div
+                class="p-3"
+                [class.cursor-pointer]="clickableRows()"
+                (click)="onRowClick(row)"
+              >
+                <!-- Card title: the primary column, full text, wraps -->
+                <div class="text-[14px] font-medium text-foreground break-words">
+                  @if (cellTemplateFor(primaryColumn().key); as tpl) {
+                    <ng-container [ngTemplateOutlet]="tpl" [ngTemplateOutletContext]="{ $implicit: row }" />
+                  } @else {
+                    {{ cellValue(row, primaryColumn().key) }}
+                  }
+                </div>
+
+                <!-- Secondary columns: compact two-column label/value list; empty plain values
+                     are skipped so the card doesn't pad itself out with blank rows. -->
+                @if (secondaryColumns(row).length > 0) {
+                  <dl class="mt-2 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+                    @for (column of secondaryColumns(row); track column.key) {
+                      <dt class="text-[12px] text-muted-foreground self-start pt-0.5">{{ column.header }}</dt>
+                      <dd class="min-w-0 text-[13px] text-foreground break-words">
+                        @if (cellTemplateFor(column.key); as tpl) {
+                          <ng-container [ngTemplateOutlet]="tpl" [ngTemplateOutletContext]="{ $implicit: row }" />
+                        } @else {
+                          {{ cellValue(row, column.key) }}
+                        }
+                      </dd>
+                    }
+                  </dl>
+                }
+
+                <!-- A page's own bespoke "actions" column (custom cell template keyed "actions",
+                     used where the built-in [actions] menu can't express the row's controls)
+                     gets the same full-width, bottom-of-card treatment as the built-in one. -->
+                @if (actionsColumn(); as ac) {
+                  <div
+                    class="mt-3 pt-3 border-t border-border-muted min-h-11 flex items-center justify-end gap-2"
+                    (click)="$event.stopPropagation()"
+                  >
+                    @if (cellTemplateFor(ac.key); as tpl) {
+                      <ng-container [ngTemplateOutlet]="tpl" [ngTemplateOutletContext]="{ $implicit: row }" />
+                    }
+                  </div>
+                }
+
+                <!-- Built-in row actions + navigation chevron, one row, full-width touch targets -->
+                @if (actions(); as actionsFn) {
+                  <div
+                    class="mt-3 pt-3 border-t border-border-muted min-h-11 flex items-center justify-end gap-2"
+                    (click)="$event.stopPropagation()"
+                  >
+                    <app-row-actions-menu
+                      [items]="actionsFn(row)"
+                      [ariaLabel]="actionsAriaLabel()"
+                    />
+                    @if (clickableRows()) {
+                      <app-icon
+                        name="chevron-right"
+                        [size]="16"
+                        class="text-faint-foreground rtl:-scale-x-100"
+                        aria-hidden="true"
+                      ></app-icon>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+      } @else {
       <!-- Table: the header always renders, even when there's nothing (or nothing matching
            a search) to show below it — a table missing its own column headers just because
            it's empty is a different, worse-looking component than the populated one. -->
@@ -199,14 +314,16 @@ export interface SortState {
           }
         </tbody>
       </table>
+      }
 
-      <!-- Pagination -->
+      <!-- Pagination: compact prev/next + "n of m" on mobile (the shown/total line is desktop-only
+           clutter at this width); identical control in both table and card mode. -->
       @if (paginated() && pageCount() > 1) {
-        <div class="h-11 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
-          <span>
+        <div class="h-11 max-md:h-auto max-md:py-2 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
+          <span class="max-md:hidden">
             {{ 'table.rowsOf' | transloco: { shown: displayedRows().length, total: filteredRows().length } }}
           </span>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 max-md:w-full max-md:justify-between">
             <button
               appButton
               variant="secondary"
@@ -256,6 +373,9 @@ export class AppDataTableComponent<T> {
 
   readonly dir = 'ltr';
   readonly Math = Math;
+
+  private readonly viewport = inject(ViewportService);
+  readonly isMobile = this.viewport.isMobile;
 
   readonly searchTerm = signal('');
   readonly sortState = signal<SortState | null>(null);
@@ -373,5 +493,33 @@ export class AppDataTableComponent<T> {
 
   cellValue(row: T, key: string): unknown {
     return (row as Record<string, unknown>)[key];
+  }
+
+  /** Mobile card mode: the column that becomes the card title. A page opts in with
+   *  `mobile: 'primary'` on the obvious column (name/email/body excerpt/key); absent that, the
+   *  first column wins so every table still renders a sensible card without a rewrite. */
+  primaryColumn(): DataTableColumn<T> {
+    return this.columns().find((c) => c.mobile === 'primary') ?? this.columns()[0];
+  }
+
+  /** Mobile card mode: the label/value pairs below the title — every column except the primary
+   *  one, one explicitly marked `mobile: 'hide'` (redundant index/id/duplicate columns), the
+   *  bespoke "actions" column (rendered separately, full-width, at the card's bottom), and — for
+   *  a plain (non-templated) value only, since a custom cell renderer's emptiness can't be
+   *  inspected from here — a null/undefined/blank value. */
+  secondaryColumns(row: T): DataTableColumn<T>[] {
+    const primaryKey = this.primaryColumn()?.key;
+    return this.columns().filter((c) => {
+      if (c.key === primaryKey || c.mobile === 'hide' || c.key === 'actions') return false;
+      if (this.cellTemplateFor(c.key)) return true;
+      const v = this.cellValue(row, c.key);
+      return v !== null && v !== undefined && v !== '';
+    });
+  }
+
+  /** A page's own bespoke actions column (custom `appDataTableCell="actions"` template), as
+   *  distinct from the built-in `[actions]` input — see `secondaryColumns` and the card template. */
+  actionsColumn(): DataTableColumn<T> | undefined {
+    return this.columns().find((c) => c.key === 'actions');
   }
 }

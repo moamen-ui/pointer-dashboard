@@ -71,7 +71,7 @@ interface StatusRow {
           <ng-template appDataTableCell="label" let-row>
             <!-- Same slim box as the colour control below, so the row reads as one
                  set of controls instead of tall Material fields beside a small one. -->
-            <div class="table-field w-[132px]">
+            <div class="table-field w-[132px] max-md:w-full">
               <input
                 class="table-field-input"
                 [(ngModel)]="row.label"
@@ -85,10 +85,10 @@ interface StatusRow {
           <ng-template appDataTableCell="color" let-row>
             <!-- Swatch + hex are one control: a single bordered box that lights up
                  on focus, with the native picker sitting inside it. -->
-            <div class="table-field w-[124px] gap-1.5 ps-1.5">
+            <div class="table-field w-[124px] max-md:w-full gap-1.5 ps-1.5">
               <input
                 type="color"
-                class="color-swatch h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+                class="color-swatch h-6 w-6 max-md:h-10 max-md:w-10 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
                 [value]="row.color"
                 (input)="onColorPicker(row, $event)"
                 [attr.aria-label]="'statuses.colColor' | transloco"
@@ -129,6 +129,11 @@ interface StatusRow {
       border: 1px solid var(--border);
       border-radius: 6px;
       background: transparent;
+    }
+    /* Below md the row itself becomes a mobile card (see app-data-table), so the inline-edit
+       controls can afford a full touch-target height without cramping a desktop table row. */
+    @media (max-width: 767.98px) {
+      .table-field { height: 44px; }
     }
     .table-field:focus-within {
       border-color: var(--brand);
@@ -207,7 +212,7 @@ export class StatusesComponent {
   // A method (not a stored field) so column headers stay live if the app language changes.
   columns(): DataTableColumn<StatusRow>[] {
     return [
-      { key: 'name', header: this.transloco.translate('statuses.colName') },
+      { key: 'name', header: this.transloco.translate('statuses.colName'), mobile: 'primary' },
       { key: 'label', header: this.transloco.translate('statuses.colLabel') },
       { key: 'color', header: this.transloco.translate('statuses.colColor') },
       { key: 'order', header: this.transloco.translate('statuses.colOrder') },

@@ -219,7 +219,7 @@ export class EnvironmentsComponent {
 
   columns(): DataTableColumn<AppEnvironmentResponse>[] {
     return [
-      { key: 'name', header: this.transloco.translate('environments.name'), sortable: true },
+      { key: 'name', header: this.transloco.translate('environments.name'), sortable: true, mobile: 'primary' },
       { key: 'scope', header: this.transloco.translate('environments.scope') },
       { key: 'isEnabled', header: this.transloco.translate('common.active') },
     ];

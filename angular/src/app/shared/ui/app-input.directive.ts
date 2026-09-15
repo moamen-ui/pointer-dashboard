@@ -8,7 +8,7 @@ import { Directive } from '@angular/core';
   standalone: true,
   host: {
     class:
-      'h-8 w-full rounded-md border border-border bg-background px-3 text-[14px] placeholder:text-faint-foreground disabled:cursor-not-allowed disabled:bg-gutter-strong disabled:text-muted-foreground',
+      'h-8 max-md:h-11 w-full rounded-md border border-border bg-background px-3 text-[14px] placeholder:text-faint-foreground disabled:cursor-not-allowed disabled:bg-gutter-strong disabled:text-muted-foreground',
   },
 })
 export class AppInputDirective {}

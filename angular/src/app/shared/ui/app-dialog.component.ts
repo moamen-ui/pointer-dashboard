@@ -27,10 +27,14 @@ export class AppDialogFooterDirective {}
  */
 @Component({
   selector: 'app-dialog',
+  // Below `md` the panel (see AppDialogService/app.css) becomes a full-height bottom sheet, so this
+  // host must turn into a column flexbox filling it: header stays put, body is the only scroller,
+  // footer stays put. At `md` and up this is a no-op — the host just flows as before.
+  host: { class: 'block max-md:flex max-md:h-full max-md:min-h-0 max-md:flex-col' },
   standalone: true,
   imports: [NgTemplateOutlet],
   template: `
-    <div class="px-5 pt-5 pb-3">
+    <div class="px-5 pt-5 pb-3 max-md:sticky max-md:top-0 max-md:z-10 max-md:shrink-0 max-md:bg-background max-md:border-b max-md:border-border-muted">
       <h2 class="text-[16px] font-semibold leading-6 text-foreground">{{ title() }}</h2>
       @if (description()) {
         <p class="text-[14px] text-muted-foreground mt-1">{{ description() }}</p>
@@ -38,13 +42,17 @@ export class AppDialogFooterDirective {}
     </div>
 
     @if (bodyTemplate()) {
-      <div class="px-5 py-2 space-y-4">
+      <div class="px-5 py-2 space-y-4 max-md:flex-1 max-md:overflow-y-auto max-md:min-h-0">
         <ng-container *ngTemplateOutlet="bodyTemplate()!"></ng-container>
       </div>
     }
 
     @if (footerTemplate()) {
-      <div class="px-5 pb-5 pt-3 flex justify-end gap-2">
+      <div
+        class="px-5 pb-5 pt-3 flex justify-end gap-2
+               max-md:shrink-0 max-md:sticky max-md:bottom-0 max-md:bg-background max-md:border-t max-md:border-border-muted
+               max-md:flex-col max-md:[&>*]:w-full"
+      >
         <ng-container *ngTemplateOutlet="footerTemplate()!"></ng-container>
       </div>
     }
