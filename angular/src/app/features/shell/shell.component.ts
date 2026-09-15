@@ -39,6 +39,7 @@ const ADMIN_NAV: NavItem[] = [
 
 const ALL_USER_NAV: NavItem[] = [
   { to: '/projects', labelKey: 'nav.projects', icon: 'folder', dataTour: 'nav-projects' },
+  { to: '/comments', labelKey: 'nav.comments', icon: 'message-square' },
 ];
 
 const SUPER_ADMIN_NAV: NavItem[] = [

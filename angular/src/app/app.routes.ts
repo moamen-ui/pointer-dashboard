@@ -89,6 +89,12 @@ export const routes: Routes = [
           import('./features/projects/projects.component').then((m) => m.ProjectsComponent),
       },
       {
+        path: 'comments',
+        canActivate: [authenticatedGuard, notQuickAccessGuard],
+        loadComponent: () =>
+          import('./features/comments/comments.component').then((m) => m.CommentsComponent),
+      },
+      {
         path: 'statuses',
         canActivate: [adminGuard],
         loadComponent: () =>

@@ -7,6 +7,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { OverlayModule } from '@angular/cdk/overlay';
 import type { ConnectedPosition } from '@angular/cdk/overlay';
 import { TranslocoModule } from '@jsverse/transloco';
@@ -205,6 +206,7 @@ export class NotificationsBellComponent {
   private readonly meService = inject(MeService);
   private readonly unreadCountResource = getApiMeNotificationsUnreadCountResource();
   private readonly toast = inject(AppToastService);
+  private readonly router = inject(Router);
 
   readonly isOpen = signal(false);
   readonly marking = signal(false);
@@ -310,6 +312,12 @@ export class NotificationsBellComponent {
   handleNotificationClick(notification: NotificationDto): void {
     if (!notification.readAt && notification.id) {
       this.markRead(notification.id);
+    }
+    this.isOpen.set(false);
+    if (notification.projectKey && notification.commentId) {
+      this.router.navigate(['/comments'], {
+        queryParams: { project: notification.projectKey, comment: notification.commentId },
+      });
     }
   }
 

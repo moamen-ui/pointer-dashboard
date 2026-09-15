@@ -29,6 +29,8 @@ export class BadgeComponent {
 
   protected readonly badgeClass = computed(() => {
     switch (this.severity()) {
+      case 'open':
+        return 'text-state-open bg-state-open-tint border-state-open/30';
       case 'success':
         return 'text-state-completed bg-state-completed-tint border-state-completed/30';
       case 'danger':
@@ -46,6 +48,8 @@ export class BadgeComponent {
 
   protected readonly iconName = computed(() => {
     switch (this.severity()) {
+      case 'open':
+        return 'circle';
       case 'success':
         return 'check-circle';
       case 'danger':
