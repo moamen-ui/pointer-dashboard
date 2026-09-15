@@ -31,3 +31,4 @@ Thumbs.db
 .claude/skills/impeccable/
 # Design-hook cache (regenerated per machine)
 .impeccable/hook.cache.json
+react/.env

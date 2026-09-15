@@ -9,5 +9,30 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- pointer-feedback:start -->
+<script>
+  if (
+    '%VITE_POINTER_SERVER%'.indexOf('http') === 0 &&
+    '%VITE_POINTER_PROJECT%' !== ''
+  ) {
+    var s = document.createElement('script');
+    s.src = '%VITE_POINTER_SERVER%/pointer.js';
+    s.defer = true;
+    document.head.appendChild(s);
+    // Deferred until the body exists. Injected just above </body> this is already true, but the
+    // block gets copied into other files by hand, and inside <head> document.body is null —
+    // "Cannot read properties of null (reading 'appendChild')", and nothing mounts.
+    var mount = function () {
+      if (document.querySelector('pointer-feedback')) return;
+      var el = document.createElement('pointer-feedback');
+      el.setAttribute('project', '%VITE_POINTER_PROJECT%');
+      el.setAttribute('server', '%VITE_POINTER_SERVER%');
+      document.body.appendChild(el);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+    else mount();
+  }
+</script>
+<!-- pointer-feedback:end -->
+</body>
 </html>
