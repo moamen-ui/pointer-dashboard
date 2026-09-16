@@ -60,6 +60,7 @@ import { AppTabs } from '@/components/shared/Tabs';
 import { TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
+import { useBranding } from '@/lib/branding';
 import { slugifyKey, keyErrorFor } from '@/lib/project-utils';
 import {
   isSuppressed,
@@ -156,8 +157,11 @@ function InstallGuideWizardDialog({
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const userId = user?.id ?? null;
+  const { branding } = useBranding();
+  const extensionStoreUrl = branding?.extension.storeUrl ?? '';
+  const extensionZipUrl = branding?.extension.zipUrl ?? '';
 
   const demo = useMemo(() => readDemoSession(), []);
   const apiKeyQuery = useGetApiMeApiKey();
@@ -760,12 +764,26 @@ function InstallGuideWizardDialog({
                   apiKey,
                   demo,
                   credsEmailedText: t('demo.credsEmailed'),
+                  storeUrl: extensionStoreUrl,
+                  zipUrl: extensionZipUrl,
+                  isSuperAdmin,
                 }).map((step, i) => (
                   <li key={step.titleKey} className="rounded-md border border-border bg-background p-4 space-y-2">
                     <div className="text-[13px] font-medium text-foreground">
                       {i + 1}. {t(step.titleKey)}
                     </div>
                     <div className="text-[12px] text-muted-foreground">{t(step.hintKey)}</div>
+                    {step.noteKey && (
+                      <div className="text-[12px] text-muted-foreground italic">{t(step.noteKey)}</div>
+                    )}
+                    {step.linkUrl && (
+                      <Button asChild size="sm" className="inline-flex mt-2">
+                        <a href={step.linkUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                          {t('install.extStoreLink')}
+                        </a>
+                      </Button>
+                    )}
                     {step.downloadUrl && (
                       <Button asChild size="sm" className="inline-flex mt-2">
                         <a href={step.downloadUrl} download>

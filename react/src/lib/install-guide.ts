@@ -4,10 +4,13 @@
 // must not break the guide.
 
 /**
- * The Chrome extension zip, served from the landing domain — deliberately NOT
- * derived from the API base (it is a marketing-site artifact, not an API asset).
+ * Last-resort zip download, used only when the super admin has not set either
+ * a Chrome Web Store URL or a custom zip URL in Settings → Extension (see
+ * `BrandingExtension` in `lib/branding.tsx`, sourced from `GET /api/branding`).
+ * Deliberately NOT derived from the API base — it's a marketing-site artifact,
+ * not an API asset.
  */
-export const EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
+export const FALLBACK_EXTENSION_ZIP_URL = 'https://pointer.moamen.work/pointer-extension.zip';
 
 /** Per-user localStorage/sessionStorage keys for the auto-open policy. */
 const SEEN_KEY = (userId: string) => `pointer_install_seen:${userId}`;
@@ -193,7 +196,12 @@ export type SetupStep = {
   titleKey: string;
   hintKey: string;
   code?: string;
+  /** Triggers a file-download button (the extension zip). */
   downloadUrl?: string;
+  /** Triggers an "open in new tab" link button (e.g. the Chrome Web Store listing). */
+  linkUrl?: string;
+  /** Extra muted note rendered under the hint — used for the admin-only Web Store hint. */
+  noteKey?: string;
 };
 
 export type GuideSteps = {
@@ -264,27 +272,51 @@ export function buildSteps(input: {
 
 /**
  * Builds the steps for the Chrome extension method.
+ *
+ * `storeUrl`/`zipUrl` come from branding (`GET /api/branding` → `extension`,
+ * set by the super admin in Settings → Extension) and may be empty strings.
+ * When a Web Store URL is set, installing is a single click there and the
+ * "Load unpacked" dance disappears. Otherwise we fall back to the zip +
+ * `chrome://extensions` flow, optionally pointing a super admin at the
+ * setting that would remove this step for everyone.
  */
 export function buildExtensionSteps(input: {
   server: string;
   apiKey: string | null;
   demo: DemoSession | null;
   credsEmailedText: string;
+  storeUrl: string;
+  zipUrl: string;
+  isSuperAdmin?: boolean;
 }): SetupStep[] {
-  const { server } = input;
+  const { server, storeUrl, zipUrl, isSuperAdmin } = input;
   const credentials = credentialsSnippet(input);
+  const signInStep: SetupStep = {
+    titleKey: 'install.extStep4Title',
+    hintKey: 'install.extStep4Hint',
+    code: `${server}\n${credentials}`,
+  };
+
+  if (storeUrl) {
+    return [
+      {
+        titleKey: 'install.extStoreStep1Title',
+        hintKey: 'install.extStoreStep1Hint',
+        linkUrl: storeUrl,
+      },
+      signInStep,
+    ];
+  }
+
   return [
     {
       titleKey: 'install.extStep1Title',
       hintKey: 'install.extStep1Hint',
-      downloadUrl: 'https://pointer.moamen.work/pointer-extension.zip',
+      noteKey: isSuperAdmin ? 'install.extStep1AdminHint' : undefined,
+      downloadUrl: zipUrl || FALLBACK_EXTENSION_ZIP_URL,
     },
     { titleKey: 'install.extStep2Title', hintKey: 'install.extStep2Hint' },
     { titleKey: 'install.extStep3Title', hintKey: 'install.extStep3Hint', code: 'chrome://extensions' },
-    {
-      titleKey: 'install.extStep4Title',
-      hintKey: 'install.extStep4Hint',
-      code: `${server}\n${credentials}`,
-    },
+    signInStep,
   ];
 }

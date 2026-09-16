@@ -29,6 +29,7 @@ interface BrandingPayload {
     logo?: string | null; iconSquare?: string | null; favicon?: string | null;
     appleTouch?: string | null; pwa192?: string | null; pwa512?: string | null;
   } | null;
+  extension?: { storeUrl?: string | null; zipUrl?: string | null } | null;
   version?: number | null;
 }
 
@@ -77,6 +78,10 @@ async function fetchAdminBranding(): Promise<BrandingData> {
       appleTouch: d?.assets?.appleTouch ?? null,
       pwa192: d?.assets?.pwa192 ?? null,
       pwa512: d?.assets?.pwa512 ?? null,
+    },
+    extension: {
+      storeUrl: d?.extension?.storeUrl ?? null,
+      zipUrl: d?.extension?.zipUrl ?? null,
     },
     version: d?.version ?? 0,
   };

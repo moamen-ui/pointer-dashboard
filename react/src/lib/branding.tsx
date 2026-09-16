@@ -33,12 +33,18 @@ export interface BrandingUrls {
   landing: string | null;
 }
 
+export interface BrandingExtension {
+  storeUrl: string | null;
+  zipUrl: string | null;
+}
+
 export interface BrandingData {
   productName: string;
   tagline: string | null;
   primaryColor: string | null;
   urls: BrandingUrls;
   assets: BrandingAssets;
+  extension: BrandingExtension;
   version: number;
 }
 
@@ -62,6 +68,7 @@ const DEFAULTS: BrandingData = {
     pwa192: null,
     pwa512: null,
   },
+  extension: { storeUrl: null, zipUrl: null },
   version: 0,
 };
 
@@ -107,6 +114,7 @@ async function fetchBranding(): Promise<BrandingData> {
     primaryColor?: string | null;
     urls?: Record<string, string | null | undefined> | null;
     assets?: Record<string, string | null | undefined> | null;
+    extension?: { storeUrl?: string | null; zipUrl?: string | null } | null;
     version?: number | null;
   };
   return {
@@ -126,6 +134,10 @@ async function fetchBranding(): Promise<BrandingData> {
       appleTouch: d?.assets?.appleTouch ?? null,
       pwa192: d?.assets?.pwa192 ?? null,
       pwa512: d?.assets?.pwa512 ?? null,
+    },
+    extension: {
+      storeUrl: d?.extension?.storeUrl ?? null,
+      zipUrl: d?.extension?.zipUrl ?? null,
     },
     version: d?.version ?? 0,
   };
