@@ -22,6 +22,7 @@ import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { JoinPage } from '@/features/auth/JoinPage';
+import { CliLoginPage } from '@/features/cli-login/CliLoginPage';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 
 function IndexRedirect() {
@@ -46,6 +47,10 @@ export default function App() {
 
               {/* Shell wraps all authenticated routes */}
               <Route element={<AuthenticatedRoute />}>
+                {/* Focused, centered card page (no sidebar) — any signed-in user, not gated
+                    behind ProtectedRoute/SuperAdminRoute (the API itself refuses super admins). */}
+                <Route path="/cli-login" element={<CliLoginPage />} />
+
                 <Route element={<Shell />}>
                   {/* Root redirect: admin → overview, non-admin → profile */}
                   <Route index element={<IndexRedirect />} />

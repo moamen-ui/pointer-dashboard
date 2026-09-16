@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   usePostApiDemo,
@@ -17,6 +17,7 @@ import { removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
 import { useToast } from '@/components/ui/toast';
 import { AuthLayout } from '@/components/AuthLayout';
+import { getSafeNextPath } from '@/lib/next-path';
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
@@ -24,9 +25,13 @@ export function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const locationState = location.state as { message?: string } | null;
   const { login, isAuthenticated, isAdmin } = useAuth();
+  // `?next=` set by AuthenticatedRoute when it bounced a signed-out visitor here
+  // (e.g. /cli-login?code=…) — only a same-origin relative path is honoured.
+  const next = getSafeNextPath(searchParams.get('next'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,7 +57,7 @@ export function LoginPage() {
   // result) rather than calling navigate() during render, which triggers React's
   // "cannot update a component while rendering" warning and can double-fire.
   if (isAuthenticated) {
-    return <Navigate to={isAdmin ? '/overview' : '/profile'} replace />;
+    return <Navigate to={next ?? (isAdmin ? '/overview' : '/profile')} replace />;
   }
 
   async function onSubmit(e: FormEvent) {
@@ -63,12 +68,9 @@ export function LoginPage() {
     setError(null);
     try {
       const user = await login(email, password);
-      // Role-based redirect: admin → overview, non-admin → profile.
-      if (user?.isAdmin) {
-        navigate('/overview', { replace: true });
-      } else {
-        navigate('/profile', { replace: true });
-      }
+      // `next` (e.g. back to /cli-login?code=…) wins over the role-based default
+      // (admin → overview, non-admin → profile).
+      navigate(next ?? (user?.isAdmin ? '/overview' : '/profile'), { replace: true });
     } catch (err) {
       setError(extractMessage(err) || t('login.failed'));
     } finally {

@@ -115,6 +115,24 @@
     "tooShort": "Password must be at least 8 characters.",
     "wrongCurrent": "Current password is incorrect."
   },
+  "cliLogin": {
+    "approve": "Approve",
+    "approvedBody": "Return to your terminal — the CLI finishes on its own. You can close this tab.",
+    "approvedNote": "The key stays personal to this account and is never shared with anyone else.",
+    "codeHint": "Enter the code shown in your terminal.",
+    "codeLabel": "Device code",
+    "confirmPrompt": "Sign in <strong>{{client}}</strong>?",
+    "createdAt": "Requested {{time}}",
+    "deniedBody": "Nothing was shared.",
+    "deny": "Deny",
+    "errorBody": "Could not reach the server. Check your connection and try again.",
+    "expiresAt": "Expires {{time}}",
+    "invalidBody": "This code expired or does not exist. Run npx pointer-feedback login again.",
+    "retry": "Try again",
+    "signedInAs": "Signed in as",
+    "title": "Sign in the CLI",
+    "unknownClient": "the pointer-feedback CLI"
+  },
   "comments": {
     "addReply": "Add reply",
     "allEnvironments": "All environments",
