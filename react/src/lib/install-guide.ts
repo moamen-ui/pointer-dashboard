@@ -27,8 +27,17 @@ export type AutoOpenContext = {
 };
 
 export type WizardStep = 'project' | 'method' | 'install' | 'verify';
-export type InstallMethod = 'agent' | 'snippet' | 'extension';
+/**
+ * 'cli' (recommended) and 'extension' are the easy paths: the CLI wires the widget,
+ * the AI skills and sign-in in one command, and the extension needs no code change at
+ * all. 'snippet' — copy-paste the `<pointer-feedback>` tag by hand — is the advanced/
+ * manual fallback for repos that can't run the CLI.
+ */
+export type InstallMethod = 'cli' | 'extension' | 'snippet';
 export type FrameworkStack = 'html' | 'react' | 'vue' | 'angular';
+
+/** The universal post-install check, regardless of method. */
+export const DOCTOR_COMMAND = 'npx pointer-feedback doctor';
 
 /**
  * Checks if the widget is configured and active for localhost (http://localhost:3000)

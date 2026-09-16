@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 
 /**
  * Subscribes to a CSS media query and returns whether it currently matches.
- * Used to switch between the desktop table/dialog/tour chrome and their mobile
- * equivalents (stacked cards, full-height sheets, no auto-opened tour prompt)
- * at the shared `(max-width: 767px)` breakpoint — the same `md` cutoff the
- * rest of the app's Tailwind `max-md:`/`md:` utilities use, so JS-driven
- * branches and CSS-driven ones never disagree.
+ * Used to switch between the desktop table/dialog chrome and their mobile
+ * equivalents (stacked cards, full-height sheets) at the shared
+ * `(max-width: 767px)` breakpoint — the same `md` cutoff the rest of the
+ * app's Tailwind `max-md:`/`md:` utilities use, so JS-driven branches and
+ * CSS-driven ones never disagree.
  */
 export function useMediaQuery(query: string): boolean {
   const getMatch = () =>

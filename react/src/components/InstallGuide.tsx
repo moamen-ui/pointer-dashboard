@@ -14,7 +14,7 @@ import {
   Rocket,
   Copy,
   Download,
-  Bot,
+  Terminal,
   Code2,
   Chrome,
   CheckCircle2,
@@ -75,6 +75,7 @@ import {
   credentialsSnippet,
   buildExtensionSteps,
   PROJECT_KEY_PLACEHOLDER,
+  DOCTOR_COMMAND,
   type WizardStep,
   type InstallMethod,
   type FrameworkStack,
@@ -176,7 +177,7 @@ function InstallGuideWizardDialog({
     return projects.length === 0 ? 'project' : 'project';
   });
 
-  const [selectedMethod, setSelectedMethod] = useState<InstallMethod>('agent');
+  const [selectedMethod, setSelectedMethod] = useState<InstallMethod>('cli');
   const [selectedStack, setSelectedStack] = useState<FrameworkStack>('html');
 
   // Project Selection / Inline Creation
@@ -257,21 +258,23 @@ function InstallGuideWizardDialog({
   });
 
   // Mask the API key in displayed commands (full key only in DOM when revealed)
-  const maskedInitCmd = (() => {
-    if (!apiKey || revealKey) return initCmd;
-    return initCmd.replace(apiKey, 'ptr_••••••••');
-  })();
+  const maskKey = useCallback(
+    (cmd: string) => (!apiKey || revealKey ? cmd : cmd.replace(apiKey, 'ptr_••••••••')),
+    [apiKey, revealKey],
+  );
+  const maskedInitCmd = maskKey(initCmd);
 
   const monorepoCmd = monorepoInitCommand({
     server,
     apiKey,
     projectKey: projectKey !== PROJECT_KEY_PLACEHOLDER ? projectKey : null,
   });
+  const maskedMonorepoCmd = maskKey(monorepoCmd);
 
-  const maskedMonorepoCmd = (() => {
-    if (!apiKey || revealKey) return monorepoCmd;
-    return monorepoCmd.replace(apiKey, 'ptr_••••••••');
-  })();
+  // `--delivery extension` records — for `pointer list`/`pointer apply` in this repo —
+  // that reviewers use the Chrome extension rather than the injected widget.
+  const extDeliveryCmd = `${initCmd} --delivery extension`;
+  const maskedExtDeliveryCmd = maskKey(extDeliveryCmd);
 
   const initHintKey = apiKey ? 'install.stepInitHint' : 'install.stepInitHintNoKey';
   const creds = credentialsSnippet({
@@ -279,8 +282,6 @@ function InstallGuideWizardDialog({
     demo,
     credsEmailedText: t('demo.credsEmailed'),
   });
-
-  const agentPrompt = `Add the Pointer feedback widget to this app using the pointer-init skill — project key: ${effectiveKey}, Pointer server URL: ${server}, environment: local`;
 
   const stackSnippets: Record<FrameworkStack, string> = {
     html: `<!-- Add before </body> or inside <head> -->\n<script src="${server}/pointer.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
@@ -338,7 +339,7 @@ function InstallGuideWizardDialog({
         {/* STEP 1: PROJECT SELECTION & INLINE CREATION                                */}
         {/* ========================================================================= */}
         {currentStep === 'project' && (
-          <div className="flex flex-col gap-4 px-5 py-4">
+          <div className="flex min-w-0 flex-col gap-4 px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold">{t('install.wizard.createProjectTitle')}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -464,7 +465,7 @@ function InstallGuideWizardDialog({
         {/* STEP 2: CHOOSE INTEGRATION METHOD                                         */}
         {/* ========================================================================= */}
         {currentStep === 'method' && (
-          <div className="flex flex-col gap-4 px-5 py-4">
+          <div className="flex min-w-0 flex-col gap-4 px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold">{t('install.wizard.methodTitle')}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -473,50 +474,30 @@ function InstallGuideWizardDialog({
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {/* Option 1: AI Agent */}
+              {/* Option 1: CLI (recommended) */}
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedMethod('agent');
+                  setSelectedMethod('cli');
                   setCurrentStep('install');
                 }}
                 className={`relative flex flex-col items-start gap-2 rounded-xl border p-4 text-start transition-all hover:border-brand ${
-                  selectedMethod === 'agent' ? 'border-brand bg-brand/5 ring-1 ring-brand' : 'border-border bg-card'
+                  selectedMethod === 'cli' ? 'border-brand bg-brand/5 ring-1 ring-brand' : 'border-border bg-card'
                 }`}
               >
                 <Badge variant="default" className="absolute top-2.5 end-2.5 text-[0.65rem]">
-                  {t('install.wizard.methodAgentBadge')}
+                  {t('install.wizard.methodCliBadge')}
                 </Badge>
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                  <Bot className="h-5 w-5" />
+                  <Terminal className="h-5 w-5" />
                 </div>
-                <div className="font-semibold text-sm">{t('install.wizard.methodAgentTitle')}</div>
+                <div className="font-semibold text-sm">{t('install.wizard.methodCliTitle')}</div>
                 <div className="text-xs text-muted-foreground leading-relaxed">
-                  {t('install.wizard.methodAgentDesc')}
+                  {t('install.wizard.methodCliDesc')}
                 </div>
               </button>
 
-              {/* Option 2: Code Snippet */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedMethod('snippet');
-                  setCurrentStep('install');
-                }}
-                className={`flex flex-col items-start gap-2 rounded-xl border p-4 text-start transition-all hover:border-brand ${
-                  selectedMethod === 'snippet' ? 'border-brand bg-brand/5 ring-1 ring-brand' : 'border-border bg-card'
-                }`}
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <Code2 className="h-5 w-5" />
-                </div>
-                <div className="font-semibold text-sm">{t('install.wizard.methodSnippetTitle')}</div>
-                <div className="text-xs text-muted-foreground leading-relaxed">
-                  {t('install.wizard.methodSnippetDesc')}
-                </div>
-              </button>
-
-              {/* Option 3: Chrome Extension */}
+              {/* Option 2: Chrome Extension */}
               <button
                 type="button"
                 onClick={() => {
@@ -533,6 +514,26 @@ function InstallGuideWizardDialog({
                 <div className="font-semibold text-sm">{t('install.wizard.methodExtTitle')}</div>
                 <div className="text-xs text-muted-foreground leading-relaxed">
                   {t('install.wizard.methodExtDesc')}
+                </div>
+              </button>
+
+              {/* Option 3: Manual snippet (advanced) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMethod('snippet');
+                  setCurrentStep('install');
+                }}
+                className={`flex flex-col items-start gap-2 rounded-xl border p-4 text-start transition-all hover:border-brand ${
+                  selectedMethod === 'snippet' ? 'border-brand bg-brand/5 ring-1 ring-brand' : 'border-border bg-card'
+                }`}
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                  <Code2 className="h-5 w-5" />
+                </div>
+                <div className="font-semibold text-sm">{t('install.wizard.methodSnippetTitle')}</div>
+                <div className="text-xs text-muted-foreground leading-relaxed">
+                  {t('install.wizard.methodSnippetDesc')}
                 </div>
               </button>
             </div>
@@ -553,9 +554,9 @@ function InstallGuideWizardDialog({
         {/* STEP 3: ADD CODE TO LOCAL PROJECT                                         */}
         {/* ========================================================================= */}
         {currentStep === 'install' && (
-          <div className="flex flex-col gap-4 px-5 py-4">
-            {/* 3A: AI Coding Agent Path */}
-            {selectedMethod === 'agent' && (
+          <div className="flex min-w-0 flex-col gap-4 px-5 py-4">
+            {/* 3A: CLI (recommended) */}
+            {selectedMethod === 'cli' && (
               <div className="flex flex-col gap-4">
                 {/* 1. Init command (primary) */}
                 <div className="space-y-2">
@@ -603,6 +604,12 @@ function InstallGuideWizardDialog({
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {t('install.wizard.cliDeliveryNote')}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {t('install.wizard.cliJoinNote')}
                   </div>
                 </div>
 
@@ -685,30 +692,6 @@ function InstallGuideWizardDialog({
                       variant="ghost"
                       size="sm"
                       onClick={() => copy(creds)}
-                      className="absolute top-3 end-3"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Agent prompt block */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
-                    <Bot className="h-4 w-4 text-brand" />
-                    {t('install.wizard.agentPromptTitle')}
-                  </div>
-                  <div className="text-[12px] text-muted-foreground">
-                    {t('install.wizard.agentPromptHint')}
-                  </div>
-                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto whitespace-pre-wrap">
-                    <pre className="m-0">
-                      <code>{agentPrompt}</code>
-                    </pre>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copy(agentPrompt)}
                       className="absolute top-3 end-3"
                     >
                       <Copy className="h-4 w-4" />
@@ -812,6 +795,34 @@ function InstallGuideWizardDialog({
               </ol>
             )}
 
+            {/* 3C-note: record the extension choice for this repo's CLI */}
+            {selectedMethod === 'extension' && (
+              <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                  <Info className="h-3.5 w-3.5 text-brand" />
+                  {t('install.wizard.extRecordDeliveryTitle')}
+                </div>
+                <div className="text-[12px] text-muted-foreground">
+                  {t('install.wizard.extRecordDeliveryHint')}
+                </div>
+                <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
+                  <div className="p-3 pe-12 overflow-x-auto">
+                    <pre className="m-0">
+                      <code>{maskedExtDeliveryCmd}</code>
+                    </pre>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copy(extDeliveryCmd)}
+                    className="absolute top-3 end-3 bg-gutter rounded-md"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 flex items-center justify-between">
               <Button variant="ghost" size="sm" onClick={() => setCurrentStep('method')}>
                 {t('install.wizard.back')}
@@ -828,7 +839,7 @@ function InstallGuideWizardDialog({
         {/* STEP 4: LAUNCH & SEE IT LIVE!                                             */}
         {/* ========================================================================= */}
         {currentStep === 'verify' && (
-          <div className="flex flex-col gap-4 px-5 py-4">
+          <div className="flex min-w-0 flex-col gap-4 px-5 py-4">
             <div>
               <h3 className="text-sm font-semibold">{t('install.wizard.step4Title')}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -836,31 +847,62 @@ function InstallGuideWizardDialog({
               </p>
             </div>
 
-            {/* Checklist items */}
+            {/* Checklist items — what to expect differs by method; the extension has no
+                 dev-server/code-injection step, it activates from the toolbar instead. */}
             <div className="flex flex-col gap-2.5">
-              <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-                <Laptop className="mt-0.5 h-4 w-4 text-brand shrink-0" />
-                <div className="text-xs">
-                  <div className="font-semibold">{t('install.wizard.runDevTitle')}</div>
-                  <div className="text-muted-foreground">{t('install.wizard.runDevHint')}</div>
-                </div>
-              </div>
+              {selectedMethod === 'extension' ? (
+                <>
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <Chrome className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-semibold">{t('install.wizard.verifyExtInstallTitle')}</div>
+                      <div className="text-muted-foreground">{t('install.wizard.verifyExtInstallHint')}</div>
+                    </div>
+                  </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-                <ExternalLink className="mt-0.5 h-4 w-4 text-brand shrink-0" />
-                <div className="text-xs">
-                  <div className="font-semibold">{t('install.wizard.openLocalTitle')}</div>
-                  <div className="text-muted-foreground">{t('install.wizard.openLocalHint')}</div>
-                </div>
-              </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <ExternalLink className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-semibold">{t('install.wizard.verifyExtOpenTitle')}</div>
+                      <div className="text-muted-foreground">{t('install.wizard.verifyExtOpenHint')}</div>
+                    </div>
+                  </div>
 
-              <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
-                <Rocket className="mt-0.5 h-4 w-4 text-brand shrink-0" />
-                <div className="text-xs">
-                  <div className="font-semibold">{t('install.wizard.spotWidgetTitle')}</div>
-                  <div className="text-muted-foreground">{t('install.wizard.spotWidgetHint')}</div>
-                </div>
-              </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <Rocket className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-semibold">{t('install.wizard.verifyExtActivateTitle')}</div>
+                      <div className="text-muted-foreground">{t('install.wizard.verifyExtActivateHint')}</div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <Laptop className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-semibold">{t('install.wizard.runDevTitle')}</div>
+                      <div className="text-muted-foreground">{t('install.wizard.runDevHint')}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <ExternalLink className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-semibold">{t('install.wizard.openLocalTitle')}</div>
+                      <div className="text-muted-foreground">{t('install.wizard.openLocalHint')}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+                    <Rocket className="mt-0.5 h-4 w-4 text-brand shrink-0" />
+                    <div className="text-xs">
+                      <div className="font-semibold">{t('install.wizard.spotWidgetTitle')}</div>
+                      <div className="text-muted-foreground">{t('install.wizard.spotWidgetHint')}</div>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 text-brand shrink-0" />
@@ -868,6 +910,30 @@ function InstallGuideWizardDialog({
                   <div className="font-semibold">{t('install.wizard.dropCommentTitle')}</div>
                   <div className="text-muted-foreground">{t('install.wizard.dropCommentHint')}</div>
                 </div>
+              </div>
+            </div>
+
+            {/* Universal check: works no matter which method was used */}
+            <div className="rounded-md border border-border bg-background p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+                <Info className="h-3.5 w-3.5 text-brand" />
+                {t('install.wizard.verifyDoctorTitle')}
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                {t('install.wizard.verifyDoctorHint')}
+              </div>
+              <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
+                <pre className="m-0">
+                  <code>{DOCTOR_COMMAND}</code>
+                </pre>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copy(DOCTOR_COMMAND)}
+                  className="absolute top-3 end-3"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 

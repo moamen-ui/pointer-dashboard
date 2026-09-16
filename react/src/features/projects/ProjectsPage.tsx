@@ -1292,7 +1292,7 @@ export function ProjectsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('projects.title')}</h1>
         {!isSuperAdmin && (
-          <Button onClick={openAdd} data-tour="add-project-btn">
+          <Button onClick={openAdd}>
             <Plus className="h-4 w-4" />
             {t('projects.addProject')}
           </Button>
@@ -1319,7 +1319,7 @@ export function ProjectsPage() {
         emptyHint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
         emptyAction={
           !isSuperAdmin ? (
-            <Button onClick={openAdd} data-tour="add-project-btn">
+            <Button onClick={openAdd}>
               <Plus className="h-4 w-4" />
               {t('projects.addProject')}
             </Button>
@@ -1333,7 +1333,7 @@ export function ProjectsPage() {
           <DialogHeader>
             <DialogTitle className="text-base font-semibold leading-6">{t('projects.addProject')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-2" data-tour="project-modal-sections">
+          <div className="flex flex-col gap-4 py-2">
             {/* Name first: the key is derived from it (Pointer feedback #138). */}
             <FormField
               label={t('projects.name')}

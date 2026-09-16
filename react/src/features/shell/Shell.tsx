@@ -23,7 +23,6 @@ import {
   Paintbrush,
   Rocket,
   ChevronDown,
-  Compass,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,8 +39,6 @@ import { useBranding } from '@/lib/branding';
 import { DemoPanel } from '@/components/DemoPanel';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
-import { TourProvider, useTour } from '@/lib/tour';
-import { TourSpotlight } from '@/components/TourSpotlight';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -72,10 +69,7 @@ const SUPER_ADMIN_NAV = [
 export function Shell() {
   return (
     <InstallGuideProvider>
-      <TourProvider>
-        <ShellLayout />
-        <TourSpotlight />
-      </TourProvider>
+      <ShellLayout />
     </InstallGuideProvider>
   );
 }
@@ -88,11 +82,10 @@ function ShellLayout() {
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
   const installGuide = useInstallGuide();
-  const tour = useTour();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Belt-and-braces: the drawer already closes on an explicit nav-link click, but
-  // this also covers programmatic navigation (tour auto-navigate, redirects).
+  // this also covers programmatic navigation (redirects).
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
@@ -152,7 +145,6 @@ function ShellLayout() {
             variant="default"
             size="sm"
             onClick={() => installGuide.open()}
-            data-tour="nav-install-guide"
             className="flex items-center gap-1.5"
           >
             <Rocket className="h-4 w-4" />
@@ -163,7 +155,6 @@ function ShellLayout() {
             variant="ghost"
             size="icon"
             onClick={() => installGuide.open()}
-            data-tour="nav-install-guide"
           >
             <Rocket className="h-4 w-4" />
           </Button>
@@ -260,7 +251,6 @@ function ShellLayout() {
                   <NavLink
                     key={to}
                     to={to}
-                    data-tour={to === '/environments' ? 'nav-environments' : undefined}
                     onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
@@ -282,7 +272,6 @@ function ShellLayout() {
                 <NavLink
                   key={to}
                   to={to}
-                  data-tour={to === '/projects' ? 'nav-projects' : undefined}
                   onClick={() => setSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
@@ -337,23 +326,10 @@ function ShellLayout() {
             </div>
           </nav>
 
-          {/* Footer: border-t, How to use + Installation steps */}
+          {/* Footer: border-t, Installation steps */}
           <div className="mt-auto border-t border-border-muted pt-2 px-2 flex flex-col gap-0">
             <button
               type="button"
-              onClick={() => {
-                setSidebarOpen(false);
-                tour.startTour();
-              }}
-              className="h-8 max-md:h-11 px-3 rounded-md flex items-center gap-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-gutter-strong hover:text-foreground"
-            >
-              <Compass className="h-4 w-4" />
-              <span>{t('tour.quickTour')}</span>
-            </button>
-
-            <button
-              type="button"
-              data-tour="nav-install-guide"
               onClick={() => {
                 setSidebarOpen(false);
                 installGuide.open();
