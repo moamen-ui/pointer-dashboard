@@ -70,6 +70,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/shared/FormField';
+import { AiRulesTable, type AiRuleRowModel } from '@/components/shared/AiRulesTable';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -350,6 +351,41 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
 
   const canManageAdminRules = canEditProject || isAdmin;
 
+  // Local edits layered over the fetched rules — one row per rule for the shared table.
+  const savingAdminRuleId = (putAdminRuleMut.variables as { id?: number } | undefined)?.id;
+  const adminRuleRows: AiRuleRowModel[] = adminRules.map((rule) => {
+    const isInherited = !!rule.isTenantWide;
+    const edit = localAdminRules[rule.id!];
+    return {
+      id: rule.id!,
+      title: edit?.title ?? rule.title ?? '',
+      prompt: edit?.prompt ?? rule.prompt ?? '',
+      isActive: edit?.isActive ?? rule.isActive ?? true,
+      dirty: edit?.dirty ?? false,
+      saving: putAdminRuleMut.isPending && savingAdminRuleId === rule.id,
+      // A workspace rule is edited where it lives, not from inside a project.
+      readOnly: isInherited || !canManageAdminRules,
+      badge: {
+        label: t(isInherited ? 'aiRules.inheritedBadge' : 'aiRules.projectBadge'),
+        variant: isInherited ? ('default' as const) : ('warning' as const),
+      },
+    };
+  });
+
+  const savingMyRuleId = (putMyRuleMut.variables as { id?: number } | undefined)?.id;
+  const myRuleRows: AiRuleRowModel[] = myRules.map((rule) => {
+    const edit = localMyRules[rule.id!];
+    return {
+      id: rule.id!,
+      title: edit?.title ?? rule.title ?? '',
+      prompt: edit?.prompt ?? rule.prompt ?? '',
+      isActive: edit?.isActive ?? rule.isActive ?? true,
+      dirty: edit?.dirty ?? false,
+      saving: putMyRuleMut.isPending && savingMyRuleId === rule.id,
+      badge: { label: t('aiRules.personalBadge'), variant: 'neutral' as const },
+    };
+  });
+
   return (
     <div className="flex flex-col gap-6">
       <p className="text-xs text-muted-foreground">{t('aiRules.projectHelp')}</p>
@@ -366,105 +402,14 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
         </div>
 
         <div className="flex flex-col gap-3">
-          {adminRules.map((rule) => {
-            const isInherited = !!rule.isTenantWide;
-            const edit = localAdminRules[rule.id!] ?? {
-              id: rule.id,
-              title: rule.title ?? '',
-              prompt: rule.prompt ?? '',
-              isActive: rule.isActive ?? true,
-              isInherited,
-              dirty: false,
-            };
-            const isSaving =
-              putAdminRuleMut.isPending &&
-              (putAdminRuleMut.variables as { id?: number } | undefined)?.id === rule.id;
-
-            return (
-              <div
-                key={rule.id}
-                className="flex flex-col gap-2 rounded-md border border-border p-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-1 items-center gap-2">
-                    <Badge variant={isInherited ? 'default' : 'warning'}>
-                      {t(isInherited ? 'aiRules.inheritedBadge' : 'aiRules.projectBadge')}
-                    </Badge>
-                    {!isInherited && canManageAdminRules ? (
-                      <Input
-                        value={edit.title}
-                        onChange={(e) => updateAdminRule(rule.id!, 'title', e.target.value)}
-                        className="h-8 flex-1"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium">{rule.title}</span>
-                    )}
-                  </div>
-                  {!isInherited && canManageAdminRules ? (
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={edit.isActive}
-                          onChange={(e) => updateAdminRule(rule.id!, 'isActive', e.target.checked)}
-                          className="h-4 w-4 cursor-pointer"
-                        />
-                        {t(edit.isActive ? 'common.active' : 'common.disabled')}
-                      </label>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        type="button"
-                        disabled={deleteAdminRuleMut.isPending}
-                        onClick={() => deleteAdminRuleMut.mutate({ id: rule.id! })}
-                        aria-label={t('common.delete')}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Badge variant={rule.isActive ? 'success' : 'destructive'}>
-                      {t(rule.isActive ? 'common.active' : 'common.disabled')}
-                    </Badge>
-                  )}
-                </div>
-
-                {!isInherited && canManageAdminRules ? (
-                  <>
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
-                      <textarea
-                        value={edit.prompt}
-                        onChange={(e) => updateAdminRule(rule.id!, 'prompt', e.target.value)}
-                        rows={2}
-                        className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      />
-                    </div>
-                    {edit.dirty && (
-                      <div className="flex justify-end">
-                        <Button
-                          size="sm"
-                          disabled={isSaving}
-                          onClick={() => saveAdminRule(rule.id!)}
-                        >
-                          {t('common.save')}
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="rounded bg-muted/50 p-2 font-mono text-xs text-muted-foreground whitespace-pre-wrap">
-                    {rule.prompt}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {adminRules.length === 0 && !isLoading && (
-            <p className="text-xs text-muted-foreground">{t('aiRules.empty')}</p>
-          )}
+          <AiRulesTable
+            rows={adminRuleRows}
+            onFieldChange={(id, field, value) => updateAdminRule(id, field, value)}
+            onSave={(id) => saveAdminRule(id)}
+            onDelete={(id) => deleteAdminRuleMut.mutate({ id })}
+            deleting={deleteAdminRuleMut.isPending}
+            emptyMessage={t('aiRules.empty')}
+          />
 
           {/* Add Project Admin Rule Form */}
           {canManageAdminRules && (
@@ -513,85 +458,14 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
         </div>
 
         <div className="flex flex-col gap-3">
-          {myRules.map((rule) => {
-            const edit = localMyRules[rule.id!] ?? {
-              id: rule.id,
-              title: rule.title ?? '',
-              prompt: rule.prompt ?? '',
-              isActive: rule.isActive ?? true,
-              isPersonal: true,
-              dirty: false,
-            };
-            const isSaving =
-              putMyRuleMut.isPending &&
-              (putMyRuleMut.variables as { id?: number } | undefined)?.id === rule.id;
-
-            return (
-              <div
-                key={rule.id}
-                className="flex flex-col gap-2 rounded-md border border-border p-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-1 items-center gap-2">
-                    <Badge variant="neutral">{t('aiRules.personalBadge')}</Badge>
-                    <Input
-                      value={edit.title}
-                      onChange={(e) => updateMyRule(rule.id!, 'title', e.target.value)}
-                      className="h-8 flex-1"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={edit.isActive}
-                        onChange={(e) => updateMyRule(rule.id!, 'isActive', e.target.checked)}
-                        className="h-4 w-4 cursor-pointer"
-                      />
-                      {t(edit.isActive ? 'common.active' : 'common.disabled')}
-                    </label>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive"
-                      type="button"
-                      disabled={deleteMyRuleMut.isPending}
-                      onClick={() => deleteMyRuleMut.mutate({ id: rule.id! })}
-                      aria-label={t('common.delete')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">{t('aiRules.promptLabel')}</Label>
-                  <textarea
-                    value={edit.prompt}
-                    onChange={(e) => updateMyRule(rule.id!, 'prompt', e.target.value)}
-                    rows={2}
-                    className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                </div>
-
-                {edit.dirty && (
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      disabled={isSaving}
-                      onClick={() => savePersonalRule(rule.id!)}
-                    >
-                      {t('common.save')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {myRules.length === 0 && !isLoading && (
-            <p className="text-xs text-muted-foreground">{t('aiRules.noPersonalRules')}</p>
-          )}
+          <AiRulesTable
+            rows={myRuleRows}
+            onFieldChange={(id, field, value) => updateMyRule(id, field, value)}
+            onSave={(id) => savePersonalRule(id)}
+            onDelete={(id) => deleteMyRuleMut.mutate({ id })}
+            deleting={deleteMyRuleMut.isPending}
+            emptyMessage={t('aiRules.noPersonalRules')}
+          />
 
           {/* Add Personal Rule Form */}
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">

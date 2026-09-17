@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { FormField } from '@/components/shared/FormField';
+import { AiRulesTable, type AiRuleRowModel } from '@/components/shared/AiRulesTable';
 import {
   Table,
   TableBody,
@@ -297,6 +298,19 @@ function AiRulesCard() {
     });
   }
 
+  const savingRuleId = (putMut.variables as { id?: number } | undefined)?.id;
+  const ruleRows: AiRuleRowModel[] = rules.map((rule) => {
+    const edit = localRules[rule.id!];
+    return {
+      id: rule.id!,
+      title: edit?.title ?? rule.title ?? '',
+      prompt: edit?.prompt ?? rule.prompt ?? '',
+      isActive: edit?.isActive ?? rule.isActive ?? true,
+      dirty: edit?.dirty ?? false,
+      saving: putMut.isPending && savingRuleId === rule.id,
+    };
+  });
+
   function handleCreate() {
     if (!newTitle.trim() || !newPrompt.trim()) return;
     createMut.mutate({
@@ -313,91 +327,18 @@ function AiRulesCard() {
       <div className="space-y-3">
         <p className="text-[12px] text-muted-foreground max-w-[72ch]">{t('aiRules.tenantHelp')}</p>
 
-        {isLoading && rules.length === 0 ? (
+        {isLoading && rules.length === 0 && (
           <p className="text-[12px] text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</p>
-        ) : rules.length === 0 ? (
-          <p className="text-[12px] text-muted-foreground">{t('aiRules.empty')}</p>
-        ) : null}
+        )}
 
-        <div className="rounded-md border border-border overflow-hidden">
-          {rules.map((rule, idx) => {
-            const edit = localRules[rule.id!] ?? {
-              id: rule.id,
-              title: rule.title ?? '',
-              prompt: rule.prompt ?? '',
-              isActive: rule.isActive ?? true,
-              sortOrder: rule.sortOrder ?? 0,
-              dirty: false,
-            };
-            const isSaving =
-              putMut.isPending &&
-              (putMut.variables as { id?: number } | undefined)?.id === rule.id;
-
-            return (
-              <div
-                key={rule.id}
-                className={`flex flex-col gap-3 px-3 py-2.5 ${idx === 0 ? '' : 'border-t border-border-muted'}`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-1 flex-col gap-1.5">
-                    <FormField label={t('aiRules.titleLabel')} htmlFor={`admin-rule-title-${rule.id}`}>
-                      <Input
-                        id={`admin-rule-title-${rule.id}`}
-                        value={edit.title}
-                        onChange={(e) => updateRule(rule.id!, 'title', e.target.value)}
-                      />
-                    </FormField>
-                  </div>
-                  <div className="flex items-center gap-2 pt-6">
-                    <label className="flex items-center gap-1.5 text-[13px] font-medium cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={edit.isActive}
-                        onChange={(e) => updateRule(rule.id!, 'isActive', e.target.checked)}
-                        className="h-4 w-4 cursor-pointer"
-                      />
-                      {t(edit.isActive ? 'common.active' : 'common.disabled')}
-                    </label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-state-danger"
-                      type="button"
-                      disabled={deleteMut.isPending}
-                      onClick={() => deleteMut.mutate({ id: rule.id! })}
-                      aria-label={t('common.delete')}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <FormField label={t('aiRules.promptLabel')} htmlFor={`admin-rule-prompt-${rule.id}`}>
-                  <textarea
-                    id={`admin-rule-prompt-${rule.id}`}
-                    value={edit.prompt}
-                    onChange={(e) => updateRule(rule.id!, 'prompt', e.target.value)}
-                    rows={2}
-                    className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </FormField>
-
-                {edit.dirty && (
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      disabled={isSaving}
-                      onClick={() => saveRule(rule.id!)}
-                    >
-                      {t('common.save')}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <AiRulesTable
+          rows={ruleRows}
+          onFieldChange={(id, field, value) => updateRule(id, field, value)}
+          onSave={(id) => saveRule(id)}
+          onDelete={(id) => deleteMut.mutate({ id })}
+          deleting={deleteMut.isPending}
+          emptyMessage={t('aiRules.empty')}
+        />
 
         {/* Add new rule */}
         <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
