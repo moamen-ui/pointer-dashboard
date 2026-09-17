@@ -63,6 +63,7 @@ import {
   ChevronDown,
   Check,
   Brain,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -850,7 +851,6 @@ export function ProjectsPage() {
   // AI Rules state
   const [aiRulesOpen, setAiRulesOpen] = useState(false);
   const [selectedAiProject, setSelectedAiProject] = useState<ProjectResponse | null>(null);
-  const [showEditAiRules, setShowEditAiRules] = useState(false);
 
   function startAddEnvironment() {
     setNewEnvId(null);
@@ -1252,7 +1252,7 @@ export function ProjectsPage() {
       },
     });
     if (project.canEdit) {
-      items.push({ label: t('projects.edit'), onClick: () => openEdit(project, false) });
+      items.push({ label: t('projects.edit'), icon: Pencil, onClick: () => openEdit(project, false) });
     } else {
       items.push({ label: t('projects.viewPrompts'), icon: Eye, onClick: () => openEdit(project, true) });
       items.push({ label: t('projects.suggest'), icon: MessageSquarePlus, onClick: () => openSuggest(project) });
@@ -1457,6 +1457,7 @@ export function ProjectsPage() {
             tabs={[
               { value: 'details', label: t('projects.editTitle') },
               { value: 'prompts', label: t('predefined.section') },
+              ...(editProject ? [{ value: 'rules', label: t('aiRules.section') }] : []),
             ]}
             value={editTab}
             onValueChange={setEditTab}
@@ -1825,36 +1826,21 @@ export function ProjectsPage() {
                 </Button>
               )}
             </div>
+          </TabsContent>
 
-            {/* AI Roles & Rules section */}
-            {editProject && (
-              <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold">{t('aiRules.section')}</span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowEditAiRules((prev) => !prev)}
-                  >
-                    {showEditAiRules ? t('common.cancel') : t('aiRules.section')}
-                  </Button>
+            {/* AI Roles & Rules */}
+          {editProject && (
+            <TabsContent value="rules" className="flex flex-col gap-4 pt-1">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-semibold">{t('aiRules.section')}</h4>
                 </div>
                 <p className="text-xs text-muted-foreground">{t('aiRules.projectHelp')}</p>
-                {showEditAiRules && (
-                  <div className="mt-3 border-t border-border pt-3">
-                    <ProjectAiRulesContent
-                      project={editProject}
-                      canEditProject={!editReadOnly}
-                    />
-                  </div>
-                )}
               </div>
-            )}
-          </TabsContent>
+              <ProjectAiRulesContent project={editProject} canEditProject={!editReadOnly} />
+            </TabsContent>
+          )}
           </AppTabs>
           <DialogFooter className="gap-2">
             {editReadOnly && editProject && (
