@@ -16,7 +16,7 @@
     '%VITE_POINTER_SERVER%'.indexOf('http') === 0
   ) {
     var s = document.createElement('script');
-    s.src = '%VITE_POINTER_SERVER%/pointer.js';
+    s.src = '%VITE_POINTER_SERVER%/widget.js';
     s.defer = true;
     document.head.appendChild(s);
     // Deferred until the body exists. Injected just above </body> this is already true, but the

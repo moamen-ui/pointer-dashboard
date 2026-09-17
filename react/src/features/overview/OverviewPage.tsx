@@ -11,6 +11,8 @@ import {
   getGetApiAdminUsersQueryKey,
   getGetApiAdminStatsQueryKey,
   useGetApiAdminAiRulesInsights,
+  useGetApiAdminStatsInsights,
+  useGetApiAdminStatsWorkspaceInsights,
   type ProjectStats,
   type UserResponse,
   type AiInsightsResponse,
@@ -26,6 +28,11 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
+  Languages,
+  Filter,
+  CheckCircle,
+  MonitorSmartphone,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,12 +68,23 @@ import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/format';
 import { useStatusCatalog } from '@/lib/status-catalog';
 import { useAuth } from '@/lib/auth';
+import {
+  CountList,
+  MetricCard,
+  ProjectFunnelTable,
+  WeekBars,
+  WorkspaceFunnelTable,
+  formatHours,
+  formatShare,
+  formatPercent,
+  labelForKey,
+} from '@/features/overview/InsightPanels';
 
 export function OverviewPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin } = useAuth();
   const { data: stats, isFetching, refetch } = useGetApiAdminStats();
   const {
     data: insightsData,
@@ -77,9 +95,24 @@ export function OverviewPage() {
   const [showDetailedRules, setShowDetailedRules] = useState(false);
   const catalog = useStatusCatalog();
 
+  const {
+    data: platformInsights,
+    isLoading: isPlatformInsightsLoading,
+    isError: isPlatformInsightsError,
+    refetch: refetchPlatformInsights,
+  } = useGetApiAdminStatsInsights({ query: { enabled: isSuperAdmin } });
+  const {
+    data: workspaceInsights,
+    isLoading: isWorkspaceInsightsLoading,
+    isError: isWorkspaceInsightsError,
+    refetch: refetchWorkspaceInsights,
+  } = useGetApiAdminStatsWorkspaceInsights({ query: { enabled: isAdmin && !isSuperAdmin } });
+
   const reloadAll = () => {
     void refetch();
     void refetchInsights();
+    if (isSuperAdmin) void refetchPlatformInsights();
+    else void refetchWorkspaceInsights();
   };
 
   // Pending approvals — same data the /users Pending filter shows.
@@ -603,6 +636,261 @@ export function OverviewPage() {
                 />
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* 6. Platform insights (super admin only) */}
+      {isSuperAdmin && (
+        <div className="space-y-3 border-t border-border pt-6">
+          <div>
+            <h2 className="text-[16px] font-semibold leading-6">{t('insights.title')}</h2>
+          </div>
+          {isPlatformInsightsLoading && !platformInsights ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('common.loading')}</div>
+          ) : isPlatformInsightsError ? (
+            <div className="px-3 py-2 text-[13px] text-destructive">{t('common.error')}</div>
+          ) : !platformInsights ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('insights.noData')}</div>
+          ) : (
+            <>
+              <DiffstatLine
+                items={[
+                  { label: t('insights.open'), count: platformInsights.funnel?.open ?? 0, tone: 'open' as const },
+                  { label: t('insights.ready'), count: platformInsights.funnel?.ready ?? 0, tone: 'ready' as const },
+                  {
+                    label: t('insights.applied'),
+                    count: platformInsights.funnel?.applied ?? 0,
+                    tone: 'completed' as const,
+                  },
+                  {
+                    label: t('insights.archived'),
+                    count: platformInsights.funnel?.archived ?? 0,
+                    tone: 'archived' as const,
+                  },
+                  { label: t('insights.verified'), count: platformInsights.funnel?.verified ?? 0 },
+                ]}
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MetricCard
+                  icon={Filter}
+                  title={t('insights.funnel')}
+                  rows={[
+                    {
+                      label: t('insights.medianCreatedToApplied'),
+                      value: formatHours(t, platformInsights.funnel?.medianHoursCreatedToApplied),
+                    },
+                    {
+                      label: t('insights.medianAppliedToVerified'),
+                      value: formatHours(t, platformInsights.funnel?.medianHoursAppliedToVerified),
+                    },
+                  ]}
+                />
+                <MetricCard
+                  icon={CheckCircle}
+                  title={t('insights.verification')}
+                  rows={[
+                    { label: t('insights.verified'), value: String(platformInsights.verification?.verified ?? 0) },
+                    { label: t('insights.notFixed'), value: String(platformInsights.verification?.notFixed ?? 0) },
+                    {
+                      label: t('insights.awaitingVerification'),
+                      value: String(platformInsights.verification?.awaitingVerification ?? 0),
+                    },
+                    {
+                      label: t('insights.notFixedRate'),
+                      value: formatPercent(platformInsights.verification?.notFixedRate),
+                    },
+                  ]}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-[14px] font-medium text-foreground">{t('insights.byWorkspace')}</h3>
+                <WorkspaceFunnelTable t={t} rows={platformInsights.funnel?.byWorkspace} />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                <CountList
+                  icon={Languages}
+                  title={t('insights.userLanguages')}
+                  items={platformInsights.languages?.userLanguages}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+                <CountList
+                  icon={Languages}
+                  title={t('insights.commentLanguages')}
+                  items={platformInsights.languages?.commentLanguages}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+                <CountList
+                  icon={Languages}
+                  title={t('insights.appLanguages')}
+                  items={platformInsights.languages?.appLanguages}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+                <CountList
+                  icon={Languages}
+                  title={t('insights.browserLanguages')}
+                  items={platformInsights.languages?.browserLanguages}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <CountList
+                  icon={MonitorSmartphone}
+                  title={t('insights.devices')}
+                  items={platformInsights.devices?.deviceTypes}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+                <CountList
+                  icon={MonitorSmartphone}
+                  title={t('insights.browsers')}
+                  items={platformInsights.devices?.browsers}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+              </div>
+
+              <MetricCard
+                icon={Sparkles}
+                title={t('insights.features')}
+                rows={[
+                  {
+                    label: t('insights.withScreenshot'),
+                    value: formatShare(platformInsights.features?.withScreenshot, platformInsights.features?.total),
+                  },
+                  {
+                    label: t('insights.bugReports'),
+                    value: formatShare(platformInsights.features?.bugReports, platformInsights.features?.total),
+                  },
+                  {
+                    label: t('insights.withPredefinedActions'),
+                    value: formatShare(
+                      platformInsights.features?.withPredefinedActions,
+                      platformInsights.features?.total,
+                    ),
+                  },
+                  {
+                    label: t('insights.private'),
+                    value: formatShare(platformInsights.features?.private, platformInsights.features?.total),
+                  },
+                ]}
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 7. Workspace insights (workspace admins, not super admin) */}
+      {isAdmin && !isSuperAdmin && (
+        <div className="space-y-3 border-t border-border pt-6">
+          <div>
+            <h2 className="text-[16px] font-semibold leading-6">{t('insights.workspaceTitle')}</h2>
+          </div>
+          {isWorkspaceInsightsLoading && !workspaceInsights ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('common.loading')}</div>
+          ) : isWorkspaceInsightsError ? (
+            <div className="px-3 py-2 text-[13px] text-destructive">{t('common.error')}</div>
+          ) : !workspaceInsights ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('insights.noData')}</div>
+          ) : (
+            <>
+              <DiffstatLine
+                items={[
+                  { label: t('insights.open'), count: workspaceInsights.funnel?.open ?? 0, tone: 'open' as const },
+                  { label: t('insights.ready'), count: workspaceInsights.funnel?.ready ?? 0, tone: 'ready' as const },
+                  {
+                    label: t('insights.applied'),
+                    count: workspaceInsights.funnel?.applied ?? 0,
+                    tone: 'completed' as const,
+                  },
+                  {
+                    label: t('insights.archived'),
+                    count: workspaceInsights.funnel?.archived ?? 0,
+                    tone: 'archived' as const,
+                  },
+                  { label: t('insights.verified'), count: workspaceInsights.funnel?.verified ?? 0 },
+                ]}
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MetricCard
+                  icon={Filter}
+                  title={t('insights.funnel')}
+                  rows={[
+                    {
+                      label: t('insights.medianCreatedToApplied'),
+                      value: formatHours(t, workspaceInsights.funnel?.medianHoursCreatedToApplied),
+                    },
+                    {
+                      label: t('insights.medianAppliedToVerified'),
+                      value: formatHours(t, workspaceInsights.funnel?.medianHoursAppliedToVerified),
+                    },
+                  ]}
+                />
+                <MetricCard
+                  icon={CheckCircle}
+                  title={t('insights.verification')}
+                  rows={[
+                    { label: t('insights.verified'), value: String(workspaceInsights.verification?.verified ?? 0) },
+                    { label: t('insights.notFixed'), value: String(workspaceInsights.verification?.notFixed ?? 0) },
+                    {
+                      label: t('insights.awaitingVerification'),
+                      value: String(workspaceInsights.verification?.awaitingVerification ?? 0),
+                    },
+                    {
+                      label: t('insights.notFixedRate'),
+                      value: formatPercent(workspaceInsights.verification?.notFixedRate),
+                    },
+                  ]}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-[14px] font-medium text-foreground">{t('insights.byProject')}</h3>
+                <ProjectFunnelTable t={t} rows={workspaceInsights.byProject} />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <CountList
+                  icon={Languages}
+                  title={t('insights.commentLanguages')}
+                  items={workspaceInsights.commentLanguages}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+                <CountList
+                  icon={MonitorSmartphone}
+                  title={t('insights.devices')}
+                  items={workspaceInsights.devices?.deviceTypes}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                />
+              </div>
+
+              <CountList
+                icon={MonitorSmartphone}
+                title={t('insights.browsers')}
+                items={workspaceInsights.devices?.browsers}
+                emptyLabel={t('insights.noData')}
+                formatLabel={(k) => labelForKey(t, k)}
+              />
+
+              <div className="rounded-md border border-border overflow-hidden">
+                <div className="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-[14px] font-medium text-foreground">{t('insights.activity')}</span>
+                </div>
+                <WeekBars t={t} weeks={workspaceInsights.activity} />
+              </div>
+            </>
           )}
         </div>
       )}
