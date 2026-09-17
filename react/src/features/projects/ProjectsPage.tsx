@@ -154,11 +154,6 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
   const [localAdminRules, setLocalAdminRules] = useState<Record<number, EditableAiRule>>({});
   const [localMyRules, setLocalMyRules] = useState<Record<number, EditableAiRule>>({});
 
-  const [newProjectRuleTitle, setNewProjectRuleTitle] = useState('');
-  const [newProjectRulePrompt, setNewProjectRulePrompt] = useState('');
-
-  const [newPersonalRuleTitle, setNewPersonalRuleTitle] = useState('');
-  const [newPersonalRulePrompt, setNewPersonalRulePrompt] = useState('');
 
   const reloadRules = () => {
     void qc.invalidateQueries({ queryKey: getGetApiAiRulesProjectKeyQueryKey(projectKey) });
@@ -252,8 +247,6 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
   const postAdminRuleMut = usePostApiAdminAiRules({
     mutation: {
       onSuccess: () => {
-        setNewProjectRuleTitle('');
-        setNewProjectRulePrompt('');
         reloadRules();
       },
       onError: (e: unknown) => toast(extractMessage(e), 'error'),
@@ -291,8 +284,6 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
   const postMyRuleMut = usePostApiAiRulesMy({
     mutation: {
       onSuccess: () => {
-        setNewPersonalRuleTitle('');
-        setNewPersonalRulePrompt('');
         reloadRules();
       },
       onError: (e: unknown) => toast(extractMessage(e), 'error'),
@@ -312,18 +303,6 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
     });
   }
 
-  function handleCreateAdminRule() {
-    if (!project.id || !newProjectRuleTitle.trim() || !newProjectRulePrompt.trim()) return;
-    postAdminRuleMut.mutate({
-      data: {
-        projectId: project.id,
-        title: newProjectRuleTitle.trim(),
-        prompt: newProjectRulePrompt.trim(),
-        sortOrder: adminRules.length,
-      },
-    });
-  }
-
   function savePersonalRule(ruleId: number) {
     const edit = localMyRules[ruleId];
     if (!edit) return;
@@ -333,18 +312,6 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
         title: edit.title.trim(),
         prompt: edit.prompt.trim(),
         isActive: edit.isActive,
-      },
-    });
-  }
-
-  function handleCreatePersonalRule() {
-    if (!project.id || !newPersonalRuleTitle.trim() || !newPersonalRulePrompt.trim()) return;
-    postMyRuleMut.mutate({
-      data: {
-        projectId: project.id,
-        title: newPersonalRuleTitle.trim(),
-        prompt: newPersonalRulePrompt.trim(),
-        sortOrder: myRules.length,
       },
     });
   }
@@ -407,46 +374,25 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
             onFieldChange={(id, field, value) => updateAdminRule(id, field, value)}
             onSave={(id) => saveAdminRule(id)}
             onDelete={(id) => deleteAdminRuleMut.mutate({ id })}
+            onCreate={
+              canManageAdminRules
+                ? (draft) =>
+                    postAdminRuleMut.mutateAsync({
+                      data: {
+                        projectId: project.id,
+                        title: draft.title,
+                        prompt: draft.prompt,
+                        sortOrder: adminRules.length,
+                      },
+                    })
+                : undefined
+            }
+            addLabel={t('aiRules.addRule')}
+            creating={postAdminRuleMut.isPending}
             deleting={deleteAdminRuleMut.isPending}
             emptyMessage={t('aiRules.empty')}
           />
 
-          {/* Add Project Admin Rule Form */}
-          {canManageAdminRules && (
-            <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-              <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addRule')}</div>
-              <FormField label={t('aiRules.titleLabel')} htmlFor="project-rule-title">
-                <Input
-                  id="project-rule-title"
-                  value={newProjectRuleTitle}
-                  onChange={(e) => setNewProjectRuleTitle(e.target.value)}
-                  placeholder={t('aiRules.titlePlaceholder')}
-                />
-              </FormField>
-              <FormField label={t('aiRules.promptLabel')} htmlFor="project-rule-prompt">
-                <textarea
-                  id="project-rule-prompt"
-                  value={newProjectRulePrompt}
-                  onChange={(e) => setNewProjectRulePrompt(e.target.value)}
-                  rows={2}
-                  placeholder={t('aiRules.promptPlaceholder')}
-                  className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </FormField>
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!newProjectRuleTitle.trim() || !newProjectRulePrompt.trim() || postAdminRuleMut.isPending}
-                  onClick={handleCreateAdminRule}
-                  type="button"
-                >
-                  <Plus className="h-4 w-4" />
-                  {t('aiRules.addRule')}
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -463,44 +409,22 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
             onFieldChange={(id, field, value) => updateMyRule(id, field, value)}
             onSave={(id) => savePersonalRule(id)}
             onDelete={(id) => deleteMyRuleMut.mutate({ id })}
+            onCreate={(draft) =>
+              postMyRuleMut.mutateAsync({
+                data: {
+                  projectId: project.id,
+                  title: draft.title,
+                  prompt: draft.prompt,
+                  sortOrder: myRules.length,
+                },
+              })
+            }
+            addLabel={t('aiRules.addPersonalRule')}
+            creating={postMyRuleMut.isPending}
             deleting={deleteMyRuleMut.isPending}
             emptyMessage={t('aiRules.noPersonalRules')}
           />
 
-          {/* Add Personal Rule Form */}
-          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-            <div className="text-xs font-semibold text-muted-foreground">{t('aiRules.addPersonalRule')}</div>
-            <FormField label={t('aiRules.titleLabel')} htmlFor="personal-rule-title">
-              <Input
-                id="personal-rule-title"
-                value={newPersonalRuleTitle}
-                onChange={(e) => setNewPersonalRuleTitle(e.target.value)}
-                placeholder={t('aiRules.titlePlaceholder')}
-              />
-            </FormField>
-            <FormField label={t('aiRules.promptLabel')} htmlFor="personal-rule-prompt">
-              <textarea
-                id="personal-rule-prompt"
-                value={newPersonalRulePrompt}
-                onChange={(e) => setNewPersonalRulePrompt(e.target.value)}
-                rows={2}
-                placeholder={t('aiRules.promptPlaceholder')}
-                className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </FormField>
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!newPersonalRuleTitle.trim() || !newPersonalRulePrompt.trim() || postMyRuleMut.isPending}
-                onClick={handleCreatePersonalRule}
-                type="button"
-              >
-                <Plus className="h-4 w-4" />
-                {t('aiRules.addPersonalRule')}
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

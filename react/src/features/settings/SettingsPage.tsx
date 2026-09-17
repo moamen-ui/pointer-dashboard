@@ -206,12 +206,6 @@ function AiRulesCard() {
   const rules: AiRuleResponse[] = (rawRules as AiRuleResponse[]) ?? [];
 
   const [localRules, setLocalRules] = useState<Record<number, EditableRule>>({});
-  const [newTitle, setNewTitle] = useState('');
-  const [newPrompt, setNewPrompt] = useState('');
-  const [newTitleTouched, setNewTitleTouched] = useState(false);
-  const [newPromptTouched, setNewPromptTouched] = useState(false);
-  const newTitleErrorMsg = requiredError(newTitle, t);
-  const newPromptErrorMsg = requiredError(newPrompt, t);
 
   const reloadRules = () => {
     void qc.invalidateQueries({ queryKey: getGetApiAdminAiRulesTenantQueryKey() });
@@ -275,10 +269,6 @@ function AiRulesCard() {
   const createMut = usePostApiAdminAiRules({
     mutation: {
       onSuccess: () => {
-        setNewTitle('');
-        setNewPrompt('');
-        setNewTitleTouched(false);
-        setNewPromptTouched(false);
         reloadRules();
       },
       onError: (e: unknown) => toast(extractMessage(e), 'error'),
@@ -311,17 +301,6 @@ function AiRulesCard() {
     };
   });
 
-  function handleCreate() {
-    if (!newTitle.trim() || !newPrompt.trim()) return;
-    createMut.mutate({
-      data: {
-        title: newTitle.trim(),
-        prompt: newPrompt.trim(),
-        sortOrder: rules.length,
-      },
-    });
-  }
-
   return (
     <AccordionSection title={t('aiRules.section')}>
       <div className="space-y-3">
@@ -336,53 +315,17 @@ function AiRulesCard() {
           onFieldChange={(id, field, value) => updateRule(id, field, value)}
           onSave={(id) => saveRule(id)}
           onDelete={(id) => deleteMut.mutate({ id })}
+          onCreate={(draft) =>
+            createMut.mutateAsync({
+              data: { title: draft.title, prompt: draft.prompt, sortOrder: rules.length },
+            })
+          }
+          addLabel={t('aiRules.addRule')}
+          creating={createMut.isPending}
           deleting={deleteMut.isPending}
           emptyMessage={t('aiRules.empty')}
         />
 
-        {/* Add new rule */}
-        <div className="flex flex-col gap-3 rounded-md border border-border border-dashed px-3 py-2.5">
-          <FormField
-            label={t('aiRules.titleLabel')}
-            htmlFor="new-admin-rule-title"
-            error={newTitleTouched ? newTitleErrorMsg || undefined : undefined}
-          >
-            <Input
-              id="new-admin-rule-title"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              onBlur={() => setNewTitleTouched(true)}
-              placeholder={t('aiRules.titlePlaceholder')}
-            />
-          </FormField>
-          <FormField
-            label={t('aiRules.promptLabel')}
-            htmlFor="new-admin-rule-prompt"
-            error={newPromptTouched ? newPromptErrorMsg || undefined : undefined}
-          >
-            <textarea
-              id="new-admin-rule-prompt"
-              value={newPrompt}
-              onChange={(e) => setNewPrompt(e.target.value)}
-              onBlur={() => setNewPromptTouched(true)}
-              rows={2}
-              placeholder={t('aiRules.promptPlaceholder')}
-              className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </FormField>
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!newTitle.trim() || !newPrompt.trim() || createMut.isPending}
-              onClick={handleCreate}
-              type="button"
-            >
-              <Plus className="h-4 w-4" />
-              {t('aiRules.addRule')}
-            </Button>
-          </div>
-        </div>
       </div>
     </AccordionSection>
   );
