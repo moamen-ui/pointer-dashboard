@@ -13,6 +13,10 @@
 // Like `statuses`, this is the deliberate inline-edit-every-row escape hatch: every column
 // renders a live control through the table's custom-cell mechanism rather than a
 // display-only value. Delete stays in the row actions menu (last, as everywhere else).
+//
+// A row the viewer may not edit (a workspace rule inherited by a project) renders the SAME
+// controls, locked — the prompt stays in a read-only textarea rather than collapsing into a
+// paragraph, so the project dialog's table reads exactly like the one on /settings.
 import { useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import type { RowActionItem } from '@/components/shared/types';
+import { cn } from '@/lib/utils';
 
 export type AiRuleField = 'title' | 'prompt' | 'isActive';
 
@@ -46,6 +51,9 @@ export type AiRuleRowModel = {
 
 /** Never collides with a real rule id, so the draft can ride along in the same row list. */
 const DRAFT_ID = -1;
+
+/** Locked controls keep their shape but read as inert. */
+const LOCKED = 'cursor-default bg-gutter text-muted-foreground';
 
 export function AiRulesTable({
   rows,
@@ -130,16 +138,13 @@ export function AiRulesTable({
                 {rule.badge.label}
               </Badge>
             )}
-            {rule.readOnly ? (
-              <span className="text-sm font-medium">{rule.title}</span>
-            ) : (
-              <Input
-                className="h-8 flex-1 px-2 text-[0.8rem]"
-                aria-label={t('aiRules.titleLabel')}
-                value={rule.title}
-                onChange={(e) => onFieldChange(rule.id, 'title', e.target.value)}
-              />
-            )}
+            <Input
+              className={cn('h-8 flex-1 px-2 text-[0.8rem]', rule.readOnly && LOCKED)}
+              aria-label={t('aiRules.titleLabel')}
+              value={rule.title}
+              readOnly={rule.readOnly}
+              onChange={(e) => onFieldChange(rule.id, 'title', e.target.value)}
+            />
           </div>
         );
       },
@@ -150,25 +155,22 @@ export function AiRulesTable({
       header: t('aiRules.promptLabel'),
       cell: ({ row }) => {
         const rule = row.original;
-        if (rule.readOnly) {
-          return (
-            <p className="max-w-[46ch] whitespace-pre-wrap font-mono text-xs text-muted-foreground">
-              {rule.prompt}
-            </p>
-          );
-        }
         return (
           <textarea
             aria-label={t('aiRules.promptLabel')}
             placeholder={rule.isDraft ? t('aiRules.promptPlaceholder') : undefined}
             value={rule.prompt}
+            readOnly={rule.readOnly}
             onChange={(e) =>
               rule.isDraft
                 ? updateDraft('prompt', e.target.value)
                 : onFieldChange(rule.id, 'prompt', e.target.value)
             }
             rows={2}
-            className="w-full min-w-[220px] resize-y rounded-md border border-input bg-background px-2 py-1.5 text-[0.8rem] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className={cn(
+              'w-full min-w-[220px] resize-y rounded-md border border-input bg-background px-2 py-1.5 text-[0.8rem] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              rule.readOnly && LOCKED,
+            )}
           />
         );
       },
@@ -179,20 +181,21 @@ export function AiRulesTable({
       header: t('common.active'),
       cell: ({ row }) => {
         const rule = row.original;
-        if (rule.readOnly || rule.isDraft) {
-          return (
-            <Badge variant={rule.isActive ? 'success' : 'destructive'}>
-              {t(rule.isActive ? 'common.active' : 'common.disabled')}
-            </Badge>
-          );
-        }
+        // The create endpoint takes no isActive, so a draft is simply created active.
+        const locked = rule.readOnly || rule.isDraft;
         return (
-          <label className="flex cursor-pointer items-center gap-1.5 text-[13px] font-medium">
+          <label
+            className={cn(
+              'flex items-center gap-1.5 text-[13px] font-medium',
+              locked ? 'cursor-default text-muted-foreground' : 'cursor-pointer',
+            )}
+          >
             <input
               type="checkbox"
               checked={rule.isActive}
+              disabled={locked}
               onChange={(e) => onFieldChange(rule.id, 'isActive', e.target.checked)}
-              className="h-4 w-4 cursor-pointer"
+              className={cn('h-4 w-4', locked ? 'cursor-default' : 'cursor-pointer')}
             />
             {t(rule.isActive ? 'common.active' : 'common.disabled')}
           </label>
@@ -205,14 +208,13 @@ export function AiRulesTable({
       header: t('common.save'),
       cell: ({ row }) => {
         const rule = row.original;
-        if (rule.readOnly) return null;
         const incomplete = !rule.title.trim() || !rule.prompt.trim();
         return (
           <Button
             size="sm"
             type="button"
             className="h-8"
-            disabled={!rule.dirty || rule.saving || incomplete}
+            disabled={rule.readOnly || !rule.dirty || rule.saving || incomplete}
             onClick={() => (rule.isDraft ? void saveDraft() : onSave(rule.id))}
           >
             <Save className="h-4 w-4" />
