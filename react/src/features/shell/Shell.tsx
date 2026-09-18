@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useGetApiAuthMe } from '@moamen-ui/pointer-react';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
@@ -81,8 +82,11 @@ function ShellLayout() {
   const { user, isAdmin, isSuperAdmin, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
+  const { data: me } = useGetApiAuthMe({ query: { staleTime: 5 * 60_000 } });
   const installGuide = useInstallGuide();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const tenantName = me?.tenantName ?? user?.tenantName ?? null;
 
   // Belt-and-braces: the drawer already closes on an explicit nav-link click, but
   // this also covers programmatic navigation (redirects).
@@ -133,12 +137,18 @@ function ShellLayout() {
               </span>
             </>
           )}
+          {tenantName && (
+            <span className="hidden min-w-0 truncate text-[14px] text-muted-foreground sm:inline" title={tenantName}>
+              <span aria-hidden="true" className="me-2">·</span>
+              {tenantName}
+            </span>
+          )}
         </div>
 
         <span className="flex-1" />
 
         {/* End side: Notifications, Install steps button or ghost icon, Account menu */}
-        {isAdmin && <NotificationsBell />}
+        <NotificationsBell />
 
         {installGuide.nothingCollectedYet ? (
           <Button

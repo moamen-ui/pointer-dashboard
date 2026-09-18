@@ -686,6 +686,9 @@
     "markAllRead": "تحديد الكل كمقروء",
     "markedRead": "تم تحديد جميع الإشعارات كمقروءة",
     "replyAdded": "تمت إضافة رد",
+    "suggestionChangesRequested": "طُلبت تعديلات على اقتراحك",
+    "suggestionResubmitted": "تم تحديث الاقتراح وإعادة إرساله",
+    "suggestionSubmitted": "اقتراح موجّه جديد للمراجعة",
     "title": "الإشعارات"
   },
   "overview": {
@@ -1031,17 +1034,32 @@
     "title": "الحالات"
   },
   "suggestions": {
+    "adminFeedback": "ملاحظات المشرف",
     "approve": "اعتماد",
     "approved": "تم اعتماد الاقتراح",
+    "askForEdit": "طلب تعديل",
+    "askForEditHint": "أخبر المقترِح بما يجب تغييره. سيتم إشعاره وسيتمكن من تحديث الاقتراح.",
     "by": "اقترحه",
     "canEditDirectly": "يمكنك إضافة هذا الموجّه مباشرة.",
+    "editTitle": "تحديث اقتراحك",
     "empty": "لا توجد اقتراحات معلّقة.",
+    "feedback": "الملاحظات",
+    "feedbackRequired": "الملاحظات مطلوبة.",
+    "feedbackSent": "أُرسلت الملاحظات إلى المقترِح",
+    "notEditable": "لم يعد بالإمكان تعديل هذا الاقتراح.",
+    "notFound": "الاقتراح غير موجود.",
     "pending": "{{count}} معلّق",
     "project": "المشروع",
     "reject": "رفض",
     "rejected": "تم رفض الاقتراح",
+    "resubmit": "إعادة الإرسال",
+    "resubmitted": "أُعيد إرسال الاقتراح لمراجعة المشرف",
     "section": "اقتراحات الموجّهات",
-    "sent": "أُرسل الاقتراح لمراجعة المشرف"
+    "send": "إرسال",
+    "sent": "أُرسل الاقتراح لمراجعة المشرف",
+    "status": "الحالة",
+    "statusChangesRequested": "بانتظار التعديل",
+    "statusPending": "معلّق"
   },
   "table": {
     "clearSearch": "مسح البحث",

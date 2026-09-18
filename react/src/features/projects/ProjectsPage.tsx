@@ -11,6 +11,7 @@
 //   • "Environment switcher visibility" role multiselect (environmentSelectorRoleIds)
 import { useRef, useState, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   slugifyKey,
@@ -42,11 +43,15 @@ import {
   usePostApiAiRulesMy,
   usePutApiAiRulesMyId,
   useDeleteApiAiRulesMyId,
+  useGetApiMePredefinedActionSuggestions,
+  usePutApiPredefinedActionSuggestionsId,
+  getGetApiMePredefinedActionSuggestionsQueryKey,
   type AiRuleResponse,
   ProjectActivationState,
   type ProjectResponse,
   type PredefinedActionInput,
   type ExportFileDto,
+  type SuggestionResponse,
 } from '@moamen-ui/pointer-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -65,6 +70,7 @@ import {
   Brain,
   Info,
   Pencil,
+  Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -488,6 +494,7 @@ export function ProjectsPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { isSuperAdmin, isAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: projects = [] } = useGetApiAdminProjects();
 
@@ -997,19 +1004,20 @@ export function ProjectsPage() {
     importMut.mutate({ key: importProject.key!, data: payload });
   }
 
-  // ---- Suggest prompt dialog ----
+  // ---- Suggest prompt dialog (also handles the "ask for edit" deep link — see below) ----
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestProject, setSuggestProject] = useState<ProjectResponse | null>(null);
   const [suggestText, setSuggestText] = useState('');
   const [suggestPrompt, setSuggestPrompt] = useState('');
+  // Set when the dialog was opened from a `?suggestion=<id>` deep link (notification
+  // click after an admin asks for changes) — puts the dialog in edit/resubmit mode.
+  const [editingSuggestion, setEditingSuggestion] = useState<SuggestionResponse | null>(null);
 
   const suggestMut = usePostApiProjectsIdPredefinedActionSuggestions({
     mutation: {
       onSuccess: () => {
         toast(t('suggestions.sent'));
-        setSuggestOpen(false);
-        setSuggestText('');
-        setSuggestPrompt('');
+        closeSuggest();
       },
       onError: (e: unknown) => {
         // 403 means the user can actually edit directly
@@ -1023,7 +1031,27 @@ export function ProjectsPage() {
     },
   });
 
+  const updateSuggestMut = usePutApiPredefinedActionSuggestionsId({
+    mutation: {
+      onSuccess: () => {
+        toast(t('suggestions.resubmitted'));
+        closeSuggest();
+        void qc.invalidateQueries({ queryKey: getGetApiMePredefinedActionSuggestionsQueryKey() });
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  function closeSuggest() {
+    setSuggestOpen(false);
+    setSuggestProject(null);
+    setSuggestText('');
+    setSuggestPrompt('');
+    setEditingSuggestion(null);
+  }
+
   function openSuggest(project: ProjectResponse) {
+    setEditingSuggestion(null);
     setSuggestProject(project);
     setSuggestText('');
     setSuggestPrompt('');
@@ -1037,6 +1065,66 @@ export function ProjectsPage() {
       data: { text: suggestText.trim(), prompt: suggestPrompt.trim() },
     });
   }
+
+  function submitResubmit() {
+    if (!editingSuggestion?.id || !suggestText.trim()) return;
+    updateSuggestMut.mutate({
+      id: editingSuggestion.id,
+      data: { text: suggestText.trim(), prompt: suggestPrompt.trim() },
+    });
+  }
+
+  // ---- "Ask for edit" deep link: /projects?suggestion=<id> (Pointer comment #107) ----
+  // The caller's own suggestions (all statuses) — fetched only while a deep link is
+  // being resolved, not on every visit to this page.
+  const suggestionParam = searchParams.get('suggestion');
+  const { data: mySuggestionsRaw = [], isFetched: mySuggestionsLoaded } =
+    useGetApiMePredefinedActionSuggestions({
+      query: { enabled: suggestionParam != null },
+    });
+  const mySuggestions: SuggestionResponse[] = Array.isArray(mySuggestionsRaw)
+    ? mySuggestionsRaw
+    : ((mySuggestionsRaw as { data?: SuggestionResponse[] })?.data ?? []);
+
+  const suggestionDeepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (suggestionParam == null) {
+      suggestionDeepLinkHandled.current = false;
+      return;
+    }
+    if (suggestionDeepLinkHandled.current) return;
+    if (!mySuggestionsLoaded) return;
+
+    const targetId = Number(suggestionParam);
+    const found = mySuggestions.find((s) => s.id === targetId);
+    if (found) {
+      if (found.status === 4) {
+        setEditingSuggestion(found);
+        setSuggestText(found.text ?? '');
+        setSuggestPrompt(found.prompt ?? '');
+        setSuggestProject(
+          projects.find((p) => p.id === found.projectId) ??
+            ({ id: found.projectId, name: found.projectName } as ProjectResponse),
+        );
+        setSuggestOpen(true);
+      } else {
+        toast(t('suggestions.notEditable'), 'error');
+      }
+    } else {
+      toast(t('suggestions.notFound'), 'error');
+    }
+
+    suggestionDeepLinkHandled.current = true;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('suggestion');
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionParam, mySuggestions, mySuggestionsLoaded]);
 
   // ---- Predefined actions helpers ----
   function addActionRow(
@@ -1758,14 +1846,23 @@ export function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Suggest prompt dialog */}
-      <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
+      {/* Suggest prompt dialog — also the "ask for edit" resubmit dialog when opened
+          from the ?suggestion=<id> deep link (Pointer comment #107). */}
+      <Dialog open={suggestOpen} onOpenChange={(o) => (o ? setSuggestOpen(true) : closeSuggest())}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('projects.suggest')}</DialogTitle>
+            <DialogTitle>{editingSuggestion ? t('suggestions.editTitle') : t('projects.suggest')}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-1">
             <p className="text-xs text-muted-foreground">{suggestProject?.name}</p>
+            {editingSuggestion?.adminFeedback && (
+              <div className="rounded-md border border-border bg-gutter px-3 py-2 text-[13px]">
+                <div className="font-medium">{t('suggestions.adminFeedback')}</div>
+                <p className="mt-0.5 whitespace-pre-wrap text-muted-foreground">
+                  {editingSuggestion.adminFeedback}
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="suggest-text">{t('predefined.text')}</Label>
               <Input
@@ -1787,16 +1884,26 @@ export function ProjectsPage() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setSuggestOpen(false)}>
+            <Button variant="outline" onClick={closeSuggest}>
               {t('common.cancel')}
             </Button>
-            <Button
-              disabled={!suggestText.trim() || suggestMut.isPending}
-              onClick={submitSuggest}
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-              {t('projects.suggest')}
-            </Button>
+            {editingSuggestion ? (
+              <Button
+                disabled={!suggestText.trim() || updateSuggestMut.isPending}
+                onClick={submitResubmit}
+              >
+                <Send className="h-4 w-4" />
+                {t('suggestions.resubmit')}
+              </Button>
+            ) : (
+              <Button
+                disabled={!suggestText.trim() || suggestMut.isPending}
+                onClick={submitSuggest}
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+                {t('projects.suggest')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

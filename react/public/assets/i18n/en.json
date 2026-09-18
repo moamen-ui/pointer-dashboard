@@ -686,6 +686,9 @@
     "markAllRead": "Mark all read",
     "markedRead": "All notifications marked as read",
     "replyAdded": "Reply added",
+    "suggestionChangesRequested": "Changes requested on your suggestion",
+    "suggestionResubmitted": "Suggestion updated and resubmitted",
+    "suggestionSubmitted": "New prompt suggestion to review",
     "title": "Notifications"
   },
   "overview": {
@@ -1031,17 +1034,32 @@
     "title": "Statuses"
   },
   "suggestions": {
+    "adminFeedback": "Admin feedback",
     "approve": "Approve",
     "approved": "Suggestion approved",
+    "askForEdit": "Ask for edit",
+    "askForEditHint": "Tell the suggester what to change. They will be notified and can update the suggestion.",
     "by": "Suggested by",
     "canEditDirectly": "You can add this prompt directly.",
+    "editTitle": "Update your suggestion",
     "empty": "No pending suggestions.",
+    "feedback": "Feedback",
+    "feedbackRequired": "Feedback is required.",
+    "feedbackSent": "Feedback sent to the suggester",
+    "notEditable": "This suggestion can no longer be edited.",
+    "notFound": "Suggestion not found.",
     "pending": "{{count}} pending",
     "project": "Project",
     "reject": "Reject",
     "rejected": "Suggestion rejected",
+    "resubmit": "Resubmit",
+    "resubmitted": "Suggestion resubmitted for admin review",
     "section": "Prompt suggestions",
-    "sent": "Suggestion sent for admin review"
+    "send": "Send",
+    "sent": "Suggestion sent for admin review",
+    "status": "Status",
+    "statusChangesRequested": "Awaiting edit",
+    "statusPending": "Pending"
   },
   "table": {
     "clearSearch": "Clear search",

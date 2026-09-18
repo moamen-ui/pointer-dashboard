@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   useGetApiAdminSettings,
   usePutApiAdminSettings,
@@ -20,6 +21,7 @@ import {
   getGetApiAdminPredefinedActionSuggestionsQueryKey,
   usePostApiAdminPredefinedActionSuggestionsIdApprove,
   usePostApiAdminPredefinedActionSuggestionsIdReject,
+  usePostApiAdminPredefinedActionSuggestionsIdRequestChanges,
   type SuggestionResponse,
   useGetApiAdminAiRulesTenant,
   getGetApiAdminAiRulesTenantQueryKey,
@@ -28,7 +30,7 @@ import {
   useDeleteApiAdminAiRulesId,
   type AiRuleResponse,
 } from '@moamen-ui/pointer-react';
-import { CheckCircle2, XCircle, EllipsisVertical } from 'lucide-react';
+import { CheckCircle2, XCircle, EllipsisVertical, MessageSquareText } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
@@ -56,6 +58,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
 
@@ -67,13 +76,16 @@ function SuggestionsCard() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const deepLinked = searchParams.get('section') === 'suggestions';
 
   const { data: suggestionsRaw = [], isLoading, isError } =
     useGetApiAdminPredefinedActionSuggestions();
   const suggestions: SuggestionResponse[] = suggestionsRaw as SuggestionResponse[];
 
-  // status 1 = Pending, 2 = Approved, 3 = Rejected (from SuggestionStatus enum)
-  const pending = suggestions.filter((s) => s.status === 1);
+  // status 1 = Pending, 2 = Approved, 3 = Rejected, 4 = ChangesRequested (from SuggestionStatus enum)
+  const open = suggestions.filter((s) => s.status === 1 || s.status === 4);
+  const pendingCount = suggestions.filter((s) => s.status === 1).length;
 
   const reloadSuggestions = () =>
     void qc.invalidateQueries({ queryKey: getGetApiAdminPredefinedActionSuggestionsQueryKey() });
@@ -98,34 +110,79 @@ function SuggestionsCard() {
     },
   });
 
-  const pendingCount = pending.length;
+  // "Ask for edit" dialog state — the admin writes feedback, the API flips the
+  // suggestion to ChangesRequested (4) and notifies the suggester.
+  const [askTarget, setAskTarget] = useState<SuggestionResponse | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackTouched, setFeedbackTouched] = useState(false);
+
+  const requestChangesMut = usePostApiAdminPredefinedActionSuggestionsIdRequestChanges({
+    mutation: {
+      onSuccess: () => {
+        toast(t('suggestions.feedbackSent'));
+        closeAskDialog();
+        reloadSuggestions();
+      },
+      onError: (e: unknown) => toast(extractMessage(e), 'error'),
+    },
+  });
+
+  function openAskDialog(s: SuggestionResponse) {
+    setAskTarget(s);
+    setFeedback('');
+    setFeedbackTouched(false);
+  }
+
+  function closeAskDialog() {
+    setAskTarget(null);
+    setFeedback('');
+    setFeedbackTouched(false);
+  }
+
+  function submitFeedback() {
+    setFeedbackTouched(true);
+    const trimmed = feedback.trim();
+    if (!askTarget || !trimmed) return;
+    requestChangesMut.mutate({ id: askTarget.id!, data: { feedback: trimmed } });
+  }
+
+  // Deep link from the notifications bell (`/settings?section=suggestions`) — open the
+  // section by default and bring it into view.
+  useEffect(() => {
+    if (deepLinked) {
+      document.getElementById('suggestions')?.scrollIntoView({ block: 'start' });
+    }
+  }, [deepLinked]);
+
   const sectionTitle = t('suggestions.section');
 
   return (
-    <AccordionSection
-      title={
-        <>
-          {sectionTitle}
-          {/* Count stays in the header so it is visible while collapsed. */}
-          {pendingCount > 0 && (
-            <Badge variant="default" className="ms-2 text-[11px]">
-              {pendingCount}
-            </Badge>
-          )}
-        </>
-      }
-    >
+    <div id="suggestions">
+      <AccordionSection
+        defaultOpen={deepLinked}
+        title={
+          <>
+            {sectionTitle}
+            {/* Count stays in the header so it is visible while collapsed. */}
+            {pendingCount > 0 && (
+              <Badge variant="default" className="ms-2 text-[11px]">
+                {pendingCount}
+              </Badge>
+            )}
+          </>
+        }
+      >
         {isLoading && (
           <p className="text-[14px] text-muted-foreground">{t('settings.loading')}</p>
         )}
         {isError && (
           <p className="text-[14px] text-state-danger">{t('settings.loadError')}</p>
         )}
-        {!isLoading && !isError && pending.length === 0 && (
+        {!isLoading && !isError && open.length === 0 && (
           <p className="text-[14px] text-muted-foreground">{t('suggestions.empty')}</p>
         )}
 
-        {pending.length > 0 && (
+        {open.length > 0 && (
           <Table>
             <TableHeader>
               <TableRow>
@@ -133,11 +190,12 @@ function SuggestionsCard() {
                 <TableHead>{t('suggestions.by')}</TableHead>
                 <TableHead>{t('predefined.text')}</TableHead>
                 <TableHead>{t('predefined.prompt')}</TableHead>
+                <TableHead>{t('suggestions.status')}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pending.map((s) => (
+              {open.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="text-[14px]">
                     <span className="font-medium">{s.projectName ?? '—'}</span>
@@ -154,40 +212,108 @@ function SuggestionsCard() {
                   <TableCell className="max-w-[200px] text-[14px] text-muted-foreground truncate">
                     {s.prompt ?? '—'}
                   </TableCell>
+                  <TableCell className="text-[14px]">
+                    {s.status === 4 ? (
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="warning">{t('suggestions.statusChangesRequested')}</Badge>
+                        {s.adminFeedback && (
+                          <span
+                            className="max-w-[200px] truncate text-[12px] text-muted-foreground"
+                            title={s.adminFeedback}
+                          >
+                            {s.adminFeedback}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="open">{t('suggestions.statusPending')}</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" type="button">
-                          <EllipsisVertical className="h-4 w-4" />
-                          <span className="sr-only">{t('users.actions')}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="text-state-completed"
-                          onSelect={() => approveMut.mutate({ id: s.id! })}
-                          disabled={approveMut.isPending}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          {t('suggestions.approve')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-state-danger"
-                          onSelect={() => rejectMut.mutate({ id: s.id! })}
-                          disabled={rejectMut.isPending}
-                        >
-                          <XCircle className="h-4 w-4" />
-                          {t('suggestions.reject')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {s.status === 1 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" type="button">
+                            <EllipsisVertical className="h-4 w-4" />
+                            <span className="sr-only">{t('users.actions')}</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-state-completed"
+                            onSelect={() => approveMut.mutate({ id: s.id! })}
+                            disabled={approveMut.isPending}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            {t('suggestions.approve')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-state-danger"
+                            onSelect={() => rejectMut.mutate({ id: s.id! })}
+                            disabled={rejectMut.isPending}
+                          >
+                            <XCircle className="h-4 w-4" />
+                            {t('suggestions.reject')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-muted-foreground"
+                            onSelect={() => openAskDialog(s)}
+                          >
+                            <MessageSquareText className="h-4 w-4" />
+                            {t('suggestions.askForEdit')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
-    </AccordionSection>
+      </AccordionSection>
+
+      <Dialog open={!!askTarget} onOpenChange={(o) => !o && closeAskDialog()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('suggestions.askForEdit')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            <p className="text-[12px] text-muted-foreground">{t('suggestions.askForEditHint')}</p>
+            <div className="text-[13px]">
+              <span className="font-medium">{askTarget?.text ?? '—'}</span>
+              {askTarget?.projectName && (
+                <span className="text-muted-foreground"> · {askTarget.projectName}</span>
+              )}
+            </div>
+            <FormField
+              label={t('suggestions.feedback')}
+              htmlFor="ask-feedback"
+              error={feedbackTouched && !feedback.trim() ? t('suggestions.feedbackRequired') : undefined}
+            >
+              <textarea
+                id="ask-feedback"
+                rows={4}
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                className="w-full resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </FormField>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeAskDialog}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={!feedback.trim() || requestChangesMut.isPending}
+              onClick={submitFeedback}
+            >
+              {t('suggestions.send')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

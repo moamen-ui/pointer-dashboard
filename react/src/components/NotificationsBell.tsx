@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -25,14 +25,32 @@ import { formatRelativeTime } from '@/lib/format';
 
 const POLL_INTERVAL = 60000; // 60 seconds
 
-// NotificationType is a numeric enum (1 CommentApplied, 2 CommentReopened, 3 ReplyAdded).
+// NotificationType is a numeric enum (1 CommentApplied, 2 CommentReopened, 3 ReplyAdded,
+// 4 SuggestionSubmitted, 5 SuggestionChangesRequested, 6 SuggestionResubmitted).
 function getNotificationLabelKey(type: NotificationType | undefined): string {
   switch (type) {
     case NotificationType.NUMBER_1: return 'notifications.commentApplied';
     case NotificationType.NUMBER_2: return 'notifications.commentReopened';
     case NotificationType.NUMBER_3: return 'notifications.replyAdded';
+    case NotificationType.NUMBER_4: return 'notifications.suggestionSubmitted';
+    case NotificationType.NUMBER_5: return 'notifications.suggestionChangesRequested';
+    case NotificationType.NUMBER_6: return 'notifications.suggestionResubmitted';
     default: return '';
   }
+}
+
+// Resolves the route a notification should navigate to when clicked, or null if none applies.
+function targetFor(notif: NotificationDto): string | null {
+  if (notif.type === NotificationType.NUMBER_4 || notif.type === NotificationType.NUMBER_6) {
+    return '/settings?section=suggestions';
+  }
+  if (notif.type === NotificationType.NUMBER_5) {
+    return notif.suggestionId != null ? `/projects?suggestion=${notif.suggestionId}` : null;
+  }
+  if (notif.projectKey && notif.commentId != null) {
+    return `/comments?project=${encodeURIComponent(notif.projectKey)}&comment=${notif.commentId}`;
+  }
+  return null;
 }
 
 export function NotificationsBell() {
@@ -79,19 +97,6 @@ export function NotificationsBell() {
     },
   });
 
-  // Pause polling when document hidden
-  useEffect(() => {
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        // Pause polling by invalidating the query
-      } else {
-        // Resume if needed
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -136,8 +141,9 @@ export function NotificationsBell() {
                     markReadMut.mutate({ id: notif.id });
                   }
                   setOpen(false);
-                  if (notif.projectKey && notif.commentId != null) {
-                    navigate(`/comments?project=${encodeURIComponent(notif.projectKey)}&comment=${notif.commentId}`);
+                  const target = targetFor(notif);
+                  if (target) {
+                    navigate(target);
                   }
                 }}
               >
@@ -149,11 +155,40 @@ export function NotificationsBell() {
                         return key ? t(key) : String(notif.type ?? '');
                       })()}
                     </div>
-                    {notif.commentBodyExcerpt && (
-                      <div className="text-[12px] text-muted-foreground mt-0.5 truncate">
-                        {notif.commentBodyExcerpt}
-                      </div>
-                    )}
+                    {(() => {
+                      const isSuggestion =
+                        notif.type === NotificationType.NUMBER_4 ||
+                        notif.type === NotificationType.NUMBER_5 ||
+                        notif.type === NotificationType.NUMBER_6;
+                      if (isSuggestion) {
+                        const excerpt = notif.payload?.suggestionText || notif.commentBodyExcerpt;
+                        const line = notif.projectName && excerpt
+                          ? `${notif.projectName} · ${excerpt}`
+                          : notif.projectName || excerpt;
+                        return (
+                          <>
+                            {line && (
+                              <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                                {line}
+                              </div>
+                            )}
+                            {notif.type === NotificationType.NUMBER_5 && notif.payload?.adminFeedback && (
+                              <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                                <span className="font-medium">{t('suggestions.adminFeedback')}:</span>{' '}
+                                {notif.payload.adminFeedback}
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+                      return (
+                        notif.commentBodyExcerpt && (
+                          <div className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                            {notif.commentBodyExcerpt}
+                          </div>
+                        )
+                      );
+                    })()}
                     <div className="text-[12px] text-muted-foreground mt-1">
                       {formatRelativeTime(t, notif.createdAt)}
                     </div>
