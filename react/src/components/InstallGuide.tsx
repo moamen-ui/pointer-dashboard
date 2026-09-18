@@ -27,8 +27,6 @@ import {
   ExternalLink,
   Laptop,
   Info,
-  ChevronDown,
-  ChevronRight,
   Eye,
   EyeOff,
 } from 'lucide-react';
@@ -71,8 +69,6 @@ import {
   unsuppress,
   checkLocalhostWidgetStatus,
   initCommand,
-  monorepoInitCommand,
-  credentialsSnippet,
   buildExtensionSteps,
   PROJECT_KEY_PLACEHOLDER,
   DOCTOR_COMMAND,
@@ -169,7 +165,6 @@ function InstallGuideWizardDialog({
 
   // API key and reveal state
   const [revealKey, setRevealKey] = useState(false);
-  const [showCurl, setShowCurl] = useState(false);
 
   // Wizard Navigation
   const [currentStep, setCurrentStep] = useState<WizardStep>(() => {
@@ -264,24 +259,12 @@ function InstallGuideWizardDialog({
   );
   const maskedInitCmd = maskKey(initCmd);
 
-  const monorepoCmd = monorepoInitCommand({
-    server,
-    apiKey,
-    projectKey: projectKey !== PROJECT_KEY_PLACEHOLDER ? projectKey : null,
-  });
-  const maskedMonorepoCmd = maskKey(monorepoCmd);
-
   // `--delivery extension` records — for `pointer list`/`pointer apply` in this repo —
   // that reviewers use the Chrome extension rather than the injected widget.
   const extDeliveryCmd = `${initCmd} --delivery extension`;
   const maskedExtDeliveryCmd = maskKey(extDeliveryCmd);
 
   const initHintKey = apiKey ? 'install.stepInitHint' : 'install.stepInitHintNoKey';
-  const creds = credentialsSnippet({
-    apiKey,
-    demo,
-    credsEmailedText: t('demo.credsEmailed'),
-  });
 
   const stackSnippets: Record<FrameworkStack, string> = {
     html: `<!-- Add before </body> or inside <head> -->\n<script src="${server}/widget.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
@@ -613,91 +596,10 @@ function InstallGuideWizardDialog({
                   </div>
                 </div>
 
-                {/* Collapsible curl fallback */}
-                <div className="border-t border-border pt-3">
-                  <button
-                    type="button"
-                    className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1"
-                    onClick={() => setShowCurl(!showCurl)}
-                  >
-                    {showCurl ? (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    )}
-                    {t('install.stepCurlTitle')}
-                  </button>
-
-                  {showCurl && (
-                    <div className="mt-2 space-y-2">
-                      <div className="text-[12px] text-muted-foreground">
-                        {t('install.stepCurlHint')}
-                      </div>
-                      <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
-                        <pre className="m-0">
-                          <code>{`curl -fsSL ${server}/install.sh | sh`}</code>
-                        </pre>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copy(`curl -fsSL ${server}/install.sh | sh`)}
-                          className="absolute top-3 end-3"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Monorepo callout */}
-                <div className="rounded-md border border-border bg-background p-3 space-y-2">
-                  <div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
-                    <Info className="h-3.5 w-3.5 text-brand" />
-                    {t('install.stepMonorepoTitle')}
-                  </div>
-                  <div className="text-[12px] text-muted-foreground">
-                    {t('install.stepMonorepoHint')}
-                  </div>
-                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px]">
-                    <div className="p-3 pe-12 overflow-x-auto">
-                      <pre className="m-0">
-                        <code>{maskedMonorepoCmd}</code>
-                      </pre>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copy(monorepoCmd)}
-                      className="absolute top-3 end-3 bg-gutter rounded-md"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Credentials block */}
-                <div className="space-y-2">
-                  <div className="text-[13px] font-medium text-foreground">
-                    {t('install.wizard.credsTitle')}
-                  </div>
-                  <div className="text-[12px] text-muted-foreground">
-                    {t('install.wizard.credsHint')}
-                  </div>
-                  <div className="relative rounded-md border border-border bg-gutter font-mono text-[13px] p-3 pe-12 overflow-x-auto">
-                    <pre className="m-0">
-                      <code>{creds}</code>
-                    </pre>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copy(creds)}
-                      className="absolute top-3 end-3"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                {/* Comments #102/#103/#104: the collapsible no-Node curl fallback, the
+                    monorepo callout, and the "Add your credentials" step are gone —
+                    `pointer init` now signs in interactively, so pasted credentials and
+                    the alternates only added noise to the CLI path. */}
               </div>
             )}
 

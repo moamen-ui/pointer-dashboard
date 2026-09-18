@@ -1053,7 +1053,8 @@
     "pageOf": "Page {{page}} of {{pages}}",
     "previousPage": "Previous page",
     "retry": "Try again",
-    "rowsOf": "{{shown}} of {{total}} rows"
+    "rowsOf": "{{shown}} of {{total}} rows",
+    "pageSize": "Rows per page"
   },
   "tenants": {
     "actions": "Actions",

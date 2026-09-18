@@ -22,6 +22,13 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -130,6 +137,9 @@ export type DataTableProps<TData> = {
   emptyCompact?: boolean;
   /** Optional action (e.g. an "Add" button) rendered inside the empty state. */
   emptyAction?: ReactNode;
+  /** When provided together with `paginated`, the pager grows a rows-per-page
+   *  dropdown over these sizes (comment #101: 10/20/30, 10 default). */
+  pageSizeOptions?: number[];
   /** When non-empty, renders the shared error EmptyState INSTEAD of rows (header still
    *  renders). Overrides the default `table.error` message. */
   error?: string | null;
@@ -166,6 +176,7 @@ export function DataTable<TData>({
   emptyMessage = '',
   emptyHint = '',
   emptyCompact = false,
+  pageSizeOptions,
   emptyAction,
   error = null,
   onRetry,
@@ -273,11 +284,38 @@ export function DataTable<TData>({
   // >=40px mobile touch target from the Button component itself.
   function Pager() {
     if (paginated && pageCount > 1) {
+      const showPageSizeDdl = !!pageSizeOptions && pageSizeOptions.length > 0;
       return (
         <div className="h-11 max-md:h-auto max-md:min-h-11 max-md:py-1 border-t border-border bg-background px-3 flex items-center justify-between text-[13px] text-muted-foreground">
-          <span className="max-md:hidden">
-            {t('table.rowsOf', { shown: rows.length, total: table.getFilteredRowModel().rows.length })}
-          </span>
+          {/* Comment #101: rows-per-page dropdown (10/20/30) beside the row count. */}
+          <div className="flex items-center gap-2">
+            {showPageSizeDdl && (
+              <Select
+                value={String(table.getState().pagination.pageSize)}
+                onValueChange={(v) => {
+                  table.setPageIndex(0);
+                  table.setPageSize(Number(v));
+                }}
+              >
+                <SelectTrigger
+                  className="h-8 w-[4.75rem] text-[13px]"
+                  aria-label={t('table.pageSize')}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {pageSizeOptions.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <span className="max-md:hidden">
+              {t('table.rowsOf', { shown: rows.length, total: table.getFilteredRowModel().rows.length })}
+            </span>
+          </div>
           <div className="flex items-center gap-2 max-md:w-full max-md:justify-between">
             <Button
               variant="secondary"

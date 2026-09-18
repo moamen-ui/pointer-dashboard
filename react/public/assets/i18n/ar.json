@@ -1053,7 +1053,8 @@
     "pageOf": "صفحة {{page}} من {{pages}}",
     "previousPage": "الصفحة السابقة",
     "retry": "إعادة المحاولة",
-    "rowsOf": "{{shown}} من {{total}} صفًا"
+    "rowsOf": "{{shown}} من {{total}} صفًا",
+    "pageSize": "صفوف في الصفحة"
   },
   "tenants": {
     "actions": "الإجراءات",

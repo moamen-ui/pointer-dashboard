@@ -540,6 +540,9 @@ export function ProjectsPage() {
     setNameTouched(false);
     setCaptureContextEnabled(false);
     setAppUrl('');
+    // Comment #94: the first available environment is preselected instead of the
+    // placeholder — picking one is the common case, not the exception.
+    setNewProjectEnvId(creatableEnvironments[0]?.id ?? null);
     setAddOpen(true);
   }
 
@@ -819,7 +822,9 @@ export function ProjectsPage() {
     setEditName(project.name ?? '');
     setEditNameTouched(false);
     setEditReadOnly(readOnly);
-    setEditTab('details');
+    // Comment #93: read-only viewers (no edit permission) get no details tab, so
+    // they land on the one tab they can actually use — predefined prompts.
+    setEditTab(readOnly ? 'prompts' : 'details');
     setEditPageContextCaptureEnabled(!!project.pageContextCaptureEnabled);
     setEditCaptureTextContent(!!project.captureTextContent);
     setEditEnforceAllowedOrigins(!!project.enforceAllowedOrigins);
@@ -1135,7 +1140,9 @@ export function ProjectsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('projects.title')}</h1>
-        {!isSuperAdmin && (
+        {/* Comment #95: only workspace admins (and their deputies) can add projects —
+            super admins can't own a project and plain members can't create one. */}
+        {isAdmin && (
           <Button onClick={openAdd}>
             <Plus className="h-4 w-4" />
             {t('projects.addProject')}
@@ -1162,13 +1169,14 @@ export function ProjectsPage() {
         emptyMessage={t('projects.empty')}
         emptyHint={t(isSuperAdmin ? 'projects.superAdminEmptyHint' : 'projects.emptyHint')}
         emptyAction={
-          !isSuperAdmin ? (
+          isAdmin ? (
             <Button onClick={openAdd}>
               <Plus className="h-4 w-4" />
               {t('projects.addProject')}
             </Button>
           ) : undefined
         }
+        pageSizeOptions={[10, 20, 30]}
       />
 
       {/* Add project dialog */}
@@ -1300,7 +1308,9 @@ export function ProjectsPage() {
           </DialogHeader>
           <AppTabs
             tabs={[
-              { value: 'details', label: t('projects.editTitle') },
+              // Comment #93: tabs follow permissions — the details tab only makes
+              // sense for viewers who can edit, so read-only viewers don't get it.
+              ...(!editReadOnly ? [{ value: 'details', label: t('projects.editTitle') }] : []),
               // Comment #82: environments get their own tab, second in the strip, with a
               // nudge badge while the project has no App URL registered.
               ...(!editReadOnly
