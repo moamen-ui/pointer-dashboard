@@ -14,9 +14,9 @@ import {
 import type { ColumnDef } from '@tanstack/react-table';
 import { Save, RotateCcw, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/shared/data-table/DataTable';
-import type { RowActionItem } from '@/components/shared/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { extractMessage } from '@/lib/error';
@@ -230,19 +230,47 @@ export function StatusesPage() {
         );
       },
     },
+    {
+      // Comment #91: the row's buttons live directly in the last td — no kebab
+      // submenu. Save is always visible; the (server-side) reset stays tied to
+      // overridden statuses.
+      id: 'actions',
+      enableSorting: false,
+      header: t('statuses.colActions'),
+      cell: ({ row }) => {
+        const status = row.original;
+        const val = status.value!;
+        const r = rows[val] ?? initRow(status);
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            <Button
+              size="sm"
+              type="button"
+              className="h-8"
+              disabled={isBusy || !r.label.trim()}
+              onClick={() => save(val)}
+            >
+              <Save className="h-4 w-4" />
+              {t('statuses.save')}
+            </Button>
+            {status.isOverridden && (
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="h-8 text-destructive hover:text-destructive"
+                disabled={isBusy}
+                onClick={() => setResetTarget(status)}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t('statuses.reset')}
+              </Button>
+            )}
+          </div>
+        );
+      },
+    },
   ];
-
-  const actionsFor = (status: StatusAdminItem): RowActionItem[] => {
-    const val = status.value!;
-    const row = rows[val] ?? initRow(status);
-    const items: RowActionItem[] = [
-      { label: t('statuses.save'), icon: Save, disabled: isBusy || !row.label.trim(), onClick: () => save(val) },
-    ];
-    if (status.isOverridden) {
-      items.push({ label: t('statuses.reset'), icon: RotateCcw, severity: 'danger', disabled: isBusy, onClick: () => setResetTarget(status) });
-    }
-    return items;
-  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -251,9 +279,6 @@ export function StatusesPage() {
       <DataTable
         data={statuses}
         columns={columns}
-        actions={actionsFor}
-        actionsAriaLabel={t('statuses.colActions')}
-        actionsHeader={t('statuses.colActions')}
         gutter
         emptyIcon={Tag}
         emptyMessage={t('statuses.empty')}

@@ -379,6 +379,24 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
           rows={adminRuleRows}
           onFieldChange={(id, field, value) => updateAdminRule(id, field, value)}
           onSave={(id) => saveAdminRule(id)}
+          onReset={(id) =>
+            // Comment #91: Cancel acts as a reset — back to the saved (server) values.
+            setLocalAdminRules((prev) => {
+              const server = adminRules.find((r) => r.id === id);
+              if (!server) return prev;
+              return {
+                ...prev,
+                [id]: {
+                  id,
+                  title: server.title ?? '',
+                  prompt: server.prompt ?? '',
+                  isActive: server.isActive ?? true,
+                  isInherited: prev[id]?.isInherited ?? !!server.isTenantWide,
+                  dirty: false,
+                },
+              };
+            })
+          }
           onDelete={(id) => deleteAdminRuleMut.mutate({ id })}
           onCreate={
             canManageAdminRules
@@ -410,6 +428,24 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
           rows={myRuleRows}
           onFieldChange={(id, field, value) => updateMyRule(id, field, value)}
           onSave={(id) => savePersonalRule(id)}
+          onReset={(id) =>
+            // Comment #91: Cancel acts as a reset — back to the saved (server) values.
+            setLocalMyRules((prev) => {
+              const server = myRules.find((r) => r.id === id);
+              if (!server) return prev;
+              return {
+                ...prev,
+                [id]: {
+                  id,
+                  title: server.title ?? '',
+                  prompt: server.prompt ?? '',
+                  isActive: server.isActive ?? true,
+                  isPersonal: true,
+                  dirty: false,
+                },
+              };
+            })
+          }
           onDelete={(id) => deleteMyRuleMut.mutate({ id })}
           onCreate={(draft) =>
             postMyRuleMut.mutateAsync({

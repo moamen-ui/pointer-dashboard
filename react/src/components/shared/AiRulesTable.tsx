@@ -20,12 +20,11 @@
 import { useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useTranslation } from 'react-i18next';
-import { Plus, Save, Trash2 } from 'lucide-react';
+import { Plus, Save, Trash2, Undo2 } from 'lucide-react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/shared/data-table/DataTable';
-import type { RowActionItem } from '@/components/shared/types';
 import { cn } from '@/lib/utils';
 
 export type AiRuleField = 'title' | 'prompt' | 'isActive';
@@ -59,6 +58,7 @@ export function AiRulesTable({
   rows,
   onFieldChange,
   onSave,
+  onReset,
   onDelete,
   onCreate,
   addLabel,
@@ -69,6 +69,9 @@ export function AiRulesTable({
   rows: AiRuleRowModel[];
   onFieldChange: (id: number, field: AiRuleField, value: string | boolean) => void;
   onSave: (id: number) => void;
+  /** Revert a dirty row's local edits back to the saved values — the Cancel button's
+   *  handler for existing rows (comment #91). Drafts cancel internally. */
+  onReset?: (id: number) => void;
   onDelete: (id: number) => void;
   /** Resolve to clear the draft row; reject (the caller's mutation toasts) to keep it.
    *  Omitted when the viewer may not add rules here — the Add button then never renders. */
@@ -203,51 +206,59 @@ export function AiRulesTable({
       },
     },
     {
-      id: 'save',
+      // Comment #91: Save / Cancel / Delete live directly in the last td — no kebab
+      // submenu. Cancel appears only for a draft or a dirty row and acts as a reset;
+      // read-only (inherited) rows stay action-less.
+      id: 'actions',
       enableSorting: false,
-      header: t('common.save'),
+      header: () => '',
       cell: ({ row }) => {
         const rule = row.original;
+        if (rule.readOnly) return null;
         const incomplete = !rule.title.trim() || !rule.prompt.trim();
         return (
-          <Button
-            size="sm"
-            type="button"
-            className="h-8"
-            disabled={rule.readOnly || !rule.dirty || rule.saving || incomplete}
-            onClick={() => (rule.isDraft ? void saveDraft() : onSave(rule.id))}
-          >
-            <Save className="h-4 w-4" />
-            {t('common.save')}
-          </Button>
+          <div className="flex items-center justify-end gap-1.5">
+            {(rule.isDraft || rule.dirty) && (
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="h-8"
+                disabled={rule.saving}
+                onClick={() => (rule.isDraft ? setDraft(null) : onReset?.(rule.id))}
+              >
+                <Undo2 className="h-4 w-4" />
+                {t('common.cancel')}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              type="button"
+              className="h-8"
+              disabled={rule.readOnly || !rule.dirty || rule.saving || incomplete}
+              onClick={() => (rule.isDraft ? void saveDraft() : onSave(rule.id))}
+            >
+              <Save className="h-4 w-4" />
+              {t('common.save')}
+            </Button>
+            {!rule.isDraft && (
+              <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                aria-label={t('aiRules.delete')}
+                disabled={deleting}
+                onClick={() => onDelete(rule.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         );
       },
     },
   ];
-
-  const actionsFor = (rule: AiRuleRowModel): RowActionItem[] => {
-    if (rule.readOnly) return [];
-    if (rule.isDraft) {
-      return [
-        {
-          label: t('common.cancel'),
-          icon: Trash2,
-          severity: 'danger',
-          disabled: creating,
-          onClick: () => setDraft(null),
-        },
-      ];
-    }
-    return [
-      {
-        label: t('aiRules.delete'),
-        icon: Trash2,
-        severity: 'danger',
-        disabled: deleting,
-        onClick: () => onDelete(rule.id),
-      },
-    ];
-  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -260,8 +271,6 @@ export function AiRulesTable({
           <DataTable
             data={tableRows}
             columns={columns}
-            actions={actionsFor}
-            actionsAriaLabel={t('common.actions')}
             emptyMessage={emptyMessage}
           />
         </div>

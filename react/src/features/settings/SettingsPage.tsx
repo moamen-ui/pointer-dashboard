@@ -318,6 +318,23 @@ function AiRulesCard() {
           rows={ruleRows}
           onFieldChange={(id, field, value) => updateRule(id, field, value)}
           onSave={(id) => saveRule(id)}
+          onReset={(id) =>
+            // Comment #91: Cancel acts as a reset — back to the saved (server) values.
+            setLocalRules((prev) => {
+              const server = rules.find((r) => r.id === id);
+              if (!server) return prev;
+              return {
+                ...prev,
+                [id]: {
+                  ...(prev[id] ?? { id }),
+                  title: server.title ?? '',
+                  prompt: server.prompt ?? '',
+                  isActive: server.isActive ?? true,
+                  dirty: false,
+                },
+              };
+            })
+          }
           onDelete={(id) => deleteMut.mutate({ id })}
           onCreate={(draft) =>
             createMut.mutateAsync({
