@@ -233,7 +233,7 @@ export function StatusesPage() {
     {
       // Comment #91: the row's buttons live directly in the last td — no kebab
       // submenu. Save is always visible; the (server-side) reset stays tied to
-      // overridden statuses.
+      // overridden statuses. Follow-up: icon-only buttons with tooltips.
       id: 'actions',
       enableSorting: false,
       header: t('statuses.colActions'),
@@ -242,28 +242,31 @@ export function StatusesPage() {
         const val = status.value!;
         const r = rows[val] ?? initRow(status);
         return (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex items-center justify-end gap-1">
             <Button
-              size="sm"
+              variant="ghost"
+              size="icon"
               type="button"
-              className="h-8"
+              className="h-8 w-8"
+              aria-label={t('statuses.save')}
+              title={t('statuses.save')}
               disabled={isBusy || !r.label.trim()}
               onClick={() => save(val)}
             >
               <Save className="h-4 w-4" />
-              {t('statuses.save')}
             </Button>
             {status.isOverridden && (
               <Button
-                size="sm"
-                variant="outline"
+                variant="ghost"
+                size="icon"
                 type="button"
-                className="h-8 text-destructive hover:text-destructive"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                aria-label={t('statuses.reset')}
+                title={t('statuses.reset')}
                 disabled={isBusy}
                 onClick={() => setResetTarget(status)}
               >
                 <RotateCcw className="h-4 w-4" />
-                {t('statuses.reset')}
               </Button>
             )}
           </div>

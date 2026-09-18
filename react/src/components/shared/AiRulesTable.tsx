@@ -208,7 +208,8 @@ export function AiRulesTable({
     {
       // Comment #91: Save / Cancel / Delete live directly in the last td — no kebab
       // submenu. Cancel appears only for a draft or a dirty row and acts as a reset;
-      // read-only (inherited) rows stay action-less.
+      // read-only (inherited) rows stay action-less. Follow-up: icon-only buttons with
+      // tooltips, so the trailing column stays narrow.
       id: 'actions',
       enableSorting: false,
       header: () => '',
@@ -217,29 +218,32 @@ export function AiRulesTable({
         if (rule.readOnly) return null;
         const incomplete = !rule.title.trim() || !rule.prompt.trim();
         return (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex items-center justify-end gap-1">
             {(rule.isDraft || rule.dirty) && (
               <Button
-                size="sm"
-                variant="outline"
+                variant="ghost"
+                size="icon"
                 type="button"
-                className="h-8"
+                className="h-8 w-8"
+                aria-label={t('common.cancel')}
+                title={t('common.cancel')}
                 disabled={rule.saving}
                 onClick={() => (rule.isDraft ? setDraft(null) : onReset?.(rule.id))}
               >
                 <Undo2 className="h-4 w-4" />
-                {t('common.cancel')}
               </Button>
             )}
             <Button
-              size="sm"
+              variant="ghost"
+              size="icon"
               type="button"
-              className="h-8"
+              className="h-8 w-8"
+              aria-label={t('common.save')}
+              title={t('common.save')}
               disabled={rule.readOnly || !rule.dirty || rule.saving || incomplete}
               onClick={() => (rule.isDraft ? void saveDraft() : onSave(rule.id))}
             >
               <Save className="h-4 w-4" />
-              {t('common.save')}
             </Button>
             {!rule.isDraft && (
               <Button
@@ -248,6 +252,7 @@ export function AiRulesTable({
                 type="button"
                 className="h-8 w-8 text-destructive hover:text-destructive"
                 aria-label={t('aiRules.delete')}
+                title={t('aiRules.delete')}
                 disabled={deleting}
                 onClick={() => onDelete(rule.id)}
               >
