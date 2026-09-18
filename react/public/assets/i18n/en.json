@@ -170,9 +170,11 @@
     "deployedShaTooltip": "Deployed {{ sha }}",
     "detail": {
       "addReply": "Reply",
+      "aiVia": "via {{name}}",
       "appliedAt": "Applied {{date}}",
       "appliedBy": "Applied by {{name}}",
       "appliedSection": "Applied",
+      "automatedReply": "Automated reply",
       "by": "By {{name}}",
       "commit": "Commit",
       "confirmDelete": "Delete this comment? This can't be undone.",

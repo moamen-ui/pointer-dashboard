@@ -24,6 +24,7 @@ import {
   ThumbsDown,
   Trash2,
   Rocket,
+  Bot,
 } from 'lucide-react';
 import {
   Dialog,
@@ -497,14 +498,38 @@ function CommentDetailBody({
         <h3 className="text-[16px] font-semibold leading-6">{t('comments.detail.repliesSection')}</h3>
         {comment.replies && comment.replies.length > 0 ? (
           <ul className="flex flex-col gap-2">
-            {comment.replies.map((r) => (
-              <li key={r.id} className="rounded-md border border-border-muted p-2">
-                <p className="text-[13px] whitespace-pre-wrap">{r.body}</p>
-                <p className="mt-1 text-[12px] text-muted-foreground">
-                  {r.authorName || '—'} · {formatRelativeTime(t, r.createdAt)}
-                </p>
-              </li>
-            ))}
+            {comment.replies.map((r) => {
+              // Automated (AI apply flow) replies are always read-only server-side — no edit/delete
+              // affordance to hide here since replies never had one in this dashboard to begin with.
+              if (r.isAi) {
+                const attribution = [
+                  r.aiTool,
+                  r.aiModel,
+                  r.authorName ? t('comments.detail.aiVia', { name: r.authorName }) : null,
+                ].filter(Boolean) as string[];
+                return (
+                  <li key={r.id} className="rounded-md border border-border-muted bg-muted/40 p-2">
+                    <p className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground">
+                      <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+                      {t('comments.detail.automatedReply')}
+                    </p>
+                    <p className="mt-1 text-[13px] whitespace-pre-wrap">{r.body}</p>
+                    <p className="mt-1 text-[12px] text-muted-foreground">
+                      {attribution.length > 0 ? `${attribution.join(' · ')} · ` : ''}
+                      {formatRelativeTime(t, r.createdAt)}
+                    </p>
+                  </li>
+                );
+              }
+              return (
+                <li key={r.id} className="rounded-md border border-border-muted p-2">
+                  <p className="text-[13px] whitespace-pre-wrap">{r.body}</p>
+                  <p className="mt-1 text-[12px] text-muted-foreground">
+                    {r.authorName || '—'} · {formatRelativeTime(t, r.createdAt)}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-[13px] text-muted-foreground">{t('comments.detail.noReplies')}</p>

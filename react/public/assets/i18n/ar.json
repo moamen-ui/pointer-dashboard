@@ -170,9 +170,11 @@
     "deployedShaTooltip": "تم النشر {{ sha }}",
     "detail": {
       "addReply": "رد",
+      "aiVia": "بواسطة {{name}}",
       "appliedAt": "طُبِّق في {{date}}",
       "appliedBy": "طبّقه {{name}}",
       "appliedSection": "التطبيق",
+      "automatedReply": "رد آلي",
       "by": "بواسطة {{name}}",
       "commit": "الالتزام (commit)",
       "confirmDelete": "حذف هذا التعليق؟ لا يمكن التراجع عن هذا الإجراء.",
