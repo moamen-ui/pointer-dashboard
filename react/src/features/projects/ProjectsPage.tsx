@@ -9,7 +9,7 @@
 //   • Other-environment rows have NO per-row save — the dialog's single Save persists
 //     every dirty row (plus the pending add-row) together after the project PATCH
 //   • "Environment switcher visibility" role multiselect (environmentSelectorRoleIds)
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -63,12 +63,15 @@ import {
   ChevronDown,
   Check,
   Brain,
+  Info,
   Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { AccordionSection } from '@/components/ui/accordion-section';
 import { FormField } from '@/components/shared/FormField';
 import { AiRulesTable, type AiRuleRowModel } from '@/components/shared/AiRulesTable';
 import {
@@ -318,6 +321,10 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
 
   const canManageAdminRules = canEditProject || isAdmin;
 
+  // Comment #76: the two rule blocks sit in a single-open accordion — opening one
+  // collapses the other; the admin block starts open.
+  const [openRulesSection, setOpenRulesSection] = useState<'admin' | 'mine' | null>('admin');
+
   // Local edits layered over the fetched rules — one row per rule for the shared table.
   const savingAdminRuleId = (putAdminRuleMut.variables as { id?: number } | undefined)?.id;
   const adminRuleRows: AiRuleRowModel[] = adminRules.map((rule) => {
@@ -361,73 +368,82 @@ function ProjectAiRulesContent({ project, canEditProject }: ProjectAiRulesConten
         <p className="text-xs text-muted-foreground">{t('projects.loading', { defaultValue: 'Loading…' })}</p>
       )}
 
-      {/* Section 1: Workspace & Project Admin Rules */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-0.5">
-          <div className="text-sm font-semibold">{t('aiRules.adminRulesTitle')}</div>
-          <div className="text-xs text-muted-foreground">{t('aiRules.adminRulesSubtitle')}</div>
-        </div>
+      {/* Comment #76: the two blocks are accordion sections, only one open at a time. */}
+      <AccordionSection
+        title={t('aiRules.adminRulesTitle')}
+        open={openRulesSection === 'admin'}
+        onOpenChange={(o) => setOpenRulesSection(o ? 'admin' : null)}
+      >
+        <p className="text-xs text-muted-foreground">{t('aiRules.adminRulesSubtitle')}</p>
+        <AiRulesTable
+          rows={adminRuleRows}
+          onFieldChange={(id, field, value) => updateAdminRule(id, field, value)}
+          onSave={(id) => saveAdminRule(id)}
+          onDelete={(id) => deleteAdminRuleMut.mutate({ id })}
+          onCreate={
+            canManageAdminRules
+              ? (draft) =>
+                  postAdminRuleMut.mutateAsync({
+                    data: {
+                      projectId: project.id,
+                      title: draft.title,
+                      prompt: draft.prompt,
+                      sortOrder: adminRules.length,
+                    },
+                  })
+              : undefined
+          }
+          addLabel={t('aiRules.addRule')}
+          creating={postAdminRuleMut.isPending}
+          deleting={deleteAdminRuleMut.isPending}
+          emptyMessage={t('aiRules.empty')}
+        />
+      </AccordionSection>
 
-        <div className="flex flex-col gap-3">
-          <AiRulesTable
-            rows={adminRuleRows}
-            onFieldChange={(id, field, value) => updateAdminRule(id, field, value)}
-            onSave={(id) => saveAdminRule(id)}
-            onDelete={(id) => deleteAdminRuleMut.mutate({ id })}
-            onCreate={
-              canManageAdminRules
-                ? (draft) =>
-                    postAdminRuleMut.mutateAsync({
-                      data: {
-                        projectId: project.id,
-                        title: draft.title,
-                        prompt: draft.prompt,
-                        sortOrder: adminRules.length,
-                      },
-                    })
-                : undefined
-            }
-            addLabel={t('aiRules.addRule')}
-            creating={postAdminRuleMut.isPending}
-            deleting={deleteAdminRuleMut.isPending}
-            emptyMessage={t('aiRules.empty')}
-          />
-
-        </div>
-      </div>
-
-      {/* Section 2: My Personal Rules */}
-      <div className="flex flex-col gap-3 border-t border-border pt-4">
-        <div className="flex flex-col gap-0.5">
-          <div className="text-sm font-semibold">{t('aiRules.myRulesTitle')}</div>
-          <div className="text-xs text-muted-foreground">{t('aiRules.myRulesSubtitle')}</div>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <AiRulesTable
-            rows={myRuleRows}
-            onFieldChange={(id, field, value) => updateMyRule(id, field, value)}
-            onSave={(id) => savePersonalRule(id)}
-            onDelete={(id) => deleteMyRuleMut.mutate({ id })}
-            onCreate={(draft) =>
-              postMyRuleMut.mutateAsync({
-                data: {
-                  projectId: project.id,
-                  title: draft.title,
-                  prompt: draft.prompt,
-                  sortOrder: myRules.length,
-                },
-              })
-            }
-            addLabel={t('aiRules.addPersonalRule')}
-            creating={postMyRuleMut.isPending}
-            deleting={deleteMyRuleMut.isPending}
-            emptyMessage={t('aiRules.noPersonalRules')}
-          />
-
-        </div>
-      </div>
+      <AccordionSection
+        title={t('aiRules.myRulesTitle')}
+        open={openRulesSection === 'mine'}
+        onOpenChange={(o) => setOpenRulesSection(o ? 'mine' : null)}
+      >
+        <p className="text-xs text-muted-foreground">{t('aiRules.myRulesSubtitle')}</p>
+        <AiRulesTable
+          rows={myRuleRows}
+          onFieldChange={(id, field, value) => updateMyRule(id, field, value)}
+          onSave={(id) => savePersonalRule(id)}
+          onDelete={(id) => deleteMyRuleMut.mutate({ id })}
+          onCreate={(draft) =>
+            postMyRuleMut.mutateAsync({
+              data: {
+                projectId: project.id,
+                title: draft.title,
+                prompt: draft.prompt,
+                sortOrder: myRules.length,
+              },
+            })
+          }
+          addLabel={t('aiRules.addPersonalRule')}
+          creating={postMyRuleMut.isPending}
+          deleting={deleteMyRuleMut.isPending}
+          emptyMessage={t('aiRules.noPersonalRules')}
+        />
+      </AccordionSection>
     </div>
+  );
+}
+
+// Comment #77: settings descriptions moved under an info glyph — shown on
+// hover/focus as a plain-CSS tooltip, no dependency.
+function HintInfo({ children }: { children: ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground" tabIndex={0} />
+      <span
+        role="tooltip"
+        className="pointer-events-none invisible absolute top-full z-50 mt-1 start-0 w-64 rounded-md border border-border bg-background p-2 text-start text-xs leading-relaxed text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+      >
+        {children}
+      </span>
+    </span>
   );
 }
 
@@ -1440,51 +1456,47 @@ export function ProjectsPage() {
 
             {!editReadOnly && (
               <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
                   <Label htmlFor="edit-project-capture" className="text-sm font-medium">
                     {t('projects.pageContextCapture')}
                   </Label>
-                  <p className="text-xs text-muted-foreground">{t('projects.pageContextCaptureHint')}</p>
+                  <HintInfo>{t('projects.pageContextCaptureHint')}</HintInfo>
                 </div>
-                <input
+                <Switch
                   id="edit-project-capture"
-                  type="checkbox"
                   checked={editPageContextCaptureEnabled}
-                  onChange={(e) => setEditPageContextCaptureEnabled(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer"
+                  onCheckedChange={setEditPageContextCaptureEnabled}
                 />
               </div>
             )}
 
             {!editReadOnly && (
               <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
                   <Label htmlFor="edit-project-capture-text" className="text-sm font-medium">
                     {t('projects.captureTextContent')}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
+                  <HintInfo>
                     {t('projects.captureTextContentHint', {
                       defaultValue: 'Learn more about captured data: {{url}}'
                     }).replace('{{url}}', `${import.meta.env.VITE_API_BASE ?? ''}/data.html`)}
-                  </p>
+                  </HintInfo>
                 </div>
-                <input
+                <Switch
                   id="edit-project-capture-text"
-                  type="checkbox"
                   checked={editCaptureTextContent}
-                  onChange={(e) => setEditCaptureTextContent(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer"
+                  onCheckedChange={setEditCaptureTextContent}
                 />
               </div>
             )}
 
             {!editReadOnly && (
               <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
                   <Label htmlFor="edit-project-enforce-origins" className="text-sm font-medium">
                     {t('projects.enforceAllowedOrigins')}
                   </Label>
-                  <p className="text-xs text-muted-foreground">
+                  <HintInfo>
                     {appUrls.length > 0 ? (
                       <>
                         {t('projects.enforceAllowedOriginsHint')}
@@ -1499,15 +1511,13 @@ export function ProjectsPage() {
                     ) : (
                       <span className="text-state-danger">{t('projects.enforceAllowedOriginsDisabledHint')}</span>
                     )}
-                  </p>
+                  </HintInfo>
                 </div>
-                <input
+                <Switch
                   id="edit-project-enforce-origins"
-                  type="checkbox"
                   checked={editEnforceAllowedOrigins}
-                  onChange={(e) => setEditEnforceAllowedOrigins(e.target.checked)}
+                  onCheckedChange={setEditEnforceAllowedOrigins}
                   disabled={appUrls.length === 0}
-                  className="h-4 w-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
             )}
@@ -1629,13 +1639,13 @@ export function ProjectsPage() {
             {/* AI Roles & Rules */}
           {editProject && (
             <TabsContent value="rules" className="flex flex-col gap-4 pt-1">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-primary" />
-                  <h4 className="text-sm font-semibold">{t('aiRules.section')}</h4>
-                </div>
-                <p className="text-xs text-muted-foreground">{t('aiRules.projectHelp')}</p>
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-semibold">{t('aiRules.section')}</h4>
               </div>
+              {/* Comment #76: the projectHelp paragraph was duplicated here and at the
+                  top of ProjectAiRulesContent — kept only inside the content component,
+                  which is also what the standalone AI-rules dialog renders. */}
               <ProjectAiRulesContent project={editProject} canEditProject={!editReadOnly} />
             </TabsContent>
           )}

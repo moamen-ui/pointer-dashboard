@@ -7,22 +7,34 @@ import { cn } from '@/lib/utils';
  * expands under it. Built on native <details>/<summary> so keyboard support, focus
  * and the open/closed semantics come from the platform — no dependency, and no
  * JS state to keep in sync.
+ *
+ * Pass `open` + `onOpenChange` to drive the section from the outside — that is how
+ * callers build a single-open accordion (comment #76): each section's `open` comes
+ * from one shared state value, so opening one collapses the others. Omit both for
+ * the original standalone behavior.
  */
 export function AccordionSection({
   title,
   defaultOpen = false,
+  open,
+  onOpenChange,
   children,
   className,
 }: {
   /** Header content — a string, or nodes when the header carries a badge. */
   title: ReactNode;
   defaultOpen?: boolean;
+  /** Controlled open state; omit for standalone use. */
+  open?: boolean;
+  /** Fired from the native toggle — only meaningful together with `open`. */
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
   className?: string;
 }) {
   return (
     <details
-      open={defaultOpen}
+      open={open ?? defaultOpen}
+      onToggle={(e) => onOpenChange?.((e.currentTarget as HTMLDetailsElement).open)}
       className={cn('group rounded-lg border border-border bg-card', className)}
     >
       <summary

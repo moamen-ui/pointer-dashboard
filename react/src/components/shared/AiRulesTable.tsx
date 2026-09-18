@@ -251,16 +251,18 @@ export function AiRulesTable({
 
   return (
     <div className="flex flex-col gap-2">
-      <DataTable
-        data={tableRows}
-        columns={columns}
-        actions={actionsFor}
-        actionsAriaLabel={t('common.actions')}
-        emptyMessage={emptyMessage}
-        // Inline rule tables (project dialog, /settings section) get the compact empty
-        // state — the full-page-size illustration is too big here (comment #75).
-        emptyCompact
-      />
+      {/* Follow-up on comment #75: no empty state here at all — the Add button below
+          is the empty state. The table (with its EmptyState) only renders once there
+          are rows (or a draft) to show. */}
+      {tableRows.length > 0 && (
+        <DataTable
+          data={tableRows}
+          columns={columns}
+          actions={actionsFor}
+          actionsAriaLabel={t('common.actions')}
+          emptyMessage={emptyMessage}
+        />
+      )}
       {onCreate && (
         <div className="flex justify-end">
           <Button
