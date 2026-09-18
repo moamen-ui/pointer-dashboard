@@ -7,6 +7,7 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type Renderable,
   type SortingState,
 } from '@tanstack/react-table';
 import {
@@ -48,6 +49,26 @@ const SYNTHETIC_IDS = new Set(['__gutter__', '__actions__', '__chevron__']);
 
 function metaOf(col: { columnDef: { meta?: unknown } }): ColumnMeta | undefined {
   return col.columnDef.meta as ColumnMeta | undefined;
+}
+
+/** Comment #92: flexRender turns a plain-function cell def into a component TYPE via
+ *  `React.createElement(Comp, props)`. A page whose column defs are rebuilt every render
+ *  (a fresh closure per cell each time, as an inline-edit table's columns are) hands
+ *  flexRender a new type every keystroke, so React remounts the cell subtree and re-fires
+ *  any `autoFocus` inside it. Calling a plain function directly returns its element into
+ *  the parent tree instead, which reconciles by JSX position rather than by identity, so a
+ *  new closure each render no longer remounts anything. Anything that isn't a plain
+ *  function (a class/exotic component, a string, an already-built element) still needs
+ *  flexRender's real component semantics. */
+function renderCellDef<TProps extends object>(cellDef: Renderable<TProps> | undefined, props: TProps) {
+  if (typeof cellDef === 'function') {
+    const proto = Object.getPrototypeOf(cellDef);
+    const isClassComponent = !!(proto?.prototype && proto.prototype.isReactComponent);
+    if (!isClassComponent) {
+      return (cellDef as (props: TProps) => ReactNode)(props);
+    }
+  }
+  return flexRender(cellDef, props);
 }
 
 /** Severity → text color for the mobile action row's plain buttons (mirrors
@@ -368,7 +389,7 @@ export function DataTable<TData>({
               {primaryCell && (
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1 break-words text-[14px] font-medium text-foreground">
-                    {flexRender(primaryCell.column.columnDef.cell, primaryCell.getContext())}
+                    {renderCellDef(primaryCell.column.columnDef.cell, primaryCell.getContext())}
                   </div>
                   {clickable && !actions && (
                     <ChevronRight
@@ -395,7 +416,7 @@ export function DataTable<TData>({
                           <span className="shrink-0 text-muted-foreground">{label}</span>
                         )}
                         <span className="min-w-0 break-words text-end text-foreground">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          {renderCellDef(cell.column.columnDef.cell, cell.getContext())}
                         </span>
                       </div>
                     );
@@ -518,7 +539,7 @@ export function DataTable<TData>({
                   // never let that click bubble up into the row's own onRowClick.
                   onClick={cell.column.id === '__actions__' ? (e) => e.stopPropagation() : undefined}
                 >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {renderCellDef(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
               ))}
             </TableRow>
