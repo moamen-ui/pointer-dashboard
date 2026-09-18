@@ -79,6 +79,7 @@ import {
   formatPercent,
   labelForKey,
 } from '@/features/overview/InsightPanels';
+import { OverviewCharts } from '@/features/overview/OverviewCharts';
 
 export function OverviewPage() {
   const { t } = useTranslation();
@@ -354,6 +355,15 @@ export function OverviewPage() {
                 ]
               : []),
           ]}
+        />
+      )}
+
+      {/* Overview charts */}
+      {totals && (
+        <OverviewCharts
+          totals={totals}
+          projects={projects}
+          activity={workspaceInsights?.activity}
         />
       )}
 

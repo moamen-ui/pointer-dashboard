@@ -714,7 +714,11 @@
     "requested": "Requested",
     "requestedRole": "Requested role",
     "status": "Status",
+    "statusDistribution": "Feedback Status Distribution",
     "title": "Overview",
+    "topProjects": "Top Projects by Feedback",
+    "noProjectActivity": "No feedback recorded across projects yet",
+    "totalComments": "Total feedback",
     "users": "Users"
   },
   "plans": {
@@ -813,6 +817,7 @@
   },
   "predefined": {
     "add": "Add prompt",
+    "delete": "Delete prompt",
     "empty": "No predefined prompts yet.",
     "projectHelp": "Prompts available only in this project (added to the workspace-wide ones). The label is what users pick; the prompt is what the AI receives.",
     "prompt": "Prompt sent to the AI",
