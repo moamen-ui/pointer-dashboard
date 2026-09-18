@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 
 export type EmptyStateVariant = 'empty' | 'no-results' | 'error';
 
@@ -21,6 +22,9 @@ interface EmptyStateProps {
   message?: string;
   /** A caller-supplied hint ALWAYS wins over the variant's default copy. */
   hint?: string;
+  /** Half-size illustration and tighter padding for empty states inside dialogs and
+   *  inline table sections (comment #75) — the full-size one is for full-page tables. */
+  compact?: boolean;
   children?: ReactNode;
 }
 
@@ -71,6 +75,7 @@ export function EmptyState({
   variant = 'empty',
   message,
   hint,
+  compact = false,
   children,
 }: EmptyStateProps) {
   const { t } = useTranslation();
@@ -85,9 +90,17 @@ export function EmptyState({
     /* Comment #193: the illustration leads, big, with the copy stacked underneath it and the
        action last — never side-by-side. The animations are square (256², 320², 75²), so the box
        is square too; the old 120x72 letterboxed them down to an effective 72px. */
-    <div className="flex flex-col items-center justify-center gap-4 px-6 py-14 text-center">
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center px-6 text-center',
+        compact ? 'gap-2 py-6' : 'gap-4 py-14',
+      )}
+    >
       {/* Fixed footprint so nothing reflows while the player/payload chunks load. */}
-      <div className="w-[160px] h-[160px] flex-none" aria-hidden="true">
+      <div
+        className={cn('flex-none', compact ? 'w-[72px] h-[72px]' : 'w-[160px] h-[160px]')}
+        aria-hidden="true"
+      >
         {animationData && (
           <Suspense fallback={null}>
             <Lottie

@@ -257,6 +257,9 @@ export function AiRulesTable({
         actions={actionsFor}
         actionsAriaLabel={t('common.actions')}
         emptyMessage={emptyMessage}
+        // Inline rule tables (project dialog, /settings section) get the compact empty
+        // state — the full-page-size illustration is too big here (comment #75).
+        emptyCompact
       />
       {onCreate && (
         <div className="flex justify-end">

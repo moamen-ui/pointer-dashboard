@@ -104,6 +104,9 @@ export type DataTableProps<TData> = {
   emptyIcon?: React.ComponentType<{ className?: string }>;
   emptyMessage?: string;
   emptyHint?: string;
+  /** Renders the empty state in the compact (half-size) treatment — for tables living
+   *  inside dialogs or inline sections rather than owning a full page (comment #75). */
+  emptyCompact?: boolean;
   /** Optional action (e.g. an "Add" button) rendered inside the empty state. */
   emptyAction?: ReactNode;
   /** When non-empty, renders the shared error EmptyState INSTEAD of rows (header still
@@ -141,6 +144,7 @@ export function DataTable<TData>({
   onRowClick,
   emptyMessage = '',
   emptyHint = '',
+  emptyCompact = false,
   emptyAction,
   error = null,
   onRetry,
@@ -551,7 +555,7 @@ export function DataTable<TData>({
           )}
         </EmptyState>
       ) : data.length === 0 ? (
-        <EmptyState variant="empty" message={emptyMessage} hint={emptyHint}>
+        <EmptyState variant="empty" message={emptyMessage} hint={emptyHint} compact={emptyCompact}>
           {emptyAction}
         </EmptyState>
       ) : rows.length === 0 ? (
