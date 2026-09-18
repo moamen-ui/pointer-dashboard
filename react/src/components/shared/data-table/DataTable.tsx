@@ -546,6 +546,12 @@ export function DataTable<TData>({
         </div>
       )}
 
+      {/* Comment #92: these are plain functions CALLED, not <Component /> JSX — they are
+          defined inside this component body, so JSX would mint a new component type on
+          every render, remount the whole table subtree, and re-fire autoFocus on inputs
+          (typing in one cell threw focus to the row's first input every keystroke).
+          None of them use hooks, so direct calls are safe and keep every DOM node (and
+          its focus) stable across re-renders. */}
       {error ? (
         <EmptyState variant="error" message={error}>
           {onRetry && (
@@ -570,12 +576,12 @@ export function DataTable<TData>({
           </Button>
         </EmptyState>
       ) : isMobile ? (
-        <MobileCards />
+        MobileCards()
       ) : (
-        <DesktopTable />
+        DesktopTable()
       )}
 
-      {!isEmptyState && <Pager />}
+      {!isEmptyState && Pager()}
     </div>
   );
 }
