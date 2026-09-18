@@ -272,7 +272,7 @@ export function buildSteps(input: {
   return {
     primary,
     manual: [
-      { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/pointer.js" defer></script>` },
+      { titleKey: 'demo.step1Title', hintKey: 'demo.step1Hint', code: `<script src="${server}/widget.js" defer></script>` },
       { titleKey: 'demo.step2Title', hintKey: 'demo.step2Hint', code: `<pointer-feedback project="${displayKey}" server="${server}"></pointer-feedback>` },
       { titleKey: 'install.stepCurlTitle', hintKey: 'install.stepCurlHint', code: `curl -fsSL ${server}/install.sh | sh` },
     ],

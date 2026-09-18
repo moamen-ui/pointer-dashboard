@@ -284,10 +284,10 @@ function InstallGuideWizardDialog({
   });
 
   const stackSnippets: Record<FrameworkStack, string> = {
-    html: `<!-- Add before </body> or inside <head> -->\n<script src="${server}/pointer.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
-    react: `// In Next.js (app/layout.tsx):\nimport Script from 'next/script';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        {children}\n        <Script src="${server}/pointer.js" strategy="afterInteractive" />\n        <pointer-feedback project="${effectiveKey}" server="${server}" />\n      </body>\n    </html>\n  );\n}`,
-    vue: `<!-- In Nuxt (app.vue) or Vue App -->\n<template>\n  <div>\n    <NuxtPage />\n    <pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>\n  </div>\n</template>\n\n<script setup>\nuseHead({\n  script: [{ src: '${server}/pointer.js', defer: true }]\n});\n</script>`,
-    angular: `<!-- In src/index.html -->\n<script src="${server}/pointer.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
+    html: `<!-- Add before </body> or inside <head> -->\n<script src="${server}/widget.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
+    react: `// In Next.js (app/layout.tsx):\nimport Script from 'next/script';\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>\n        {children}\n        <Script src="${server}/widget.js" strategy="afterInteractive" />\n        <pointer-feedback project="${effectiveKey}" server="${server}" />\n      </body>\n    </html>\n  );\n}`,
+    vue: `<!-- In Nuxt (app.vue) or Vue App -->\n<template>\n  <div>\n    <NuxtPage />\n    <pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>\n  </div>\n</template>\n\n<script setup>\nuseHead({\n  script: [{ src: '${server}/widget.js', defer: true }]\n});\n</script>`,
+    angular: `<!-- In src/index.html -->\n<script src="${server}/widget.js" defer></script>\n<pointer-feedback project="${effectiveKey}" server="${server}"></pointer-feedback>`,
   };
 
   const stepsList = [
