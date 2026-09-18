@@ -44,7 +44,6 @@ const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
-  { to: '/statuses', key: 'nav.statuses', icon: Tags },
   { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/settings', key: 'nav.settings', icon: Settings },
 ];
@@ -64,6 +63,7 @@ const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
   { to: '/plans', key: 'nav.plans', icon: CreditCard },
   { to: '/branding', key: 'nav.branding', icon: Paintbrush },
+  { to: '/statuses', key: 'nav.statuses', icon: Tags },
 ];
 
 export function Shell() {

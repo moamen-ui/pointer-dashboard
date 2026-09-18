@@ -60,7 +60,6 @@ export default function App() {
                     <Route path="/overview" element={<OverviewPage />} />
                     <Route path="/roles" element={<RolesPage />} />
                     <Route path="/users" element={<UsersPage />} />
-                    <Route path="/statuses" element={<StatusesPage />} />
                     <Route path="/environments" element={<EnvironmentsPage />} />
                     {/* Admin view of another user's profile */}
                     <Route path="/users/:id/profile" element={<ProfilePage />} />
@@ -74,6 +73,7 @@ export default function App() {
                       <Route path="/tenants" element={<TenantsPage />} />
                       <Route path="/plans" element={<PlansPage />} />
                       <Route path="/branding" element={<BrandingPage />} />
+                      <Route path="/statuses" element={<StatusesPage />} />
                     </Route>
                   </Route>
 
