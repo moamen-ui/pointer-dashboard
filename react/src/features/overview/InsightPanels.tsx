@@ -37,19 +37,23 @@ export function formatShare(part: number | null | undefined, total: number | nul
 }
 
 /** Bordered list card — same visual as the Overview page's "Active AI Tools" block: a gutter
- *  header row with an icon + title, then a flat list of `label · count` rows. */
+ *  header row with an icon + title, then a flat list of `label · count` rows. `rowIcon`
+ *  (comments #85/#86) optionally resolves a per-row glyph from the item key — known
+ *  browsers/devices get their own icon, everything else a default. */
 export function CountList({
   icon: Icon,
   title,
   items,
   emptyLabel,
   formatLabel,
+  rowIcon,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   items: CountStat[] | null | undefined;
   emptyLabel: string;
   formatLabel: (key: string | null | undefined) => string;
+  rowIcon?: (key: string | null | undefined) => ComponentType<{ className?: string }> | undefined;
 }) {
   const list = items ?? [];
   return (
@@ -62,20 +66,26 @@ export function CountList({
         <div className="px-3 py-2 text-[13px] text-muted-foreground">{emptyLabel}</div>
       ) : (
         <div className="flex flex-col">
-          {list.map((item, idx) => (
-            <div
-              key={`${item.key ?? idx}`}
-              className={cn(
-                'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
-                idx > 0 && 'border-t border-border-muted',
-              )}
-            >
-              <span className="text-[14px] font-medium text-foreground">
-                {formatLabel(item.key)}
-              </span>
-              <span className="font-mono text-[13px] text-muted-foreground">{item.count ?? 0}</span>
-            </div>
-          ))}
+          {list.map((item, idx) => {
+            const RowIcon = rowIcon?.(item.key);
+            return (
+              <div
+                key={`${item.key ?? idx}`}
+                className={cn(
+                  'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
+                  idx > 0 && 'border-t border-border-muted',
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2 text-[14px] font-medium text-foreground">
+                  {RowIcon && (
+                    <RowIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  )}
+                  {formatLabel(item.key)}
+                </span>
+                <span className="font-mono text-[13px] text-muted-foreground">{item.count ?? 0}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

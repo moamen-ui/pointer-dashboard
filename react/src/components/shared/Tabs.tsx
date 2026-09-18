@@ -6,6 +6,7 @@
 // comment) — there's no need for an escape-hatch mechanism here.
 import type { ReactNode } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import type { TabItem } from './types';
 
 export function AppTabs({
@@ -27,6 +28,11 @@ export function AppTabs({
         {tabs.map((t) => (
           <TabsTrigger key={t.value} value={t.value}>
             {t.label}
+            {t.badge && (
+              <Badge variant="warning" className="ms-1.5 h-4 gap-0 px-1.5 text-[10px] leading-4">
+                {t.badge}
+              </Badge>
+            )}
           </TabsTrigger>
         ))}
       </TabsList>

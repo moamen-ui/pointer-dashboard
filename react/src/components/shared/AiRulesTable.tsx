@@ -253,15 +253,18 @@ export function AiRulesTable({
     <div className="flex flex-col gap-2">
       {/* Follow-up on comment #75: no empty state here at all — the Add button below
           is the empty state. The table (with its EmptyState) only renders once there
-          are rows (or a draft) to show. */}
+          are rows (or a draft) to show. Comment #80: the wide inline table scrolls
+          horizontally instead of overflowing its dialog/accordion container. */}
       {tableRows.length > 0 && (
-        <DataTable
-          data={tableRows}
-          columns={columns}
-          actions={actionsFor}
-          actionsAriaLabel={t('common.actions')}
-          emptyMessage={emptyMessage}
-        />
+        <div className="overflow-x-auto">
+          <DataTable
+            data={tableRows}
+            columns={columns}
+            actions={actionsFor}
+            actionsAriaLabel={t('common.actions')}
+            emptyMessage={emptyMessage}
+          />
+        </div>
       )}
       {onCreate && (
         <div className="flex justify-end">

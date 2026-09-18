@@ -1057,14 +1057,8 @@ export function ProjectsPage() {
 
   const actionsFor = (project: ProjectResponse): RowActionItem[] => {
     const items: RowActionItem[] = [];
-    items.push({
-      label: t('aiRules.section'),
-      icon: Brain,
-      onClick: () => {
-        setSelectedAiProject(project);
-        setAiRulesOpen(true);
-      },
-    });
+    // Comment #81: no separate "AI Roles & Rules" entry — the rules live inside the
+    // edit modal (rules tab), so the row menu no longer duplicates the way in.
     if (project.canEdit) {
       items.push({ label: t('projects.edit'), icon: Pencil, onClick: () => openEdit(project, false) });
     } else {
@@ -1261,7 +1255,8 @@ export function ProjectsPage() {
 
       {/* Edit / View project dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg sm:max-w-2xl">
+        {/* Comment #80: the rules accordion + table overflowed sm:max-w-2xl — widen it. */}
+        <DialogContent className="max-w-lg sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {editReadOnly ? t('projects.viewPrompts') : t('projects.editTitle')}
@@ -1270,6 +1265,17 @@ export function ProjectsPage() {
           <AppTabs
             tabs={[
               { value: 'details', label: t('projects.editTitle') },
+              // Comment #82: environments get their own tab, second in the strip, with a
+              // nudge badge while the project has no App URL registered.
+              ...(!editReadOnly
+                ? [
+                    {
+                      value: 'environments',
+                      label: t('projects.otherEnvironments'),
+                      badge: appUrls.length === 0 ? t('projects.addUrlHint') : undefined,
+                    },
+                  ]
+                : []),
               { value: 'prompts', label: t('predefined.section') },
               ...(editProject ? [{ value: 'rules', label: t('aiRules.section') }] : []),
             ]}
@@ -1294,12 +1300,129 @@ export function ProjectsPage() {
             )}
 
 
-            {/* Other environments — only ones already configured for this project
-                show as rows; one inline add-row at a time for the rest. */}
             {!editReadOnly && (
-              <div className="flex flex-col gap-1">
-                <h4 className="text-sm font-semibold">{t('projects.otherEnvironments')}</h4>
-                <p className="mb-1 text-xs text-muted-foreground">{t('projects.otherEnvironmentsHint')}</p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="edit-project-capture" className="text-sm font-medium">
+                    {t('projects.pageContextCapture')}
+                  </Label>
+                  <HintInfo>{t('projects.pageContextCaptureHint')}</HintInfo>
+                </div>
+                <Switch
+                  id="edit-project-capture"
+                  checked={editPageContextCaptureEnabled}
+                  onCheckedChange={setEditPageContextCaptureEnabled}
+                />
+              </div>
+            )}
+
+            {!editReadOnly && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="edit-project-capture-text" className="text-sm font-medium">
+                    {t('projects.captureTextContent')}
+                  </Label>
+                  <HintInfo>
+                    {t('projects.captureTextContentHint', {
+                      defaultValue: 'Learn more about captured data: {{url}}'
+                    }).replace('{{url}}', `${import.meta.env.VITE_API_BASE ?? ''}/data.html`)}
+                  </HintInfo>
+                </div>
+                <Switch
+                  id="edit-project-capture-text"
+                  checked={editCaptureTextContent}
+                  onCheckedChange={setEditCaptureTextContent}
+                />
+              </div>
+            )}
+
+            {!editReadOnly && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="edit-project-enforce-origins" className="text-sm font-medium">
+                    {t('projects.enforceAllowedOrigins')}
+                  </Label>
+                  <HintInfo>
+                    {appUrls.length > 0 ? (
+                      <>
+                        {t('projects.enforceAllowedOriginsHint')}
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {appUrls.map((u, idx) => (
+                            <span key={u.appEnvironmentId || idx} className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                              {u.url}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-state-danger">{t('projects.enforceAllowedOriginsDisabledHint')}</span>
+                    )}
+                  </HintInfo>
+                </div>
+                <Switch
+                  id="edit-project-enforce-origins"
+                  checked={editEnforceAllowedOrigins}
+                  onCheckedChange={setEditEnforceAllowedOrigins}
+                  disabled={appUrls.length === 0}
+                />
+              </div>
+            )}
+
+            {/* Environment switcher visibility — which roles can switch environments
+                in the widget's toolbar. Empty selection = the default (everyone
+                except Client). */}
+            {!editReadOnly && (
+              <div className="flex flex-col gap-2">
+                {/* Comment #79: hint copy moved under the info glyph, like the other
+                    settings rows — shown on hover/focus. */}
+                <div className="flex items-center gap-1">
+                  <h4 className="text-sm font-semibold">{t('projects.envSelectorRoles')}</h4>
+                  <HintInfo>{t('projects.envSelectorRolesHint')}</HintInfo>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                    >
+                      <span className="truncate">
+                        {selectedRoleNames.length > 0
+                          ? selectedRoleNames.join(', ')
+                          : t('projects.envSelectorRolesPlaceholder')}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-64 min-w-48 overflow-y-auto">
+                    {roles.map((role) => (
+                      <DropdownMenuCheckboxItem
+                        key={role.id}
+                        checked={role.id != null && editEnvSelectorRoleIds.includes(role.id)}
+                        onCheckedChange={(checked) => {
+                          if (role.id == null) return;
+                          setEditEnvSelectorRoleIds((ids) =>
+                            checked ? [...ids, role.id!] : ids.filter((id) => id !== role.id),
+                          );
+                        }}
+                        // Keep the menu open so several roles can be toggled in one go.
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        {role.name ?? ''}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Comment #82: environments moved out of the details tab into their own tab —
+              second in the strip. Comment #78: the "Other" prefix (and the in-tab h4) is gone;
+              the tab label is the heading now. */}
+          <TabsContent value="environments" className="flex flex-col gap-4 pt-1">
+            <p className="text-xs text-muted-foreground">{t('projects.otherEnvironmentsHint')}</p>
                 {(configuredEnvironments.length > 0 || showAddEnvRow) && (
                   <table className="w-full border-collapse text-sm">
                     <thead>
@@ -1451,121 +1574,6 @@ export function ProjectsPage() {
                     )}
                   </div>
                 )}
-              </div>
-            )}
-
-            {!editReadOnly && (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="edit-project-capture" className="text-sm font-medium">
-                    {t('projects.pageContextCapture')}
-                  </Label>
-                  <HintInfo>{t('projects.pageContextCaptureHint')}</HintInfo>
-                </div>
-                <Switch
-                  id="edit-project-capture"
-                  checked={editPageContextCaptureEnabled}
-                  onCheckedChange={setEditPageContextCaptureEnabled}
-                />
-              </div>
-            )}
-
-            {!editReadOnly && (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="edit-project-capture-text" className="text-sm font-medium">
-                    {t('projects.captureTextContent')}
-                  </Label>
-                  <HintInfo>
-                    {t('projects.captureTextContentHint', {
-                      defaultValue: 'Learn more about captured data: {{url}}'
-                    }).replace('{{url}}', `${import.meta.env.VITE_API_BASE ?? ''}/data.html`)}
-                  </HintInfo>
-                </div>
-                <Switch
-                  id="edit-project-capture-text"
-                  checked={editCaptureTextContent}
-                  onCheckedChange={setEditCaptureTextContent}
-                />
-              </div>
-            )}
-
-            {!editReadOnly && (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1">
-                  <Label htmlFor="edit-project-enforce-origins" className="text-sm font-medium">
-                    {t('projects.enforceAllowedOrigins')}
-                  </Label>
-                  <HintInfo>
-                    {appUrls.length > 0 ? (
-                      <>
-                        {t('projects.enforceAllowedOriginsHint')}
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {appUrls.map((u, idx) => (
-                            <span key={u.appEnvironmentId || idx} className="rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-                              {u.url}
-                            </span>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-state-danger">{t('projects.enforceAllowedOriginsDisabledHint')}</span>
-                    )}
-                  </HintInfo>
-                </div>
-                <Switch
-                  id="edit-project-enforce-origins"
-                  checked={editEnforceAllowedOrigins}
-                  onCheckedChange={setEditEnforceAllowedOrigins}
-                  disabled={appUrls.length === 0}
-                />
-              </div>
-            )}
-
-            {/* Environment switcher visibility — which roles can switch environments
-                in the widget's toolbar. Empty selection = the default (everyone
-                except Client). */}
-            {!editReadOnly && (
-              <div className="flex flex-col gap-2">
-                <h4 className="text-sm font-semibold">{t('projects.envSelectorRoles')}</h4>
-                <p className="text-xs text-muted-foreground">{t('projects.envSelectorRolesHint')}</p>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between font-normal"
-                    >
-                      <span className="truncate">
-                        {selectedRoleNames.length > 0
-                          ? selectedRoleNames.join(', ')
-                          : t('projects.envSelectorRolesPlaceholder')}
-                      </span>
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="max-h-64 min-w-48 overflow-y-auto">
-                    {roles.map((role) => (
-                      <DropdownMenuCheckboxItem
-                        key={role.id}
-                        checked={role.id != null && editEnvSelectorRoleIds.includes(role.id)}
-                        onCheckedChange={(checked) => {
-                          if (role.id == null) return;
-                          setEditEnvSelectorRoleIds((ids) =>
-                            checked ? [...ids, role.id!] : ids.filter((id) => id !== role.id),
-                          );
-                        }}
-                        // Keep the menu open so several roles can be toggled in one go.
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        {role.name ?? ''}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
           </TabsContent>
 
             {/* Predefined actions */}

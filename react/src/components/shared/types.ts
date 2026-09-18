@@ -22,4 +22,7 @@ export type RowActionItem = {
 export type TabItem = {
   value: string;
   label: string;
+  /** Optional warning chip rendered after the label (e.g. a "add a URL" nudge —
+   *  comment #82: shown while a project has no App URL). */
+  badge?: string;
 };

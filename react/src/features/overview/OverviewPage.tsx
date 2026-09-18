@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
+import type { ComponentType } from 'react';
 import {
   useGetApiAdminStats,
   useGetApiAdminUsers,
@@ -13,6 +14,7 @@ import {
   useGetApiAdminAiRulesInsights,
   useGetApiAdminStatsInsights,
   useGetApiAdminStatsWorkspaceInsights,
+  type CountStat,
   type ProjectStats,
   type UserResponse,
   type AiInsightsResponse,
@@ -28,7 +30,16 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
+  CircleHelp,
+  Chrome,
+  Code,
+  Compass,
+  Flame,
+  Globe,
   Languages,
+  Monitor,
+  Smartphone,
+  Tablet,
   Filter,
   CheckCircle,
   MonitorSmartphone,
@@ -72,7 +83,6 @@ import {
   CountList,
   MetricCard,
   ProjectFunnelTable,
-  WeekBars,
   WorkspaceFunnelTable,
   formatHours,
   formatShare,
@@ -80,6 +90,87 @@ import {
   labelForKey,
 } from '@/features/overview/InsightPanels';
 import { OverviewCharts } from '@/features/overview/OverviewCharts';
+
+/** Comment #85: known browsers get their glyph, everything else ("Other", "Unknown",
+ *  anything new) falls back to a globe. Keys are compared lower-cased since the API
+ *  mixes casings ("Chrome" vs "chrome"). */
+function browserRowIcon(key: string | null | undefined): ComponentType<{ className?: string }> {
+  switch ((key ?? '').toLowerCase()) {
+    case 'chrome':
+      return Chrome;
+    case 'firefox':
+      return Flame;
+    case 'safari':
+      return Compass;
+    default:
+      return Globe;
+  }
+}
+
+/** Comment #86: device rows — desktop / mobile / tablet glyphs, a help glyph for the
+ *  unknown bucket. */
+function deviceRowIcon(key: string | null | undefined): ComponentType<{ className?: string }> {
+  switch ((key ?? '').toLowerCase()) {
+    case 'desktop':
+      return Monitor;
+    case 'mobile':
+      return Smartphone;
+    case 'tablet':
+      return Tablet;
+    default:
+      return CircleHelp;
+  }
+}
+
+/** Comment #89: AI-tool rows — a glyph per known agent, a bot for the rest. */
+function toolRowIcon(key: string | null | undefined): ComponentType<{ className?: string }> {
+  switch ((key ?? '').toLowerCase()) {
+    case 'claude-code':
+      return Code;
+    case 'claude':
+      return Bot;
+    case 'antigravity':
+      return Sparkles;
+    default:
+      return Bot;
+  }
+}
+
+/** Comments #87/#88: the unknown (and unset) buckets stay super-admin-only — workspace
+ *  admins get the identified rows only. */
+function visibleInsightItems(items: CountStat[] | null | undefined): CountStat[] {
+  return (items ?? []).filter((i) => !!i.key && i.key !== 'unknown' && i.key !== 'unset');
+}
+
+/** Comment #90: language rows get a flag glyph — emoji keeps it dependency-free. */
+function flagGlyph(flag: string): ComponentType<{ className?: string }> {
+  return function FlagGlyph({ className }) {
+    return (
+      <span className={cn('text-[13px] leading-none', className)} role="img" aria-hidden="true">
+        {flag}
+      </span>
+    );
+  };
+}
+
+function languageRowIcon(key: string | null | undefined): ComponentType<{ className?: string }> {
+  switch ((key ?? '').toLowerCase()) {
+    case 'en':
+      return flagGlyph('🇬🇧');
+    case 'ar':
+      return flagGlyph('🇸🇦');
+    case 'fa':
+      return flagGlyph('🇮🇷');
+    case 'fr':
+      return flagGlyph('🇫🇷');
+    case 'de':
+      return flagGlyph('🇩🇪');
+    case 'es':
+      return flagGlyph('🇪🇸');
+    default:
+      return flagGlyph('🌐');
+  }
+}
 
 export function OverviewPage() {
   const { t } = useTranslation();
@@ -554,22 +645,27 @@ export function OverviewPage() {
                 </div>
               ) : (
                 <div className="flex flex-col">
-                  {(aiInsights.toolUsage ?? []).map((tool, idx) => (
-                    <div
-                      key={tool.toolName ?? idx}
-                      className={cn(
-                        'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
-                        idx > 0 && 'border-t border-border-muted',
-                      )}
-                    >
-                      <span className="font-mono text-[13px] font-medium text-foreground">
-                        {tool.toolName}
-                      </span>
-                      <div className="text-[13px] text-muted-foreground">
-                        {tool.projectCount ?? 0} {t('overview.projects')}
+                  {(aiInsights.toolUsage ?? []).map((tool, idx) => {
+                    // Comment #89: a glyph per known agent, bot for the rest.
+                    const ToolIcon = toolRowIcon(tool.toolName);
+                    return (
+                      <div
+                        key={tool.toolName ?? idx}
+                        className={cn(
+                          'min-h-11 px-3 py-2 flex items-center justify-between gap-4',
+                          idx > 0 && 'border-t border-border-muted',
+                        )}
+                      >
+                        <span className="flex min-w-0 items-center gap-2 font-mono text-[13px] font-medium text-foreground">
+                          <ToolIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {tool.toolName}
+                        </span>
+                        <div className="text-[13px] text-muted-foreground">
+                          {tool.projectCount ?? 0} {t('overview.projects')}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -758,6 +854,7 @@ export function OverviewPage() {
                   items={platformInsights.devices?.deviceTypes}
                   emptyLabel={t('insights.noData')}
                   formatLabel={(k) => labelForKey(t, k)}
+                  rowIcon={deviceRowIcon}
                 />
                 <CountList
                   icon={MonitorSmartphone}
@@ -765,6 +862,7 @@ export function OverviewPage() {
                   items={platformInsights.devices?.browsers}
                   emptyLabel={t('insights.noData')}
                   formatLabel={(k) => labelForKey(t, k)}
+                  rowIcon={browserRowIcon}
                 />
               </div>
 
@@ -868,39 +966,36 @@ export function OverviewPage() {
                 <ProjectFunnelTable t={t} rows={workspaceInsights.byProject} />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Comment #84: browsers moved beside langs and devices — one row.
+                  Comments #87/#88: the unknown buckets are filtered out here; this whole
+                  section is workspace-admin-only, and unknown stays super-admin-only. */}
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 <CountList
                   icon={Languages}
                   title={t('insights.commentLanguages')}
-                  items={workspaceInsights.commentLanguages}
+                  items={visibleInsightItems(workspaceInsights.commentLanguages)}
                   emptyLabel={t('insights.noData')}
                   formatLabel={(k) => labelForKey(t, k)}
+                  rowIcon={languageRowIcon}
                 />
                 <CountList
                   icon={MonitorSmartphone}
                   title={t('insights.devices')}
-                  items={workspaceInsights.devices?.deviceTypes}
+                  items={visibleInsightItems(workspaceInsights.devices?.deviceTypes)}
                   emptyLabel={t('insights.noData')}
                   formatLabel={(k) => labelForKey(t, k)}
+                  rowIcon={deviceRowIcon}
+                />
+                <CountList
+                  icon={MonitorSmartphone}
+                  title={t('insights.browsers')}
+                  items={visibleInsightItems(workspaceInsights.devices?.browsers)}
+                  emptyLabel={t('insights.noData')}
+                  formatLabel={(k) => labelForKey(t, k)}
+                  rowIcon={browserRowIcon}
                 />
               </div>
-
-              <CountList
-                icon={MonitorSmartphone}
-                title={t('insights.browsers')}
-                items={workspaceInsights.devices?.browsers}
-                emptyLabel={t('insights.noData')}
-                formatLabel={(k) => labelForKey(t, k)}
-              />
-
-              <div className="rounded-md border border-border overflow-hidden">
-                <div className="h-11 px-3 py-2 flex items-center gap-2 bg-gutter border-b border-border-muted">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-[14px] font-medium text-foreground">{t('insights.activity')}</span>
-                </div>
-                <WeekBars t={t} weeks={workspaceInsights.activity} />
-              </div>
-            </>
+             </>
           )}
         </div>
       )}
