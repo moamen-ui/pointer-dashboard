@@ -14,6 +14,7 @@ import {
   useDeleteApiCommentsId,
   getGetApiCommentsIdQueryKey,
   CommentStatus,
+  CommentFieldType,
   type CommentResponse,
 } from '@moamen-ui/pointer-react';
 import {
@@ -55,6 +56,17 @@ const TEXTAREA_CLASS =
 
 function commitShort(sha: string | null | undefined): string {
   return sha ? sha.slice(0, 7) : '';
+}
+
+/** A custom field of type Url only renders as a link when the value truly parses as http(s). */
+function isHttpUrl(value: string | null | undefined): boolean {
+  if (!value) return false;
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 export function CommentDetail({
@@ -380,6 +392,26 @@ function CommentDetailBody({
                 <dd className="font-mono break-all">{el.sourcePath}</dd>
               </div>
             )}
+            {comment.customFields?.map((f) => (
+              <div key={f.key} className="flex flex-col gap-0.5">
+                <dt className="text-muted-foreground">{f.label}</dt>
+                <dd className="break-words">
+                  {f.type === CommentFieldType.NUMBER_2 && isHttpUrl(f.value) ? (
+                    <a
+                      href={f.value ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline break-all"
+                    >
+                      {f.value}
+                      <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    </a>
+                  ) : (
+                    (f.value ?? '—')
+                  )}
+                </dd>
+              </div>
+            ))}
             {(el.deviceType || el.viewportWidth) && (
               <div className="flex flex-col gap-0.5">
                 <dt className="text-muted-foreground">{t('comments.detail.device')}</dt>

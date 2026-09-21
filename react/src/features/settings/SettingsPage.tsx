@@ -32,6 +32,7 @@ import {
 } from '@moamen-ui/pointer-react';
 import { CheckCircle2, XCircle, EllipsisVertical, MessageSquareText } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { CommentFieldsCard } from './CommentFieldsCard';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -978,6 +979,9 @@ export function SettingsPage() {
 
       {/* ── Section 6: Suggestions review (admin only) ── */}
       {isAdmin && <SuggestionsCard />}
+
+      {/* ── Section 6b: Comment fields (workspace admins, not super admin — the API refuses them) ── */}
+      {isAdmin && !isSuperAdmin && <CommentFieldsCard />}
 
       {/* ── Section 7: AI Roles & Rules (workspace admins/deputies, not super admin) ── */}
       {!isSuperAdmin && <AiRulesCard />}
