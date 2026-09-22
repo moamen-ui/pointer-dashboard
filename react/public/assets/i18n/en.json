@@ -1179,7 +1179,8 @@
     "statusUpdated": "Status updated.",
     "title": "Tenants",
     "ttlHoursOverride": "Demo period (hours)",
-    "updated": "Tenant updated."
+    "updated": "Tenant updated.",
+    "workspaceName": "Workspace name"
   },
   "time": {
     "daysAgo": "{{n}}d ago",
@@ -1218,5 +1219,12 @@
     "status": "Status",
     "title": "Users",
     "workspace": "Workspace"
+  },
+  "workspaceName": {
+    "label": "Workspace name",
+    "placeholderHint": "This workspace has not been named yet.",
+    "save": "Save",
+    "saved": "Workspace name saved",
+    "title": "Workspace name"
   }
 }

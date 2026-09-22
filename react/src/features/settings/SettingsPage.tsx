@@ -33,6 +33,7 @@ import {
 import { CheckCircle2, XCircle, EllipsisVertical, MessageSquareText } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { CommentFieldsCard } from './CommentFieldsCard';
+import { WorkspaceNameCard } from './WorkspaceNameCard';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -979,6 +980,9 @@ export function SettingsPage() {
 
       {/* ── Section 6: Suggestions review (admin only) ── */}
       {isAdmin && <SuggestionsCard />}
+
+      {/* ── Section 6a: Workspace name (workspace admins, not super admin — DB-03b) ── */}
+      {isAdmin && !isSuperAdmin && <WorkspaceNameCard />}
 
       {/* ── Section 6b: Comment fields (workspace admins, not super admin — the API refuses them) ── */}
       {isAdmin && !isSuperAdmin && <CommentFieldsCard />}

@@ -365,6 +365,9 @@ export function TenantsPage() {
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
           <span className="text-[14px] font-medium">{row.original.email}</span>
+          {row.original.workspaceName && (
+            <span className="text-[13px] text-muted-foreground">{row.original.workspaceName}</span>
+          )}
           <span className="text-[13px] text-muted-foreground">{row.original.displayName ?? '—'}</span>
         </div>
       ),
