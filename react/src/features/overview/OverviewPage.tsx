@@ -14,6 +14,8 @@ import {
   useGetApiAdminAiRulesInsights,
   useGetApiAdminStatsInsights,
   useGetApiAdminStatsWorkspaceInsights,
+  useGetApiAdminStatsFunnel,
+  useGetApiAdminStatsActivation,
   type CountStat,
   type ProjectStats,
   type UserResponse,
@@ -66,6 +68,7 @@ import {
 import { FormField } from '@/components/shared/FormField';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
+import { useInstallGuide } from '@/components/InstallGuide';
 import {
   Table,
   TableBody,
@@ -84,6 +87,10 @@ import {
   MetricCard,
   ProjectFunnelTable,
   WorkspaceFunnelTable,
+  FunnelStepBars,
+  ActivationWeekBars,
+  RecentActivationTable,
+  GettingStartedChecklist,
   formatHours,
   formatShare,
   formatPercent,
@@ -200,11 +207,38 @@ export function OverviewPage() {
     refetch: refetchWorkspaceInsights,
   } = useGetApiAdminStatsWorkspaceInsights({ query: { enabled: isAdmin && !isSuperAdmin } });
 
+  // DB-15 activation funnel (super admin) / getting-started checklist (workspace admin).
+  const [funnelWeeks, setFunnelWeeks] = useState<4 | 12 | 26>(12);
+  const {
+    data: funnelData,
+    isLoading: isFunnelLoading,
+    isError: isFunnelError,
+    refetch: refetchFunnel,
+  } = useGetApiAdminStatsFunnel(
+    { weeks: funnelWeeks },
+    { query: { enabled: isSuperAdmin } },
+  );
+  const {
+    data: activationData,
+    isLoading: isActivationLoading,
+    isError: isActivationError,
+    refetch: refetchActivation,
+  } = useGetApiAdminStatsActivation({ query: { enabled: isAdmin && !isSuperAdmin } });
+  const installGuide = useInstallGuide();
+  // The apply skill served at /skill.md — same host the client already talks to (InstallGuide.tsx
+  // resolves the server the same way for its snippets).
+  const applyGuideHref = `${import.meta.env.VITE_API_BASE ?? ''}/skill.md`;
+
   const reloadAll = () => {
     void refetch();
     void refetchInsights();
-    if (isSuperAdmin) void refetchPlatformInsights();
-    else void refetchWorkspaceInsights();
+    if (isSuperAdmin) {
+      void refetchPlatformInsights();
+      void refetchFunnel();
+    } else {
+      void refetchWorkspaceInsights();
+      void refetchActivation();
+    }
   };
 
   // Pending approvals — same data the /users Pending filter shows.
@@ -456,6 +490,24 @@ export function OverviewPage() {
           projects={projects}
           activity={workspaceInsights?.activity}
         />
+      )}
+
+      {/* Getting started checklist (workspace admin, hidden for super admins) — DB-15 */}
+      {isAdmin && !isSuperAdmin && (
+        <>
+          {isActivationLoading && !activationData ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('common.loading')}</div>
+          ) : isActivationError ? (
+            <div className="px-3 py-2 text-[13px] text-destructive">{t('common.error')}</div>
+          ) : activationData ? (
+            <GettingStartedChecklist
+              t={t}
+              data={activationData}
+              onInstallClick={() => installGuide.open()}
+              applyGuideHref={applyGuideHref}
+            />
+          ) : null}
+        </>
       )}
 
       {/* 3. Pending approvals section (only when non-empty) */}
@@ -891,6 +943,73 @@ export function OverviewPage() {
                   },
                 ]}
               />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 6b. Activation funnel (super admin only) — DB-15 */}
+      {isSuperAdmin && (
+        <div className="space-y-3 border-t border-border pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[16px] font-semibold leading-6">{t('activation.title')}</h2>
+              <p className="mt-1 text-[14px] text-muted-foreground">{t('activation.subtitle')}</p>
+            </div>
+            <div className="inline-flex gap-0.5 rounded-md border border-border bg-gutter p-0.5">
+              {([4, 12, 26] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setFunnelWeeks(w)}
+                  className={cn(
+                    'h-7 px-3 rounded-[4px] text-[13px] font-medium transition-colors',
+                    funnelWeeks === w
+                      ? 'bg-background text-foreground border border-border'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {t(`activation.weeks${w}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {isFunnelLoading && !funnelData ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('common.loading')}</div>
+          ) : isFunnelError ? (
+            <div className="px-3 py-2 text-[13px] text-destructive">{t('common.error')}</div>
+          ) : !funnelData ? (
+            <div className="px-3 py-2 text-[13px] text-muted-foreground">{t('activation.noData')}</div>
+          ) : (
+            <>
+              <DiffstatLine
+                items={[
+                  {
+                    label: t('activation.activatedThisWeek'),
+                    count: funnelData.activatedThisWeek ?? 0,
+                    tone: 'completed' as const,
+                  },
+                  {
+                    label: t('activation.activatedLastWeek'),
+                    count: funnelData.activatedLastWeek ?? 0,
+                  },
+                ]}
+              />
+
+              <FunnelStepBars t={t} steps={funnelData.steps} />
+
+              <div className="space-y-2">
+                <h3 className="text-[14px] font-medium text-foreground">{t('activation.weeksLabel')}</h3>
+                <div className="rounded-md border border-border overflow-hidden">
+                  <ActivationWeekBars t={t} weeks={funnelData.weeks} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-[14px] font-medium text-foreground">{t('activation.recentTitle')}</h3>
+                <RecentActivationTable t={t} rows={funnelData.recent} />
+              </div>
             </>
           )}
         </div>

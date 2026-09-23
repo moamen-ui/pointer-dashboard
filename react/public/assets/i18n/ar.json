@@ -1,4 +1,39 @@
 {
+  "activation": {
+    "title": "التفعيل",
+    "subtitle": "خمس خطوات من التجربة إلى تطبيق التعليق، جميع بيئات العمل ومسار التجربة جنبًا إلى جنب.",
+    "weeksLabel": "الفترة",
+    "weeks4": "4 أسابيع",
+    "weeks12": "12 أسبوعًا",
+    "weeks26": "26 أسبوعًا",
+    "activatedThisWeek": "تم التفعيل هذا الأسبوع",
+    "activatedLastWeek": "تم التفعيل الأسبوع الماضي",
+    "activated": "مفعّل",
+    "allWorkspaces": "جميع بيئات العمل",
+    "demoPath": "مسار التجربة",
+    "recentTitle": "الأحدث تفعيلًا",
+    "recentWorkspace": "بيئة العمل",
+    "recentStep": "الخطوة المُنجزة",
+    "recentWhen": "الوقت",
+    "deletedWorkspace": "بيئة عمل محذوفة",
+    "noData": "لا توجد بيانات تفعيل بعد",
+    "steps": {
+      "demoStarted": "بدء التجربة",
+      "workspaceConverted": "التحويل إلى بيئة عمل",
+      "widgetInstalled": "تثبيت الأداة",
+      "firstComment": "أول تعليق",
+      "firstApply": "أول تعليق مُطبَّق"
+    },
+    "checklistTitle": "خطوات البدء",
+    "checklistAllSet": "اكتملت الخطوات",
+    "guidance": {
+      "widgetInstalledAction": "تثبيت الأداة",
+      "widgetInstalledHint": "أضف أداة Pointer إلى تطبيقك حتى يتمكن المراجعون من ترك ملاحظاتهم عليه.",
+      "firstCommentHint": "افتح تطبيقك، اضغط على دبوس Pointer، واترك تعليق اختبار سريع.",
+      "firstApplyAction": "قراءة دليل التطبيق",
+      "firstApplyHint": "اطلب من وكيل الذكاء الاصطناعي تطبيق التعليق المعلّق، أو اتبع مهارة التطبيق بنفسك."
+    }
+  },
   "aiRules": {
     "activeTools": "أدوات الذكاء الاصطناعي النشطة",
     "addPersonalRule": "إضافة قاعدة شخصية",

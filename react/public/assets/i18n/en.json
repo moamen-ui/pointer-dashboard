@@ -1,4 +1,39 @@
 {
+  "activation": {
+    "title": "Activation",
+    "subtitle": "Five steps from a demo to an applied comment, all workspaces and the demo path side by side.",
+    "weeksLabel": "Window",
+    "weeks4": "4 weeks",
+    "weeks12": "12 weeks",
+    "weeks26": "26 weeks",
+    "activatedThisWeek": "Activated this week",
+    "activatedLastWeek": "Activated last week",
+    "activated": "Activated",
+    "allWorkspaces": "All workspaces",
+    "demoPath": "Demo path",
+    "recentTitle": "Recently activated",
+    "recentWorkspace": "Workspace",
+    "recentStep": "Step reached",
+    "recentWhen": "When",
+    "deletedWorkspace": "Deleted workspace",
+    "noData": "No activation data yet",
+    "steps": {
+      "demoStarted": "Demo started",
+      "workspaceConverted": "Converted to workspace",
+      "widgetInstalled": "Widget installed",
+      "firstComment": "First comment",
+      "firstApply": "First applied comment"
+    },
+    "checklistTitle": "Getting started",
+    "checklistAllSet": "All set",
+    "guidance": {
+      "widgetInstalledAction": "Install the widget",
+      "widgetInstalledHint": "Add the Pointer widget to your app so reviewers can leave feedback on it.",
+      "firstCommentHint": "Open your app, click the Pointer pin, and leave a quick test comment.",
+      "firstApplyAction": "Read the apply guide",
+      "firstApplyHint": "Ask your AI agent to apply the pending comment, or follow the apply skill yourself."
+    }
+  },
   "aiRules": {
     "activeTools": "Active AI Tools",
     "addPersonalRule": "Add personal rule",
