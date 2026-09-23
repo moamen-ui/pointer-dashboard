@@ -20,13 +20,14 @@ import {
   usePostApiAdminTenantsInvites,
   usePostApiAdminTenantsInvitesIdResend,
   useDeleteApiAdminTenantsInvitesId,
+  useDeleteApiAdminIdentitiesPublicId,
   getGetApiAdminTenantsQueryKey,
   getGetApiAdminTenantsInvitesQueryKey,
   type TenantResponse,
   type PlanAdminResponse,
   type TenantInviteResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -37,6 +38,7 @@ import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -274,6 +276,36 @@ export function TenantsPage() {
     deleteMut.mutate({ workspaceId: deleteTarget.workspaceId });
   }
 
+  // ---- Erase admin identity (DB-11c) — distinct from "Delete tenant" above: this erases the
+  // PERSON (name/e-mail/secrets, tombstoned as "Deleted user"; their comments stay) without
+  // touching the workspace row itself. Blocked while they are the sole Workspace Admin anywhere
+  // (§3.2) — same guard as UsersPage's remove/disable, surfaced the same way: inline, not a toast.
+  const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
+  const [eraseTarget, setEraseTarget] = useState<AnyTenant | null>(null);
+  const [eraseConfirmText, setEraseConfirmText] = useState('');
+  const [eraseError, setEraseError] = useState<string | null>(null);
+
+  const eraseMut = useDeleteApiAdminIdentitiesPublicId({
+    mutation: {
+      onSuccess: () => {
+        setEraseTarget(null);
+        toast(t('tenants.eraseIdentityDone'), 'success');
+        reload();
+      },
+      onError: (e) => setEraseError(extractMessage(e)),
+    },
+  });
+
+  function openErase(tenant: AnyTenant) {
+    setEraseError(null);
+    setEraseConfirmText('');
+    setEraseTarget(tenant);
+  }
+  function confirmErase() {
+    if (!eraseTarget?.publicId) return;
+    eraseMut.mutate({ publicId: eraseTarget.publicId });
+  }
+
   // ---- Extend demo ----
   const extendMut = usePostApiAdminTenantsIdExtend({
     mutation: {
@@ -462,6 +494,15 @@ export function TenantsPage() {
       items.push({ label: t('tenants.editDemoConfig'), icon: Settings2, onClick: () => openDemoConfig(tenant) });
     }
     items.push({ label: t('tenants.changePlan'), icon: CreditCard, onClick: () => openChangePlan(tenant) });
+    const hasAdmin = !!tenant.publicId && tenant.publicId !== EMPTY_GUID;
+    items.push({
+      label: t('tenants.eraseIdentity'),
+      icon: UserX,
+      severity: 'danger',
+      disabled: !hasAdmin,
+      tooltip: hasAdmin ? undefined : t('tenants.eraseIdentityNoAdmin'),
+      onClick: () => openErase(tenant),
+    });
     items.push({ label: t('tenants.delete'), icon: Trash2, severity: 'danger', onClick: () => setDeleteTarget(tenant) });
     return items;
   };
@@ -833,6 +874,51 @@ export function TenantsPage() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Erase admin identity (DB-11c) — typed confirmation: this is irreversible and distinct
+          from "Delete tenant" (the workspace itself is untouched), so it asks for more than a
+          click. Blocked while the admin is the sole Workspace Admin anywhere; the server names
+          the workspace(s) — shown inline in this same dialog rather than nested/toast. */}
+      <Dialog open={!!eraseTarget} onOpenChange={(o) => !o && setEraseTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('tenants.eraseIdentityTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('tenants.eraseIdentityHint', { email: eraseTarget?.email ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-1">
+            {eraseError && (
+              <p role="alert" className="text-[13px] text-state-danger">
+                {eraseError}
+              </p>
+            )}
+            <FormField label={t('tenants.eraseIdentityTypeToConfirm', { email: eraseTarget?.email ?? '' })} htmlFor="erase-confirm-text">
+              <Input
+                id="erase-confirm-text"
+                value={eraseConfirmText}
+                onChange={(e) => setEraseConfirmText(e.target.value)}
+                autoFocus
+              />
+            </FormField>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEraseTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                eraseMut.isPending ||
+                eraseConfirmText.trim().toLowerCase() !== (eraseTarget?.email ?? '').toLowerCase()
+              }
+              onClick={confirmErase}
+            >
+              {t('tenants.eraseIdentityConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

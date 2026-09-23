@@ -22,6 +22,7 @@ import { BrandingPage } from '@/features/branding/BrandingPage';
 import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
+import { DeleteAccountPage } from '@/features/auth/DeleteAccountPage';
 import { JoinPage } from '@/features/auth/JoinPage';
 import { CliLoginPage } from '@/features/cli-login/CliLoginPage';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
@@ -44,6 +45,9 @@ export default function App() {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot" element={<ForgotPasswordPage />} />
               <Route path="/reset" element={<ResetPasswordPage />} />
+              {/* DB-11c: anonymous erase-confirmation landing page for a passwordless
+                  (quick-access) identity's e-mailed link — POST /api/me/request-erase mints it. */}
+              <Route path="/delete-account" element={<DeleteAccountPage />} />
               <Route path="/join" element={<JoinPage />} />
 
               {/* Shell wraps all authenticated routes */}

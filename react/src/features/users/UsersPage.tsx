@@ -12,6 +12,7 @@ import {
   useGetApiAdminRoles,
   usePostApiAdminUsers,
   usePatchApiAdminUsersId,
+  useDeleteApiAdminUsersId,
   usePostApiAdminUsersIdApprove,
   usePostApiAdminUsersIdReject,
   getGetApiAdminUsersQueryKey,
@@ -21,11 +22,14 @@ import {
   usePostApiAdminInvites,
   useDeleteApiAdminInvitesId,
   usePostApiAdminInvitesIdQuickLinkRotate,
+  patchApiAdminUsersId,
   getGetApiAdminInvitesQueryKey,
   type InviteResponse,
+  type InviteeMembership,
 } from '@moamen-ui/pointer-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, Ban, CheckCircle2, UserCheck, User, Users, Link, Copy, MailCheck } from 'lucide-react';
+import { Plus, Ban, CheckCircle2, UserCheck, User, Users, Link, Copy, MailCheck, LogOut, CircleAlert, X } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -65,8 +69,14 @@ export function UsersPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { user: viewer, isSuperAdmin } = useAuth();
 
   const [filter, setFilter] = useState<FilterStatus>('Approved');
+
+  // DB-11c: sole-admin (and similar) conflicts from remove/disable/role-change surface here as an
+  // inline explanation instead of a toast — the message already names the workspace(s) to transfer
+  // ownership from first (MessageKeys.User.SoleAdminBlocked).
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
 
   const { data: users = [], isFetching } = useGetApiAdminUsers({
     status: filter.toLowerCase(),
@@ -198,15 +208,52 @@ export function UsersPage() {
     void navigator.clipboard.writeText(url).then(() => toast(t('invite.copied')));
   }
 
+  // DB-11c: revoking an already-accepted invite returns the live memberships it created
+  // (InviteRevokeResponse.invitees) — offer a one-click "also disable" follow-up for them.
+  const [followupInvitees, setFollowupInvitees] = useState<InviteeMembership[] | null>(null);
+  const [followupChecked, setFollowupChecked] = useState<Record<number, boolean>>({});
+  const [followupResults, setFollowupResults] = useState<Record<number, 'pending' | 'ok' | 'error'>>({});
+  const [followupBusy, setFollowupBusy] = useState(false);
+
   const revokeInviteMut = useDeleteApiAdminInvitesId({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (res) => {
         toast(t('invite.revoked'));
         void qc.invalidateQueries({ queryKey: getGetApiAdminInvitesQueryKey() });
+        const invitees = (res?.invitees ?? []).filter((i) => i.isActive);
+        if (invitees.length > 0) {
+          setFollowupInvitees(invitees);
+          setFollowupChecked(Object.fromEntries(invitees.map((i) => [i.userId!, true])));
+          setFollowupResults({});
+        }
       },
       onError,
     },
   });
+
+  function closeFollowup() {
+    setFollowupInvitees(null);
+    setFollowupChecked({});
+    setFollowupResults({});
+  }
+
+  async function disableFollowupSelected() {
+    if (!followupInvitees) return;
+    const targets = followupInvitees.filter((i) => followupChecked[i.userId!]);
+    if (targets.length === 0) return;
+    setFollowupBusy(true);
+    for (const invitee of targets) {
+      setFollowupResults((prev) => ({ ...prev, [invitee.userId!]: 'pending' }));
+      try {
+        await patchApiAdminUsersId(invitee.userId!, { isActive: false });
+        setFollowupResults((prev) => ({ ...prev, [invitee.userId!]: 'ok' }));
+      } catch {
+        setFollowupResults((prev) => ({ ...prev, [invitee.userId!]: 'error' }));
+      }
+    }
+    setFollowupBusy(false);
+    reload();
+  }
 
   const rotateQuickLinkMut = usePostApiAdminInvitesIdQuickLinkRotate({
     mutation: {
@@ -234,9 +281,14 @@ export function UsersPage() {
   // ---- Change role / enable-disable (patch) ----
   const patchMut = usePatchApiAdminUsersId({
     mutation: {
-      onSuccess: () => reload(),
+      onSuccess: () => {
+        setConflictMessage(null);
+        reload();
+      },
+      // 409 (sole-admin) and 400 (e.g. self-demotion) land here as the server's own message —
+      // shown inline (below the filter bar) rather than as a generic toast (DB-11c dashboard task 1/2).
       onError: (e: unknown) => {
-        onError(e);
+        setConflictMessage(extractMessage(e));
         reload();
       },
     },
@@ -258,6 +310,37 @@ export function UsersPage() {
     const u = confirmUser;
     setConfirmUser(null);
     if (u) patchMut.mutate({ id: u.id!, data: { isActive: false } });
+  }
+
+  // ---- Remove from workspace (DB-11c; was a bare "Delete") ----
+  const [removeUser, setRemoveUser] = useState<UserResponse | null>(null);
+  const removeMut = useDeleteApiAdminUsersId({
+    mutation: {
+      onSuccess: () => {
+        setRemoveUser(null);
+        setConflictMessage(null);
+        toast(t('users.removed'), 'success');
+        reload();
+      },
+      onError: (e: unknown) => {
+        setRemoveUser(null);
+        setConflictMessage(extractMessage(e));
+      },
+    },
+  });
+  function confirmRemove() {
+    const u = removeUser;
+    setRemoveUser(null);
+    if (u) removeMut.mutate({ id: u.id! });
+  }
+
+  // A Deputy may remove neither a Workspace Admin nor another Deputy — only the workspace's own
+  // admin or a super admin may (UserService.DeleteAsync, DB-11c review finding #7); mirrored here
+  // so a Deputy never sees an action the API will only refuse (CannotRemoveAdmin/CannotDeleteDeputy).
+  const viewerIsDeputy = !isSuperAdmin && viewer?.roleName === 'Workspace Admin Deputy';
+  function canRemove(user: UserResponse): boolean {
+    if (!viewerIsDeputy) return true;
+    return user.roleName !== 'Workspace Admin' && user.roleName !== 'Workspace Admin Deputy';
   }
 
   // ---- Approve ----
@@ -481,6 +564,15 @@ export function UsersPage() {
         disabled: patchMut.isPending,
         onClick: () => toggleActive(user),
       });
+      if (canRemove(user)) {
+        items.push({
+          label: t('users.removeFromWorkspace'),
+          icon: LogOut,
+          severity: 'danger',
+          disabled: removeMut.isPending,
+          onClick: () => setRemoveUser(user),
+        });
+      }
     } else {
       items.push({ label: t('users.approve'), icon: UserCheck, onClick: () => openApprove(user) });
       if (filter === 'Pending') {
@@ -500,6 +592,28 @@ export function UsersPage() {
           {t('users.addUser')}
         </Button>
       </div>
+
+      {/* Inline conflict explanation (DB-11c dashboard tasks 1/2): a 409/400 from remove, disable
+          or role-change — most commonly the sole-admin guard — surfaces here instead of a toast, so
+          the "promote a deputy first" text (already in the server message) stays on screen next to
+          the table until dismissed or the next successful action. */}
+      {conflictMessage && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-state-danger/30 bg-state-danger-tint px-3 py-2 text-[13px] text-state-danger"
+        >
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="flex-1">{conflictMessage}</span>
+          <button
+            type="button"
+            aria-label={t('common.dismiss')}
+            onClick={() => setConflictMessage(null)}
+            className="shrink-0 text-state-danger/70 hover:text-state-danger"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Filter bar — label + segmented control. Below `sm` the segments stack full
           width with equal shares (DESIGN.md target: "segmented controls full-width
@@ -809,6 +923,78 @@ export function UsersPage() {
         onConfirm={confirmDisable}
         onCancel={() => setConfirmUser(null)}
       />
+
+      {/* Remove-from-workspace confirmation (DB-11c) */}
+      <ConfirmDialog
+        open={!!removeUser}
+        message={t('users.confirmRemove', { name: removeUser?.email })}
+        confirmLabel={t('users.removeFromWorkspace')}
+        confirmColor="warn"
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveUser(null)}
+      />
+
+      {/* Invite revoke follow-up (DB-11c dashboard task 3): the invite created these live
+          memberships before it was revoked — offer to disable them in one click. */}
+      <Dialog open={!!followupInvitees} onOpenChange={(o) => !o && closeFollowup()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('invite.followupTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-1">
+            <p className="text-[13px] text-muted-foreground">
+              {t('invite.followupQuestion', { count: followupInvitees?.length ?? 0 })}
+            </p>
+            <div className="flex flex-col gap-2">
+              {(followupInvitees ?? []).map((invitee) => {
+                const result = followupResults[invitee.userId!];
+                return (
+                  <label
+                    key={invitee.userId}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={!!followupChecked[invitee.userId!]}
+                        disabled={followupBusy || result === 'ok'}
+                        onChange={(e) =>
+                          setFollowupChecked((prev) => ({ ...prev, [invitee.userId!]: e.target.checked }))
+                        }
+                      />
+                      <span className="min-w-0 truncate text-[13px]">
+                        {invitee.displayName || invitee.email} · {invitee.roleName}
+                      </span>
+                    </span>
+                    {result === 'pending' && (
+                      <span className="shrink-0 text-[12px] text-muted-foreground">…</span>
+                    )}
+                    {result === 'ok' && (
+                      <span className="shrink-0 text-[12px] text-state-completed">{t('invite.followupResultOk')}</span>
+                    )}
+                    {result === 'error' && (
+                      <span className="shrink-0 text-[12px] text-state-danger">{t('invite.followupResultError')}</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeFollowup}>
+              {t('invite.followupDone')}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={followupBusy || !Object.values(followupChecked).some(Boolean)}
+              onClick={disableFollowupSelected}
+            >
+              {t('invite.followupDisableSelected')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

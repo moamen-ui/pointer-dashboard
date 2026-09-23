@@ -6,13 +6,17 @@
 //   isAdmin && id != null  → useGetApiAdminUsersIdProfile (enabled)
 //   otherwise              → useGetApiMeProfile            (enabled)
 import { Fragment, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   useGetApiMeProfile,
   useGetApiAdminUsersIdProfile,
   useGetApiMeApiKey,
   usePostApiMeApiKeyRegenerate,
+  useGetApiAuthMe,
+  usePostApiMeLeaveWorkspace,
+  useDeleteApiMe,
+  usePostApiMeRequestErase,
   type ProfileProject,
   type ProfileEnvironment,
 } from '@moamen-ui/pointer-react';
@@ -23,8 +27,21 @@ import {
   Key,
   Eye,
   EyeOff,
+  LogOut,
+  Trash2,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
+import { FormField } from '@/components/shared/FormField';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -38,6 +55,7 @@ import { useAuth } from '@/lib/auth';
 import { useStatusCatalog } from '@/lib/status-catalog';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { extractMessage } from '@/lib/error';
 import { CountCell, DiffstatLine, statusTone, toneHeaderClass, toneTextClass } from '@/components/shared/CountCell';
 import { useMediaQuery, MOBILE_QUERY } from '@/lib/useMediaQuery';
 
@@ -86,7 +104,8 @@ function EnvRows({ environments, catalog }: { environments: ProfileEnvironment[]
 export function ProfilePage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id?: string }>();
-  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { isAdmin, isSuperAdmin, switchWorkspace, logout } = useAuth();
   const catalog = useStatusCatalog();
   const { toast } = useToast();
   const isMobile = useMediaQuery(MOBILE_QUERY);
@@ -102,6 +121,84 @@ export function ProfilePage() {
   });
 
   const { data, isFetching, refetch } = showAdmin ? adminQuery : meQuery;
+
+  // DB-11c danger zone (self-view only, never on an admin's view of someone else, and never for a
+  // super admin — they aren't a member of a workspace to leave or a tenant identity to self-erase).
+  const showDangerZone = !showAdmin && !isSuperAdmin;
+  const { data: me } = useGetApiAuthMe({ query: { enabled: showDangerZone, staleTime: 5 * 60_000 } });
+  const [dangerError, setDangerError] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [eraseLinkNotice, setEraseLinkNotice] = useState(false);
+
+  const leaveMut = usePostApiMeLeaveWorkspace({
+    mutation: {
+      onSuccess: () => {
+        setConfirmLeave(false);
+        // Switch to another live membership if one exists (mirrors the Shell's workspace
+        // switcher); otherwise there is nothing left to open, so sign out.
+        const other = (me?.workspaces ?? []).find((w) => w.workspaceId !== me?.workspaceId);
+        if (other?.workspaceId) {
+          switchWorkspace(other.workspaceId)
+            .then(() => navigate('/', { replace: true }))
+            .catch(() => {
+              logout();
+              navigate('/login', { replace: true });
+            });
+        } else {
+          toast(t('profile.leftWorkspace'), 'success');
+          logout();
+          navigate('/login', { replace: true });
+        }
+      },
+      onError: (e: unknown) => {
+        setConfirmLeave(false);
+        setDangerError(extractMessage(e));
+      },
+    },
+  });
+
+  const deleteAccountMut = useDeleteApiMe({
+    mutation: {
+      onSuccess: () => {
+        setConfirmDeleteOpen(false);
+        logout();
+        navigate('/login', {
+          replace: true,
+          state: { message: t('profile.accountDeleted') },
+        });
+      },
+      onError: (e: unknown) => {
+        setConfirmDeleteOpen(false);
+        setDangerError(extractMessage(e));
+      },
+    },
+  });
+
+  const requestEraseMut = usePostApiMeRequestErase({
+    mutation: {
+      onSuccess: () => {
+        setEraseLinkNotice(true);
+        toast(t('profile.eraseLinkSent'), 'success');
+      },
+      onError: (e: unknown) => setDangerError(extractMessage(e)),
+    },
+  });
+
+  function confirmLeaveWorkspace() {
+    setDangerError(null);
+    leaveMut.mutate();
+  }
+  function openDeleteAccount() {
+    setDangerError(null);
+    setDeletePassword('');
+    setConfirmDeleteOpen(true);
+  }
+  function submitDeleteAccount() {
+    if (!deletePassword) return;
+    deleteAccountMut.mutate({ data: { password: deletePassword } });
+  }
 
   // API key state
   const keyQuery = useGetApiMeApiKey();
@@ -469,6 +566,81 @@ export function ProfilePage() {
         )}
       </div>
 
+      {/* Danger zone (DB-11c) — self-view only. Leave: ends this membership only, other
+          workspaces and the account itself are untouched. Delete my account: GDPR erase,
+          irreversible, everywhere. Both are blocked while the caller is the sole Workspace
+          Admin anywhere; the server's own message names the workspace(s) to transfer first. */}
+      {showDangerZone && (
+        <section className="flex flex-col gap-3 rounded-lg border border-state-danger/30 p-4">
+          <h2 className="text-[16px] font-semibold leading-6 text-state-danger">
+            {t('profile.dangerZone')}
+          </h2>
+
+          {dangerError && (
+            <p role="alert" className="text-[13px] text-state-danger">
+              {dangerError}
+            </p>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[14px] font-medium">{t('profile.leaveWorkspace')}</p>
+                <p className="text-[13px] text-muted-foreground">{t('profile.leaveWorkspaceHint')}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={leaveMut.isPending}
+                onClick={() => {
+                  setDangerError(null);
+                  setConfirmLeave(true);
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                {t('profile.leaveWorkspace')}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-border-muted pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[14px] font-medium">{t('profile.deleteAccount')}</p>
+                <p className="text-[13px] text-muted-foreground">{t('profile.deleteAccountHint')}</p>
+              </div>
+              {!me?.isQuickAccess && (
+                <Button variant="destructive" size="sm" onClick={openDeleteAccount}>
+                  <Trash2 className="h-4 w-4" />
+                  {t('profile.deleteAccount')}
+                </Button>
+              )}
+            </div>
+
+            {/* Passwordless (quick-access) identities have no password to confirm with — they
+                confirm through a one-time e-mailed link instead (§3.4b). */}
+            {me?.isQuickAccess && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[13px] text-muted-foreground">{t('profile.requestEraseHint')}</p>
+                {eraseLinkNotice ? (
+                  <p className="text-[13px] text-state-completed">{t('profile.eraseLinkSent')}</p>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={requestEraseMut.isPending}
+                    onClick={() => requestEraseMut.mutate()}
+                  >
+                    <Mail className="h-4 w-4" />
+                    {t('profile.requestEraseButton')}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <ConfirmDialog
         open={confirmRegenerate}
         message={t('profile.regenerateApiKeyConfirm')}
@@ -477,6 +649,48 @@ export function ProfilePage() {
         onConfirm={handleRegenerateConfirm}
         onCancel={() => setConfirmRegenerate(false)}
       />
+
+      {/* Leave workspace confirmation */}
+      <ConfirmDialog
+        open={confirmLeave}
+        message={t('profile.confirmLeave')}
+        confirmLabel={t('profile.leaveWorkspace')}
+        confirmColor="warn"
+        onConfirm={confirmLeaveWorkspace}
+        onCancel={() => setConfirmLeave(false)}
+      />
+
+      {/* Delete my account — password-confirmed (GDPR erase, §3.4/§3.5) */}
+      <Dialog open={confirmDeleteOpen} onOpenChange={(o) => !o && setConfirmDeleteOpen(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('profile.deleteAccount')}</DialogTitle>
+            <DialogDescription>{t('profile.confirmDeleteAccount')}</DialogDescription>
+          </DialogHeader>
+          <div className="pt-1">
+            <FormField label={t('profile.deleteAccountPasswordLabel')} htmlFor="delete-account-password">
+              <PasswordInput
+                id="delete-account-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                autoFocus
+              />
+            </FormField>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deletePassword || deleteAccountMut.isPending}
+              onClick={submitDeleteAccount}
+            >
+              {t('profile.deleteAccount')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
