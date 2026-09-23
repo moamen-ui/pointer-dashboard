@@ -779,7 +779,7 @@
     "demoEmailSent": "Demo credentials sent to your email — check your inbox.",
     "demoFailed": "Failed to start demo",
     "demoHint": "Prefer to look around first? Start a temporary demo — no signup required.",
-    "demoPdplNotice": "We use this address only to send your demo login and one reminder before the demo expires. The demo workspace, and this address with it, are deleted 24 hours after it starts unless you keep it. See our <link>Privacy Policy</link>.",
+    "demoPdplNotice": "We use this address only to send your demo login and one reminder before the demo expires. The demo workspace, and this address with it, are deleted 24 hours after it starts unless you keep it. See our <privacyLink>Privacy Policy</privacyLink>.",
     "email": "Email",
     "failed": "Login failed",
     "forgot": "Forgot password?",

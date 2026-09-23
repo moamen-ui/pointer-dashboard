@@ -456,7 +456,7 @@ export function LoginPage() {
           <Trans
             i18nKey="login.demoPdplNotice"
             components={{
-              link: (
+              privacyLink: (
                 <a
                   href={privacyUrl}
                   target="_blank"
