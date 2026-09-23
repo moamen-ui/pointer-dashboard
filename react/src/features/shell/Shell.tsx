@@ -199,8 +199,9 @@ function ShellLayout() {
           identities and non-admin stakeholders (server-computed, §3.5). */}
       <VerificationBanner me={me} />
 
-      {/* Demo panel */}
-      <DemoPanel />
+      {/* Demo panel — DB-17: countdown source of truth is `me.demoExpiresAt` (survives
+          reloads/other tabs), same `me` query VerificationBanner reads above. */}
+      <DemoPanel me={me} />
 
       {/* Header: h-12, no shadow, hairline bottom */}
       <header className="h-12 border-b border-border bg-background px-4 flex items-center gap-3 z-10 flex-shrink-0">

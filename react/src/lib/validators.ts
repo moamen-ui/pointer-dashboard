@@ -33,6 +33,13 @@ export function lengthRangeError(value: string, min: number, max: number, t: TFu
   return '';
 }
 
+/** Trimmed length at most `max` — for an OPTIONAL free-text field with a server-enforced cap
+ *  (e.g. DB-17's `UpgradeDemoRequest.WorkspaceName`, `.MaximumLength(120)`). Empty is valid;
+ *  only "too long" is flagged, unlike `lengthRangeError` which also requires a minimum. */
+export function maxLengthError(value: string, max: number, t: TFunction): string {
+  return value.trim().length > max ? t('common.maxLength', { max }) : '';
+}
+
 /**
  * Case-insensitive, trimmed duplicate check against a list of existing names — client-side
  * uniqueness prevention only (comment #191); the API/DB is the real source of truth for

@@ -13,8 +13,8 @@ import {
   usePostApiAdminTenants,
   usePatchApiAdminTenantsWorkspaceIdStatus,
   useDeleteApiAdminTenantsWorkspaceId,
-  usePostApiAdminTenantsIdExtend,
-  usePatchApiAdminTenantsIdDemoConfig,
+  usePostApiAdminTenantsWorkspaceIdExtend,
+  usePatchApiAdminTenantsWorkspaceIdDemoConfig,
   usePatchApiAdminTenantsWorkspaceIdPlan,
   usePostApiAdminTenantsWorkspaceIdImpersonate,
   useGetApiAdminPlans,
@@ -356,8 +356,9 @@ export function TenantsPage() {
     });
   }
 
-  // ---- Extend demo ----
-  const extendMut = usePostApiAdminTenantsIdExtend({
+  // ---- Extend demo ---- (DB-17: keyed by workspaceId now — the {id:int} route stays wired
+  // one release for anything still on the older client, removed by DB-11e)
+  const extendMut = usePostApiAdminTenantsWorkspaceIdExtend({
     mutation: {
       onSuccess: () => {
         toast(t('tenants.extended'));
@@ -378,7 +379,7 @@ export function TenantsPage() {
     setDemoConfigTarget(tenant);
   }
 
-  const demoConfigMut = usePatchApiAdminTenantsIdDemoConfig({
+  const demoConfigMut = usePatchApiAdminTenantsWorkspaceIdDemoConfig({
     mutation: {
       onSuccess: () => {
         setDemoConfigTarget(null);
@@ -393,9 +394,9 @@ export function TenantsPage() {
   });
 
   function saveDemoConfig() {
-    if (demoConfigTarget?.id == null) return;
+    if (demoConfigTarget?.workspaceId == null) return;
     demoConfigMut.mutate({
-      id: demoConfigTarget.id,
+      workspaceId: demoConfigTarget.workspaceId,
       data: {
         commentCapOverride: capInput === '' ? null : Number(capInput),
         ttlHoursOverride: ttlInput === '' ? null : Number(ttlInput),
@@ -539,7 +540,7 @@ export function TenantsPage() {
         icon: Clock,
         disabled: tenant.demoExtended === true,
         tooltip: tenant.demoExtended ? t('tenants.extendOnce') : undefined,
-        onClick: () => extendMut.mutate({ id: tenant.id! }),
+        onClick: () => extendMut.mutate({ workspaceId: tenant.workspaceId! }),
       });
       items.push({ label: t('tenants.editDemoConfig'), icon: Settings2, onClick: () => openDemoConfig(tenant) });
     }

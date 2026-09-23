@@ -454,6 +454,8 @@
     "expired": "Demo expired",
     "expires": "Expires in",
     "expiresIn": "Expires in {{ time }}",
+    "extendOnce": "Extend once (+24 h)",
+    "extendSuccess": "Demo extended by 24 hours.",
     "keepWorkspace": "Keep this workspace",
     "next": "Next",
     "panelIntro": "Drop the widget into any page to leave feedback, then watch it appear here.",
@@ -479,7 +481,8 @@
     "upgradeSubmit": "Create account",
     "upgradeSuccess": "Your workspace is now permanent. Welcome to Pointer!",
     "upgradeTitle": "Create your permanent account",
-    "widgetLogin": "Widget login"
+    "widgetLogin": "Widget login",
+    "workspaceName": "Workspace name"
   },
   "environments": {
     "addEnvironment": "Add Environment",
@@ -776,6 +779,7 @@
     "demoEmailSent": "Demo credentials sent to your email — check your inbox.",
     "demoFailed": "Failed to start demo",
     "demoHint": "Prefer to look around first? Start a temporary demo — no signup required.",
+    "demoPdplNotice": "We use this address only to send your demo login and one reminder before the demo expires. The demo workspace, and this address with it, are deleted 24 hours after it starts unless you keep it. See our <link>Privacy Policy</link>.",
     "email": "Email",
     "failed": "Login failed",
     "forgot": "Forgot password?",

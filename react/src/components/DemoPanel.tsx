@@ -1,17 +1,19 @@
-// DemoPanel — shown inside the shell whenever a pointer_demo sessionStorage
-// entry exists. Displays project key, widget login, and a live countdown to
-// expiry. The setup steps themselves live in the shared install guide (also
-// reachable from the header icon), opened here via a "View installation steps"
-// button. Dismissal only hides the banner — the session holds credentials the
-// guide still needs.
+// DemoPanel — shown inside the shell whenever the signed-in identity's current workspace is a
+// live demo. DB-17: the countdown's source of truth is `me.demoExpiresAt` (server, survives
+// reloads and other tabs) — the `pointer_demo` sessionStorage entry only supplies the widget
+// login credentials block, which exists solely in the tab that ran the demo provision/upgrade
+// flow. The setup steps themselves live in the shared install guide (also reachable from the
+// header icon), opened here via a "View installation steps" button. Dismissal only hides the
+// banner — the session holds credentials the guide still needs.
 import { useEffect, useState, useCallback, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { X, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { FormField } from '@/components/shared/FormField';
-import { emailError, passwordError, requiredError } from '@/lib/validators';
+import { emailError, passwordError, requiredError, maxLengthError } from '@/lib/validators';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { usePostApiDemoUpgrade } from '@moamen-ui/pointer-react';
-import { getApiAuthMe } from '@moamen-ui/pointer-react';
+import {
+  usePostApiDemoUpgrade,
+  usePostApiDemoExtend,
+  getApiAuthMe,
+  getGetApiAuthMeQueryKey,
+  type MeResponse,
+} from '@moamen-ui/pointer-react';
 import { setAuthHeader } from '@/lib/api';
 import { setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
@@ -34,6 +41,10 @@ const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
 // chars, not common, not the address) — this constant only drives the client-side "too short"
 // check; see `common.passwordPolicyHint` for the hint shown next to the field.
 const UPGRADE_MIN_PASSWORD_LENGTH = 10;
+// DB-17: UpgradeDemoValidator caps WorkspaceName at 120 chars server-side.
+const WORKSPACE_NAME_MAX = 120;
+// DB-17: red state mirrors the expiry-warning e-mail's own window (two hours before TTL).
+const EXPIRING_SOON_MS = 2 * 60 * 60 * 1000;
 
 interface DemoSession {
   email: string | null;
@@ -72,11 +83,15 @@ function formatCountdown(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export function DemoPanel() {
+export function DemoPanel({ me }: { me: MeResponse | undefined }) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const installGuide = useInstallGuide();
-  const [session, setSession] = useState<DemoSession | null>(() => readDemoSession());
+  // Credentials-only: the widget login/password/project key this tab's own demo
+  // provision (or upgrade) call stashed. Absent in another tab or after a reload
+  // that outlived it — the banner itself does not depend on this.
+  const [session] = useState<DemoSession | null>(() => readDemoSession());
   const [dismissed, setDismissed] = useState(() => readDismissed());
   const [countdown, setCountdown] = useState<string>('');
 
@@ -86,13 +101,30 @@ export function DemoPanel() {
   const [upgradePassword, setUpgradePassword] = useState('');
   const [upgradeConfirmPassword, setUpgradeConfirmPassword] = useState('');
   const [upgradeDisplayName, setUpgradeDisplayName] = useState('');
+  const [upgradeWorkspaceName, setUpgradeWorkspaceName] = useState('');
   const [upgradeEmailTouched, setUpgradeEmailTouched] = useState(false);
   const [upgradePasswordTouched, setUpgradePasswordTouched] = useState(false);
   const [upgradeConfirmTouched, setUpgradeConfirmTouched] = useState(false);
+  const [upgradeWorkspaceNameTouched, setUpgradeWorkspaceNameTouched] = useState(false);
   const [upgradeSubmitted, setUpgradeSubmitted] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   const upgradeMut = usePostApiDemoUpgrade();
+
+  // DB-17: "Extend once (+24 h)" — hidden entirely when the server says it's already used
+  // (or the workspace isn't a live demo at all); on success the /me query is invalidated so
+  // the countdown (this component's own source of truth) picks up the new expiry.
+  const extendMut = usePostApiDemoExtend({
+    mutation: {
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: getGetApiAuthMeQueryKey() });
+        toast(t('demo.extendSuccess'));
+      },
+      onError: (err: unknown) => {
+        toast(extractMessage(err), 'error');
+      },
+    },
+  });
 
   const upgradeEmailErrorMsg = emailError(upgradeEmail, t);
   const upgradePasswordErrorMsg = passwordError(
@@ -101,6 +133,7 @@ export function DemoPanel() {
     t,
   );
   const upgradeConfirmErrorMsg = requiredError(upgradeConfirmPassword, t);
+  const upgradeWorkspaceNameErrorMsg = maxLengthError(upgradeWorkspaceName, WORKSPACE_NAME_MAX, t);
   // Cross-field check — like the Angular form's group validator, it only fires
   // when both passwords are non-empty and is not a per-field error.
   const upgradePasswordsMismatch =
@@ -109,6 +142,7 @@ export function DemoPanel() {
     !!upgradeEmailErrorMsg ||
     !!upgradePasswordErrorMsg ||
     !!upgradeConfirmErrorMsg ||
+    !!upgradeWorkspaceNameErrorMsg ||
     upgradePasswordsMismatch;
 
   function openUpgradeDialog() {
@@ -116,9 +150,11 @@ export function DemoPanel() {
     setUpgradePassword('');
     setUpgradeConfirmPassword('');
     setUpgradeDisplayName('');
+    setUpgradeWorkspaceName('');
     setUpgradeEmailTouched(false);
     setUpgradePasswordTouched(false);
     setUpgradeConfirmTouched(false);
+    setUpgradeWorkspaceNameTouched(false);
     setUpgradeSubmitted(false);
     setUpgradeError(null);
     setUpgradeOpen(true);
@@ -136,6 +172,9 @@ export function DemoPanel() {
           email: upgradeEmail.trim(),
           password: upgradePassword,
           displayName: upgradeDisplayName.trim() || undefined,
+          // DB-17: left blank, the API falls back to the placeholder name so the
+          // dashboard's own "name your workspace" prompt (DB-03b) takes over from there.
+          workspaceName: upgradeWorkspaceName.trim() || undefined,
         },
       },
       {
@@ -144,12 +183,12 @@ export function DemoPanel() {
             const token = res.token ?? '';
             setItem(TOKEN_KEY, token);
             setAuthHeader(token);
-            const me = await getApiAuthMe();
-            setItem(USER_KEY, JSON.stringify(me));
+            const meAfter = await getApiAuthMe();
+            setItem(USER_KEY, JSON.stringify(meAfter));
             sessionStorage.removeItem(DEMO_SESSION_KEY);
             setUpgradeOpen(false);
             toast(t('demo.upgradeSuccess'));
-            window.location.assign(me.isAdmin ? '/overview' : '/profile');
+            window.location.assign(meAfter.isAdmin ? '/overview' : '/profile');
           } catch (err) {
             setUpgradeError(extractMessage(err));
           }
@@ -161,15 +200,20 @@ export function DemoPanel() {
     );
   }
 
+  // DB-17: the workspace's own DemoExpiresAt, carried on every /me response for whichever
+  // workspace is current — non-null exactly while it's a live demo (null once converted or
+  // expired-and-swept). Reading this instead of the sessionStorage snapshot is what makes the
+  // banner (and its countdown) survive a reload or a second tab.
+  const demoExpiresAt = me?.demoExpiresAt ?? null;
+
   const refreshCountdown = useCallback(() => {
-    if (!session?.expiresAt) return;
-    const ms = new Date(session.expiresAt).getTime() - Date.now();
-    setCountdown(formatCountdown(ms));
-    if (ms <= 0) {
-      sessionStorage.removeItem(DEMO_SESSION_KEY);
-      setSession(null);
+    if (!demoExpiresAt) {
+      setCountdown('');
+      return;
     }
-  }, [session]);
+    const ms = new Date(demoExpiresAt).getTime() - Date.now();
+    setCountdown(formatCountdown(ms));
+  }, [demoExpiresAt]);
 
   useEffect(() => {
     refreshCountdown();
@@ -177,13 +221,16 @@ export function DemoPanel() {
     return () => clearInterval(id);
   }, [refreshCountdown]);
 
-  if (!session || dismissed) return null;
+  if (!demoExpiresAt || dismissed) return null;
 
-  const { projectKey, serverUrl, email, password, expiresAt } = session;
+  const { projectKey, serverUrl, email, password } = session ?? {
+    projectKey: null,
+    serverUrl: null,
+    email: null,
+    password: null,
+  };
 
-  const isExpiringSoon = expiresAt
-    ? new Date(expiresAt).getTime() - Date.now() < 5 * 60 * 1000
-    : false;
+  const isExpiringSoon = new Date(demoExpiresAt).getTime() - Date.now() < EXPIRING_SOON_MS;
 
   /**
    * Hides the banner but keeps the session: it holds the demo project key and
@@ -202,22 +249,33 @@ export function DemoPanel() {
   return (
     <div className="border-b border-border bg-gutter px-6 py-3">
       <div className="mx-auto w-full max-w-[1120px]">
-        {/* Header row: banner badge + project key + countdown + keep + dismiss */}
+        {/* Header row: banner badge + project key + countdown + extend + keep + dismiss */}
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <span className="text-[13px] font-medium text-muted-foreground">
             {t('demo.banner')}
           </span>
-          <span className="font-mono text-[13px] rounded bg-brand text-brand-foreground px-2 py-0.5">
-            {projectKey}
-          </span>
-          {expiresAt && (
-            <span
-              className={`font-mono text-[13px] ${isExpiringSoon ? 'text-state-danger' : 'text-muted-foreground'}`}
-            >
-              {t('demo.expires')} {countdown}
+          {projectKey && (
+            <span className="font-mono text-[13px] rounded bg-brand text-brand-foreground px-2 py-0.5">
+              {projectKey}
             </span>
           )}
+          <span
+            className={`font-mono text-[13px] ${isExpiringSoon ? 'text-state-danger' : 'text-muted-foreground'}`}
+          >
+            {t('demo.expires')} {countdown}
+          </span>
           <div className="ms-auto flex items-center gap-2">
+            {me?.demoCanExtend && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={extendMut.isPending}
+                loading={extendMut.isPending}
+                onClick={() => extendMut.mutate()}
+              >
+                {t('demo.extendOnce')}
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -237,23 +295,25 @@ export function DemoPanel() {
           </div>
         </div>
 
-        {/* Widget login credentials */}
-        <div className="text-[13px]">
-          <div className="font-medium text-muted-foreground">
-            {t('demo.widgetLogin')}
+        {/* Widget login credentials — only present in the tab that ran the demo flow */}
+        {session && (
+          <div className="text-[13px]">
+            <div className="font-medium text-muted-foreground">
+              {t('demo.widgetLogin')}
+            </div>
+            <div className="mt-1">
+              <span className="font-medium text-foreground">{email}</span>
+              {password ? (
+                <>
+                  <span className="text-muted-foreground"> · </span>
+                  <code className="font-mono text-[13px] rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
+                </>
+              ) : (
+                <span className="ms-1 text-muted-foreground italic">{t('demo.credsEmailed')}</span>
+              )}
+            </div>
           </div>
-          <div className="mt-1">
-            <span className="font-medium text-foreground">{email}</span>
-            {password ? (
-              <>
-                <span className="text-muted-foreground"> · </span>
-                <code className="font-mono text-[13px] rounded bg-background px-1.5 py-0.5 border border-border">{password}</code>
-              </>
-            ) : (
-              <span className="ms-1 text-muted-foreground italic">{t('demo.credsEmailed')}</span>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* The steps themselves live in the shared install guide (also on the
             header icon), so demo and permanent accounts read the same thing. */}
@@ -334,6 +394,23 @@ export function DemoPanel() {
                 id="upgrade-display-name"
                 value={upgradeDisplayName}
                 onChange={(e) => setUpgradeDisplayName(e.target.value)}
+              />
+            </FormField>
+            <FormField
+              label={t('demo.workspaceName')}
+              htmlFor="upgrade-workspace-name"
+              error={
+                upgradeWorkspaceNameTouched || upgradeSubmitted
+                  ? upgradeWorkspaceNameErrorMsg || undefined
+                  : undefined
+              }
+            >
+              <Input
+                id="upgrade-workspace-name"
+                maxLength={WORKSPACE_NAME_MAX}
+                value={upgradeWorkspaceName}
+                onChange={(e) => setUpgradeWorkspaceName(e.target.value)}
+                onBlur={() => setUpgradeWorkspaceNameTouched(true)}
               />
             </FormField>
             {upgradeError && (

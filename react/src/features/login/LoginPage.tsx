@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   usePostApiDemo,
   getApiAuthMe,
@@ -18,9 +18,15 @@ import { setAuthHeader } from '@/lib/api';
 import { removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
 import { isPlaceholderWorkspaceName } from '@/lib/workspace';
+import { useBranding } from '@/lib/branding';
 import { useToast } from '@/components/ui/toast';
 import { AuthLayout } from '@/components/AuthLayout';
 import { getSafeNextPath } from '@/lib/next-path';
+
+// DB-17: the demo form's PDPL notice links to the privacy policy served on the LANDING
+// domain (`landing/privacy.html`), not this dashboard app. Falls back to the API's own
+// default landing URL (`BrandingDefaults.UrlLanding`) until `useBranding()`'s fetch resolves.
+const DEFAULT_LANDING_URL = 'https://pointer.moamen.work';
 
 /** DB-11b: the login response's "choose several workspaces" state, held in local state
  * between the password step and the pick. `selectionToken` is the 5-minute token the API
@@ -41,6 +47,8 @@ export function LoginPage() {
   const { toast } = useToast();
   const locationState = location.state as { message?: string } | null;
   const { login, switchWorkspace, completeMfaLogin, isAuthenticated, isAdmin } = useAuth();
+  const { branding } = useBranding();
+  const privacyUrl = `${branding?.urls.landing || DEFAULT_LANDING_URL}/privacy.html`;
   // `?next=` set by AuthenticatedRoute when it bounced a signed-out visitor here
   // (e.g. /cli-login?code=…) — only a same-origin relative path is honoured.
   const next = getSafeNextPath(searchParams.get('next'));
@@ -440,6 +448,25 @@ export function LoginPage() {
             }}
           />
         </FormField>
+
+        {/* DB-17 PDPL notice — the demo address is used only to deliver the login/reminder
+            and is deleted with the workspace after 24h unless kept; links to the landing
+            domain's privacy policy (never this app's own — the landing app owns that page). */}
+        <p className="text-[12px] text-muted-foreground">
+          <Trans
+            i18nKey="login.demoPdplNotice"
+            components={{
+              link: (
+                <a
+                  href={privacyUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand hover:underline"
+                />
+              ),
+            }}
+          />
+        </p>
 
         {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
 
