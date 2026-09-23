@@ -15,6 +15,7 @@ import { ProfilePage } from '@/features/profile';
 import { StatusesPage } from '@/features/statuses/StatusesPage';
 import { EnvironmentsPage } from '@/features/environments/EnvironmentsPage';
 import { TenantsPage } from '@/features/tenants/TenantsPage';
+import { SecurityLogPage } from '@/features/security-log/SecurityLogPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { PlansPage } from '@/features/plans/PlansPage';
 import { BrandingPage } from '@/features/branding/BrandingPage';
@@ -67,6 +68,10 @@ export default function App() {
                         tenant-scoped predefined actions/suggestions, which any admin can manage
                         (backend: PredefinedActionsController is Policies.Admin, not SuperAdmin). */}
                     <Route path="/settings" element={<SettingsPage />} />
+                    {/* Read-only audit trail (DB-12) — workspace admins read their own
+                        workspace's events; super admins (also isAdmin) read the /all view
+                        instead (gated inside the page, mirrors /settings above). */}
+                    <Route path="/security-log" element={<SecurityLogPage />} />
 
                     {/* Super-admin-only section */}
                     <Route element={<SuperAdminRoute />}>

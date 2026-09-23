@@ -18,6 +18,7 @@ import {
   Languages,
   Building2,
   Settings,
+  ShieldCheck,
   Menu,
   CreditCard,
   Paintbrush,
@@ -52,6 +53,7 @@ const ADMIN_NAV = [
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/environments', key: 'nav.environments', icon: Globe },
   { to: '/settings', key: 'nav.settings', icon: Settings },
+  { to: '/security-log', key: 'nav.securityLog', icon: ShieldCheck },
 ];
 
 // Projects and Comments are visible to all authenticated users (admin + non-admin) —

@@ -714,6 +714,7 @@
     "plans": "الخطط",
     "projects": "المشاريع",
     "roles": "الأدوار",
+    "securityLog": "سجل الأمان",
     "settings": "الإعدادات",
     "statuses": "الحالات",
     "tenants": "المستأجرون",
@@ -974,6 +975,201 @@
     "status": "الحالة",
     "system": "نظام",
     "title": "الأدوار"
+  },
+  "securityLog": {
+    "title": "سجل الأمان",
+    "since": "من",
+    "until": "إلى",
+    "actionFilter": "بادئة الإجراء",
+    "actionFilterPlaceholder": "مثال: member.",
+    "actionFilterInvalid": "استخدم أحرفًا صغيرة وشرطات سفلية ونقاطًا فقط (1–64 حرفًا).",
+    "actorFilter": "الفاعل",
+    "actorFilterPlaceholder": "معرّف المستخدم",
+    "targetFilter": "نوع الهدف",
+    "targetFilterPlaceholder": "مثال: project",
+    "workspaceFilter": "مساحة العمل",
+    "allWorkspaces": "كل مساحات العمل",
+    "systemWide": "على مستوى النظام",
+    "systemActor": "النظام",
+    "empty": "لا شيء بعد — ستظهر هنا الإجراءات المتخذة في مساحة العمل هذه.",
+    "emptyHint": "يُسجَّل هنا كل إجراء إداري (تغييرات الأعضاء، الدعوات، الإعدادات، وغيرها).",
+    "noResults": "لا توجد أحداث مطابقة لهذه المرشحات.",
+    "loading": "جارٍ تحميل سجل الأمان…",
+    "time": "الوقت",
+    "actor": "الفاعل",
+    "action": "الإجراء",
+    "target": "الهدف",
+    "workspace": "مساحة العمل",
+    "requestId": "معرّف الطلب",
+    "ipHash": "بصمة عنوان IP",
+    "userAgent": "وكيل المستخدم",
+    "changes": "التغييرات",
+    "noChanges": "لا توجد تغييرات في الحقول مسجّلة لهذا الحدث.",
+    "removed": "محذوف",
+    "actorKind": {
+      "user": "عضو",
+      "superAdmin": "مشرف عام",
+      "system": "النظام",
+      "impersonation": "انتحال"
+    },
+    "targets": {
+      "workspace": "مساحة العمل",
+      "user": "المستخدم",
+      "membership": "العضوية",
+      "invite": "الدعوة",
+      "tenant_invite": "دعوة مساحة العمل",
+      "api_key": "مفتاح API",
+      "device_login": "تسجيل دخول الجهاز",
+      "project": "المشروع",
+      "project_app_url": "رابط تطبيق المشروع",
+      "role": "الدور",
+      "environment": "البيئة",
+      "status": "الحالة",
+      "predefined_action": "إجراء محدد مسبقًا",
+      "suggestion": "الاقتراح",
+      "ai_rule": "قاعدة الذكاء الاصطناعي",
+      "plan": "الخطة",
+      "settings": "الإعدادات",
+      "branding": "الهوية البصرية",
+      "export": "التصدير",
+      "import": "الاستيراد",
+      "impersonation_session": "جلسة الانتحال",
+      "email_hash": "البريد الإلكتروني"
+    },
+    "actions": {
+      "auth": {
+        "login": {
+          "succeeded": "تم تسجيل الدخول",
+          "failed": "فشل تسجيل الدخول"
+        },
+        "workspace_switched": "تم تبديل مساحة العمل",
+        "password": {
+          "reset_requested": "تم طلب إعادة تعيين كلمة المرور",
+          "reset": "تمت إعادة تعيين كلمة المرور",
+          "changed": "تم تغيير كلمة المرور"
+        },
+        "email": {
+          "change_requested": "تم طلب تغيير البريد الإلكتروني",
+          "changed": "تم تغيير البريد الإلكتروني",
+          "verified": "تم التحقق من البريد الإلكتروني"
+        },
+        "register": {
+          "stakeholder": "تم تسجيل مساهم جديد",
+          "admin": "تم تسجيل مشرف جديد"
+        },
+        "demo": {
+          "provisioned": "تم توفير نسخة تجريبية",
+          "upgraded": "تمت ترقية النسخة التجريبية"
+        }
+      },
+      "device": {
+        "approved": "تمت الموافقة على الجهاز",
+        "denied": "تم رفض الجهاز"
+      },
+      "apikey": {
+        "created": "تم إنشاء مفتاح API",
+        "regenerated": "تم تجديد مفتاح API"
+      },
+      "member": {
+        "created": "تم إنشاء عضو",
+        "approved": "تمت الموافقة على العضو",
+        "rejected": "تم رفض العضو",
+        "updated": "تم تحديث العضو",
+        "removed": "تمت إزالة العضو",
+        "left": "غادر العضو"
+      },
+      "ownership": {
+        "transferred": "تم نقل الملكية"
+      },
+      "identity": {
+        "erase_requested": "تم طلب محو الهوية",
+        "erased": "تم محو الهوية"
+      },
+      "invite": {
+        "created": "تم إنشاء دعوة",
+        "revoked": "تم إلغاء الدعوة",
+        "quick_link_rotated": "تم تدوير رابط الوصول السريع",
+        "resent": "تمت إعادة إرسال الدعوة",
+        "accepted": "تم قبول الدعوة"
+      },
+      "tenant_invite": {
+        "created": "تم إنشاء دعوة مساحة عمل",
+        "resent": "تمت إعادة إرسال دعوة مساحة العمل",
+        "revoked": "تم إلغاء دعوة مساحة العمل"
+      },
+      "workspace": {
+        "renamed": "تمت إعادة تسمية مساحة العمل",
+        "comment_fields_updated": "تم تحديث حقول التعليقات",
+        "created": "تم إنشاء مساحة العمل"
+      },
+      "tenant": {
+        "created": "تم إنشاء المستأجر",
+        "status_changed": "تم تغيير حالة المستأجر",
+        "demo_extended": "تم تمديد النسخة التجريبية",
+        "demo_config_changed": "تم تغيير إعدادات التجربة",
+        "plan_changed": "تم تغيير الخطة",
+        "hard_deleted": "تم حذف المستأجر نهائيًا"
+      },
+      "project": {
+        "created": "تم إنشاء المشروع",
+        "updated": "تم تحديث المشروع",
+        "deleted": "تم حذف المشروع",
+        "app_url_set": "تم تعيين رابط التطبيق",
+        "app_url_deleted": "تمت إزالة رابط التطبيق"
+      },
+      "role": {
+        "created": "تم إنشاء الدور",
+        "updated": "تم تحديث الدور",
+        "deleted": "تم حذف الدور"
+      },
+      "environment": {
+        "created": "تم إنشاء البيئة",
+        "updated": "تم تحديث البيئة",
+        "deleted": "تم حذف البيئة"
+      },
+      "status": {
+        "updated": "تم تحديث الحالة",
+        "reset": "تمت إعادة تعيين الحالات"
+      },
+      "predefined_action": {
+        "created": "تم إنشاء إجراء محدد مسبقًا",
+        "updated": "تم تحديث إجراء محدد مسبقًا",
+        "deleted": "تم حذف إجراء محدد مسبقًا"
+      },
+      "suggestion": {
+        "approved": "تمت الموافقة على الاقتراح",
+        "rejected": "تم رفض الاقتراح",
+        "changes_requested": "تم طلب تغييرات"
+      },
+      "ai_rule": {
+        "created": "تم إنشاء قاعدة ذكاء اصطناعي",
+        "updated": "تم تحديث قاعدة ذكاء اصطناعي",
+        "deleted": "تم حذف قاعدة ذكاء اصطناعي"
+      },
+      "import": {
+        "completed": "اكتمل الاستيراد"
+      },
+      "export": {
+        "downloaded": "تم تنزيل التصدير"
+      },
+      "plan": {
+        "created": "تم إنشاء الخطة",
+        "updated": "تم تحديث الخطة",
+        "deleted": "تم حذف الخطة"
+      },
+      "settings": {
+        "updated": "تم تحديث الإعدادات"
+      },
+      "branding": {
+        "updated": "تم تحديث الهوية البصرية",
+        "asset_uploaded": "تم رفع ملف الهوية البصرية",
+        "asset_deleted": "تم حذف ملف الهوية البصرية"
+      },
+      "impersonation": {
+        "started": "بدأ الانتحال",
+        "ended": "انتهى الانتحال"
+      }
+    }
   },
   "settings": {
     "accessSection": "الوصول",

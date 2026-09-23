@@ -714,6 +714,7 @@
     "plans": "Plans",
     "projects": "Projects",
     "roles": "Roles",
+    "securityLog": "Security log",
     "settings": "Settings",
     "statuses": "Statuses",
     "tenants": "Tenants",
@@ -974,6 +975,201 @@
     "status": "Status",
     "system": "system",
     "title": "Roles"
+  },
+  "securityLog": {
+    "title": "Security log",
+    "since": "Since",
+    "until": "Until",
+    "actionFilter": "Action prefix",
+    "actionFilterPlaceholder": "e.g. member.",
+    "actionFilterInvalid": "Use lowercase letters, underscores and dots only (1–64 characters).",
+    "actorFilter": "Actor",
+    "actorFilterPlaceholder": "User id",
+    "targetFilter": "Target type",
+    "targetFilterPlaceholder": "e.g. project",
+    "workspaceFilter": "Workspace",
+    "allWorkspaces": "All workspaces",
+    "systemWide": "System-wide",
+    "systemActor": "System",
+    "empty": "Nothing yet — actions taken in this workspace will appear here.",
+    "emptyHint": "Every admin action (member changes, invites, settings, and more) is recorded here.",
+    "noResults": "No events match these filters.",
+    "loading": "Loading security log…",
+    "time": "Time",
+    "actor": "Actor",
+    "action": "Action",
+    "target": "Target",
+    "workspace": "Workspace",
+    "requestId": "Request ID",
+    "ipHash": "IP hash",
+    "userAgent": "User agent",
+    "changes": "Changes",
+    "noChanges": "No field changes recorded for this event.",
+    "removed": "removed",
+    "actorKind": {
+      "user": "Member",
+      "superAdmin": "Super admin",
+      "system": "System",
+      "impersonation": "Impersonation"
+    },
+    "targets": {
+      "workspace": "Workspace",
+      "user": "User",
+      "membership": "Membership",
+      "invite": "Invite",
+      "tenant_invite": "Workspace invite",
+      "api_key": "API key",
+      "device_login": "Device login",
+      "project": "Project",
+      "project_app_url": "Project app URL",
+      "role": "Role",
+      "environment": "Environment",
+      "status": "Status",
+      "predefined_action": "Predefined action",
+      "suggestion": "Suggestion",
+      "ai_rule": "AI rule",
+      "plan": "Plan",
+      "settings": "Settings",
+      "branding": "Branding",
+      "export": "Export",
+      "import": "Import",
+      "impersonation_session": "Impersonation session",
+      "email_hash": "Email"
+    },
+    "actions": {
+      "auth": {
+        "login": {
+          "succeeded": "Login succeeded",
+          "failed": "Login failed"
+        },
+        "workspace_switched": "Switched workspace",
+        "password": {
+          "reset_requested": "Password reset requested",
+          "reset": "Password reset",
+          "changed": "Password changed"
+        },
+        "email": {
+          "change_requested": "Email change requested",
+          "changed": "Email changed",
+          "verified": "Email verified"
+        },
+        "register": {
+          "stakeholder": "Stakeholder registered",
+          "admin": "Admin registered"
+        },
+        "demo": {
+          "provisioned": "Demo provisioned",
+          "upgraded": "Demo upgraded"
+        }
+      },
+      "device": {
+        "approved": "Device approved",
+        "denied": "Device denied"
+      },
+      "apikey": {
+        "created": "API key created",
+        "regenerated": "API key regenerated"
+      },
+      "member": {
+        "created": "Member created",
+        "approved": "Member approved",
+        "rejected": "Member rejected",
+        "updated": "Member updated",
+        "removed": "Member removed",
+        "left": "Member left"
+      },
+      "ownership": {
+        "transferred": "Ownership transferred"
+      },
+      "identity": {
+        "erase_requested": "Identity erase requested",
+        "erased": "Identity erased"
+      },
+      "invite": {
+        "created": "Invite created",
+        "revoked": "Invite revoked",
+        "quick_link_rotated": "Quick-access link rotated",
+        "resent": "Invite resent",
+        "accepted": "Invite accepted"
+      },
+      "tenant_invite": {
+        "created": "Workspace invite created",
+        "resent": "Workspace invite resent",
+        "revoked": "Workspace invite revoked"
+      },
+      "workspace": {
+        "renamed": "Workspace renamed",
+        "comment_fields_updated": "Comment fields updated",
+        "created": "Workspace created"
+      },
+      "tenant": {
+        "created": "Tenant created",
+        "status_changed": "Tenant status changed",
+        "demo_extended": "Demo extended",
+        "demo_config_changed": "Demo config changed",
+        "plan_changed": "Plan changed",
+        "hard_deleted": "Tenant hard-deleted"
+      },
+      "project": {
+        "created": "Project created",
+        "updated": "Project updated",
+        "deleted": "Project deleted",
+        "app_url_set": "App URL set",
+        "app_url_deleted": "App URL removed"
+      },
+      "role": {
+        "created": "Role created",
+        "updated": "Role updated",
+        "deleted": "Role deleted"
+      },
+      "environment": {
+        "created": "Environment created",
+        "updated": "Environment updated",
+        "deleted": "Environment deleted"
+      },
+      "status": {
+        "updated": "Status updated",
+        "reset": "Statuses reset"
+      },
+      "predefined_action": {
+        "created": "Predefined action created",
+        "updated": "Predefined action updated",
+        "deleted": "Predefined action deleted"
+      },
+      "suggestion": {
+        "approved": "Suggestion approved",
+        "rejected": "Suggestion rejected",
+        "changes_requested": "Changes requested"
+      },
+      "ai_rule": {
+        "created": "AI rule created",
+        "updated": "AI rule updated",
+        "deleted": "AI rule deleted"
+      },
+      "import": {
+        "completed": "Import completed"
+      },
+      "export": {
+        "downloaded": "Export downloaded"
+      },
+      "plan": {
+        "created": "Plan created",
+        "updated": "Plan updated",
+        "deleted": "Plan deleted"
+      },
+      "settings": {
+        "updated": "Settings updated"
+      },
+      "branding": {
+        "updated": "Branding updated",
+        "asset_uploaded": "Branding asset uploaded",
+        "asset_deleted": "Branding asset deleted"
+      },
+      "impersonation": {
+        "started": "Impersonation started",
+        "ended": "Impersonation ended"
+      }
+    }
   },
   "settings": {
     "accessSection": "Access",
