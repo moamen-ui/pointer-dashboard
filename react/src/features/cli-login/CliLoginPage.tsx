@@ -231,6 +231,15 @@ export function CliLoginPage() {
             <span className="text-muted-foreground">{t('cliLogin.signedInAs')} </span>
             <span className="font-medium text-foreground">{user.displayName}</span>
             {user.email && <span className="text-muted-foreground"> ({user.email})</span>}
+            {user.tenantName && (
+              <p className="mt-1 text-muted-foreground">
+                <Trans
+                  i18nKey="cliLogin.signInto"
+                  values={{ name: user.tenantName }}
+                  components={{ strong: <strong className="font-semibold text-foreground" /> }}
+                />
+              </p>
+            )}
           </div>
         )}
 

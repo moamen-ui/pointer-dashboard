@@ -12,8 +12,14 @@ import {
   type ReactNode,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePostApiAuthLogin, type MeResponse } from '@moamen-ui/pointer-react';
-import { setAuthHeader } from './api';
+import {
+  usePostApiAuthLogin,
+  postApiAuthSwitchWorkspace,
+  type LoginResponse,
+  type MeResponse,
+  type WorkspaceChoice,
+} from '@moamen-ui/pointer-react';
+import { setAuthHeader, withAuthOverride } from './api';
 import {
   getItem,
   removeItem,
@@ -22,14 +28,30 @@ import {
   USER_KEY,
 } from './storage';
 
+/** Discriminated result of a password login (DB-11b). `pending`/`rejected`/`disabled`/
+ * `no-workspace` are unchanged: the API returns those as envelope failures, so they never
+ * reach here — `usePostApiAuthLogin`'s mutation throws and the caller's existing catch
+ * block shows the message. */
+export type LoginOutcome =
+  | { status: 'ok'; user: MeResponse }
+  | { status: 'choose-workspace'; workspaces: WorkspaceChoice[]; selectionToken: string };
+
 interface AuthValue {
   user: MeResponse | null;
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  /** Resolves to the logged-in user; throws on failure. */
-  login: (email: string, password: string) => Promise<MeResponse>;
+  /** Resolves once password auth succeeds, either straight to `ok` or to a workspace
+   * choice the caller must resolve via `switchWorkspace`. Throws on pending/rejected/
+   * disabled/no-workspace (unchanged). */
+  login: (email: string, password: string) => Promise<LoginOutcome>;
+  /** Opens a session in `workspaceId`. Pass `selectionToken` (the 5-minute token returned
+   * with `choose-workspace`) right after a picker login; omit it to switch using the
+   * already-stored session token (the Shell's workspace switcher). Stores the new token/
+   * user, drops every cached query (a workspace switch is a tenant change), and resolves
+   * to the new user. */
+  switchWorkspace: (workspaceId: string, selectionToken?: string) => Promise<MeResponse>;
   logout: () => void;
 }
 
@@ -50,18 +72,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { mutateAsync: loginAsync } = usePostApiAuthLogin();
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const res = await loginAsync({ data: { email, password } });
+  /** Stores a full ("ok") session — shared by password login and both switch-workspace
+   * paths so the three call sites can't drift on what "signed in" means. */
+  const applySession = useCallback(
+    (res: LoginResponse) => {
       const t = res.token ?? '';
+      const nextUser = (res.user ?? null) as MeResponse | null;
       setItem(TOKEN_KEY, t);
-      setItem(USER_KEY, JSON.stringify(res.user ?? null));
+      setItem(USER_KEY, JSON.stringify(nextUser));
       setAuthHeader(t);
       setToken(t);
-      setUser(res.user ?? null);
-      return res.user as MeResponse;
+      setUser(nextUser);
+      // A workspace switch is a tenant change — every cached query belongs to the old
+      // tenant and must be treated as stale, same as logout's full clear() but without
+      // dropping the (still valid) session itself.
+      queryClient.invalidateQueries();
+      return nextUser as MeResponse;
     },
-    [loginAsync],
+    [queryClient],
+  );
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<LoginOutcome> => {
+      const res = await loginAsync({ data: { email, password } });
+      if (res.status === 'choose-workspace') {
+        return {
+          status: 'choose-workspace',
+          workspaces: res.workspaces ?? [],
+          selectionToken: res.token ?? '',
+        };
+      }
+      const nextUser = applySession(res);
+      return { status: 'ok', user: nextUser };
+    },
+    [loginAsync, applySession],
+  );
+
+  const switchWorkspace = useCallback(
+    async (workspaceId: string, selectionToken?: string): Promise<MeResponse> => {
+      const call = () => postApiAuthSwitchWorkspace({ workspaceId });
+      const res = selectionToken ? await withAuthOverride(selectionToken, call) : await call();
+      return applySession(res);
+    },
+    [applySession],
   );
 
   const logout = useCallback(() => {
@@ -83,9 +136,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: !!user?.isAdmin,
       isSuperAdmin: !!user?.isSuperAdmin,
       login,
+      switchWorkspace,
       logout,
     }),
-    [user, token, login, logout],
+    [user, token, login, switchWorkspace, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

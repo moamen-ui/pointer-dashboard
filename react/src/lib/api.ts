@@ -44,6 +44,30 @@ const LEVER_LABELS: Record<string, string> = {
 
 let configured = false;
 
+// ---------------------------------------------------------------------------
+// One-off Authorization override (DB-11b)
+// ---------------------------------------------------------------------------
+// The generated `postApiAuthSwitchWorkspace` (like every Orval-generated call) takes no
+// per-request config — the mutator builds a fixed `{ url, method, headers, data, signal }`
+// object internally, so there is no way to hand it a custom header at the call site. The
+// login-time workspace picker needs exactly that: the response's 5-minute *selection*
+// token, never the stored session token (there may be none yet), and it must never be
+// written to localStorage. `withAuthOverride` lets a caller supply that token for the
+// duration of one async call; the request interceptor below prefers it over localStorage
+// while it is set. It is intentionally module-level (not per-request) — only ever used to
+// wrap a single immediate `await`, never left set across a render/await boundary.
+let authOverride: string | null = null;
+
+export async function withAuthOverride<T>(token: string, fn: () => Promise<T>): Promise<T> {
+  const previous = authOverride;
+  authOverride = token;
+  try {
+    return await fn();
+  } finally {
+    authOverride = previous;
+  }
+}
+
 export function configureApi(): void {
   if (configured) return;
   configured = true;
@@ -51,7 +75,7 @@ export function configureApi(): void {
   AXIOS_INSTANCE.defaults.baseURL = import.meta.env.VITE_API_BASE;
 
   AXIOS_INSTANCE.interceptors.request.use((config) => {
-    const token = getItem(TOKEN_KEY);
+    const token = authOverride ?? getItem(TOKEN_KEY);
     // Only attach the bearer to same-API requests: relative URLs (resolved against the API
     // baseURL) or absolute URLs on the API origin. This also strips any header applied via
     // defaults.common so the JWT is never sent to a foreign origin.

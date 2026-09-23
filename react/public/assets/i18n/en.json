@@ -129,6 +129,7 @@
     "expiresAt": "Expires {{time}}",
     "invalidBody": "This code expired or does not exist. Run npx pointer-feedback login again.",
     "retry": "Try again",
+    "signInto": "This will sign the CLI into <strong>{{name}}</strong>",
     "signedInAs": "Signed in as",
     "title": "Sign in the CLI",
     "unknownClient": "the pointer-feedback CLI"
@@ -459,6 +460,7 @@
     "menu": "Menu",
     "notifications": "Notifications",
     "signOut": "Sign out",
+    "switchWorkspace": "Switch workspace",
     "theme": "Theme",
     "themeDark": "Dark",
     "themeLight": "Light"
@@ -680,6 +682,7 @@
     "upgrade": "Upgrade"
   },
   "login": {
+    "chooseWorkspace": "Choose which workspace to open.",
     "createAccount": "Create an account",
     "demoEmailLabel": "Your email",
     "demoEmailSent": "Demo credentials sent to your email — check your inbox.",
@@ -688,6 +691,8 @@
     "email": "Email",
     "failed": "Login failed",
     "forgot": "Forgot password?",
+    "homeBadge": "Home",
+    "noWorkspace": "Your account is not a member of any workspace.",
     "notAdmin": "This account is not an admin.",
     "or": "or",
     "password": "Password",
@@ -695,8 +700,10 @@
     "signUpLink": "Request an account",
     "signupLink": "Request access",
     "signupPrompt": "Need an account?",
+    "switching": "Opening workspace…",
     "title": "Pointer Admin",
-    "tryDemo": "Try the demo"
+    "tryDemo": "Try the demo",
+    "unnamedWorkspace": "Unnamed workspace"
   },
   "nav": {
     "branding": "Branding",

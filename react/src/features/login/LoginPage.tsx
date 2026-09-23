@@ -5,8 +5,10 @@ import {
   usePostApiDemo,
   getApiAuthMe,
   type DemoSessionResponse,
+  type WorkspaceChoice,
 } from '@moamen-ui/pointer-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { FormField } from '@/components/shared/FormField';
@@ -15,9 +17,19 @@ import { useAuth } from '@/lib/auth';
 import { setAuthHeader } from '@/lib/api';
 import { removeItem, setItem, TOKEN_KEY, USER_KEY } from '@/lib/storage';
 import { extractMessage } from '@/lib/error';
+import { isPlaceholderWorkspaceName } from '@/lib/workspace';
 import { useToast } from '@/components/ui/toast';
 import { AuthLayout } from '@/components/AuthLayout';
 import { getSafeNextPath } from '@/lib/next-path';
+
+/** DB-11b: the login response's "choose several workspaces" state, held in local state
+ * between the password step and the pick. `selectionToken` is the 5-minute token the API
+ * issues for exactly this purpose — never stored, only ever handed back to
+ * `switchWorkspace` for the one follow-up call. */
+interface WorkspaceChoiceState {
+  workspaces: WorkspaceChoice[];
+  selectionToken: string;
+}
 
 const DEMO_SESSION_KEY = 'pointer_demo';
 
@@ -28,7 +40,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const locationState = location.state as { message?: string } | null;
-  const { login, isAuthenticated, isAdmin } = useAuth();
+  const { login, switchWorkspace, isAuthenticated, isAdmin } = useAuth();
   // `?next=` set by AuthenticatedRoute when it bounced a signed-out visitor here
   // (e.g. /cli-login?code=…) — only a same-origin relative path is honoured.
   const next = getSafeNextPath(searchParams.get('next'));
@@ -43,6 +55,13 @@ export function LoginPage() {
   const [demoEmail, setDemoEmail] = useState('');
   const [demoEmailError, setDemoEmailError] = useState<string | null>(null);
   const [demoError, setDemoError] = useState<string | null>(null);
+
+  // DB-11b: several active memberships → the password step resolves to a workspace
+  // choice instead of a session. `pickingId` tracks which row is mid-switch so only that
+  // row shows its own spinner while every row is disabled.
+  const [choice, setChoice] = useState<WorkspaceChoiceState | null>(null);
+  const [pickingId, setPickingId] = useState<string | null>(null);
+  const [pickError, setPickError] = useState<string | null>(null);
 
   const demoMut = usePostApiDemo();
 
@@ -60,6 +79,67 @@ export function LoginPage() {
     return <Navigate to={next ?? (isAdmin ? '/overview' : '/profile')} replace />;
   }
 
+  // DB-11b: password auth succeeded but the account has several active memberships —
+  // render the picker instead of the credentials form until one is chosen.
+  if (choice) {
+    return (
+      <AuthLayout>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-bold">{t('login.title')}</h1>
+            <p className="text-[13px] text-muted-foreground">{t('login.chooseWorkspace')}</p>
+          </div>
+
+          {pickError && <p className="text-[14px] text-state-danger">{pickError}</p>}
+
+          <p className="sr-only" aria-live="polite">
+            {pickingId ? t('login.switching') : ''}
+          </p>
+
+          <div
+            role="group"
+            aria-label={t('login.chooseWorkspace')}
+            aria-busy={pickingId !== null}
+            className="flex flex-col gap-2"
+          >
+            {choice.workspaces.map((w) => {
+              const name = isPlaceholderWorkspaceName(w.name)
+                ? t('login.unnamedWorkspace')
+                : w.name;
+              return (
+                <Button
+                  key={w.workspaceId}
+                  type="button"
+                  variant="outline"
+                  disabled={pickingId !== null}
+                  loading={pickingId === w.workspaceId}
+                  onClick={() => onPickWorkspace(w.workspaceId)}
+                  className="h-auto w-full justify-between gap-3 px-3 py-2 text-start font-normal"
+                >
+                  <span className="flex min-w-0 flex-col items-start gap-0.5">
+                    <span className="truncate text-[14px] font-medium text-foreground">
+                      {name}
+                    </span>
+                    {w.roleName && (
+                      <span className="truncate text-[12px] text-muted-foreground">
+                        {w.roleName}
+                      </span>
+                    )}
+                  </span>
+                  {w.isHome && (
+                    <Badge variant="neutral" hideGlyph className="shrink-0">
+                      {t('login.homeBadge')}
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitted(true);
@@ -67,14 +147,34 @@ export function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const user = await login(email, password);
+      const outcome = await login(email, password);
+      if (outcome.status === 'choose-workspace') {
+        // `no-workspace` never reaches here — it (like pending/rejected/disabled) is an
+        // envelope failure the API returns with isSuccess=false, so it lands in the catch
+        // below with the server's message, unchanged from before this feature.
+        setChoice({ workspaces: outcome.workspaces, selectionToken: outcome.selectionToken });
+        return;
+      }
       // `next` (e.g. back to /cli-login?code=…) wins over the role-based default
       // (admin → overview, non-admin → profile).
-      navigate(next ?? (user?.isAdmin ? '/overview' : '/profile'), { replace: true });
+      navigate(next ?? (outcome.user?.isAdmin ? '/overview' : '/profile'), { replace: true });
     } catch (err) {
       setError(extractMessage(err) || t('login.failed'));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onPickWorkspace(workspaceId: string | undefined) {
+    if (!workspaceId || !choice || pickingId) return;
+    setPickingId(workspaceId);
+    setPickError(null);
+    try {
+      const user = await switchWorkspace(workspaceId, choice.selectionToken);
+      navigate(next ?? (user?.isAdmin ? '/overview' : '/profile'), { replace: true });
+    } catch (err) {
+      setPickError(extractMessage(err) || t('login.failed'));
+      setPickingId(null);
     }
   }
 

@@ -129,6 +129,7 @@
     "expiresAt": "تنتهي الصلاحية {{time}}",
     "invalidBody": "انتهت صلاحية هذا الرمز أو أنه غير موجود. شغّل npx pointer-feedback login مرة أخرى.",
     "retry": "حاول مرة أخرى",
+    "signInto": "سيتم تسجيل دخول سطر الأوامر إلى <strong>{{name}}</strong>",
     "signedInAs": "تم تسجيل الدخول باسم",
     "title": "تسجيل دخول سطر الأوامر",
     "unknownClient": "أداة pointer-feedback لسطر الأوامر"
@@ -459,6 +460,7 @@
     "menu": "القائمة",
     "notifications": "الإشعارات",
     "signOut": "تسجيل الخروج",
+    "switchWorkspace": "تبديل مساحة العمل",
     "theme": "المظهر",
     "themeDark": "داكن",
     "themeLight": "فاتح"
@@ -680,6 +682,7 @@
     "upgrade": "ترقية"
   },
   "login": {
+    "chooseWorkspace": "اختر مساحة العمل التي تريد فتحها.",
     "createAccount": "إنشاء حساب",
     "demoEmailLabel": "بريدك الإلكتروني",
     "demoEmailSent": "تم إرسال بيانات الدخول التجريبية إلى بريدك — تحقق من صندوق الوارد.",
@@ -688,6 +691,8 @@
     "email": "البريد الإلكتروني",
     "failed": "فشل تسجيل الدخول",
     "forgot": "نسيت كلمة المرور؟",
+    "homeBadge": "الرئيسية",
+    "noWorkspace": "حسابك ليس عضوًا في أي مساحة عمل.",
     "notAdmin": "هذا الحساب ليس مسؤولاً.",
     "or": "أو",
     "password": "كلمة المرور",
@@ -695,8 +700,10 @@
     "signUpLink": "طلب حساب جديد",
     "signupLink": "طلب الوصول",
     "signupPrompt": "تحتاج إلى حساب؟",
+    "switching": "جارٍ فتح مساحة العمل…",
     "title": "Pointer لوحة الإدارة",
-    "tryDemo": "جرب العرض التوضيحي"
+    "tryDemo": "جرب العرض التوضيحي",
+    "unnamedWorkspace": "مساحة عمل بدون اسم"
   },
   "nav": {
     "branding": "الهوية البصرية",

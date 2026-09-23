@@ -23,12 +23,15 @@ import {
   Paintbrush,
   Rocket,
   ChevronDown,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -37,6 +40,8 @@ import { useGetApiAuthMe } from '@moamen-ui/pointer-react';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
+import { extractMessage } from '@/lib/error';
+import { isPlaceholderWorkspaceName } from '@/lib/workspace';
 import { DemoPanel } from '@/components/DemoPanel';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
@@ -79,7 +84,7 @@ function ShellLayout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAdmin, isSuperAdmin, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, switchWorkspace, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
   const { data: me } = useGetApiAuthMe({ query: { staleTime: 5 * 60_000 } });
@@ -87,6 +92,30 @@ function ShellLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const tenantName = me?.tenantName ?? user?.tenantName ?? null;
+
+  // DB-11b: several active memberships → a workspace switcher next to the tenant name.
+  // Hidden for super admins (`workspaces` is empty for them) and for single-membership
+  // users, for whom there is nothing to switch between.
+  const memberships = me?.workspaces ?? [];
+  const showWorkspaceSwitcher = memberships.length > 1;
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+
+  async function onSwitchWorkspace(workspaceId: string | undefined) {
+    if (!workspaceId || workspaceId === me?.workspaceId || switchingId) return;
+    setSwitchingId(workspaceId);
+    setSwitchError(null);
+    try {
+      // No selectionToken: this call rides the already-stored session token via the
+      // request interceptor, unlike the login picker's one-off override.
+      await switchWorkspace(workspaceId);
+      navigate('/', { replace: true });
+    } catch (err) {
+      setSwitchError(extractMessage(err) || t('login.failed'));
+    } finally {
+      setSwitchingId(null);
+    }
+  }
 
   // Belt-and-braces: the drawer already closes on an explicit nav-link click, but
   // this also covers programmatic navigation (redirects).
@@ -137,11 +166,72 @@ function ShellLayout() {
               </span>
             </>
           )}
-          {tenantName && (
+          {tenantName && !showWorkspaceSwitcher && (
             <span className="hidden min-w-0 truncate text-[14px] text-muted-foreground sm:inline" title={tenantName}>
               <span aria-hidden="true" className="me-2">·</span>
               {tenantName}
             </span>
+          )}
+
+          {tenantName && showWorkspaceSwitcher && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="hidden min-w-0 items-center gap-1 truncate text-[14px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex"
+                  aria-label={`${t('header.switchWorkspace')}: ${tenantName}`}
+                >
+                  <span aria-hidden="true" className="me-1">·</span>
+                  <span className="truncate" title={tenantName}>
+                    {tenantName}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[220px]">
+                <DropdownMenuLabel>{t('header.switchWorkspace')}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {switchError && (
+                  <p className="px-2 py-1 text-[12px] text-state-danger">{switchError}</p>
+                )}
+                {switchingId && (
+                  <p className="px-2 py-1 text-[12px] text-muted-foreground" aria-live="polite">
+                    {t('login.switching')}
+                  </p>
+                )}
+                {memberships.map((w) => {
+                  const name = isPlaceholderWorkspaceName(w.name)
+                    ? t('login.unnamedWorkspace')
+                    : w.name;
+                  const isCurrent = w.workspaceId === me?.workspaceId;
+                  return (
+                    <DropdownMenuItem
+                      key={w.workspaceId}
+                      disabled={switchingId !== null || isCurrent}
+                      onSelect={() => onSwitchWorkspace(w.workspaceId)}
+                      className="justify-between gap-2"
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate">{name}</span>
+                        {w.roleName && (
+                          <span className="truncate text-[12px] text-muted-foreground">
+                            {w.roleName}
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {w.isHome && (
+                          <Badge variant="neutral" hideGlyph>
+                            {t('login.homeBadge')}
+                          </Badge>
+                        )}
+                        {isCurrent && <Check className="h-4 w-4 text-brand" aria-hidden="true" />}
+                      </span>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
