@@ -10,11 +10,11 @@ import type { ColumnDef } from '@tanstack/react-table';
 import {
   useGetApiAdminTenants,
   usePostApiAdminTenants,
-  usePatchApiAdminTenantsId,
-  useDeleteApiAdminTenantsId,
+  usePatchApiAdminTenantsWorkspaceIdStatus,
+  useDeleteApiAdminTenantsWorkspaceId,
   usePostApiAdminTenantsIdExtend,
   usePatchApiAdminTenantsIdDemoConfig,
-  usePatchApiAdminTenantsIdPlan,
+  usePatchApiAdminTenantsWorkspaceIdPlan,
   useGetApiAdminPlans,
   useGetApiAdminTenantsInvites,
   usePostApiAdminTenantsInvites,
@@ -238,7 +238,7 @@ export function TenantsPage() {
   }
 
   // ---- Status mutations (approve / enable / disable) ----
-  const patchMut = usePatchApiAdminTenantsId({
+  const patchMut = usePatchApiAdminTenantsWorkspaceIdStatus({
     mutation: {
       onSuccess: () => {
         toast(t('tenants.updated'));
@@ -249,13 +249,13 @@ export function TenantsPage() {
   });
 
   function setStatus(tenant: AnyTenant, action: string) {
-    patchMut.mutate({ id: tenant.id!, data: { action } });
+    patchMut.mutate({ workspaceId: tenant.workspaceId!, data: { action } });
   }
 
   // ---- Delete with cascade warning ----
   const [deleteTarget, setDeleteTarget] = useState<AnyTenant | null>(null);
 
-  const deleteMut = useDeleteApiAdminTenantsId({
+  const deleteMut = useDeleteApiAdminTenantsWorkspaceId({
     mutation: {
       onSuccess: () => {
         setDeleteTarget(null);
@@ -270,8 +270,8 @@ export function TenantsPage() {
   });
 
   function confirmDelete() {
-    if (deleteTarget?.id == null) return;
-    deleteMut.mutate({ id: deleteTarget.id });
+    if (deleteTarget?.workspaceId == null) return;
+    deleteMut.mutate({ workspaceId: deleteTarget.workspaceId });
   }
 
   // ---- Extend demo ----
@@ -331,7 +331,7 @@ export function TenantsPage() {
     setSelectedPlanId('');
   }
 
-  const changePlanMut = usePatchApiAdminTenantsIdPlan({
+  const changePlanMut = usePatchApiAdminTenantsWorkspaceIdPlan({
     mutation: {
       onSuccess: () => {
         setChangePlanTarget(null);
@@ -346,9 +346,9 @@ export function TenantsPage() {
   });
 
   function saveChangePlan() {
-    if (changePlanTarget?.id == null || !selectedPlanId) return;
+    if (changePlanTarget?.workspaceId == null || !selectedPlanId) return;
     changePlanMut.mutate({
-      id: changePlanTarget.id,
+      workspaceId: changePlanTarget.workspaceId,
       data: { planId: Number(selectedPlanId) },
     });
   }
