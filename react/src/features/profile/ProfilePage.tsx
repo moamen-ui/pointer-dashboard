@@ -66,6 +66,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { extractMessage } from '@/lib/error';
 import { CountCell, DiffstatLine, statusTone, toneHeaderClass, toneTextClass } from '@/components/shared/CountCell';
 import { useMediaQuery, MOBILE_QUERY } from '@/lib/useMediaQuery';
+import { MfaCard } from './MfaCard';
 
 const ENV_LABEL: Record<number, string> = {
   1: 'Local',
@@ -133,7 +134,11 @@ export function ProfilePage() {
   // DB-11c danger zone (self-view only, never on an admin's view of someone else, and never for a
   // super admin — they aren't a member of a workspace to leave or a tenant identity to self-erase).
   const showDangerZone = !showAdmin && !isSuperAdmin;
-  const { data: me } = useGetApiAuthMe({ query: { enabled: showDangerZone, staleTime: 5 * 60_000 } });
+  // R5-61: the Two-factor card is the mirror-image case — self-view only, and ONLY for a super
+  // admin (§3.4: MFA is scoped to the one env-seeded super-admin account). `me.mfaEnabled` drives
+  // its Off/On state, so the query below is enabled for any self-view, not just the danger zone.
+  const showMfa = !showAdmin && isSuperAdmin;
+  const { data: me } = useGetApiAuthMe({ query: { enabled: !showAdmin, staleTime: 5 * 60_000 } });
   const [dangerError, setDangerError] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -466,6 +471,9 @@ export function ProfilePage() {
           <p className="mt-3 text-[13px] text-muted-foreground">{t('profile.apiKeyUnavailable')}</p>
         )}
       </section>
+
+      {/* R5-61: Two-factor authentication — self-view, super admin only. */}
+      {showMfa && <MfaCard mfaEnabled={!!me?.mfaEnabled} />}
 
       {/* Header with title and refresh */}
       <div className="flex items-center justify-between gap-3">

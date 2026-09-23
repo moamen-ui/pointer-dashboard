@@ -15,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   usePostApiAuthLogin,
   postApiAuthSwitchWorkspace,
+  postApiAuthMfaVerify,
   postApiAdminImpersonationEnd,
   type ImpersonationStartResponse,
   type LoginResponse,
@@ -37,7 +38,11 @@ import {
  * block shows the message. */
 export type LoginOutcome =
   | { status: 'ok'; user: MeResponse }
-  | { status: 'choose-workspace'; workspaces: WorkspaceChoice[]; selectionToken: string };
+  | { status: 'choose-workspace'; workspaces: WorkspaceChoice[]; selectionToken: string }
+  /** R5-61: the identity is a super admin with TOTP enabled — password verified, but no
+   * session yet. `pendingToken` is the 5-minute `scope: "mfa_pending"` token, fenced
+   * server-side to `POST /api/auth/mfa/verify` only; hand it to `completeMfaLogin`. */
+  | { status: 'mfa_required'; pendingToken: string };
 
 /** DB-13: everything the Shell's impersonation banner needs, plus the operator's own
  *  token so `endImpersonation` can restore it. Persisted (not just in-memory) so a page
@@ -74,6 +79,12 @@ interface AuthValue {
    * user, drops every cached query (a workspace switch is a tenant change), and resolves
    * to the new user. */
   switchWorkspace: (workspaceId: string, selectionToken?: string) => Promise<MeResponse>;
+  /** R5-61: completes a login that returned `mfa_required`. `pendingToken` is the scoped
+   * token from that outcome (never stored); `code` is a 6-digit TOTP code or one of the
+   * caller's recovery codes. Sends the token via `withAuthOverride` — same one-off-bearer
+   * shape as the workspace-selection token above — and, on success, stores the resulting
+   * full session exactly like a plain "ok" login. */
+  completeMfaLogin: (pendingToken: string, code: string) => Promise<MeResponse>;
   /** DB-13: called right after `POST .../impersonate` succeeds. Stashes the operator's
    *  current token under `IMPERSONATION_KEY` and swaps the active token for the
    *  impersonation token — every generated hook, the request interceptor, and the
@@ -146,6 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           selectionToken: res.token ?? '',
         };
       }
+      if (res.status === 'mfa_required') {
+        return { status: 'mfa_required', pendingToken: res.token ?? '' };
+      }
       const nextUser = applySession(res);
       return { status: 'ok', user: nextUser };
     },
@@ -156,6 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (workspaceId: string, selectionToken?: string): Promise<MeResponse> => {
       const call = () => postApiAuthSwitchWorkspace({ workspaceId });
       const res = selectionToken ? await withAuthOverride(selectionToken, call) : await call();
+      return applySession(res);
+    },
+    [applySession],
+  );
+
+  const completeMfaLogin = useCallback(
+    async (pendingToken: string, code: string): Promise<MeResponse> => {
+      const res = await withAuthOverride(pendingToken, () => postApiAuthMfaVerify({ code }));
       return applySession(res);
     },
     [applySession],
@@ -227,11 +249,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isImpersonating: impersonation !== null,
       login,
       switchWorkspace,
+      completeMfaLogin,
       beginImpersonation,
       endImpersonation,
       logout,
     }),
-    [user, token, impersonation, login, switchWorkspace, beginImpersonation, endImpersonation, logout],
+    [
+      user,
+      token,
+      impersonation,
+      login,
+      switchWorkspace,
+      completeMfaLogin,
+      beginImpersonation,
+      endImpersonation,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -40,7 +40,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const locationState = location.state as { message?: string } | null;
-  const { login, switchWorkspace, isAuthenticated, isAdmin } = useAuth();
+  const { login, switchWorkspace, completeMfaLogin, isAuthenticated, isAdmin } = useAuth();
   // `?next=` set by AuthenticatedRoute when it bounced a signed-out visitor here
   // (e.g. /cli-login?code=…) — only a same-origin relative path is honoured.
   const next = getSafeNextPath(searchParams.get('next'));
@@ -62,6 +62,15 @@ export function LoginPage() {
   const [choice, setChoice] = useState<WorkspaceChoiceState | null>(null);
   const [pickingId, setPickingId] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
+
+  // R5-61: password verified, but the identity is a super admin with TOTP enabled — one
+  // more step before a session exists. `mfaPendingToken` is the 5-minute scoped token from
+  // that outcome; never persisted, only ever handed to `completeMfaLogin`.
+  const [mfaPendingToken, setMfaPendingToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaSubmitting, setMfaSubmitting] = useState(false);
 
   const demoMut = usePostApiDemo();
 
@@ -140,6 +149,99 @@ export function LoginPage() {
     );
   }
 
+  // R5-61: password verified, awaiting the operator's TOTP or recovery code.
+  if (mfaPendingToken) {
+    return (
+      <AuthLayout>
+        <form onSubmit={onSubmitMfa} noValidate className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-xl font-bold">{t('login.title')}</h1>
+            <p className="text-[13px] text-muted-foreground">
+              {useRecoveryCode ? t('mfa.recoveryCodeHint') : t('mfa.enterCodeHint')}
+            </p>
+          </div>
+
+          {mfaError && <p className="text-[14px] text-state-danger">{mfaError}</p>}
+
+          <FormField
+            label={useRecoveryCode ? t('mfa.recoveryCodeLabel') : t('mfa.codeLabel')}
+            htmlFor="mfa-login-code"
+          >
+            <Input
+              id="mfa-login-code"
+              inputMode={useRecoveryCode ? 'text' : 'numeric'}
+              autoComplete="one-time-code"
+              maxLength={useRecoveryCode ? 32 : 6}
+              autoFocus
+              value={mfaCode}
+              onChange={(e) => setMfaCode(e.target.value)}
+            />
+          </FormField>
+
+          <Button
+            type="submit"
+            variant="default"
+            disabled={mfaSubmitting || !mfaCode.trim()}
+            loading={mfaSubmitting}
+            className="w-full"
+          >
+            {t('mfa.verify')}
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setUseRecoveryCode((v) => !v);
+              setMfaCode('');
+              setMfaError(null);
+            }}
+            className="text-center text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            {useRecoveryCode ? t('mfa.useCodeInstead') : t('mfa.useRecoveryCodeInstead')}
+          </button>
+
+          <button
+            type="button"
+            onClick={resetToPasswordStep}
+            className="text-center text-[13px] text-muted-foreground hover:text-foreground"
+          >
+            {t('mfa.backToPassword')}
+          </button>
+        </form>
+      </AuthLayout>
+    );
+  }
+
+  function resetToPasswordStep() {
+    setMfaPendingToken(null);
+    setMfaCode('');
+    setMfaError(null);
+    setUseRecoveryCode(false);
+  }
+
+  async function onSubmitMfa(e: FormEvent) {
+    e.preventDefault();
+    if (!mfaCode.trim() || !mfaPendingToken) return;
+    setMfaSubmitting(true);
+    setMfaError(null);
+    try {
+      const user = await completeMfaLogin(mfaPendingToken, mfaCode.trim());
+      navigate(next ?? (user?.isAdmin ? '/overview' : '/profile'), { replace: true });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        // The 5-minute pending token expired (or was otherwise rejected) — there is no
+        // session to retry into, only back to the password step.
+        resetToPasswordStep();
+        setError(t('mfa.pendingExpired'));
+      } else {
+        setMfaError(extractMessage(err) || t('mfa.invalidCode'));
+      }
+    } finally {
+      setMfaSubmitting(false);
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitted(true);
@@ -153,6 +255,10 @@ export function LoginPage() {
         // envelope failure the API returns with isSuccess=false, so it lands in the catch
         // below with the server's message, unchanged from before this feature.
         setChoice({ workspaces: outcome.workspaces, selectionToken: outcome.selectionToken });
+        return;
+      }
+      if (outcome.status === 'mfa_required') {
+        setMfaPendingToken(outcome.pendingToken);
         return;
       }
       // `next` (e.g. back to /cli-login?code=…) wins over the role-based default
