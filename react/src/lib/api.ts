@@ -7,8 +7,57 @@
 //   request  → Authorization: Bearer <token> from localStorage
 //   response → on 401, clear session and redirect to /login
 //              on isLimitReached=true (HTTP 400) fire the upgrade-prompt event
+//              on 401 while impersonating (DB-13), fire the impersonation-ended event instead
 import { AXIOS_INSTANCE } from '@moamen-ui/pointer-react';
-import { getItem, removeItem, TOKEN_KEY, USER_KEY } from './storage';
+import { getItem, removeItem, IMPERSONATION_KEY, LANG_KEY, TOKEN_KEY, USER_KEY } from './storage';
+
+// ---------------------------------------------------------------------------
+// DB-13 impersonation-ended event
+// ---------------------------------------------------------------------------
+// `ImpersonationScopeFence`/the liveness check fail a request by calling `ctx.Fail(...)`
+// inside `OnTokenValidated`, which surfaces as a plain 401 (the reason lives in the
+// `WWW-Authenticate` challenge header, not a JSON body `extractMessage` can read) — so
+// the generic 401 handler below must not run its usual "clear session, go to /login"
+// path while an impersonation record is on file: the operator still has a perfectly
+// good session to go back to. `reason: 'readonly'` is the scope fence rejecting a
+// write (the session is still live); everything else (ended manually, swept as
+// expired, or any other validation failure) is treated as `'ended'`. The Shell owns
+// restoring the operator's token and toasting — this module only reports the fact,
+// the same shape as `LIMIT_REACHED_EVENT` below.
+export type ImpersonationEndedReason = 'readonly' | 'ended';
+export const IMPERSONATION_ENDED_EVENT = 'pointer:impersonationEnded';
+
+export function dispatchImpersonationEnded(reason: ImpersonationEndedReason): void {
+  window.dispatchEvent(new CustomEvent<ImpersonationEndedReason>(IMPERSONATION_ENDED_EVENT, { detail: reason }));
+}
+
+// ---------------------------------------------------------------------------
+// DB-13 client-side write pre-flight (belt-and-braces on top of the server fence)
+// ---------------------------------------------------------------------------
+// `ImpersonationScopeFence.Allows` (API/Extensions/ImpersonationScopeFence.cs) is the real
+// authority — GET/HEAD/OPTIONS, plus POST .../admin/impersonation/end, exactly. Mirrored here so a
+// mutating request never even leaves the browser while impersonating: every "create/edit/delete"
+// button in the app is routed through a generated mutation hook (never raw axios), so gating it
+// once at the transport layer covers all of them without threading `isImpersonating` through every
+// page's action list — DataTable/RowActionsMenu deliberately stay ignorant of auth (their own
+// documented contract). The dialog's own onError(extractMessage(e)) renders this exactly like any
+// other rejected mutation, so no page needs a special case.
+const IMPERSONATION_END_PATH = '/admin/impersonation/end';
+const READ_ONLY_MESSAGE: Record<'en' | 'ar', string> = {
+  en: 'This is a read-only operator view — the action was not sent.',
+  ar: 'هذه معاينة للمشغّل للقراءة فقط — لم يتم إرسال الإجراء.',
+};
+
+function isBlockedWhileImpersonating(method: string | undefined, url: string | undefined): boolean {
+  const m = (method ?? 'get').toLowerCase();
+  if (m === 'get' || m === 'head' || m === 'options') return false;
+  return !String(url ?? '').includes(IMPERSONATION_END_PATH);
+}
+
+function readOnlyBlockedError(): Error {
+  const lang = getItem(LANG_KEY) === 'ar' ? 'ar' : 'en';
+  return new Error(READ_ONLY_MESSAGE[lang]);
+}
 
 // ---------------------------------------------------------------------------
 // IsLimitReached upgrade-prompt event
@@ -91,6 +140,16 @@ export function configureApi(): void {
     }
     // Add client identifier header for all API requests
     config.headers['X-Pointer-Client'] = 'dashboard';
+
+    if (
+      token &&
+      sameApi &&
+      getItem(IMPERSONATION_KEY) &&
+      isBlockedWhileImpersonating(config.method, config.url)
+    ) {
+      return Promise.reject(readOnlyBlockedError());
+    }
+
     return config;
   });
 
@@ -98,10 +157,23 @@ export function configureApi(): void {
     (response) => response,
     (error) => {
       if (error?.response?.status === 401) {
-        removeItem(TOKEN_KEY);
-        removeItem(USER_KEY);
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.assign('/login');
+        // The end-session call itself failing (already ended/expired) is exactly what
+        // `endImpersonation`'s own try/catch expects and silently absorbs — never turn
+        // that into a second dispatch, or a 401 on .../end would re-trigger the very
+        // handler that is already restoring the operator's token.
+        const isEndCall = String(error?.config?.url ?? '').includes('/admin/impersonation/end');
+        if (getItem(IMPERSONATION_KEY) && !isEndCall) {
+          // Impersonating: never nuke the session or bounce to /login — the operator's
+          // own token is sitting right there in IMPERSONATION_KEY. Just report which
+          // kind of 401 this was; the Shell (which holds the auth context) restores it.
+          const challenge = String(error?.response?.headers?.['www-authenticate'] ?? '');
+          dispatchImpersonationEnded(/read-only/i.test(challenge) ? 'readonly' : 'ended');
+        } else if (!getItem(IMPERSONATION_KEY)) {
+          removeItem(TOKEN_KEY);
+          removeItem(USER_KEY);
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.assign('/login');
+          }
         }
       }
 

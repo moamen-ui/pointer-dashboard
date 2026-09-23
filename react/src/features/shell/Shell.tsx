@@ -44,8 +44,11 @@ import { useBranding } from '@/lib/branding';
 import { extractMessage } from '@/lib/error';
 import { isPlaceholderWorkspaceName } from '@/lib/workspace';
 import { DemoPanel } from '@/components/DemoPanel';
+import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
+import { useToast } from '@/components/ui/toast';
+import { IMPERSONATION_ENDED_EVENT, type ImpersonationEndedReason } from '@/lib/api';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -86,12 +89,33 @@ function ShellLayout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAdmin, isSuperAdmin, switchWorkspace, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isImpersonating, endImpersonation, switchWorkspace, logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage } = usePreferences();
   const { branding } = useBranding();
   const { data: me } = useGetApiAuthMe({ query: { staleTime: 5 * 60_000 } });
   const installGuide = useInstallGuide();
+  const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // DB-13 §11.2/§11.3: a 401 that reaches here while impersonating is either the scope fence
+  // refusing a write (session still live — toast only) or the session having actually ended/
+  // expired (restore the operator's token and send them back to Tenants). Dispatched from the
+  // axios response interceptor (lib/api.ts), which cannot itself hold auth state or navigate.
+  useEffect(() => {
+    function onImpersonationEnded(e: Event) {
+      const reason = (e as CustomEvent<ImpersonationEndedReason>).detail;
+      if (reason === 'readonly') {
+        toast(t('impersonation.readOnlyToast'), 'warning');
+        return;
+      }
+      void endImpersonation().finally(() => {
+        toast(t('impersonation.endedToast'), 'warning');
+        navigate('/tenants', { replace: true });
+      });
+    }
+    window.addEventListener(IMPERSONATION_ENDED_EVENT, onImpersonationEnded);
+    return () => window.removeEventListener(IMPERSONATION_ENDED_EVENT, onImpersonationEnded);
+  }, [endImpersonation, navigate, t, toast]);
 
   const tenantName = me?.tenantName ?? user?.tenantName ?? null;
 
@@ -134,6 +158,11 @@ function ShellLayout() {
 
   return (
     <div className="flex h-screen flex-col">
+      {/* Impersonation banner (DB-13) — above the demo panel; the two are mutually exclusive in
+          practice (a super admin's own account never runs a demo session) but nothing enforces
+          that, so stacking order is just "most-privileged-state-first". */}
+      <ImpersonationBanner />
+
       {/* Demo panel */}
       <DemoPanel />
 
@@ -388,8 +417,11 @@ function ShellLayout() {
               ))}
             </div>
 
-            {/* Super-admin nav - with separator */}
-            {isSuperAdmin && (
+            {/* Super-admin nav - with separator. Hidden while impersonating: the active token is
+                scoped to the target workspace, not the platform, so every one of these routes
+                would 403 — `isSuperAdmin` here still reflects the operator's own real profile
+                (deliberately left untouched by beginImpersonation), so it alone can't gate this. */}
+            {isSuperAdmin && !isImpersonating && (
               <div className="my-2 border-t border-border-muted pt-2 space-y-0">
                 {SUPER_ADMIN_NAV.map(({ to, key, icon: Icon }) => (
                   <NavLink

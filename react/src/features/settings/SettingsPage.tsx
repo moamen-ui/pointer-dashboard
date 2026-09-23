@@ -34,6 +34,7 @@ import { CheckCircle2, XCircle, EllipsisVertical, MessageSquareText } from 'luci
 import { useAuth } from '@/lib/auth';
 import { CommentFieldsCard } from './CommentFieldsCard';
 import { WorkspaceNameCard } from './WorkspaceNameCard';
+import { OperatorAccessCard, ImpersonationSessionsCard } from './ImpersonationCards';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -989,6 +990,14 @@ export function SettingsPage() {
 
       {/* ── Section 7: AI Roles & Rules (workspace admins/deputies, not super admin) ── */}
       {!isSuperAdmin && <AiRulesCard />}
+
+      {/* ── Section 8: Operator access (DB-13, workspace admins — their own workspace's
+          impersonation sessions, read-only, no operator identity per D13.6) ── */}
+      {isAdmin && !isSuperAdmin && <OperatorAccessCard />}
+
+      {/* ── Section 8b: Impersonation sessions (DB-13, super admin — every workspace, End on
+          the live one) ── */}
+      {isSuperAdmin && <ImpersonationSessionsCard />}
     </div>
   );
 }

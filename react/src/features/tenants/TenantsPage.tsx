@@ -5,6 +5,7 @@
 // R1.8: Invite workspace (email, display name, plan, expiry days) with pending invites section.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -15,6 +16,7 @@ import {
   usePostApiAdminTenantsIdExtend,
   usePatchApiAdminTenantsIdDemoConfig,
   usePatchApiAdminTenantsWorkspaceIdPlan,
+  usePostApiAdminTenantsWorkspaceIdImpersonate,
   useGetApiAdminPlans,
   useGetApiAdminTenantsInvites,
   usePostApiAdminTenantsInvites,
@@ -27,13 +29,14 @@ import {
   type PlanAdminResponse,
   type TenantInviteResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import { FormField } from '@/components/shared/FormField';
+import { Textarea } from '@/components/ui/textarea';
 import type { RowActionItem } from '@/components/shared/types';
 import {
   Dialog,
@@ -52,8 +55,14 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/lib/auth';
 import { extractMessage } from '@/lib/error';
-import { emailError, requiredError } from '@/lib/validators';
+import { emailError, requiredError, lengthRangeError } from '@/lib/validators';
+
+const IMPERSONATE_REASON_MIN = 10;
+const IMPERSONATE_REASON_MAX = 500;
+const IMPERSONATE_MINUTES_OPTIONS = [15, 30, 60] as const;
+const IMPERSONATE_MINUTES_DEFAULT = 30;
 
 // The new TenantResponse fields are not in ^1.0.7 yet — cast via this helper type.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,6 +82,8 @@ export function TenantsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { beginImpersonation } = useAuth();
 
   const { data, isLoading, isError } = useGetApiAdminTenants();
   const tenants: AnyTenant[] = (data as unknown as { data?: AnyTenant[] })?.data
@@ -306,6 +317,42 @@ export function TenantsPage() {
     eraseMut.mutate({ publicId: eraseTarget.publicId });
   }
 
+  // ---- View as workspace… (DB-13 impersonation) ----
+  const [viewAsTarget, setViewAsTarget] = useState<AnyTenant | null>(null);
+  const [viewAsReason, setViewAsReason] = useState('');
+  const [viewAsReasonTouched, setViewAsReasonTouched] = useState(false);
+  const [viewAsMinutes, setViewAsMinutes] = useState<number>(IMPERSONATE_MINUTES_DEFAULT);
+  const [viewAsError, setViewAsError] = useState<string | null>(null);
+  const viewAsReasonErrorMsg = lengthRangeError(viewAsReason, IMPERSONATE_REASON_MIN, IMPERSONATE_REASON_MAX, t);
+
+  function openViewAs(tenant: AnyTenant) {
+    setViewAsReason('');
+    setViewAsReasonTouched(false);
+    setViewAsMinutes(IMPERSONATE_MINUTES_DEFAULT);
+    setViewAsError(null);
+    setViewAsTarget(tenant);
+  }
+
+  const impersonateMut = usePostApiAdminTenantsWorkspaceIdImpersonate({
+    mutation: {
+      onSuccess: (res) => {
+        setViewAsTarget(null);
+        beginImpersonation(res, viewAsReason.trim());
+        navigate('/', { replace: true });
+      },
+      onError: (e: unknown) => setViewAsError(extractMessage(e)),
+    },
+  });
+
+  function confirmViewAs() {
+    if (!viewAsTarget?.workspaceId || viewAsReasonErrorMsg) return;
+    setViewAsError(null);
+    impersonateMut.mutate({
+      workspaceId: viewAsTarget.workspaceId,
+      data: { reason: viewAsReason.trim(), minutes: viewAsMinutes },
+    });
+  }
+
   // ---- Extend demo ----
   const extendMut = usePostApiAdminTenantsIdExtend({
     mutation: {
@@ -494,6 +541,7 @@ export function TenantsPage() {
       items.push({ label: t('tenants.editDemoConfig'), icon: Settings2, onClick: () => openDemoConfig(tenant) });
     }
     items.push({ label: t('tenants.changePlan'), icon: CreditCard, onClick: () => openChangePlan(tenant) });
+    items.push({ label: t('tenants.viewAs'), icon: Eye, onClick: () => openViewAs(tenant) });
     const hasAdmin = !!tenant.publicId && tenant.publicId !== EMPTY_GUID;
     items.push({
       label: t('tenants.eraseIdentity'),
@@ -858,6 +906,69 @@ export function TenantsPage() {
               onClick={saveDemoConfig}
             >
               {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View as workspace… (DB-13) — one-task dialog: reason (10–500 chars, e-mailed to the
+          workspace's admins) + duration, then an audited, time-boxed read-only session. */}
+      <Dialog open={!!viewAsTarget} onOpenChange={(open) => { if (!open) setViewAsTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('tenants.viewAsTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('tenants.viewAsHint', {
+                workspace: viewAsTarget?.workspaceName ?? viewAsTarget?.email ?? '',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {viewAsError && (
+              <p role="alert" className="text-[13px] text-state-danger">
+                {viewAsError}
+              </p>
+            )}
+            <FormField
+              label={t('tenants.viewAsReason')}
+              htmlFor="view-as-reason"
+              hint={t('tenants.viewAsReasonHint')}
+              error={viewAsReasonTouched ? viewAsReasonErrorMsg || undefined : undefined}
+            >
+              <Textarea
+                id="view-as-reason"
+                value={viewAsReason}
+                maxLength={IMPERSONATE_REASON_MAX}
+                onChange={(e) => setViewAsReason(e.target.value)}
+                onBlur={() => setViewAsReasonTouched(true)}
+                autoFocus
+              />
+            </FormField>
+            <FormField label={t('tenants.viewAsDuration')} htmlFor="view-as-minutes">
+              <Select value={String(viewAsMinutes)} onValueChange={(v) => setViewAsMinutes(Number(v))}>
+                <SelectTrigger id="view-as-minutes">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMPERSONATE_MINUTES_OPTIONS.map((m) => (
+                    <SelectItem key={m} value={String(m)}>
+                      {t('tenants.viewAsMinutes', { count: m })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setViewAsTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={!!viewAsReasonErrorMsg || impersonateMut.isPending}
+              onClick={confirmViewAs}
+            >
+              <Eye className="h-4 w-4" />
+              {t('tenants.viewAsConfirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

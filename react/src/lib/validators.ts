@@ -22,6 +22,17 @@ export function passwordError(value: string, minLength: number, t: TFunction): s
   return '';
 }
 
+/** Trimmed length within [min, max], inclusive — DB-13's impersonation reason (10–500 chars,
+ *  `StartImpersonationValidator`) is the first caller; kept generic since any free-text field
+ *  with a server-enforced range needs the same shape. */
+export function lengthRangeError(value: string, min: number, max: number, t: TFunction): string {
+  const len = value.trim().length;
+  if (len === 0) return t('common.fieldRequired');
+  if (len < min) return t('common.minLength', { min });
+  if (len > max) return t('common.maxLength', { max });
+  return '';
+}
+
 /**
  * Case-insensitive, trimmed duplicate check against a list of existing names — client-side
  * uniqueness prevention only (comment #191); the API/DB is the real source of truth for

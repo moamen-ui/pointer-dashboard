@@ -17,6 +17,7 @@ import {
   usePostApiMeLeaveWorkspace,
   useDeleteApiMe,
   usePostApiMeRequestErase,
+  usePostApiMeChangeEmail,
   type ProfileProject,
   type ProfileEnvironment,
 } from '@moamen-ui/pointer-react';
@@ -30,8 +31,10 @@ import {
   LogOut,
   Trash2,
   Mail,
+  MailPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { FormField } from '@/components/shared/FormField';
 import {
@@ -185,6 +188,46 @@ export function ProfilePage() {
       onError: (e: unknown) => setDangerError(extractMessage(e)),
     },
   });
+
+  // DB-11d change e-mail — same gate as the danger zone (self-view, not a super admin), plus
+  // passwordless (quick-access) identities: the server refuses both anyway (§3.1), this just
+  // saves the round-trip and the confusing error. `me` is already fetched under `showDangerZone`.
+  const showChangeEmail = showDangerZone && !me?.isQuickAccess;
+  const [changeEmailOpen, setChangeEmailOpen] = useState(false);
+  const [changeEmailPassword, setChangeEmailPassword] = useState('');
+  const [changeEmailNewAddress, setChangeEmailNewAddress] = useState('');
+  const [changeEmailError, setChangeEmailError] = useState<string | null>(null);
+  const [changeEmailSentTo, setChangeEmailSentTo] = useState<string | null>(null);
+
+  const changeEmailMut = usePostApiMeChangeEmail({
+    mutation: {
+      // The generated client unwraps the success envelope down to `data.data`, which is
+      // undefined for a bare `Result` (no inner payload) — same shape DeleteAccountPage
+      // documents — so on success we show our own copy (mirrors the server's fixed
+      // `User.EmailChangeLinkSent` message) rather than a value we no longer have access to.
+      onSuccess: () => {
+        setChangeEmailSentTo(changeEmailNewAddress.trim());
+        setChangeEmailError(null);
+        toast(t('profile.changeEmailSent'), 'success');
+      },
+      onError: (e: unknown) => setChangeEmailError(extractMessage(e)),
+    },
+  });
+
+  function openChangeEmail() {
+    setChangeEmailPassword('');
+    setChangeEmailNewAddress('');
+    setChangeEmailError(null);
+    setChangeEmailSentTo(null);
+    setChangeEmailOpen(true);
+  }
+
+  function submitChangeEmail() {
+    if (!changeEmailPassword || !changeEmailNewAddress.trim()) return;
+    changeEmailMut.mutate({
+      data: { currentPassword: changeEmailPassword, newEmail: changeEmailNewAddress.trim() },
+    });
+  }
 
   function confirmLeaveWorkspace() {
     setDangerError(null);
@@ -364,9 +407,20 @@ export function ProfilePage() {
             {profileUser?.displayName ?? t('profile.title')}
           </h1>
           {profileUser?.email && (
-            <p className="mt-0.5 text-[14px] text-muted-foreground">
-              {profileUser.email}
-              {profileUser.roleName ? ` · ${profileUser.roleName}` : ''}
+            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[14px] text-muted-foreground">
+              <span>
+                {profileUser.email}
+                {profileUser.roleName ? ` · ${profileUser.roleName}` : ''}
+              </span>
+              {showChangeEmail && (
+                <button
+                  type="button"
+                  onClick={openChangeEmail}
+                  className="text-[13px] text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  {t('profile.changeEmail')}
+                </button>
+              )}
             </p>
           )}
         </div>
@@ -688,6 +742,64 @@ export function ProfilePage() {
             >
               {t('profile.deleteAccount')}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change e-mail (DB-11d) — password-confirmed, verification link goes to the new address;
+          nothing changes here until that link is confirmed (/confirm-email). */}
+      <Dialog open={changeEmailOpen} onOpenChange={(o) => !o && setChangeEmailOpen(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('profile.changeEmail')}</DialogTitle>
+            {!changeEmailSentTo && (
+              <DialogDescription>{t('profile.changeEmailHint')}</DialogDescription>
+            )}
+          </DialogHeader>
+          {changeEmailSentTo ? (
+            <div className="flex flex-col gap-3 pt-1">
+              <p className="text-[14px] text-state-completed">
+                {t('profile.changeEmailSentDetail', { email: changeEmailSentTo })}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 pt-1">
+              {changeEmailError && (
+                <p role="alert" className="text-[13px] text-state-danger">
+                  {changeEmailError}
+                </p>
+              )}
+              <FormField label={t('profile.changeEmailCurrentPassword')} htmlFor="change-email-password">
+                <PasswordInput
+                  id="change-email-password"
+                  value={changeEmailPassword}
+                  onChange={(e) => setChangeEmailPassword(e.target.value)}
+                  autoFocus
+                />
+              </FormField>
+              <FormField label={t('profile.changeEmailNewAddress')} htmlFor="change-email-new-address">
+                <Input
+                  id="change-email-new-address"
+                  type="email"
+                  value={changeEmailNewAddress}
+                  onChange={(e) => setChangeEmailNewAddress(e.target.value)}
+                />
+              </FormField>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setChangeEmailOpen(false)}>
+              {t(changeEmailSentTo ? 'common.close' : 'common.cancel')}
+            </Button>
+            {!changeEmailSentTo && (
+              <Button
+                disabled={!changeEmailPassword || !changeEmailNewAddress.trim() || changeEmailMut.isPending}
+                onClick={submitChangeEmail}
+              >
+                <MailPlus className="h-4 w-4" />
+                {t('profile.changeEmailSubmit')}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

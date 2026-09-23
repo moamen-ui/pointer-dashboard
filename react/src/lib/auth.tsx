@@ -15,6 +15,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   usePostApiAuthLogin,
   postApiAuthSwitchWorkspace,
+  postApiAdminImpersonationEnd,
+  type ImpersonationStartResponse,
   type LoginResponse,
   type MeResponse,
   type WorkspaceChoice,
@@ -24,6 +26,7 @@ import {
   getItem,
   removeItem,
   setItem,
+  IMPERSONATION_KEY,
   TOKEN_KEY,
   USER_KEY,
 } from './storage';
@@ -36,12 +39,31 @@ export type LoginOutcome =
   | { status: 'ok'; user: MeResponse }
   | { status: 'choose-workspace'; workspaces: WorkspaceChoice[]; selectionToken: string };
 
+/** DB-13: everything the Shell's impersonation banner needs, plus the operator's own
+ *  token so `endImpersonation` can restore it. Persisted (not just in-memory) so a page
+ *  reload mid-session still shows the banner and can still end it. */
+export interface ImpersonationRecord {
+  operatorToken: string;
+  workspaceId: string;
+  workspaceName: string | null;
+  expiresAt: string;
+  sessionId: number;
+  /** The reason the operator typed into the "View as…" dialog. Not echoed by
+   *  `ImpersonationStartResponse` (only the audited session row keeps it server-side), so the
+   *  caller passes it into `beginImpersonation` straight from the form it just submitted — purely
+   *  a banner-display convenience, never re-validated from here. */
+  reason: string;
+}
+
 interface AuthValue {
   user: MeResponse | null;
   token: string | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  /** DB-13: non-null exactly while `token` is an impersonation token (view-as session). */
+  impersonation: ImpersonationRecord | null;
+  isImpersonating: boolean;
   /** Resolves once password auth succeeds, either straight to `ok` or to a workspace
    * choice the caller must resolve via `switchWorkspace`. Throws on pending/rejected/
    * disabled/no-workspace (unchanged). */
@@ -52,6 +74,17 @@ interface AuthValue {
    * user, drops every cached query (a workspace switch is a tenant change), and resolves
    * to the new user. */
   switchWorkspace: (workspaceId: string, selectionToken?: string) => Promise<MeResponse>;
+  /** DB-13: called right after `POST .../impersonate` succeeds. Stashes the operator's
+   *  current token under `IMPERSONATION_KEY` and swaps the active token for the
+   *  impersonation token — every generated hook, the request interceptor, and the
+   *  Shell's own `useAuth().user` (left untouched — it is still the operator's profile)
+   *  keep working unchanged. Never overwrites `USER_KEY`. `reason` is the text the caller's
+   *  own "View as…" dialog just submitted — display only (§ImpersonationRecord). */
+  beginImpersonation: (res: ImpersonationStartResponse, reason: string) => void;
+  /** DB-13: ends the session server-side (best-effort — an already-ended/expired session
+   *  404s and is treated the same) and restores the operator's own token. Safe to call
+   *  whenever `isImpersonating` is true, including from the fence's own 401. */
+  endImpersonation: () => Promise<void>;
   logout: () => void;
 }
 
@@ -65,9 +98,20 @@ function readUser(): MeResponse | null {
   }
 }
 
+function readImpersonation(): ImpersonationRecord | null {
+  try {
+    return JSON.parse(getItem(IMPERSONATION_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(() => readUser());
   const [token, setToken] = useState<string | null>(() => getItem(TOKEN_KEY));
+  const [impersonation, setImpersonation] = useState<ImpersonationRecord | null>(() =>
+    readImpersonation(),
+  );
 
   const queryClient = useQueryClient();
   const { mutateAsync: loginAsync } = usePostApiAuthLogin();
@@ -120,13 +164,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     removeItem(TOKEN_KEY);
     removeItem(USER_KEY);
+    removeItem(IMPERSONATION_KEY);
     setAuthHeader(null);
     setToken(null);
     setUser(null);
+    setImpersonation(null);
     // Drop every cached query so the next user on this tab can't see the previous
     // user's data (SPA logout/login does not reload the page).
     queryClient.clear();
   }, [queryClient]);
+
+  const beginImpersonation = useCallback(
+    (res: ImpersonationStartResponse, reason: string) => {
+      const operatorToken = token ?? getItem(TOKEN_KEY) ?? '';
+      const record: ImpersonationRecord = {
+        operatorToken,
+        workspaceId: res.workspaceId ?? '',
+        workspaceName: res.workspaceName ?? null,
+        expiresAt: res.expiresAt ?? '',
+        sessionId: res.sessionId ?? 0,
+        reason,
+      };
+      setItem(IMPERSONATION_KEY, JSON.stringify(record));
+      const impToken = res.token ?? '';
+      setItem(TOKEN_KEY, impToken);
+      setAuthHeader(impToken);
+      setToken(impToken);
+      setImpersonation(record);
+      // A view-as session is a tenant change like a workspace switch — every cached
+      // query belongs to whatever the operator was looking at before.
+      queryClient.clear();
+    },
+    [token, queryClient],
+  );
+
+  const endImpersonation = useCallback(async () => {
+    const record = impersonation ?? readImpersonation();
+    if (!record) return;
+    try {
+      await postApiAdminImpersonationEnd({ sessionId: record.sessionId });
+    } catch {
+      // Best-effort: already ended (manually, by the sweep, or by a fence 401 that
+      // got here first) is exactly as fine as ending it now — the restore below is
+      // what actually matters to the operator.
+    }
+    setItem(TOKEN_KEY, record.operatorToken);
+    setAuthHeader(record.operatorToken);
+    setToken(record.operatorToken);
+    removeItem(IMPERSONATION_KEY);
+    setImpersonation(null);
+    queryClient.clear();
+  }, [impersonation, queryClient]);
 
   const value = useMemo<AuthValue>(
     () => ({
@@ -135,11 +223,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user && !!token,
       isAdmin: !!user?.isAdmin,
       isSuperAdmin: !!user?.isSuperAdmin,
+      impersonation,
+      isImpersonating: impersonation !== null,
       login,
       switchWorkspace,
+      beginImpersonation,
+      endImpersonation,
       logout,
     }),
-    [user, token, login, switchWorkspace, logout],
+    [user, token, impersonation, login, switchWorkspace, beginImpersonation, endImpersonation, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

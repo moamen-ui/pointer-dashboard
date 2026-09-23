@@ -23,6 +23,7 @@ import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { DeleteAccountPage } from '@/features/auth/DeleteAccountPage';
+import { ConfirmEmailPage } from '@/features/auth/ConfirmEmailPage';
 import { JoinPage } from '@/features/auth/JoinPage';
 import { CliLoginPage } from '@/features/cli-login/CliLoginPage';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
@@ -45,6 +46,9 @@ export default function App() {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot" element={<ForgotPasswordPage />} />
               <Route path="/reset" element={<ResetPasswordPage />} />
+              {/* DB-11d: anonymous confirm-e-mail-change landing page for the e-mailed link
+                  POST /api/me/change-email sends to the new address. */}
+              <Route path="/confirm-email" element={<ConfirmEmailPage />} />
               {/* DB-11c: anonymous erase-confirmation landing page for a passwordless
                   (quick-access) identity's e-mailed link — POST /api/me/request-erase mints it. */}
               <Route path="/delete-account" element={<DeleteAccountPage />} />
