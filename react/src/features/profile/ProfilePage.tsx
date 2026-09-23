@@ -18,6 +18,8 @@ import {
   useDeleteApiMe,
   usePostApiMeRequestErase,
   usePostApiMeChangeEmail,
+  usePostApiMeChangePassword,
+  usePostApiMeVerificationResend,
   type ProfileProject,
   type ProfileEnvironment,
 } from '@moamen-ui/pointer-react';
@@ -32,11 +34,14 @@ import {
   Trash2,
   Mail,
   MailPlus,
+  KeyRound,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { FormField } from '@/components/shared/FormField';
+import { passwordError } from '@/lib/validators';
 import {
   Dialog,
   DialogContent,
@@ -228,6 +233,68 @@ export function ProfilePage() {
       data: { currentPassword: changeEmailPassword, newEmail: changeEmailNewAddress.trim() },
     });
   }
+
+  // DB-14 — change password. Same gate/shape as change e-mail (self-view, not a super admin,
+  // not a passwordless identity — there is no password to change). `AuthService.
+  // ChangePasswordAsync` bumps the security stamp on success, invalidating every existing
+  // session for this identity including this one (H1), so the only sane next step is sign out
+  // and send the person back to /login, same as a completed password reset.
+  const showChangePassword = showDangerZone && !me?.isQuickAccess;
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
+
+  const newPasswordErrorMsg = passwordError(newPassword, 10, t);
+  const newPasswordMismatch = !!newPassword && !!confirmNewPassword && newPassword !== confirmNewPassword;
+  const changePasswordInvalid =
+    !currentPassword || !!newPasswordErrorMsg || !confirmNewPassword || newPasswordMismatch;
+
+  const changePasswordMut = usePostApiMeChangePassword({
+    mutation: {
+      onSuccess: () => {
+        setChangePasswordOpen(false);
+        logout();
+        navigate('/login', {
+          replace: true,
+          state: { message: t('changePassword.success') },
+        });
+      },
+      onError: (e: unknown) => setChangePasswordError(extractMessage(e)),
+    },
+  });
+
+  function openChangePassword() {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setChangePasswordError(null);
+    setChangePasswordOpen(true);
+  }
+
+  function submitChangePassword() {
+    if (changePasswordInvalid) return;
+    changePasswordMut.mutate({
+      data: { currentPassword, newPassword },
+    });
+  }
+
+  // DB-14 §11.1 soft hint — stakeholders (non-admin, unverified) are never shown the loud Shell
+  // banner (`emailVerificationRequired` is false for them, §3.5), but still get a quiet, once-
+  // per-session-dismissible nudge here on their own profile.
+  const showSoftVerifyHint =
+    showDangerZone && me?.emailVerified === false && !me?.emailVerificationRequired;
+  const [softHintDismissed, setSoftHintDismissed] = useState(false);
+  const softResendMut = usePostApiMeVerificationResend({
+    mutation: {
+      onSuccess: () => toast(t('verification.resendSent'), 'success'),
+      onError: (e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        toast(status === 429 ? t('common.tooManyRequests') : extractMessage(e), 'warning');
+      },
+    },
+  });
 
   function confirmLeaveWorkspace() {
     setDangerError(null);
@@ -421,6 +488,15 @@ export function ProfilePage() {
                   {t('profile.changeEmail')}
                 </button>
               )}
+              {showChangePassword && (
+                <button
+                  type="button"
+                  onClick={openChangePassword}
+                  className="text-[13px] text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                >
+                  {t('profile.changePassword')}
+                </button>
+              )}
             </p>
           )}
         </div>
@@ -434,6 +510,32 @@ export function ProfilePage() {
           {t('common.refresh')}
         </Button>
       </div>
+
+      {/* DB-14 §11.1: quiet, dismissible nudge for unverified stakeholders (the loud Shell
+          banner only ever shows for identities the gate blocks — never these). */}
+      {showSoftVerifyHint && !softHintDismissed && (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-state-ready/30 bg-state-ready-tint px-3 py-2 text-[13px] text-state-ready">
+          <span>{t('verification.softHintText')}</span>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              disabled={softResendMut.isPending}
+              onClick={() => softResendMut.mutate()}
+              className="font-medium underline hover:opacity-75"
+            >
+              {t('verification.resendLink')}
+            </button>
+            <button
+              type="button"
+              aria-label={t('verification.dismiss')}
+              onClick={() => setSoftHintDismissed(true)}
+              className="hover:opacity-75"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Diffstat line: projects · comments · replies · open · ready · completed · archived */}
       <DiffstatLine items={diffstatItems} />
@@ -800,6 +902,69 @@ export function ProfilePage() {
                 {t('profile.changeEmailSubmit')}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change password (DB-14) — current-password-confirmed; a successful change bumps the
+          security stamp server-side and signs out every session, this one included. */}
+      <Dialog open={changePasswordOpen} onOpenChange={(o) => !o && setChangePasswordOpen(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('changePassword.title')}</DialogTitle>
+            <DialogDescription>{t('changePassword.description')}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-1">
+            {changePasswordError && (
+              <p role="alert" className="text-[13px] text-state-danger">
+                {changePasswordError}
+              </p>
+            )}
+            <FormField label={t('changePassword.current')} htmlFor="change-password-current">
+              <PasswordInput
+                id="change-password-current"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoFocus
+              />
+            </FormField>
+            <FormField
+              label={t('changePassword.new')}
+              htmlFor="change-password-new"
+              error={newPassword ? newPasswordErrorMsg || undefined : undefined}
+              hint={t('common.passwordPolicyHint')}
+            >
+              <PasswordInput
+                id="change-password-new"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </FormField>
+            <FormField label={t('changePassword.confirm')} htmlFor="change-password-confirm">
+              <PasswordInput
+                id="change-password-confirm"
+                autoComplete="new-password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+              />
+            </FormField>
+            {newPasswordMismatch && (
+              <p className="text-[12px] text-state-danger">{t('changePassword.mismatch')}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setChangePasswordOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={changePasswordInvalid || changePasswordMut.isPending}
+              onClick={submitChangePassword}
+            >
+              <KeyRound className="h-4 w-4" />
+              {t('changePassword.submit')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

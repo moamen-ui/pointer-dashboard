@@ -12,7 +12,10 @@ import { passwordError, requiredError } from '@/lib/validators';
 import { extractMessage } from '@/lib/error';
 import { AuthLayout } from '@/components/AuthLayout';
 
-const MIN_PASSWORD_LENGTH = 8;
+// DB-14: server policy is 10-128 chars, not a common password, not the e-mail address (enforced
+// server-side only — this constant only drives the client-side "too short" check; see
+// `common.passwordPolicyHint` for the hint shown next to the field).
+const MIN_PASSWORD_LENGTH = 10;
 
 export function ResetPasswordPage() {
   const { t } = useTranslation();
@@ -84,6 +87,7 @@ export function ResetPasswordPage() {
               label={t('auth.newPassword')}
               htmlFor="new-password"
               error={newPasswordTouched || submitted ? newPasswordErrorMsg : undefined}
+              hint={t('common.passwordPolicyHint')}
             >
               <PasswordInput
                 id="new-password"

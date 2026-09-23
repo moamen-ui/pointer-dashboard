@@ -57,7 +57,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { extractMessage } from '@/lib/error';
-import { emailError, requiredError, lengthRangeError } from '@/lib/validators';
+import { emailError, passwordError, requiredError, lengthRangeError } from '@/lib/validators';
 
 const IMPERSONATE_REASON_MIN = 10;
 const IMPERSONATE_REASON_MAX = 500;
@@ -127,7 +127,10 @@ export function TenantsPage() {
   const [newDisplayName, setNewDisplayName] = useState('');
   const [showManualCreate, setShowManualCreate] = useState(false);
   const newEmailErrorMsg = emailError(newEmail, t);
-  const newPasswordErrorMsg = requiredError(newPassword, t);
+  // DB-14: server policy is 10-128 chars, not a common password, not the e-mail address
+  // (enforced server-side only — TenantService.CreateAsync/CreateTenantValidator); 10 here
+  // only drives the client-side "too short" check, see `common.passwordPolicyHint`.
+  const newPasswordErrorMsg = passwordError(newPassword, 10, t);
   const newDisplayNameErrorMsg = requiredError(newDisplayName, t);
   const addTenantInvalid = !!newEmailErrorMsg || !!newPasswordErrorMsg || !!newDisplayNameErrorMsg;
 
@@ -825,6 +828,7 @@ export function TenantsPage() {
                   <FormField
                     label={t('tenants.password')}
                     htmlFor="create-password"
+                    hint={t('common.passwordPolicyHint')}
                   >
                     <PasswordInput
                       id="create-password"

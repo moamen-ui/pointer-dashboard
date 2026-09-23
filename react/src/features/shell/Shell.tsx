@@ -37,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useGetApiAuthMe } from '@moamen-ui/pointer-react';
+import { useGetApiAuthMe, usePostApiMeVerificationResend } from '@moamen-ui/pointer-react';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
@@ -45,10 +45,16 @@ import { extractMessage } from '@/lib/error';
 import { isPlaceholderWorkspaceName } from '@/lib/workspace';
 import { DemoPanel } from '@/components/DemoPanel';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import { VerificationBanner } from '@/components/VerificationBanner';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
 import { useToast } from '@/components/ui/toast';
-import { IMPERSONATION_ENDED_EVENT, type ImpersonationEndedReason } from '@/lib/api';
+import {
+  IMPERSONATION_ENDED_EVENT,
+  VERIFICATION_REQUIRED_EVENT,
+  type ImpersonationEndedReason,
+  type VerificationRequiredDetail,
+} from '@/lib/api';
 
 const ADMIN_NAV = [
   { to: '/overview', key: 'nav.overview', icon: LayoutDashboard },
@@ -117,6 +123,31 @@ function ShellLayout() {
     return () => window.removeEventListener(IMPERSONATION_ENDED_EVENT, onImpersonationEnded);
   }, [endImpersonation, navigate, t, toast]);
 
+  // DB-14 §11.2: an admin write refused by RequireVerifiedEmailFilter (403 + header) is
+  // dispatched here from the axios interceptor (lib/api.ts), which has no toast/mutation
+  // access of its own. Show the server's message with a "Resend link" action, reusing the
+  // same resend mutation the banner below uses.
+  const resendMut = usePostApiMeVerificationResend({
+    mutation: {
+      onError: (e: unknown) => {
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        toast(status === 429 ? t('common.tooManyRequests') : extractMessage(e), 'warning');
+      },
+      onSuccess: () => toast(t('verification.resendSent'), 'success'),
+    },
+  });
+  useEffect(() => {
+    function onVerificationRequired(e: Event) {
+      const { message } = (e as CustomEvent<VerificationRequiredDetail>).detail;
+      toast(message, 'warning', {
+        label: t('verification.resendLink'),
+        onClick: () => resendMut.mutate(),
+      });
+    }
+    window.addEventListener(VERIFICATION_REQUIRED_EVENT, onVerificationRequired);
+    return () => window.removeEventListener(VERIFICATION_REQUIRED_EVENT, onVerificationRequired);
+  }, [resendMut, t, toast]);
+
   const tenantName = me?.tenantName ?? user?.tenantName ?? null;
 
   // DB-11b: several active memberships → a workspace switcher next to the tenant name.
@@ -162,6 +193,11 @@ function ShellLayout() {
           practice (a super admin's own account never runs a demo session) but nothing enforces
           that, so stacking order is just "most-privileged-state-first". */}
       <ImpersonationBanner />
+
+      {/* Verification banner (DB-14) — loud only for the identities the gate actually blocks
+          (`emailVerificationRequired`); hidden for super admins, verified/demo/passwordless
+          identities and non-admin stakeholders (server-computed, §3.5). */}
+      <VerificationBanner me={me} />
 
       {/* Demo panel */}
       <DemoPanel />

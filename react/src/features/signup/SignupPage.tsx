@@ -25,7 +25,10 @@ import { extractMessage } from '@/lib/error';
 import { cn } from '@/lib/utils';
 import { AuthLayout } from '@/components/AuthLayout';
 
-const SIGNUP_MIN_PASSWORD_LENGTH = 6;
+// DB-14: server policy is 10-128 chars, not a common password, not the e-mail address (enforced
+// server-side only — PasswordPolicy.Validate; not duplicated client-side beyond the length floor,
+// see `common.passwordPolicyHint`). This constant only drives the client-side "too short" check.
+const SIGNUP_MIN_PASSWORD_LENGTH = 10;
 
 // Helper: format plan price for display
 function formatPlanPrice(plan: PlanPublicResponse): string {
@@ -197,6 +200,12 @@ export function SignupPage() {
             <p className="text-center text-sm text-muted-foreground">
               {t('signup.pending')}
             </p>
+            {/* DB-14: RegisterAdminAsync creates the identity unverified and sends the
+                verification link best-effort — surfaced here since it lands in the same
+                request as the "pending approval" notice. */}
+            <p className="text-center text-sm text-muted-foreground">
+              {t('signup.verifyInboxHint')}
+            </p>
             <Link to="/login" className="text-center text-sm text-brand hover:underline">
               {t('signup.backToLogin')}
             </Link>
@@ -234,6 +243,7 @@ export function SignupPage() {
                 label={t('signup.password')}
                 htmlFor="signup-password"
                 error={passwordTouched || submitted ? passwordErrorMsg : undefined}
+                hint={t('common.passwordPolicyHint')}
               >
                 <PasswordInput
                   id="signup-password"

@@ -24,6 +24,7 @@ import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { DeleteAccountPage } from '@/features/auth/DeleteAccountPage';
 import { ConfirmEmailPage } from '@/features/auth/ConfirmEmailPage';
+import { VerifyEmailPage } from '@/features/auth/VerifyEmailPage';
 import { JoinPage } from '@/features/auth/JoinPage';
 import { CliLoginPage } from '@/features/cli-login/CliLoginPage';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
@@ -46,6 +47,9 @@ export default function App() {
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/forgot" element={<ForgotPasswordPage />} />
               <Route path="/reset" element={<ResetPasswordPage />} />
+              {/* DB-14: anonymous e-mail-verification landing page for the e-mailed link
+                  ({app}/verify-email?token=…) — POST /api/auth/verify-email confirms it. */}
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               {/* DB-11d: anonymous confirm-e-mail-change landing page for the e-mailed link
                   POST /api/me/change-email sends to the new address. */}
               <Route path="/confirm-email" element={<ConfirmEmailPage />} />

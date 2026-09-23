@@ -30,7 +30,10 @@ import { useInstallGuide } from '@/components/InstallGuide';
 const DEMO_SESSION_KEY = 'pointer_demo';
 /** Banner-only hide flag — the session itself outlives a dismissal. */
 const DEMO_DISMISSED_KEY = 'pointer_demo_dismissed';
-const UPGRADE_MIN_PASSWORD_LENGTH = 8;
+// DB-14: DemoService.UpgradeAsync now re-validates through PasswordPolicy.Validate (10-128
+// chars, not common, not the address) — this constant only drives the client-side "too short"
+// check; see `common.passwordPolicyHint` for the hint shown next to the field.
+const UPGRADE_MIN_PASSWORD_LENGTH = 10;
 
 interface DemoSession {
   email: string | null;
@@ -295,6 +298,7 @@ export function DemoPanel() {
               label={t('demo.password')}
               htmlFor="upgrade-password"
               error={upgradePasswordTouched || upgradeSubmitted ? upgradePasswordErrorMsg : undefined}
+              hint={t('common.passwordPolicyHint')}
             >
               <PasswordInput
                 id="upgrade-password"

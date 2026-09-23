@@ -16,14 +16,22 @@ import { cn } from '@/lib/utils';
 /** `error` is kept as an alias of `danger` so existing call sites keep working. */
 export type ToastTone = 'default' | 'info' | 'success' | 'warning' | 'danger' | 'error';
 
+/** Optional single action button rendered before the dismiss (×) button — e.g. DB-14's
+ *  verification toast offers a "Resend link" action alongside the server's message. */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
 }
 
 interface ToastValue {
-  toast: (message: string, tone?: ToastTone) => void;
+  toast: (message: string, tone?: ToastTone, action?: ToastAction) => void;
 }
 
 // A toast is a floating layer, so it keeps the canvas-and-menu-shadow grammar; the state hue
@@ -49,9 +57,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (message: string, tone: ToastTone = 'default') => {
+    (message: string, tone: ToastTone = 'default', action?: ToastAction) => {
       const id = nextId.current++;
-      setItems((cur) => [...cur, { id, message, tone }]);
+      setItems((cur) => [...cur, { id, message, tone, action }]);
       window.setTimeout(() => dismiss(id), DURATION);
     },
     [dismiss],
@@ -78,6 +86,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               {Glyph && <Glyph className={cn('mt-0.5 h-4 w-4 shrink-0', tone.icon)} />}
               <span className="flex-1">{t.message}</span>
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    t.action?.onClick();
+                    dismiss(t.id);
+                  }}
+                  className="mt-0.5 shrink-0 text-[13px] font-medium text-brand hover:underline"
+                >
+                  {t.action.label}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}

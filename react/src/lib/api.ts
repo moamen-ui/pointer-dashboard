@@ -8,6 +8,7 @@
 //   response → on 401, clear session and redirect to /login
 //              on isLimitReached=true (HTTP 400) fire the upgrade-prompt event
 //              on 401 while impersonating (DB-13), fire the impersonation-ended event instead
+//              on 403 with X-Email-Verification-Required (DB-14), fire the verification event
 import { AXIOS_INSTANCE } from '@moamen-ui/pointer-react';
 import { getItem, removeItem, IMPERSONATION_KEY, LANG_KEY, TOKEN_KEY, USER_KEY } from './storage';
 
@@ -29,6 +30,35 @@ export const IMPERSONATION_ENDED_EVENT = 'pointer:impersonationEnded';
 
 export function dispatchImpersonationEnded(reason: ImpersonationEndedReason): void {
   window.dispatchEvent(new CustomEvent<ImpersonationEndedReason>(IMPERSONATION_ENDED_EVENT, { detail: reason }));
+}
+
+// ---------------------------------------------------------------------------
+// DB-14 e-mail verification gate — 403 + X-Email-Verification-Required event
+// ---------------------------------------------------------------------------
+// `RequireVerifiedEmailFilter` (API) refuses an unverified identity's admin write with a 403
+// carrying response header `X-Email-Verification-Required: true` (CORS-exposed) and a body
+// message (`MessageKeys.Auth.EmailNotVerified`). Like `LIMIT_REACHED_EVENT` below, this module
+// cannot itself render a toast (no ToastProvider here), so it only reports the fact — the Shell
+// (mounted for every authenticated route) listens and shows the banner's toast with a "Resend
+// link" action, in place of whatever generic message the failing mutation's own onError would
+// otherwise show.
+export interface VerificationRequiredDetail {
+  message: string;
+}
+
+export const VERIFICATION_REQUIRED_EVENT = 'pointer:verificationRequired';
+const VERIFICATION_FALLBACK_MESSAGE: Record<'en' | 'ar', string> = {
+  en: 'Verify your e-mail address to do this — check your inbox or resend the link from your profile.',
+  ar: 'تحقق من عنوان بريدك الإلكتروني للقيام بذلك — راجع بريدك الوارد أو أعد إرسال الرابط من صفحة حسابك.',
+};
+
+export function dispatchVerificationRequired(message: string | undefined): void {
+  const lang = getItem(LANG_KEY) === 'ar' ? 'ar' : 'en';
+  window.dispatchEvent(
+    new CustomEvent<VerificationRequiredDetail>(VERIFICATION_REQUIRED_EVENT, {
+      detail: { message: message || VERIFICATION_FALLBACK_MESSAGE[lang] },
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +205,19 @@ export function configureApi(): void {
             window.location.assign('/login');
           }
         }
+      }
+
+      // DB-14: an admin write refused because the caller's e-mail is unverified. The header is
+      // set on every such 403 (never on a plain 401/403 from anything else), so it alone is the
+      // trigger — no need to also inspect the request URL/namespace client-side.
+      try {
+        const flag = error?.response?.headers?.['x-email-verification-required'];
+        if (error?.response?.status === 403 && String(flag ?? '').toLowerCase() === 'true') {
+          const body = error?.response?.data as Record<string, unknown> | undefined;
+          dispatchVerificationRequired(body?.message as string | undefined);
+        }
+      } catch {
+        // Never let this detection crash the normal error path.
       }
 
       // Detect plan-enforcement limit-reached responses (HTTP 400 with isLimitReached).

@@ -61,7 +61,12 @@
     "confirmEmailInvalid": "This link is invalid or has expired — request the change again from your profile.",
     "confirmEmailIntro": "Click below to confirm your new e-mail address. You'll be signed out everywhere and need to sign in again with it.",
     "confirmEmailConfirm": "Confirm e-mail change",
-    "confirmEmailDone": "Your e-mail address has been changed. Please sign in again."
+    "confirmEmailDone": "Your e-mail address has been changed. Please sign in again.",
+    "verifyEmailTitle": "Verify your e-mail",
+    "verifyEmailIntro": "Click below to confirm this e-mail address.",
+    "verifyEmailInvalid": "This verification link is invalid or has expired — request a new one from your profile.",
+    "verifyEmailConfirm": "Verify",
+    "verifyEmailDone": "Your e-mail address is verified."
   },
   "branding": {
     "assetHint": {
@@ -124,7 +129,8 @@
     "success": "Password changed. Please sign in again.",
     "title": "Change password",
     "tooShort": "Password must be at least 8 characters.",
-    "wrongCurrent": "Current password is incorrect."
+    "wrongCurrent": "Current password is incorrect.",
+    "description": "Enter your current password and choose a new one. You'll be signed out everywhere and need to sign in again."
   },
   "cliLogin": {
     "approve": "Approve",
@@ -392,7 +398,9 @@
     "showPassword": "Show password",
     "yes": "Yes",
     "minLength": "At least {{min}} characters.",
-    "maxLength": "At most {{max}} characters."
+    "maxLength": "At most {{max}} characters.",
+    "passwordPolicyHint": "At least 10 characters. Avoid common passwords or your e-mail address.",
+    "tooManyRequests": "Too many requests — try again later."
   },
   "demo": {
     "back": "Back",
@@ -965,7 +973,8 @@
     "changeEmailNewAddress": "New e-mail address",
     "changeEmailSubmit": "Send confirmation link",
     "changeEmailSent": "We've sent a confirmation link to the new address.",
-    "changeEmailSentDetail": "Check {{email}} for a link. It expires in 30 minutes; until you confirm, nothing changes."
+    "changeEmailSentDetail": "Check {{email}} for a link. It expires in 30 minutes; until you confirm, nothing changes.",
+    "changePassword": "Change password…"
   },
   "projects": {
     "actions": "Actions",
@@ -1302,7 +1311,8 @@
     },
     "submit": "Create Account",
     "submitting": "Submitting…",
-    "title": "Create Account"
+    "title": "Create Account",
+    "verifyInboxHint": "Check your inbox to verify your address."
   },
   "statuses": {
     "builtin": {
@@ -1512,5 +1522,13 @@
     "save": "Save",
     "saved": "Workspace name saved",
     "title": "Workspace name"
+  },
+  "verification": {
+    "bannerText": "Verify your e-mail to manage this workspace",
+    "resendLink": "Resend link",
+    "changeAddressLink": "Wrong address? Change it",
+    "resendSent": "We've e-mailed you a verification link. It expires in 30 minutes.",
+    "softHintText": "Verify your e-mail address for full access.",
+    "dismiss": "Dismiss"
   }
 }

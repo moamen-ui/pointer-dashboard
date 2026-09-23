@@ -56,7 +56,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { extractMessage } from '@/lib/error';
 import { formatRequestedAt } from '@/lib/format';
-import { emailError, requiredError } from '@/lib/validators';
+import { emailError, passwordError, requiredError } from '@/lib/validators';
 
 type FilterStatus = 'Approved' | 'Pending' | 'Rejected';
 
@@ -129,7 +129,10 @@ export function UsersPage() {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const emailErrorMsg = emailError(email, t);
   const displayNameErrorMsg = requiredError(displayName, t);
-  const passwordErrorMsg = requiredError(password, t);
+  // DB-14: server policy is 10-128 chars, not a common password, not the e-mail address
+  // (enforced server-side only — UserService.CreateAsync/CreateUserValidator); 10 here only
+  // drives the client-side "too short" check, see `common.passwordPolicyHint`.
+  const passwordErrorMsg = passwordError(password, 10, t);
 
   const addMut = usePostApiAdminUsers({
     mutation: {
@@ -810,6 +813,7 @@ export function UsersPage() {
                 label={t('users.password')}
                 htmlFor="u-pass"
                 error={passwordTouched ? passwordErrorMsg || undefined : undefined}
+                hint={t('common.passwordPolicyHint')}
               >
                 <PasswordInput
                   id="u-pass"
