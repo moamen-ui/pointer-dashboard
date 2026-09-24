@@ -220,7 +220,7 @@ export function ConfirmWorkspaceDeletionPage() {
         )}
 
         <p className="text-center text-sm text-muted-foreground">
-          {t('workspaceLifecycle.scheduled', { date: formatDateTime(preview.wouldBeDeletedOn) })}
+          {t('workspaceLifecycle.confirmWouldDelete', { date: formatDateTime(preview.wouldBeDeletedOn) })}
         </p>
 
         <div className="flex flex-col gap-2">

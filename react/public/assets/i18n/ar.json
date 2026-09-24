@@ -1614,8 +1614,8 @@
     "badgePausedOperator": "موقوفة (عبر المشغّل)",
     "badgeScheduled": "الحذف مجدول",
     "confirmTitle": "حذف مساحة العمل",
-    "confirmCounts": "{{projects}} مشاريع، {{comments}} تعليقات، {{members}} أعضاء",
-    "confirmAccounts": "سيُحذف {{count}} من الحسابات التي أُنشئت في مساحة العمل هذه ولا تنتمي إلى أي مساحة عمل أخرى.",
+    "confirmCounts": "المشاريع: {{projects}} · التعليقات: {{comments}} · الأعضاء: {{members}}",
+    "confirmAccounts": "الحسابات التي ستُحذف معها (أُنشئت هنا ولا تنتمي إلى أي مساحة عمل أخرى): {{count}}",
     "confirmYourAccount": "أُنشئ حسابك في مساحة العمل هذه ولا ينتمي إلى غيرها، لذا سيُحذف أيضًا.",
     "typeName": "اكتب اسم مساحة العمل للتأكيد",
     "password": "كلمة المرور",
@@ -1625,7 +1625,8 @@
     "deletionLinkInvalid": "هذا الرابط غير صالح أو منتهي الصلاحية أو استُخدم من قبل. اطلب رابطًا جديدًا من الإعدادات.",
     "pausedDone": "أُوقفت مساحة العمل مؤقتًا. لم يُحذف أي شيء.",
     "tenantsDisableAdmin": "تعطيل دخول المسؤول",
-    "back": "رجوع"
+    "back": "رجوع",
+    "confirmWouldDelete": "إذا أكّدت، ستُحذف مساحة العمل في {{date}}."
   },
   "workspaceName": {
     "label": "اسم مساحة العمل",

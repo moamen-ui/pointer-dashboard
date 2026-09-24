@@ -1614,8 +1614,8 @@
     "badgePausedOperator": "Paused (operator)",
     "badgeScheduled": "Deletion scheduled",
     "confirmTitle": "Delete workspace",
-    "confirmCounts": "{{projects}} projects, {{comments}} comments, {{members}} members",
-    "confirmAccounts": "{{count}} accounts created in this workspace and belonging to no other workspace will be deleted.",
+    "confirmCounts": "Projects: {{projects}} · Comments: {{comments}} · Members: {{members}}",
+    "confirmAccounts": "Accounts deleted with it (created here, in no other workspace): {{count}}",
     "confirmYourAccount": "Your own account was created in this workspace and belongs to no other, so it will be deleted too.",
     "typeName": "Type the workspace name to confirm",
     "password": "Your password",
@@ -1625,7 +1625,8 @@
     "deletionLinkInvalid": "This link is invalid, expired or already used. Request a new one from Settings.",
     "pausedDone": "The workspace is paused. Nothing was deleted.",
     "tenantsDisableAdmin": "Disable admin login",
-    "back": "Back"
+    "back": "Back",
+    "confirmWouldDelete": "If you confirm, the workspace is deleted on {{date}}."
   },
   "workspaceName": {
     "label": "Workspace name",
