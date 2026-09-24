@@ -17,6 +17,7 @@ import {
   postApiAuthSwitchWorkspace,
   postApiAuthMfaVerify,
   postApiAdminImpersonationEnd,
+  useGetApiAuthMe,
   type ImpersonationStartResponse,
   type LoginResponse,
   type MeResponse,
@@ -69,6 +70,11 @@ interface AuthValue {
   /** DB-13: non-null exactly while `token` is an impersonation token (view-as session). */
   impersonation: ImpersonationRecord | null;
   isImpersonating: boolean;
+  /** DB-18 §11 task 4: true while the current session's workspace is paused or has a deletion
+   *  scheduled (`me.workspacePausedAt` / `me.workspaceDeletionScheduledFor`). Backed by the same
+   *  `/api/auth/me` query the Shell reads (same query key + staleTime, so this adds no extra
+   *  request) — pages hide/disable member-adding actions (Invite, Import, New project) with it. */
+  isFrozen: boolean;
   /** Resolves once password auth succeeds, either straight to `ok` or to a workspace
    * choice the caller must resolve via `switchWorkspace`. Throws on pending/rejected/
    * disabled/no-workspace (unchanged). */
@@ -126,6 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const queryClient = useQueryClient();
   const { mutateAsync: loginAsync } = usePostApiAuthLogin();
+
+  // DB-18: same query key/staleTime as the Shell's own `useGetApiAuthMe` call, so this never
+  // fires a second request — it just reads whatever is already cached to derive `isFrozen`.
+  const { data: liveMe } = useGetApiAuthMe({
+    query: { enabled: !!user && !!token, staleTime: 5 * 60_000 },
+  });
+  const isFrozen = !!(liveMe?.workspacePausedAt || liveMe?.workspaceDeletionScheduledFor);
 
   /** Stores a full ("ok") session — shared by password login and both switch-workspace
    * paths so the three call sites can't drift on what "signed in" means. */
@@ -247,6 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSuperAdmin: !!user?.isSuperAdmin,
       impersonation,
       isImpersonating: impersonation !== null,
+      isFrozen,
       login,
       switchWorkspace,
       completeMfaLogin,
@@ -258,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       impersonation,
+      isFrozen,
       login,
       switchWorkspace,
       completeMfaLogin,

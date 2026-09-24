@@ -46,14 +46,19 @@ import { isPlaceholderWorkspaceName } from '@/lib/workspace';
 import { DemoPanel } from '@/components/DemoPanel';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { VerificationBanner } from '@/components/VerificationBanner';
+import { WorkspaceStateBanner } from '@/components/WorkspaceStateBanner';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
 import { useToast } from '@/components/ui/toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { getGetApiAuthMeQueryKey } from '@moamen-ui/pointer-react';
 import {
   IMPERSONATION_ENDED_EVENT,
   VERIFICATION_REQUIRED_EVENT,
+  WORKSPACE_FROZEN_EVENT,
   type ImpersonationEndedReason,
   type VerificationRequiredDetail,
+  type WorkspaceFrozenDetail,
 } from '@/lib/api';
 
 const ADMIN_NAV = [
@@ -101,6 +106,7 @@ function ShellLayout() {
   const { data: me } = useGetApiAuthMe({ query: { staleTime: 5 * 60_000 } });
   const installGuide = useInstallGuide();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // DB-13 §11.2/§11.3: a 401 that reaches here while impersonating is either the scope fence
@@ -147,6 +153,20 @@ function ShellLayout() {
     window.addEventListener(VERIFICATION_REQUIRED_EVENT, onVerificationRequired);
     return () => window.removeEventListener(VERIFICATION_REQUIRED_EVENT, onVerificationRequired);
   }, [resendMut, t, toast]);
+
+  // DB-18 §11 task 4: a 423 from WorkspaceFrozenFilter is dispatched here from the axios
+  // interceptor (lib/api.ts). Invalidate `/me` so the banner below picks up the freeze fields
+  // right away, and surface the server's own message (which state — paused vs. operator-paused
+  // vs. scheduled — it already names) as a toast.
+  useEffect(() => {
+    function onWorkspaceFrozen(e: Event) {
+      const { message } = (e as CustomEvent<WorkspaceFrozenDetail>).detail;
+      void qc.invalidateQueries({ queryKey: getGetApiAuthMeQueryKey() });
+      toast(message, 'warning');
+    }
+    window.addEventListener(WORKSPACE_FROZEN_EVENT, onWorkspaceFrozen);
+    return () => window.removeEventListener(WORKSPACE_FROZEN_EVENT, onWorkspaceFrozen);
+  }, [qc, toast]);
 
   const tenantName = me?.tenantName ?? user?.tenantName ?? null;
 
@@ -198,6 +218,11 @@ function ShellLayout() {
           (`emailVerificationRequired`); hidden for super admins, verified/demo/passwordless
           identities and non-admin stakeholders (server-computed, §3.5). */}
       <VerificationBanner me={me} />
+
+      {/* Paused/scheduled banner (DB-18) — shown to every member when the workspace is frozen
+          (`me.workspacePausedAt` or `me.workspaceDeletionScheduledFor`); admins get Resume /
+          Cancel deletion buttons. */}
+      <WorkspaceStateBanner me={me} />
 
       {/* Demo panel — DB-17: countdown source of truth is `me.demoExpiresAt` (survives
           reloads/other tabs), same `me` query VerificationBanner reads above. */}

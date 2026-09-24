@@ -14,6 +14,9 @@ import {
   usePatchApiAdminTenantsWorkspaceIdStatus,
   useDeleteApiAdminTenantsWorkspaceId,
   usePostApiAdminTenantsWorkspaceIdExtend,
+  usePostApiAdminTenantsWorkspaceIdPause,
+  usePostApiAdminTenantsWorkspaceIdResume,
+  usePostApiAdminTenantsWorkspaceIdDeletionCancel,
   usePatchApiAdminTenantsWorkspaceIdDemoConfig,
   usePatchApiAdminTenantsWorkspaceIdPlan,
   usePostApiAdminTenantsWorkspaceIdImpersonate,
@@ -29,7 +32,7 @@ import {
   type PlanAdminResponse,
   type TenantInviteResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX, Eye } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX, Eye, PauseCircle, PlayCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -268,6 +271,36 @@ export function TenantsPage() {
     patchMut.mutate({ workspaceId: tenant.workspaceId!, data: { action } });
   }
 
+  // ---- Lifecycle (DB-18): operator pause/resume/cancel-deletion, distinct from the
+  // membership-scoped approve/enable/disable above (which never touches the workspace row). ----
+  const pauseMut = usePostApiAdminTenantsWorkspaceIdPause({
+    mutation: {
+      onSuccess: () => {
+        toast(t('workspaceLifecycle.pause'));
+        reload();
+      },
+      onError,
+    },
+  });
+  const resumeMut = usePostApiAdminTenantsWorkspaceIdResume({
+    mutation: {
+      onSuccess: () => {
+        toast(t('workspaceLifecycle.resume'));
+        reload();
+      },
+      onError,
+    },
+  });
+  const cancelDeletionMut = usePostApiAdminTenantsWorkspaceIdDeletionCancel({
+    mutation: {
+      onSuccess: () => {
+        toast(t('workspaceLifecycle.cancelDeletion'));
+        reload();
+      },
+      onError,
+    },
+  });
+
   // ---- Delete with cascade warning ----
   const [deleteTarget, setDeleteTarget] = useState<AnyTenant | null>(null);
 
@@ -481,9 +514,26 @@ export function TenantsPage() {
       enableSorting: false,
       header: t('tenants.statusCol'),
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
-          <span>{t(row.original.isActive ? 'common.active' : 'common.disabled')}</span>
-        </Badge>
+        <div className="flex flex-wrap items-center gap-1">
+          <Badge variant={row.original.isActive ? 'success' : 'destructive'}>
+            <span>{t(row.original.isActive ? 'common.active' : 'common.disabled')}</span>
+          </Badge>
+          {row.original.deletionScheduledFor ? (
+            <Badge variant="destructive">
+              <span>{t('workspaceLifecycle.badgeScheduled')}</span>
+            </Badge>
+          ) : row.original.pausedAt ? (
+            <Badge variant="warning">
+              <span>
+                {t(
+                  row.original.pausedByOperator
+                    ? 'workspaceLifecycle.badgePausedOperator'
+                    : 'workspaceLifecycle.badgePaused',
+                )}
+              </span>
+            </Badge>
+          ) : null}
+        </div>
       ),
     },
     {
@@ -530,9 +580,35 @@ export function TenantsPage() {
       items.push({ label: t('tenants.approve'), icon: ShieldCheck, onClick: () => setStatus(tenant, 'approve') });
     }
     if (tenant.isActive) {
-      items.push({ label: t('common.disable'), icon: Ban, severity: 'danger', onClick: () => setStatus(tenant, 'disable') });
+      items.push({
+        label: t('workspaceLifecycle.tenantsDisableAdmin'),
+        icon: Ban,
+        severity: 'danger',
+        onClick: () => setStatus(tenant, 'disable'),
+      });
     } else {
       items.push({ label: t('common.enable'), icon: CheckCircle2, onClick: () => setStatus(tenant, 'enable') });
+    }
+    // DB-18 operator lifecycle actions — distinct from the membership-scoped enable/disable above.
+    if (tenant.deletionScheduledFor) {
+      items.push({
+        label: t('workspaceLifecycle.cancelDeletion'),
+        icon: XCircle,
+        onClick: () => cancelDeletionMut.mutate({ workspaceId: tenant.workspaceId! }),
+      });
+    }
+    if (tenant.pausedAt) {
+      items.push({
+        label: t('workspaceLifecycle.resume'),
+        icon: PlayCircle,
+        onClick: () => resumeMut.mutate({ workspaceId: tenant.workspaceId! }),
+      });
+    } else {
+      items.push({
+        label: t('workspaceLifecycle.pause'),
+        icon: PauseCircle,
+        onClick: () => pauseMut.mutate({ workspaceId: tenant.workspaceId! }),
+      });
     }
     if (tenant.isDemo) {
       items.push({

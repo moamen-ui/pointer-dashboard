@@ -34,6 +34,7 @@ import { CheckCircle2, XCircle, EllipsisVertical, MessageSquareText } from 'luci
 import { useAuth } from '@/lib/auth';
 import { CommentFieldsCard } from './CommentFieldsCard';
 import { WorkspaceNameCard } from './WorkspaceNameCard';
+import { DangerZoneCard } from './DangerZoneCard';
 import { OperatorAccessCard, ImpersonationSessionsCard } from './ImpersonationCards';
 import { AccordionSection } from '@/components/ui/accordion-section';
 import { Button } from '@/components/ui/button';
@@ -984,6 +985,12 @@ export function SettingsPage() {
 
       {/* ── Section 6a: Workspace name (workspace admins, not super admin — DB-03b) ── */}
       {isAdmin && !isSuperAdmin && <WorkspaceNameCard />}
+
+      {/* ── Section 6a-2: Danger zone (Workspace Admin only, not Deputy/stakeholder — DB-18).
+          DangerZoneCard itself renders null unless the server says `canManageLifecycle` (already
+          false for a Deputy or a live demo), so the `isAdmin && !isSuperAdmin` gate here is just
+          the cheap client-side pre-filter every other workspace-admin-only card uses. ── */}
+      {isAdmin && !isSuperAdmin && <DangerZoneCard />}
 
       {/* ── Section 6b: Comment fields (workspace admins, not super admin — the API refuses them) ── */}
       {isAdmin && !isSuperAdmin && <CommentFieldsCard />}

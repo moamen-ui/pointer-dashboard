@@ -69,7 +69,7 @@ export function UsersPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { user: viewer, isSuperAdmin } = useAuth();
+  const { user: viewer, isSuperAdmin, isFrozen } = useAuth();
 
   const [filter, setFilter] = useState<FilterStatus>('Approved');
 
@@ -590,10 +590,14 @@ export function UsersPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">{t('users.title')}</h1>
-        <Button onClick={openAdd}>
-          <Plus className="h-4 w-4" />
-          {t('users.addUser')}
-        </Button>
+        {/* DB-18 §11 task 4: new members are refused while frozen (D18.11) — hide the entry
+            point rather than let it fail. */}
+        {!isFrozen && (
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4" />
+            {t('users.addUser')}
+          </Button>
+        )}
       </div>
 
       {/* Inline conflict explanation (DB-11c dashboard tasks 1/2): a 409/400 from remove, disable
@@ -659,10 +663,12 @@ export function UsersPage() {
           message={t('users.empty')}
           hint={t('users.emptyHint')}
         >
-          <Button onClick={openAdd}>
-            <Plus className="h-4 w-4" />
-            {t('users.addUser')}
-          </Button>
+          {!isFrozen && (
+            <Button onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              {t('users.addUser')}
+            </Button>
+          )}
         </EmptyState>
       ) : (
         <DataTable

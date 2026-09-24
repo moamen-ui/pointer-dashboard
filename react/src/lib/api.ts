@@ -110,6 +110,34 @@ export function dispatchLimitReached(detail: LimitReachedDetail): void {
   window.dispatchEvent(new CustomEvent<LimitReachedDetail>(LIMIT_REACHED_EVENT, { detail }));
 }
 
+// ---------------------------------------------------------------------------
+// DB-18 workspace-frozen event — 423 Locked + X-Workspace-Paused
+// ---------------------------------------------------------------------------
+// `WorkspaceFrozenFilter` (API) refuses a write (or, for a key/CLI session, any non-exempt call)
+// on a paused or deletion-scheduled workspace with HTTP 423 and header `X-Workspace-Paused: true`,
+// body message one of Workspace.Paused/PausedByOperator/DeletionScheduledReadOnly. Like
+// `VERIFICATION_REQUIRED_EVENT` above, this module has no toast/query-client access of its own —
+// it only reports the fact; the Shell (mounted for every authenticated route) invalidates `/me`
+// (which carries the freeze fields the banner reads) and toasts the server's message.
+export interface WorkspaceFrozenDetail {
+  message: string;
+}
+
+export const WORKSPACE_FROZEN_EVENT = 'pointer:workspaceFrozen';
+const WORKSPACE_FROZEN_FALLBACK_MESSAGE: Record<'en' | 'ar', string> = {
+  en: 'This workspace is paused or scheduled for deletion and is read-only.',
+  ar: 'مساحة العمل هذه موقوفة مؤقتًا أو مجدولة للحذف وهي للقراءة فقط.',
+};
+
+export function dispatchWorkspaceFrozen(message: string | undefined): void {
+  const lang = getItem(LANG_KEY) === 'ar' ? 'ar' : 'en';
+  window.dispatchEvent(
+    new CustomEvent<WorkspaceFrozenDetail>(WORKSPACE_FROZEN_EVENT, {
+      detail: { message: message || WORKSPACE_FROZEN_FALLBACK_MESSAGE[lang] },
+    }),
+  );
+}
+
 // Friendly label map from the spec (lever → display label)
 const LEVER_LABELS: Record<string, string> = {
   MaxProjects: 'projects',
@@ -215,6 +243,19 @@ export function configureApi(): void {
         if (error?.response?.status === 403 && String(flag ?? '').toLowerCase() === 'true') {
           const body = error?.response?.data as Record<string, unknown> | undefined;
           dispatchVerificationRequired(body?.message as string | undefined);
+        }
+      } catch {
+        // Never let this detection crash the normal error path.
+      }
+
+      // DB-18: 423 Locked from WorkspaceFrozenFilter — the workspace is paused or has a deletion
+      // scheduled. The header is set on every such 423 (verify with X-Workspace-Paused rather than
+      // status alone, since 423 is otherwise unused in this API), so it alone is the trigger.
+      try {
+        const frozenFlag = error?.response?.headers?.['x-workspace-paused'];
+        if (error?.response?.status === 423 && String(frozenFlag ?? '').toLowerCase() === 'true') {
+          const body = error?.response?.data as Record<string, unknown> | undefined;
+          dispatchWorkspaceFrozen(body?.message as string | undefined);
         }
       } catch {
         // Never let this detection crash the normal error path.

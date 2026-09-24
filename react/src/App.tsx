@@ -23,6 +23,7 @@ import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage';
 import { DeleteAccountPage } from '@/features/auth/DeleteAccountPage';
+import { ConfirmWorkspaceDeletionPage } from '@/features/auth/ConfirmWorkspaceDeletionPage';
 import { ConfirmEmailPage } from '@/features/auth/ConfirmEmailPage';
 import { VerifyEmailPage } from '@/features/auth/VerifyEmailPage';
 import { JoinPage } from '@/features/auth/JoinPage';
@@ -56,6 +57,13 @@ export default function App() {
               {/* DB-11c: anonymous erase-confirmation landing page for a passwordless
                   (quick-access) identity's e-mailed link — POST /api/me/request-erase mints it. */}
               <Route path="/delete-account" element={<DeleteAccountPage />} />
+              {/* DB-18: anonymous workspace-deletion confirmation landing page for the e-mailed
+                  link ({app}/confirm-workspace-deletion?token=…) — reads ?token=, previews, then
+                  the typed-name + password form schedules the deletion. */}
+              <Route
+                path="/confirm-workspace-deletion"
+                element={<ConfirmWorkspaceDeletionPage />}
+              />
               <Route path="/join" element={<JoinPage />} />
 
               {/* Shell wraps all authenticated routes */}
