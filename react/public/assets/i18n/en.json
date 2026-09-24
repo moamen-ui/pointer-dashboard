@@ -1184,7 +1184,8 @@
       "auth": {
         "login": {
           "succeeded": "Login succeeded",
-          "failed": "Login failed"
+          "failed": "Login failed",
+          "credentials_verified": "Password verified — awaiting workspace choice or MFA"
         },
         "workspace_switched": "Switched workspace",
         "password": {
