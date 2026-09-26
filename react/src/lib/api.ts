@@ -147,6 +147,7 @@ const LEVER_LABELS: Record<string, string> = {
   MaxExtensionSites: 'extension sites',
   MaxPredefinedActionsPerProject: 'predefined actions / project',
   MaxTenantWidePredefinedActions: 'tenant-wide predefined actions',
+  MaxOwnedWorkspaces: 'owned workspaces',
 };
 
 let configured = false;

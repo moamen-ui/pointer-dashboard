@@ -25,6 +25,7 @@ import {
   Rocket,
   ChevronDown,
   Check,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +38,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useGetApiAuthMe, usePostApiMeVerificationResend } from '@moamen-ui/pointer-react';
+import {
+  useGetApiAuthMe,
+  usePostApiMeVerificationResend,
+  useGetApiMeWorkspacesAllowance,
+} from '@moamen-ui/pointer-react';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { useBranding } from '@/lib/branding';
@@ -48,6 +53,7 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { VerificationBanner } from '@/components/VerificationBanner';
 import { WorkspaceStateBanner } from '@/components/WorkspaceStateBanner';
 import { NotificationsBell } from '@/components/NotificationsBell';
+import { NewWorkspaceDialog } from '@/components/NewWorkspaceDialog';
 import { InstallGuideProvider, useInstallGuide } from '@/components/InstallGuide';
 import { useToast } from '@/components/ui/toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -171,12 +177,26 @@ function ShellLayout() {
   const tenantName = me?.tenantName ?? user?.tenantName ?? null;
 
   // DB-11b: several active memberships → a workspace switcher next to the tenant name.
-  // Hidden for super admins (`workspaces` is empty for them) and for single-membership
-  // users, for whom there is nothing to switch between.
+  // DB-19: the same dropdown also carries "+ New workspace" for a Workspace Admin (exactly the
+  // role `WorkspaceCreationService`'s gate requires — not Deputy, not a member), so it must open
+  // even when that admin currently owns only the one (the common case, especially under a
+  // MaxOwnedWorkspaces=1 plan) — otherwise the entry point never renders for the audience it is
+  // for. Still hidden entirely for super admins (`workspaces` is empty for them) and for any
+  // other single-membership, non-admin user, for whom there is nothing to switch to or create.
   const memberships = me?.workspaces ?? [];
-  const showWorkspaceSwitcher = memberships.length > 1;
+  const isWorkspaceAdmin = me?.roleName === 'Workspace Admin';
+  const showWorkspaceSwitcher = memberships.length > 1 || isWorkspaceAdmin;
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  const [newWorkspaceOpen, setNewWorkspaceOpen] = useState(false);
+
+  // DB-19: only fetched for the audience that can ever see the item, so every other signed-in
+  // user (stakeholders, Deputy, super admins) costs nothing extra.
+  const { data: allowance } = useGetApiMeWorkspacesAllowance({
+    query: { enabled: isWorkspaceAdmin, staleTime: 60_000 },
+  });
+  const ownedLimitHit =
+    allowance != null && allowance.max != null && allowance.max !== -1 && (allowance.owned ?? 0) >= allowance.max;
 
   async function onSwitchWorkspace(workspaceId: string | undefined) {
     if (!workspaceId || workspaceId === me?.workspaceId || switchingId) return;
@@ -323,6 +343,25 @@ function ShellLayout() {
                     </DropdownMenuItem>
                   );
                 })}
+                {isWorkspaceAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={allowance ? !allowance.canCreate : true}
+                      onSelect={() => setNewWorkspaceOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t('header.newWorkspace')}
+                    </DropdownMenuItem>
+                    {allowance && !allowance.canCreate && (
+                      <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                        {ownedLimitHit
+                          ? t('header.newWorkspaceLimitHint', { count: allowance.max })
+                          : t('header.newWorkspaceNotAllowedHint')}
+                      </p>
+                    )}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -551,6 +590,10 @@ function ShellLayout() {
           </div>
         </main>
       </div>
+
+      {isWorkspaceAdmin && (
+        <NewWorkspaceDialog open={newWorkspaceOpen} onOpenChange={setNewWorkspaceOpen} />
+      )}
     </div>
   );
 }

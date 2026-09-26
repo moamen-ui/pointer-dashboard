@@ -75,6 +75,8 @@ function emptyEntitlements(): PlanEntitlementsDto {
     maxExtensionSites: null,
     maxPredefinedActionsPerProject: null,
     maxTenantWidePredefinedActions: null,
+    maxOwnedWorkspaces: null,
+    newWorkspaceRequiresApproval: null,
     retentionDays: null,
     maxEnvironments: null,
     maxActiveInvites: null,
@@ -472,6 +474,8 @@ export function PlansPage() {
                     { key: 'maxExtensionSites', label: 'plans.ent.maxExtensionSites' },
                     { key: 'maxPredefinedActionsPerProject', label: 'plans.ent.maxPredefinedActionsPerProject' },
                     { key: 'maxTenantWidePredefinedActions', label: 'plans.ent.maxTenantWidePredefinedActions' },
+                    { key: 'maxOwnedWorkspaces', label: 'plans.ent.maxOwnedWorkspaces' },
+                    { key: 'newWorkspaceRequiresApproval', label: 'plans.ent.newWorkspaceRequiresApproval', isBool: true },
                   ].map((field) => {
                     const key = field.key as keyof PlanEntitlementsDto;
                     const isBool = 'isBool' in field && field.isBool;
