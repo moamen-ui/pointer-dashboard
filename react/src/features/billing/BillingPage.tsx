@@ -1,30 +1,19 @@
 // DB-20 (BILL-1) — Workspace Admin's own "Billing" page: current plan/status, a manual-payment
 // plan picker (optional reference code, explicit "Apply" quote), and payment history (redacted:
 // no operator note/recordedBy — see WorkspacePaymentResponse).
-//
-// NOTE (found while building this page, not fixed here — API repo is read-only from this pass):
-// "choose a plan" needs each plan's integer id, but the only plans list a Workspace Admin's own
-// token can call is `useGetApiAdminPlans()` (`GET /api/admin/plans`), which is
-// `[Authorize(Policy = Policies.SuperAdmin)]` server-side (API/Controllers/Admin/PlansController.cs).
-// The anonymous `GET /api/plans` (`useGetApiPlans`) never carries an id (marketing-only DTO, see
-// SignupPage.tsx's identical note). Wired against the documented "existing plans query" per the
-// DB-20 execution doc §11 checklist; a real Workspace Admin session will 403 loading this list
-// until the API adds an authenticated (Policies.Admin) plans-with-id read — flagged in the
-// hand-back report for a backend follow-up.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetApiAdminBilling,
   useGetApiAdminBillingPayments,
-  useGetApiAdminPlans,
+  useGetApiAdminBillingPlans,
   usePostApiAdminBillingQuote,
   usePostApiAdminBillingRequest,
   useDeleteApiAdminBillingRequest,
   getGetApiAdminBillingQueryKey,
   getGetApiAdminBillingPaymentsQueryKey,
-  PlanDisplayState,
-  type PlanAdminResponse,
+  type BillablePlanResponse,
   type WorkspacePaymentResponse,
   type BillingQuoteResponse,
 } from '@moamen-ui/pointer-react';
@@ -79,6 +68,10 @@ function methodLabel(method: string | null | undefined, t: (k: string) => string
   }
 }
 
+function intervalLabel(interval: string | null | undefined, t: (k: string) => string): string {
+  return interval === 'Yearly' ? t('billing.interval.yearly') : t('billing.interval.monthly');
+}
+
 export function BillingPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -90,15 +83,10 @@ export function BillingPage() {
     (paymentsRaw as unknown as { data?: WorkspacePaymentResponse[] })?.data ??
     (Array.isArray(paymentsRaw) ? (paymentsRaw as WorkspacePaymentResponse[]) : []);
 
-  // See file-level note: this is the only plans-with-id query the app has, but it is
-  // SuperAdmin-gated server-side — a plain Workspace Admin caller will get an error here.
-  const { data: plansRaw, isError: plansError } = useGetApiAdminPlans();
-  const allPlans: PlanAdminResponse[] =
-    (plansRaw as unknown as { data?: PlanAdminResponse[] })?.data ??
-    (Array.isArray(plansRaw) ? (plansRaw as PlanAdminResponse[]) : []);
-  const visiblePlans = allPlans.filter(
-    (p) => p.isActive && p.displayState !== PlanDisplayState.NUMBER_2 && (p.priceMonthly ?? 0) > 0,
-  );
+  const { data: plansRaw, isError: plansError } = useGetApiAdminBillingPlans();
+  const visiblePlans: BillablePlanResponse[] =
+    (plansRaw as unknown as { data?: BillablePlanResponse[] })?.data ??
+    (Array.isArray(plansRaw) ? (plansRaw as BillablePlanResponse[]) : []);
 
   const reloadBilling = () => {
     void qc.invalidateQueries({ queryKey: getGetApiAdminBillingQueryKey() });
@@ -334,10 +322,25 @@ export function BillingPage() {
                       : 'border-border hover:bg-gutter-strong',
                   )}
                 >
-                  <div className="text-[14px] font-medium">{p.name}</div>
-                  <div className="font-mono text-[13px] text-muted-foreground">
-                    {formatMoney(p.priceMonthly, p.currency)}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[14px] font-medium">{p.name}</div>
+                    {p.isCurrent && (
+                      <Badge variant="success" hideGlyph>
+                        {t('billing.currentPlan')}
+                      </Badge>
+                    )}
                   </div>
+                  <div className="font-mono text-[13px] text-muted-foreground">
+                    {formatMoney(p.price, p.currency)}
+                    <span>/{intervalLabel(p.interval, t)}</span>
+                  </div>
+                  {p.featureBullets != null && p.featureBullets.length > 0 && (
+                    <ul className="mt-2 flex list-disc flex-col gap-0.5 ps-4 text-[12px] text-muted-foreground">
+                      {p.featureBullets.map((bullet, i) => (
+                        <li key={i}>{bullet}</li>
+                      ))}
+                    </ul>
+                  )}
                 </button>
               ))}
             </div>

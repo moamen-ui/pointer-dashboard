@@ -1705,6 +1705,11 @@
       "bankTransfer": "Bank transfer",
       "other": "Other"
     },
+    "interval": {
+      "monthly": "month",
+      "yearly": "year"
+    },
+    "currentPlan": "Current plan",
     "complimentary": "Complimentary",
     "until": "until {{date}}",
     "periodEnds": "Current period ends {{date}}.",
