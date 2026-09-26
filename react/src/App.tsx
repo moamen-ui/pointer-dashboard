@@ -18,6 +18,8 @@ import { TenantsPage } from '@/features/tenants/TenantsPage';
 import { SecurityLogPage } from '@/features/security-log/SecurityLogPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { PlansPage } from '@/features/plans/PlansPage';
+import { BillingPage } from '@/features/billing/BillingPage';
+import { DiscountCodesPage } from '@/features/discount-codes/DiscountCodesPage';
 import { BrandingPage } from '@/features/branding/BrandingPage';
 import { SignupPage } from '@/features/signup/SignupPage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
@@ -92,11 +94,16 @@ export default function App() {
                         workspace's events; super admins (also isAdmin) read the /all view
                         instead (gated inside the page, mirrors /settings above). */}
                     <Route path="/security-log" element={<SecurityLogPage />} />
+                    {/* DB-20 (BILL-1): the workspace's own "Billing" page — Policies.Admin,
+                        same gate as the rest of this section. */}
+                    <Route path="/billing" element={<BillingPage />} />
 
                     {/* Super-admin-only section */}
                     <Route element={<SuperAdminRoute />}>
                       <Route path="/tenants" element={<TenantsPage />} />
                       <Route path="/plans" element={<PlansPage />} />
+                      {/* DB-20 (BILL-1): reference/discount codes CRUD. */}
+                      <Route path="/discount-codes" element={<DiscountCodesPage />} />
                       <Route path="/branding" element={<BrandingPage />} />
                       <Route path="/statuses" element={<StatusesPage />} />
                     </Route>

@@ -1,0 +1,291 @@
+// Self-signup form: posts to /api/auth/register-admin; on success shows a "pending approval"
+// message. Disabled state -> "signup closed" notice. Honors ?plan=<slug> to preselect a plan.
+//
+// Extracted from SignupPage (#213) so the same form can render two ways:
+//  - `embedded=false` (default): the standalone /signup page, its own "Create Account" title
+//    and "Back to login" links.
+//  - `embedded=true`: inline on /login as the default entry point (replacing the demo section
+//    there when no `?demo=1` is present) — no page title, no "back to login" link (it's already
+//    the login page).
+import { useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import {
+  useGetApiAuthSignupEnabled,
+  usePostApiAuthRegisterAdmin,
+  useGetApiPlans,
+  type PlanPublicResponse,
+  PlanDisplayState,
+  BillingInterval,
+} from '@moamen-ui/pointer-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { FormField } from '@/components/shared/FormField';
+import { emailError, passwordError, requiredError } from '@/lib/validators';
+import { extractMessage } from '@/lib/error';
+import { cn } from '@/lib/utils';
+
+// DB-14: server policy is 10-128 chars, not a common password, not the e-mail address (enforced
+// server-side only — PasswordPolicy.Validate; not duplicated client-side beyond the length floor,
+// see `common.passwordPolicyHint`). This constant only drives the client-side "too short" check.
+const SIGNUP_MIN_PASSWORD_LENGTH = 10;
+
+// Helper: format plan price for display
+function formatPlanPrice(plan: PlanPublicResponse): string {
+  if (!plan.priceMonthly) return 'Free';
+  const interval = plan.interval === BillingInterval.NUMBER_1 ? '/yr' : '/mo';
+  return `${plan.priceMonthly} ${plan.currency ?? 'USD'}${interval}`;
+}
+
+// Plan card for the selector
+function PlanCard({
+  plan,
+  selected,
+  disabled,
+  onClick,
+}: {
+  plan: PlanPublicResponse;
+  selected: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'flex w-full flex-col gap-1 rounded-lg border px-3 py-3 text-start transition-colors',
+        selected
+          ? 'border-brand bg-brand-tint text-brand'
+          : 'border-border bg-card text-card-foreground hover:border-brand/50',
+        disabled && 'cursor-not-allowed opacity-50',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold text-sm">{plan.name}</span>
+        <span className="text-xs font-medium">{formatPlanPrice(plan)}</span>
+      </div>
+      {plan.displayState === PlanDisplayState.NUMBER_1 && (
+        <Badge variant="neutral" className="text-[10px]">{t('signup.plan.comingSoon')}</Badge>
+      )}
+      {plan.featureBullets && plan.featureBullets.length > 0 && (
+        <ul className="mt-1 flex flex-col gap-0.5">
+          {plan.featureBullets.slice(0, 3).map((b, i) => (
+            <li key={i} className="text-xs text-muted-foreground">
+              · {b}
+            </li>
+          ))}
+        </ul>
+      )}
+    </button>
+  );
+}
+
+export function RegisterWorkspaceForm({ embedded = false }: { embedded?: boolean }) {
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const planSlugFromQuery = searchParams.get('plan');
+
+  // Use the typed enabled field from SignupEnabledResponse.
+  const { data: signupData, isLoading: checkingEnabled } = useGetApiAuthSignupEnabled();
+  const signupEnabled = signupData?.enabled === true;
+
+  // Public plans list — anonymous, ordered by sortOrder.
+  // Visible (0) + ComingSoon (1) shown; Hidden (2) excluded.
+  const { data: plansRaw } = useGetApiPlans();
+  const allPlans: PlanPublicResponse[] =
+    (plansRaw as unknown as { data?: PlanPublicResponse[] })?.data ??
+    (Array.isArray(plansRaw) ? (plansRaw as PlanPublicResponse[]) : []);
+
+  const selectablePlans = allPlans
+    .filter((p) => p.displayState !== PlanDisplayState.NUMBER_2)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  // Honor ?plan=<slug>: preselect that slug if it's Visible when plans load.
+  // If no query param, default to null (Free / no plan selected).
+  const initialSlug =
+    planSlugFromQuery &&
+    selectablePlans.some(
+      (p) => p.slug === planSlugFromQuery && p.displayState === PlanDisplayState.NUMBER_0,
+    )
+      ? planSlugFromQuery
+      : null;
+
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSlug);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [displayNameTouched, setDisplayNameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Errors render once a field is touched (or the form was submitted); raw
+  // validity drives the disabled submit button, like Angular's form.invalid.
+  const displayNameErrorMsg = requiredError(displayName, t);
+  const emailErrorMsg = emailError(email, t);
+  const passwordErrorMsg = passwordError(password, SIGNUP_MIN_PASSWORD_LENGTH, t);
+  const formInvalid = !!displayNameErrorMsg || !!emailErrorMsg || !!passwordErrorMsg;
+
+  const registerMut = usePostApiAuthRegisterAdmin({
+    mutation: {
+      onSuccess: () => {
+        setDone(true);
+      },
+      onError: (e: unknown) => {
+        setError(extractMessage(e));
+      },
+    },
+  });
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSubmitted(true);
+    if (formInvalid) return;
+    setError(null);
+
+    // INTENTIONAL: planId is always sent as null (undefined) here.
+    //
+    // The public /api/plans endpoint returns PlanPublicResponse which has no `id` field,
+    // only `slug`. Resolving a slug to an integer planId would require either:
+    //   (a) the admin /api/admin/plans endpoint (requires super-admin auth), or
+    //   (b) an id-bearing public endpoint that does not yet exist.
+    //
+    // The spec decision: treat the plan selector as display-only marketing UI.
+    // When payment integration + an id-bearing public endpoint exist, replace
+    // `planId: undefined` below with the resolved integer.
+    //
+    // See monetization-ui-spec.md §4 "Submit selected plan's id?"
+    registerMut.mutate({
+      data: {
+        email: email.trim(),
+        password,
+        displayName: displayName.trim(),
+        // planId: null — intentionally omitted until payment integration
+      },
+    });
+  }
+
+  if (checkingEnabled) {
+    return <p className="text-center text-sm text-muted-foreground">{t('signup.checking')}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {embedded ? (
+        <h2 className="text-center text-[15px] font-semibold text-foreground">
+          {t('login.createAccount')}
+        </h2>
+      ) : (
+        <h1 className="text-center text-xl font-bold">{t('signup.title')}</h1>
+      )}
+
+      {!signupEnabled ? (
+        <>
+          <p className="text-center text-sm text-muted-foreground">{t('signup.closed')}</p>
+          {!embedded && (
+            <Link to="/login" className="text-center text-sm text-brand hover:underline">
+              {t('signup.backToLogin')}
+            </Link>
+          )}
+        </>
+      ) : done ? (
+        <>
+          <p className="text-center text-sm text-muted-foreground">{t('signup.pending')}</p>
+          {/* DB-14: RegisterAdminAsync creates the identity unverified and sends the
+              verification link best-effort — surfaced here since it lands in the same
+              request as the "pending approval" notice. */}
+          <p className="text-center text-sm text-muted-foreground">{t('signup.verifyInboxHint')}</p>
+          {!embedded && (
+            <Link to="/login" className="text-center text-sm text-brand hover:underline">
+              {t('signup.backToLogin')}
+            </Link>
+          )}
+        </>
+      ) : (
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+          <FormField
+            label={t('signup.displayName')}
+            htmlFor="signup-name"
+            error={displayNameTouched || submitted ? displayNameErrorMsg : undefined}
+          >
+            <Input
+              id="signup-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              onBlur={() => setDisplayNameTouched(true)}
+              autoFocus={!embedded}
+            />
+          </FormField>
+          <FormField
+            label={t('signup.email')}
+            htmlFor="signup-email"
+            error={emailTouched || submitted ? emailErrorMsg : undefined}
+          >
+            <Input
+              id="signup-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setEmailTouched(true)}
+            />
+          </FormField>
+          <FormField
+            label={t('signup.password')}
+            htmlFor="signup-password"
+            error={passwordTouched || submitted ? passwordErrorMsg : undefined}
+            hint={t('common.passwordPolicyHint')}
+          >
+            <PasswordInput
+              id="signup-password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => setPasswordTouched(true)}
+            />
+          </FormField>
+
+          {/* Plan selector — shown when public plans are available */}
+          {selectablePlans.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <Label>{t('signup.plan.chooseLabel')}</Label>
+              <div className="flex flex-col gap-2">
+                {selectablePlans.map((plan) => (
+                  <PlanCard
+                    key={plan.slug}
+                    plan={plan}
+                    selected={selectedSlug === plan.slug}
+                    disabled={plan.displayState === PlanDisplayState.NUMBER_1}
+                    onClick={() =>
+                      setSelectedSlug(selectedSlug === plan.slug ? null : (plan.slug ?? null))
+                    }
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{t('signup.plan.hint')}</p>
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="mt-1" disabled={registerMut.isPending || formInvalid}>
+            {t('signup.submit')}
+          </Button>
+          {!embedded && (
+            <Link to="/login" className="text-center text-sm text-muted-foreground hover:underline">
+              {t('signup.backToLogin')}
+            </Link>
+          )}
+        </form>
+      )}
+    </div>
+  );
+}

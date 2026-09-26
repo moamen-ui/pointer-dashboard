@@ -26,21 +26,33 @@ import {
   usePostApiAdminTenantsInvitesIdResend,
   useDeleteApiAdminTenantsInvitesId,
   useDeleteApiAdminIdentitiesPublicId,
+  // DB-20 (BILL-1): super-admin tenant billing drawer.
+  useGetApiAdminTenantsWorkspaceIdBilling,
+  usePostApiAdminTenantsWorkspaceIdPayments,
+  usePostApiAdminTenantsWorkspaceIdPaymentsPaymentIdVoid,
+  useDeleteApiAdminTenantsWorkspaceIdBillingRequest,
+  useDeleteApiAdminTenantsWorkspaceIdComp,
   getGetApiAdminTenantsQueryKey,
   getGetApiAdminTenantsInvitesQueryKey,
+  getGetApiAdminTenantsWorkspaceIdBillingQueryKey,
+  PaymentMethod,
   type TenantResponse,
   type PlanAdminResponse,
   type TenantInviteResponse,
+  type OperatorPaymentResponse,
 } from '@moamen-ui/pointer-react';
-import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX, Eye, PauseCircle, PlayCircle, XCircle } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Ban, ShieldCheck, Clock, Settings2, CreditCard, Building2, Copy, Mail, UserX, Eye, PauseCircle, PlayCircle, XCircle, Receipt, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { DataTable } from '@/components/shared/data-table/DataTable';
 import { FormField } from '@/components/shared/FormField';
 import { Textarea } from '@/components/ui/textarea';
 import type { RowActionItem } from '@/components/shared/types';
+import { formatMoney, formatDate, formatDateTime, localDateTimeToIso } from '@/lib/format';
 import {
   Dialog,
   DialogContent,
@@ -118,6 +130,11 @@ export function TenantsPage() {
   const [inviteDisplayName, setInviteDisplayName] = useState('');
   const [invitePlanId, setInvitePlanId] = useState<string>('');
   const [inviteExpiryDays, setInviteExpiryDays] = useState<number>(30);
+  // DB-20 §11: "Complimentary (free)" checkbox + reason + optional end date, shown once a paid
+  // plan is chosen (CreateTenantInviteRequest.Complimentary requires a live, positive-price plan).
+  const [inviteComplimentary, setInviteComplimentary] = useState(false);
+  const [inviteCompReason, setInviteCompReason] = useState('');
+  const [inviteCompEndsAt, setInviteCompEndsAt] = useState('');
   const [inviteEmailTouched, setInviteEmailTouched] = useState(false);
   const [inviteShowSuccess, setInviteShowSuccess] = useState(false);
   const [inviteSuccessData, setInviteSuccessData] = useState<{ url?: string; emailSent: boolean } | null>(null);
@@ -153,6 +170,9 @@ export function TenantsPage() {
     },
   });
 
+  const invitePlan = allPlans.find((p) => String(p.id) === invitePlanId);
+  const invitePlanIsPaid = (invitePlan?.priceMonthly ?? 0) > 0;
+
   function sendInvite() {
     if (inviteInvalid) return;
     const payload: any = {
@@ -166,6 +186,11 @@ export function TenantsPage() {
     }
     if (inviteExpiryDays) {
       payload.expiryDays = inviteExpiryDays;
+    }
+    if (invitePlanIsPaid && inviteComplimentary) {
+      payload.complimentary = true;
+      payload.compReason = inviteCompReason.trim() || null;
+      payload.compEndsAt = localDateTimeToIso(inviteCompEndsAt);
     }
     inviteMut.mutate({ data: payload });
   }
@@ -235,6 +260,9 @@ export function TenantsPage() {
     setInviteDisplayName('');
     setInvitePlanId('');
     setInviteExpiryDays(30);
+    setInviteComplimentary(false);
+    setInviteCompReason('');
+    setInviteCompEndsAt('');
     setInviteEmailTouched(false);
     setInviteShowSuccess(false);
     setInviteSuccessData(null);
@@ -440,11 +468,17 @@ export function TenantsPage() {
   // ---- Change plan ----
   const [changePlanTarget, setChangePlanTarget] = useState<AnyTenant | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  // DB-20 §3.6e: "Make complimentary" rides the same PATCH .../plan action — a paid plan selection
+  // gains an optional comp reason + end date (blank reason ⇒ server default "Assigned by operator").
+  const [changePlanCompReason, setChangePlanCompReason] = useState('');
+  const [changePlanCompEndsAt, setChangePlanCompEndsAt] = useState('');
 
   function openChangePlan(tenant: AnyTenant) {
     setChangePlanTarget(tenant);
     // pre-select current plan if resolvable
     setSelectedPlanId('');
+    setChangePlanCompReason('');
+    setChangePlanCompEndsAt('');
   }
 
   const changePlanMut = usePatchApiAdminTenantsWorkspaceIdPlan({
@@ -461,13 +495,133 @@ export function TenantsPage() {
     },
   });
 
+  const selectedChangePlan = allPlans.find((p) => String(p.id) === selectedPlanId);
+  const changePlanIsPaid = (selectedChangePlan?.priceMonthly ?? 0) > 0;
+
   function saveChangePlan() {
     if (changePlanTarget?.workspaceId == null || !selectedPlanId) return;
     changePlanMut.mutate({
       workspaceId: changePlanTarget.workspaceId,
-      data: { planId: Number(selectedPlanId) },
+      data: {
+        planId: Number(selectedPlanId),
+        compReason: changePlanIsPaid ? changePlanCompReason.trim() || null : null,
+        compEndsAt: changePlanIsPaid ? localDateTimeToIso(changePlanCompEndsAt) : null,
+      },
     });
   }
+
+  // ---- Billing drawer (DB-20 §3.9/§3.6): summary + payments + redemptions, "Mark as paid",
+  // "Void" (latest payment only), "Reject request", "End complimentary". ----
+  const [billingTarget, setBillingTarget] = useState<AnyTenant | null>(null);
+
+  const { data: operatorBilling, isLoading: billingLoading } = useGetApiAdminTenantsWorkspaceIdBilling(
+    billingTarget?.workspaceId ?? '',
+    { query: { enabled: !!billingTarget?.workspaceId } },
+  );
+  const billingSummary = operatorBilling?.summary;
+  const operatorPayments: OperatorPaymentResponse[] = operatorBilling?.payments ?? [];
+  const latestPaymentId = operatorPayments
+    .filter((p) => p.kind === 'Payment')
+    .sort((a, b) => new Date(b.recordedAt ?? 0).getTime() - new Date(a.recordedAt ?? 0).getTime())[0]?.id;
+
+  const reloadBillingDrawer = () => {
+    if (billingTarget?.workspaceId) {
+      void qc.invalidateQueries({
+        queryKey: getGetApiAdminTenantsWorkspaceIdBillingQueryKey(billingTarget.workspaceId),
+      });
+    }
+    reload();
+  };
+
+  // ---- Mark as paid ----
+  const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentCurrency, setPaymentCurrency] = useState('');
+  const [paymentDate, setPaymentDate] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<string>(String(PaymentMethod.NUMBER_1));
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+
+  function openRecordPayment() {
+    const quoted = billingSummary?.quotedPrice ?? billingSummary?.renewalPrice ?? null;
+    setPaymentAmount(quoted != null ? String(quoted) : '');
+    setPaymentCurrency(billingSummary?.quotedCurrency ?? billingSummary?.renewalCurrency ?? '');
+    setPaymentDate(new Date().toISOString().slice(0, 16));
+    setPaymentMethod(String(PaymentMethod.NUMBER_1));
+    setPaymentReference('');
+    setPaymentNote('');
+    setRecordPaymentOpen(true);
+  }
+
+  const recordPaymentMut = usePostApiAdminTenantsWorkspaceIdPayments({
+    mutation: {
+      onSuccess: () => {
+        setRecordPaymentOpen(false);
+        toast(t('tenants.billingPaymentRecorded'));
+        reloadBillingDrawer();
+      },
+      onError,
+    },
+  });
+
+  function saveRecordPayment() {
+    if (billingTarget?.workspaceId == null || !paymentAmount || !paymentDate) return;
+    recordPaymentMut.mutate({
+      workspaceId: billingTarget.workspaceId,
+      data: {
+        amount: Number(paymentAmount),
+        currency: paymentCurrency.trim() || undefined,
+        paidAt: localDateTimeToIso(paymentDate) ?? new Date().toISOString(),
+        method: Number(paymentMethod) as (typeof PaymentMethod)[keyof typeof PaymentMethod],
+        reference: paymentReference.trim() || null,
+        note: paymentNote.trim() || null,
+      },
+    });
+  }
+
+  // ---- Void latest payment ----
+  const [voidTarget, setVoidTarget] = useState<OperatorPaymentResponse | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+
+  const voidMut = usePostApiAdminTenantsWorkspaceIdPaymentsPaymentIdVoid({
+    mutation: {
+      onSuccess: () => {
+        setVoidTarget(null);
+        toast(t('tenants.billingPaymentVoided'));
+        reloadBillingDrawer();
+      },
+      onError,
+    },
+  });
+
+  function confirmVoid() {
+    if (billingTarget?.workspaceId == null || voidTarget?.id == null || !voidReason.trim()) return;
+    voidMut.mutate({
+      workspaceId: billingTarget.workspaceId,
+      paymentId: voidTarget.id,
+      data: { reason: voidReason.trim() },
+    });
+  }
+
+  // ---- Reject request / end complimentary ----
+  const rejectRequestMut = useDeleteApiAdminTenantsWorkspaceIdBillingRequest({
+    mutation: {
+      onSuccess: () => {
+        toast(t('tenants.billingRequestRejected'));
+        reloadBillingDrawer();
+      },
+      onError,
+    },
+  });
+  const endCompMut = useDeleteApiAdminTenantsWorkspaceIdComp({
+    mutation: {
+      onSuccess: () => {
+        toast(t('tenants.billingCompEnded'));
+        reloadBillingDrawer();
+      },
+      onError,
+    },
+  });
 
   // Column set per review-margin §3: email 14/500 + display name 13 muted;
   // plan as neutral chip; approval/status as chips with glyphs;
@@ -572,6 +726,39 @@ export function TenantsPage() {
         </span>
       ),
     },
+    // DB-20 §11: tenant list gains the at-a-glance billing state — pending request + quoted
+    // price, complimentary badge, and the current paid period's end.
+    {
+      accessorKey: 'billing',
+      enableSorting: false,
+      header: t('tenants.billingCol'),
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          {row.original.isComplimentary && (
+            <Badge variant="success" hideGlyph>
+              {t('tenants.complimentaryBadge')}
+              {row.original.compEndsAt ? ` · ${formatDate(row.original.compEndsAt)}` : ''}
+            </Badge>
+          )}
+          {row.original.requestedPlanName && (
+            <Badge variant="warning">
+              {t('tenants.pendingRequestBadge', { plan: row.original.requestedPlanName })}
+              {row.original.quotedPrice != null
+                ? ` · ${formatMoney(row.original.quotedPrice, row.original.quotedCurrency)}`
+                : ''}
+            </Badge>
+          )}
+          {row.original.currentPeriodEnd && (
+            <span className="font-mono text-[12px] text-muted-foreground">
+              {t('tenants.periodEndsShort', { date: formatDate(row.original.currentPeriodEnd) })}
+            </span>
+          )}
+          {!row.original.isComplimentary && !row.original.requestedPlanName && !row.original.currentPeriodEnd && (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </div>
+      ),
+    },
   ];
 
   const actionsFor = (tenant: AnyTenant): RowActionItem[] => {
@@ -621,6 +808,7 @@ export function TenantsPage() {
       items.push({ label: t('tenants.editDemoConfig'), icon: Settings2, onClick: () => openDemoConfig(tenant) });
     }
     items.push({ label: t('tenants.changePlan'), icon: CreditCard, onClick: () => openChangePlan(tenant) });
+    items.push({ label: t('tenants.billing'), icon: Receipt, onClick: () => setBillingTarget(tenant) });
     items.push({ label: t('tenants.viewAs'), icon: Eye, onClick: () => openViewAs(tenant) });
     const hasAdmin = !!tenant.publicId && tenant.publicId !== EMPTY_GUID;
     items.push({
@@ -707,6 +895,34 @@ export function TenantsPage() {
                 </SelectContent>
               </Select>
             </FormField>
+            {/* DB-20 §3.6e: assigning a paid plan here always marks it complimentary — this IS the
+                "Make complimentary" flow (there is no other way to assign a paid plan for free). */}
+            {changePlanIsPaid && (
+              <>
+                <p className="text-[12px] text-muted-foreground">{t('tenants.compHint')}</p>
+                <FormField
+                  label={t('tenants.compReason')}
+                  htmlFor="change-plan-comp-reason"
+                  hint={t('tenants.noPersonalDataHint')}
+                >
+                  <Input
+                    id="change-plan-comp-reason"
+                    value={changePlanCompReason}
+                    maxLength={200}
+                    placeholder={t('tenants.compReasonPlaceholder')}
+                    onChange={(e) => setChangePlanCompReason(e.target.value)}
+                  />
+                </FormField>
+                <FormField label={t('tenants.compEndsAt')} htmlFor="change-plan-comp-ends">
+                  <Input
+                    id="change-plan-comp-ends"
+                    type="date"
+                    value={changePlanCompEndsAt}
+                    onChange={(e) => setChangePlanCompEndsAt(e.target.value)}
+                  />
+                </FormField>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setChangePlanTarget(null)}>
@@ -786,6 +1002,47 @@ export function TenantsPage() {
                     onChange={(e) => setInviteExpiryDays(Number(e.target.value) || 30)}
                   />
                 </FormField>
+                {/* DB-20 §11: complimentary (free) new-workspace invite — only meaningful once a
+                    paid plan is chosen above. */}
+                {invitePlanIsPaid && (
+                  <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="invite-complimentary" className="text-[13px] font-medium">
+                        {t('tenants.complimentaryInvite')}
+                      </Label>
+                      <Switch
+                        id="invite-complimentary"
+                        checked={inviteComplimentary}
+                        onCheckedChange={setInviteComplimentary}
+                      />
+                    </div>
+                    {inviteComplimentary && (
+                      <>
+                        <FormField
+                          label={t('tenants.compReason')}
+                          htmlFor="invite-comp-reason"
+                          hint={t('tenants.noPersonalDataHint')}
+                        >
+                          <Input
+                            id="invite-comp-reason"
+                            value={inviteCompReason}
+                            maxLength={200}
+                            placeholder={t('tenants.compReasonPlaceholder')}
+                            onChange={(e) => setInviteCompReason(e.target.value)}
+                          />
+                        </FormField>
+                        <FormField label={t('tenants.compEndsAt')} htmlFor="invite-comp-ends">
+                          <Input
+                            id="invite-comp-ends"
+                            type="date"
+                            value={inviteCompEndsAt}
+                            onChange={(e) => setInviteCompEndsAt(e.target.value)}
+                          />
+                        </FormField>
+                      </>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -1107,6 +1364,284 @@ export function TenantsPage() {
               onClick={confirmErase}
             >
               {t('tenants.eraseIdentityConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Billing drawer (DB-20 §3.9) — summary, payments (incl. note/recorded-by), redemptions */}
+      <Dialog open={!!billingTarget} onOpenChange={(o) => !o && setBillingTarget(null)}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {t('tenants.billingFor', {
+                name: billingTarget?.workspaceName ?? billingTarget?.email ?? '',
+              })}
+            </DialogTitle>
+          </DialogHeader>
+
+          {billingLoading ? (
+            <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+              {t('billing.loading')}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="rounded-md border border-border p-3 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[14px] font-medium">
+                    {billingSummary?.planName ?? t('tenants.noPlan')}
+                  </span>
+                  <Badge
+                    variant={
+                      billingSummary?.status === 'Active'
+                        ? 'success'
+                        : billingSummary?.status === 'PastDue'
+                          ? 'destructive'
+                          : billingSummary?.status === 'PendingActivation'
+                            ? 'warning'
+                            : 'neutral'
+                    }
+                  >
+                    {billingSummary?.status ?? 'None'}
+                  </Badge>
+                  {billingSummary?.isComplimentary && (
+                    <Badge variant="success" hideGlyph>
+                      {t('billing.complimentary')}
+                      {billingSummary?.compEndsAt
+                        ? ` · ${t('billing.until', { date: formatDate(billingSummary.compEndsAt) })}`
+                        : ''}
+                    </Badge>
+                  )}
+                </div>
+                {billingSummary?.currentPeriodEnd && (
+                  <p className="text-[13px] text-muted-foreground">
+                    {t('billing.periodEnds', { date: formatDate(billingSummary.currentPeriodEnd) })}
+                  </p>
+                )}
+                {billingSummary?.status === 'PastDue' && billingSummary?.graceEndsAt && (
+                  <div className="flex items-start gap-2 rounded-md border border-state-danger/30 bg-state-danger-tint p-2 text-[12px] text-state-danger">
+                    <TriangleAlert className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{t('billing.gracePeriodWarning', { date: formatDate(billingSummary.graceEndsAt) })}</span>
+                  </div>
+                )}
+                {billingSummary?.requestedPlanId != null && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-gutter p-2">
+                    <div className="text-[13px]">
+                      <span className="font-medium">
+                        {t('billing.pendingRequest', { plan: billingSummary?.requestedPlanName ?? '' })}
+                      </span>
+                      {billingSummary?.quotedPrice != null && (
+                        <span className="text-muted-foreground ms-2">
+                          {formatMoney(billingSummary.quotedPrice, billingSummary.quotedCurrency)}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={rejectRequestMut.isPending}
+                      onClick={() => rejectRequestMut.mutate({ workspaceId: billingTarget!.workspaceId! })}
+                    >
+                      {t('tenants.rejectRequest')}
+                    </Button>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {!billingSummary?.isComplimentary && (
+                    <Button size="sm" onClick={openRecordPayment}>
+                      {t('tenants.markAsPaid')}
+                    </Button>
+                  )}
+                  {billingSummary?.isComplimentary && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={endCompMut.isPending}
+                      onClick={() => endCompMut.mutate({ workspaceId: billingTarget!.workspaceId! })}
+                    >
+                      {t('tenants.endComplimentary')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Payments — operator view includes note + recordedBy (R17) */}
+              <div className="flex flex-col gap-2">
+                <h3 className="text-[13px] font-semibold">{t('billing.paymentHistory')}</h3>
+                <div className="rounded-md border border-border divide-y divide-border max-h-[260px] overflow-y-auto">
+                  {operatorPayments.length === 0 && (
+                    <p className="p-3 text-[13px] text-muted-foreground">{t('billing.noPayments')}</p>
+                  )}
+                  {operatorPayments.map((p) => (
+                    <div key={p.id} className="p-3 flex flex-col gap-1 text-[13px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">
+                          {p.kind === 'Void' ? t('billing.paymentKind.void') : p.planName}
+                        </span>
+                        <span className="font-mono">{formatMoney(p.amount, p.currency)}</span>
+                      </div>
+                      <div className="text-muted-foreground text-[12px] flex flex-wrap gap-x-2">
+                        <span>{p.method ?? '—'}</span>
+                        {p.reference && <span>· {p.reference}</span>}
+                        <span>· {formatDateTime(p.paidAt ?? p.recordedAt)}</span>
+                      </div>
+                      {p.note && <div className="text-[12px] text-muted-foreground">{p.note}</div>}
+                      {p.kind === 'Payment' && p.id === latestPaymentId && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto min-h-0 self-start p-0 text-state-danger"
+                          onClick={() => {
+                            setVoidReason('');
+                            setVoidTarget(p);
+                          }}
+                        >
+                          {t('tenants.voidPayment')}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Redemptions */}
+              {(operatorBilling?.redemptions?.length ?? 0) > 0 && (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-[13px] font-semibold">{t('discountCodes.title')}</h3>
+                  <div className="rounded-md border border-border divide-y divide-border max-h-[200px] overflow-y-auto">
+                    {operatorBilling!.redemptions!.map((r) => (
+                      <div key={r.id} className="p-2 flex items-center justify-between gap-2 text-[12px]">
+                        <span>
+                          {r.codeSnapshot} · {r.planName}
+                        </span>
+                        <span className="text-muted-foreground">{r.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setBillingTarget(null)}>
+              {t('common.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as paid */}
+      <Dialog open={recordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('tenants.markAsPaid')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label={t('billing.colAmount')} htmlFor="payment-amount">
+                <Input
+                  id="payment-amount"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                />
+              </FormField>
+              <FormField label={t('discountCodes.currency')} htmlFor="payment-currency">
+                <Input
+                  id="payment-currency"
+                  value={paymentCurrency}
+                  maxLength={3}
+                  onChange={(e) => setPaymentCurrency(e.target.value.toUpperCase())}
+                />
+              </FormField>
+              <FormField label={t('billing.colPaidAt')} htmlFor="payment-date">
+                <Input
+                  id="payment-date"
+                  type="datetime-local"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                />
+              </FormField>
+              <FormField label={t('billing.colMethod')} htmlFor="payment-method">
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger id="payment-method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={String(PaymentMethod.NUMBER_1)}>{t('billing.method.cash')}</SelectItem>
+                    <SelectItem value={String(PaymentMethod.NUMBER_2)}>{t('billing.method.bankTransfer')}</SelectItem>
+                    <SelectItem value={String(PaymentMethod.NUMBER_3)}>{t('billing.method.other')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+            </div>
+            <FormField label={t('billing.colReference')} htmlFor="payment-reference">
+              <Input
+                id="payment-reference"
+                value={paymentReference}
+                maxLength={128}
+                onChange={(e) => setPaymentReference(e.target.value)}
+              />
+            </FormField>
+            <FormField
+              label={t('tenants.paymentNote')}
+              htmlFor="payment-note"
+              hint={t('tenants.noPersonalDataHint')}
+            >
+              <Textarea
+                id="payment-note"
+                rows={2}
+                maxLength={500}
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setRecordPaymentOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              disabled={!paymentAmount || !paymentDate || recordPaymentMut.isPending}
+              onClick={saveRecordPayment}
+            >
+              {t('tenants.markAsPaid')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Void latest payment */}
+      <Dialog open={!!voidTarget} onOpenChange={(o) => !o && setVoidTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('tenants.voidPayment')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <FormField label={t('tenants.voidReason')} htmlFor="void-reason">
+              <Textarea
+                id="void-reason"
+                rows={3}
+                maxLength={500}
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                autoFocus
+              />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setVoidTarget(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!voidReason.trim() || voidMut.isPending}
+              onClick={confirmVoid}
+            >
+              {t('tenants.voidPaymentConfirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

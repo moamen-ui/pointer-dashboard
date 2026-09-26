@@ -26,6 +26,8 @@ import {
   ChevronDown,
   Check,
   Plus,
+  Receipt,
+  Ticket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +74,9 @@ const ADMIN_NAV = [
   { to: '/roles', key: 'nav.roles', icon: UserCog },
   { to: '/users', key: 'nav.users', icon: Users },
   { to: '/environments', key: 'nav.environments', icon: Globe },
+  // DB-20 (BILL-1): the workspace's own billing surface — same Policies.Admin gate as the
+  // BillingController, so it lives alongside Settings/Security log, not the super-admin group.
+  { to: '/billing', key: 'nav.billing', icon: Receipt },
   { to: '/settings', key: 'nav.settings', icon: Settings },
   { to: '/security-log', key: 'nav.securityLog', icon: ShieldCheck },
 ];
@@ -90,6 +95,8 @@ const ALL_USER_NAV = [
 const SUPER_ADMIN_NAV = [
   { to: '/tenants', key: 'nav.tenants', icon: Building2 },
   { to: '/plans', key: 'nav.plans', icon: CreditCard },
+  // DB-20 (BILL-1): reference/discount codes CRUD — SuperAdmin-only (DiscountCodesController).
+  { to: '/discount-codes', key: 'nav.discountCodes', icon: Ticket },
   { to: '/branding', key: 'nav.branding', icon: Paintbrush },
   { to: '/statuses', key: 'nav.statuses', icon: Tags },
 ];
