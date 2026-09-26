@@ -64,116 +64,55 @@ export function OverviewCharts({ totals, projects, activity }: OverviewChartsPro
             </Badge>
           </div>
 
-          <div className="p-4 flex flex-col justify-between gap-4 flex-1">
-            {/* Multi-segment stacked progress bar */}
-            <div className="space-y-1.5">
-              <div
-                className="h-3 w-full flex overflow-hidden rounded-full bg-gutter border border-border-muted"
-                role="progressbar"
-                aria-valuenow={totalComments}
-                aria-valuemin={0}
-                aria-valuemax={totalComments}
-              >
-                {openCount > 0 && (
-                  <div
-                    className="bg-state-open h-full transition-all duration-300"
-                    style={{ width: `${openPct}%` }}
-                    title={`${openLabel}: ${openCount} (${openPct.toFixed(1)}%)`}
-                  />
-                )}
-                {readyCount > 0 && (
-                  <div
-                    className="bg-state-ready h-full transition-all duration-300"
-                    style={{ width: `${readyPct}%` }}
-                    title={`${readyLabel}: ${readyCount} (${readyPct.toFixed(1)}%)`}
-                  />
-                )}
-                {completedCount > 0 && (
-                  <div
-                    className="bg-state-completed h-full transition-all duration-300"
-                    style={{ width: `${completedPct}%` }}
-                    title={`${completedLabel}: ${completedCount} (${completedPct.toFixed(1)}%)`}
-                  />
-                )}
-                {archivedCount > 0 && (
-                  <div
-                    className="bg-state-archived h-full transition-all duration-300"
-                    style={{ width: `${archivedPct}%` }}
-                    title={`${archivedLabel}: ${archivedCount} (${archivedPct.toFixed(1)}%)`}
-                  />
-                )}
-              </div>
-            </div>
+          <div className="p-4 flex flex-col sm:flex-row items-center gap-5 flex-1">
+            {/* Pie chart: each status's share of total feedback, drawn with a conic-gradient
+                so the four state colors stay in sync with the legend and the rest of the app —
+                no charting library needed for four static segments. */}
+            <div
+              role="img"
+              aria-label={`${openLabel} ${openCount} (${openPct.toFixed(1)}%), ${readyLabel} ${readyCount} (${readyPct.toFixed(1)}%), ${completedLabel} ${completedCount} (${completedPct.toFixed(1)}%), ${archivedLabel} ${archivedCount} (${archivedPct.toFixed(1)}%)`}
+              className="h-32 w-32 shrink-0 rounded-full border border-border-muted"
+              style={{
+                background:
+                  totalComments > 0
+                    ? `conic-gradient(var(--state-open) 0 ${openPct}%, var(--state-ready) ${openPct}% ${openPct + readyPct}%, var(--state-completed) ${openPct + readyPct}% ${openPct + readyPct + completedPct}%, var(--state-archived) ${openPct + readyPct + completedPct}% 100%)`
+                    : 'var(--gutter)',
+              }}
+            />
 
-            {/* 4 Status metric blocks */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {/* Open */}
-              <div className="rounded-md border border-border-muted p-2.5 bg-background">
-                <div className="flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 truncate">
-                    <span className="h-2 w-2 rounded-full bg-state-open shrink-0" />
-                    <span className="truncate">{openLabel}</span>
-                  </span>
-                  <span className="font-mono text-[11px] shrink-0">{openPct.toFixed(1)}%</span>
+            {/* Legend: color dot + label + count + percentage per status */}
+            <div className="grid grid-cols-2 gap-2.5 w-full flex-1">
+              {(
+                [
+                  { key: 'open', label: openLabel, count: openCount, pct: openPct, dot: 'bg-state-open' },
+                  { key: 'ready', label: readyLabel, count: readyCount, pct: readyPct, dot: 'bg-state-ready' },
+                  {
+                    key: 'completed',
+                    label: completedLabel,
+                    count: completedCount,
+                    pct: completedPct,
+                    dot: 'bg-state-completed',
+                  },
+                  {
+                    key: 'archived',
+                    label: archivedLabel,
+                    count: archivedCount,
+                    pct: archivedPct,
+                    dot: 'bg-state-archived',
+                  },
+                ] as const
+              ).map((s) => (
+                <div key={s.key} className="rounded-md border border-border-muted p-2.5 bg-background">
+                  <div className="flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 truncate">
+                      <span className={cn('h-2 w-2 rounded-full shrink-0', s.dot)} />
+                      <span className="truncate">{s.label}</span>
+                    </span>
+                    <span className="font-mono text-[11px] shrink-0">{s.pct.toFixed(1)}%</span>
+                  </div>
+                  <div className="mt-1 font-mono text-[18px] font-semibold text-foreground">{s.count}</div>
                 </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-foreground">
-                  {openCount}
-                </div>
-                <div className="mt-1.5 h-1 w-full rounded-full bg-gutter overflow-hidden">
-                  <div className="h-full bg-state-open rounded-full" style={{ width: `${openPct}%` }} />
-                </div>
-              </div>
-
-              {/* Ready */}
-              <div className="rounded-md border border-border-muted p-2.5 bg-background">
-                <div className="flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 truncate">
-                    <span className="h-2 w-2 rounded-full bg-state-ready shrink-0" />
-                    <span className="truncate">{readyLabel}</span>
-                  </span>
-                  <span className="font-mono text-[11px] shrink-0">{readyPct.toFixed(1)}%</span>
-                </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-foreground">
-                  {readyCount}
-                </div>
-                <div className="mt-1.5 h-1 w-full rounded-full bg-gutter overflow-hidden">
-                  <div className="h-full bg-state-ready rounded-full" style={{ width: `${readyPct}%` }} />
-                </div>
-              </div>
-
-              {/* Completed */}
-              <div className="rounded-md border border-border-muted p-2.5 bg-background">
-                <div className="flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 truncate">
-                    <span className="h-2 w-2 rounded-full bg-state-completed shrink-0" />
-                    <span className="truncate">{completedLabel}</span>
-                  </span>
-                  <span className="font-mono text-[11px] shrink-0">{completedPct.toFixed(1)}%</span>
-                </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-foreground">
-                  {completedCount}
-                </div>
-                <div className="mt-1.5 h-1 w-full rounded-full bg-gutter overflow-hidden">
-                  <div className="h-full bg-state-completed rounded-full" style={{ width: `${completedPct}%` }} />
-                </div>
-              </div>
-
-              {/* Archived */}
-              <div className="rounded-md border border-border-muted p-2.5 bg-background">
-                <div className="flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 truncate">
-                    <span className="h-2 w-2 rounded-full bg-state-archived shrink-0" />
-                    <span className="truncate">{archivedLabel}</span>
-                  </span>
-                  <span className="font-mono text-[11px] shrink-0">{archivedPct.toFixed(1)}%</span>
-                </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-foreground">
-                  {archivedCount}
-                </div>
-                <div className="mt-1.5 h-1 w-full rounded-full bg-gutter overflow-hidden">
-                  <div className="h-full bg-state-archived rounded-full" style={{ width: `${archivedPct}%` }} />
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>

@@ -22,6 +22,7 @@ import { useBranding } from '@/lib/branding';
 import { useToast } from '@/components/ui/toast';
 import { AuthLayout } from '@/components/AuthLayout';
 import { getSafeNextPath } from '@/lib/next-path';
+import { RegisterWorkspaceForm } from '@/features/signup/RegisterWorkspaceForm';
 
 // DB-17: the demo form's PDPL notice links to the privacy policy served on the LANDING
 // domain (`landing/privacy.html`), not this dashboard app. Falls back to the API's own
@@ -52,6 +53,10 @@ export function LoginPage() {
   // `?next=` set by AuthenticatedRoute when it bounced a signed-out visitor here
   // (e.g. /cli-login?code=…) — only a same-origin relative path is honoured.
   const next = getSafeNextPath(searchParams.get('next'));
+  // #213: the demo section is opt-in only — the landing page's "Try the demo" button links
+  // here with `?demo=1`. Without it, the default entry below the sign-in form is the
+  // register-new-workspace form (self-signup), not the demo.
+  const demoRequested = searchParams.get('demo') === '1';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -426,61 +431,65 @@ export function LoginPage() {
         <div className="flex-1 border-t border-border" />
       </div>
 
-      {/* Demo section: one line of "why" framing before the field, per PRODUCT.md's own
-          voice commitment ("explains the why in hints") — the demo path had none. */}
-      <div className="flex flex-col gap-3">
-        <p className="text-[13px] text-muted-foreground">{t('login.demoHint')}</p>
+      {/* #213: default entry is the register-new-workspace (self-signup) form; the demo
+          section only renders behind `?demo=1`, added by the landing page's demo button. */}
+      {demoRequested ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-muted-foreground">{t('login.demoHint')}</p>
 
-        <FormField
-          label={t('login.demoEmailLabel')}
-          htmlFor="demo-email"
-          error={demoEmailError || undefined}
-        >
-          <Input
-            id="demo-email"
-            type="email"
-            placeholder="you@example.com"
-            autoComplete="email"
-            value={demoEmail}
-            onChange={(e) => {
-              setDemoEmail(e.target.value);
-              setDemoEmailError(null);
-            }}
-          />
-        </FormField>
+          <FormField
+            label={t('login.demoEmailLabel')}
+            htmlFor="demo-email"
+            error={demoEmailError || undefined}
+          >
+            <Input
+              id="demo-email"
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              value={demoEmail}
+              onChange={(e) => {
+                setDemoEmail(e.target.value);
+                setDemoEmailError(null);
+              }}
+            />
+          </FormField>
 
-        {/* DB-17 PDPL notice — the demo address is used only to deliver the login/reminder
-            and is deleted with the workspace after 24h unless kept; links to the landing
-            domain's privacy policy (never this app's own — the landing app owns that page). */}
-        <p className="text-[12px] text-muted-foreground">
-          <Trans
-            i18nKey="login.demoPdplNotice"
-            components={{
-              privacyLink: (
-                <a
-                  href={privacyUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand hover:underline"
-                />
-              ),
-            }}
-          />
-        </p>
+          {/* DB-17 PDPL notice — the demo address is used only to deliver the login/reminder
+              and is deleted with the workspace after 24h unless kept; links to the landing
+              domain's privacy policy (never this app's own — the landing app owns that page). */}
+          <p className="text-[12px] text-muted-foreground">
+            <Trans
+              i18nKey="login.demoPdplNotice"
+              components={{
+                privacyLink: (
+                  <a
+                    href={privacyUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand hover:underline"
+                  />
+                ),
+              }}
+            />
+          </p>
 
-        {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
+          {demoError && <p className="text-[14px] text-state-danger">{demoError}</p>}
 
-        {/* Secondary "Try the demo" button */}
-        <Button
-          variant="secondary"
-          onClick={onTryDemo}
-          disabled={demoMut.isPending}
-          loading={demoMut.isPending}
-          className="w-full"
-        >
-          {t('login.tryDemo')}
-        </Button>
-      </div>
+          {/* Secondary "Try the demo" button */}
+          <Button
+            variant="secondary"
+            onClick={onTryDemo}
+            disabled={demoMut.isPending}
+            loading={demoMut.isPending}
+            className="w-full"
+          >
+            {t('login.tryDemo')}
+          </Button>
+        </div>
+      ) : (
+        <RegisterWorkspaceForm embedded />
+      )}
 
       {/* Hairline divider */}
       <div className="border-t border-border" />
