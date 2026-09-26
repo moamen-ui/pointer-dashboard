@@ -55,8 +55,10 @@ export function LoginPage() {
   const next = getSafeNextPath(searchParams.get('next'));
   // #213: the demo section is opt-in only — the landing page's "Try the demo" button links
   // here with `?demo=1`. Without it, the default entry below the sign-in form is the
-  // register-new-workspace form (self-signup), not the demo.
-  const demoRequested = searchParams.get('demo') === '1';
+  // register-new-workspace form (self-signup), not the demo. The dedicated demo host
+  // (demo.<domain>) always shows the demo, so old links and bookmarks keep working.
+  const demoRequested =
+    searchParams.get('demo') === '1' || window.location.hostname.startsWith('demo.');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
