@@ -518,6 +518,9 @@
     "changePassword": "تغيير كلمة المرور",
     "language": "اللغة",
     "menu": "القائمة",
+    "newWorkspace": "مساحة عمل جديدة",
+    "newWorkspaceLimitHint": "تسمح خطتك بـ {{count}} مساحة عمل. قم بالترقية لإنشاء المزيد.",
+    "newWorkspaceNotAllowedHint": "لا يمكنك إنشاء مساحة عمل جديدة الآن.",
     "notifications": "الإشعارات",
     "signOut": "تسجيل الخروج",
     "switchWorkspace": "تبديل مساحة العمل",
@@ -843,6 +846,15 @@
     "tenants": "المستأجرون",
     "users": "المستخدمون"
   },
+  "newWorkspace": {
+    "activeToast": "تم إنشاء \"{{name}}\" — أنت الآن فيها.",
+    "create": "إنشاء مساحة العمل",
+    "description": "ينشئ مساحة عمل جديدة تكون فيها مدير مساحة العمل.",
+    "nameLabel": "اسم مساحة العمل",
+    "pendingToast": "تم إنشاء مساحة العمل — وهي بانتظار موافقة المشرف العام قبل أن تتمكن من التبديل إليها.",
+    "switchFailed": "تم إنشاء مساحة العمل، لكن التبديل إليها فشل — اخترها من مبدّل مساحات العمل.",
+    "title": "مساحة عمل جديدة"
+  },
   "notifications": {
     "bell": "الإشعارات",
     "commentApplied": "تم تطبيق التعليق",
@@ -938,11 +950,13 @@
       "maxCommentsPerMonth": "التعليقات / شهر",
       "maxEnvironments": "البيئات",
       "maxExtensionSites": "مواقع الإضافة",
+      "maxOwnedWorkspaces": "مساحات العمل المملوكة",
       "maxPendingSuggestions": "الاقتراحات المعلّقة",
       "maxPredefinedActionsPerProject": "إجراءات معرّفة / مشروع",
       "maxProjects": "المشاريع",
       "maxSeats": "المقاعد",
       "maxTenantWidePredefinedActions": "إجراءات معرّفة على مستوى المستأجر",
+      "newWorkspaceRequiresApproval": "مساحات العمل الجديدة تتطلب موافقة",
       "prioritySupport": "الدعم ذو الأولوية",
       "promptSuggestionsEnabled": "اقتراحات الموجّهات",
       "retentionDays": "مدة الاحتفاظ (أيام)"

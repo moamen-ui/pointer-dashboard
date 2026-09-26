@@ -518,6 +518,9 @@
     "changePassword": "Change password",
     "language": "Language",
     "menu": "Menu",
+    "newWorkspace": "New workspace",
+    "newWorkspaceLimitHint": "Your plan allows {{count}} workspace(s). Upgrade to create more.",
+    "newWorkspaceNotAllowedHint": "You can't create a new workspace right now.",
     "notifications": "Notifications",
     "signOut": "Sign out",
     "switchWorkspace": "Switch workspace",
@@ -843,6 +846,15 @@
     "tenants": "Tenants",
     "users": "Users"
   },
+  "newWorkspace": {
+    "activeToast": "\"{{name}}\" created — you're in.",
+    "create": "Create workspace",
+    "description": "Creates a new workspace with you as its Workspace Admin.",
+    "nameLabel": "Workspace name",
+    "pendingToast": "Workspace created — it awaits super-admin approval before you can switch into it.",
+    "switchFailed": "Workspace created, but switching into it failed — pick it from the workspace switcher.",
+    "title": "New workspace"
+  },
   "notifications": {
     "bell": "Notifications",
     "commentApplied": "Comment applied",
@@ -938,11 +950,13 @@
       "maxCommentsPerMonth": "Comments / month",
       "maxEnvironments": "Environments",
       "maxExtensionSites": "Extension sites",
+      "maxOwnedWorkspaces": "Owned workspaces",
       "maxPendingSuggestions": "Pending suggestions",
       "maxPredefinedActionsPerProject": "Predefined actions / project",
       "maxProjects": "Projects",
       "maxSeats": "Seats",
       "maxTenantWidePredefinedActions": "Tenant-wide predefined actions",
+      "newWorkspaceRequiresApproval": "New workspaces need approval",
       "prioritySupport": "Priority support",
       "promptSuggestionsEnabled": "Prompt suggestions",
       "retentionDays": "Retention (days)"
